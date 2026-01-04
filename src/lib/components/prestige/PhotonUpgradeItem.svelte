@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { PhotonUpgrade } from '$data/photonUpgrades';
-	import { getPhotonUpgradeCost, canAffordPhotonUpgrade } from '$data/photonUpgrades';
 	import Value from '@components/ui/Value.svelte';
 	import type { CurrencyName } from '$data/currencies';
+	import { getPhotonUpgradeCost, canAffordPhotonUpgrade } from '$data/photonUpgrades';
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import type { PhotonUpgrade } from '$lib/types';
 
 	interface Props {
 		currency: CurrencyName;

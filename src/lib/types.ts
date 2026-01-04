@@ -35,8 +35,20 @@ export interface Currency {
 export interface Effect {
 	apply: (currentValue: number, manager: GameManager) => number;
 	description: string;
-	target?: string;
+	target?: BuildingType;
 	type: 'auto_buy' | 'auto_click' | 'auto_speed' | 'auto_upgrade' | 'building' | 'click' | 'electron_gain' | 'excited_auto_click' | 'excited_photon_chance' | 'excited_photon_double' | 'excited_photon_duration' | 'excited_photon_from_max' | 'excited_photon_stability' | 'global' | 'photon_auto_click' | 'photon_double_chance' | 'photon_duration' | 'photon_size' | 'photon_spawn_interval' | 'photon_stability' | 'power_up_duration' | 'power_up_interval' | 'power_up_multiplier' | 'proton_gain' | 'stability_boost' | 'stability_capacity' | 'stability_speed' | 'xp_gain';
+}
+
+export interface PhotonUpgrade {
+	baseCost: number;
+	condition?: (manager: GameManager) => boolean;
+	costMultiplier: number;
+	currency?: CurrencyName;
+	description: (level: number) => string;
+	effects: (level: number) => Effect[];
+	id: string;
+	maxLevel: number;
+	name: string;
 }
 
 export interface GameState {

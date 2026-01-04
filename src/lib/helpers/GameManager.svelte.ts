@@ -85,7 +85,7 @@ export class GameManager {
 		return Object.entries(this.buildings).reduce((total, [type, building]) => {
 			if (!building) return total;
 
-			const options = { target: type, type: 'building' as const };
+			const options = { target: type as BuildingType, type: 'building' as const };
 			const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
 			const multiplier = calculateEffects(upgrades, this, building.rate, options);
 			const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;
@@ -117,7 +117,7 @@ export class GameManager {
 		return Object.entries(this.buildings).reduce((acc, [type, building]) => {
 			let production = 0;
 			if (building) {
-				const options = { target: type, type: 'building' as const };
+				const options = { target: type as BuildingType, type: 'building' as const };
 				const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
 				const multiplier = calculateEffects(upgrades, this, building.rate, options);
 				const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;

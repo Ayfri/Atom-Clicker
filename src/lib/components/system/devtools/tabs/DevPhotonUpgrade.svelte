@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { PhotonUpgrade } from '$data/photonUpgrades';
+	import type { PhotonUpgrade } from '$lib/types';
 
 	interface Props {
 		id: string;

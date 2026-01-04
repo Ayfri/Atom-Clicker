@@ -1,19 +1,8 @@
-import type { Effect } from '$lib/types';
+import type { PhotonUpgrade } from '$lib/types';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import { formatNumber } from '$lib/utils';
-import { type CurrencyName, CurrenciesTypes } from '$data/currencies';
+import { CurrenciesTypes } from '$data/currencies';
 
-export interface PhotonUpgrade {
-	id: string;
-	name: string;
-	description: (level: number) => string;
-	baseCost: number;
-	costMultiplier: number;
-	currency?: CurrencyName;
-	maxLevel: number;
-	effects: (level: number) => Effect[];
-	condition?: (manager: GameManager) => boolean;
-}
 
 export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	auto_clicker: {
