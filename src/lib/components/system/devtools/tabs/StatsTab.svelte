@@ -44,13 +44,14 @@
 		});
 
 		Object.entries(statsConfig).forEach(([key, config]) => {
+			if (key === 'realms') return;
 			const value = gameManager[key as keyof GameManager];
 
 			let icon: any = FileBox;
 
 			if (key.startsWith('total')) {
 				icon = BarChart3;
-			} else if (key === 'realms' || key.includes('Realm') || key.includes('protonise') || key.includes('electronize')) {
+			} else if (key.includes('Realm') || key.includes('protonise') || key.includes('electronize')) {
 				icon = Sparkles;
 			} else if (['lastSave', 'startDate', 'inGameTime'].includes(key)) {
 				icon = Clock;
@@ -62,7 +63,7 @@
 
 			if (key.startsWith('total')) {
 				groups.totals.push(stat);
-			} else if (['realms', 'protoniseProtonsGain', 'electronizeElectronsGain'].includes(key)) {
+			} else if (['protoniseProtonsGain', 'electronizeElectronsGain'].includes(key)) {
 				groups.prestige.push(stat);
 			} else if (['lastSave', 'startDate', 'inGameTime', 'settings'].includes(key)) {
 				groups.system.push(stat);

@@ -1,9 +1,9 @@
 import { ACHIEVEMENTS } from '$data/achievements';
 import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST } from '$data/buildings';
-import { RealmTypes, type RealmType } from '$data/realms';
 import { CurrenciesTypes } from '$data/currencies';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
 import { POWER_UP_DEFAULT_INTERVAL } from '$data/powerUp';
+import { REALMS, RealmTypes, type RealmType } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
@@ -510,6 +510,7 @@ export class GameManager {
 				...this.photonUpgrades,
 				[upgradeId]: currentLevel + 1
 			};
+			this.checkRealmUnlocks();
 			return true;
 		}
 		return false;
@@ -526,6 +527,7 @@ export class GameManager {
 		if (skill.condition && !skill.condition(this)) return false;
 
 		this.skillUpgrades = [...this.skillUpgrades, skillId];
+		this.checkRealmUnlocks();
 		return true;
 	}
 
@@ -536,14 +538,22 @@ export class GameManager {
 		if (!purchased && this.spendCurrency(upgrade.cost)) {
 			this.upgrades = [...this.upgrades, id];
 
-			if (id === 'feature_purple_realm') {
-				this.realms[RealmTypes.PHOTONS].unlocked = true;
-			}
+			this.checkRealmUnlocks();
 
 			this.totalUpgradesPurchasedAllTime += 1;
 			return true;
 		}
 		return false;
+	}
+
+	checkRealmUnlocks() {
+		const state = this.getCurrentState();
+		Object.values(REALMS).forEach((realmDef) => {
+			if (!this.realms[realmDef.id].unlocked && realmDef.condition(state)) {
+				this.realms[realmDef.id].unlocked = true;
+				info({ title: 'Realm Unlocked', message: `${realmDef.id} Realm is now available!` });
+			}
+		});
 	}
 
 	unlockBuilding(type: BuildingType) {
@@ -577,9 +587,7 @@ export class GameManager {
 			this.resetLayer(LAYERS.ELECTRONIZE);
 
 			this.upgrades = persistentUpgrades;
-			if (persistentUpgrades.includes('feature_purple_realm')) {
-				this.realms[RealmTypes.PHOTONS].unlocked = true;
-			}
+			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.ELECTRONS, electronGain);
 
 			this.lastInteractionTime = Date.now();
@@ -603,9 +611,7 @@ export class GameManager {
 			this.resetLayer(LAYERS.PROTONIZER);
 
 			this.upgrades = persistentUpgrades;
-			if (persistentUpgrades.includes('feature_purple_realm')) {
-				this.realms[RealmTypes.PHOTONS].unlocked = true;
-			}
+			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
 
 			this.lastInteractionTime = Date.now();

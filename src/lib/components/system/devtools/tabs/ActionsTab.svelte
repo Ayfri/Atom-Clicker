@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { RealmTypes } from '$data/realms';
+	import { RealmTypes, type RealmType } from '$data/realms';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { UPGRADES } from '$data/upgrades';
 	import { ACHIEVEMENTS } from '$data/achievements';
@@ -19,11 +19,8 @@
 		}
 	}
 
-	function togglePhotonRealm() {
-		gameManager.realms[RealmTypes.PHOTONS].unlocked = !gameManager.realms[RealmTypes.PHOTONS].unlocked;
-		if (gameManager.realms[RealmTypes.PHOTONS].unlocked && !gameManager.upgrades.includes('feature_purple_realm')) {
-			gameManager.upgrades = [...gameManager.upgrades, 'feature_purple_realm'];
-		}
+	function toggleRealm(id: RealmType) {
+		gameManager.realms[id].unlocked = !gameManager.realms[id].unlocked;
 	}
 </script>
 
@@ -44,15 +41,27 @@
 					class="w-4 h-4 rounded border-white/10 bg-black/20 text-accent-500 focus:ring-accent-500/50 cursor-pointer"
 				/>
 			</label>
-			<label class="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-white/5 cursor-pointer hover:bg-black/30 transition-colors">
-				<span class="text-sm text-white/80">Photon Realm</span>
-				<input
-					type="checkbox"
-					checked={gameManager.realms[RealmTypes.PHOTONS].unlocked}
-					onchange={togglePhotonRealm}
-					class="w-4 h-4 rounded border-white/10 bg-black/20 text-accent-500 focus:ring-accent-500/50 cursor-pointer"
-				/>
-			</label>
+		</div>
+	</div>
+
+	<!-- Realm Management -->
+	<div class="bg-white/5 rounded-xl p-3 border border-white/5">
+		<h3 class="text-base font-bold mb-3 flex items-center gap-2 text-accent-300">
+			<Sparkles size={18} />
+			<span>Realm Management</span>
+		</h3>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+			{#each Object.values(RealmTypes) as id (id)}
+				<label class="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-white/5 cursor-pointer hover:bg-black/30 transition-colors">
+					<span class="text-sm text-white/80 capitalize">{id} Realm</span>
+					<input
+						type="checkbox"
+						checked={gameManager.realms[id].unlocked}
+						onchange={() => toggleRealm(id)}
+						class="w-4 h-4 rounded border-white/10 bg-black/20 text-accent-500 focus:ring-accent-500/50 cursor-pointer"
+					/>
+				</label>
+			{/each}
 		</div>
 	</div>
 
