@@ -272,10 +272,7 @@
 	});
 </script>
 
-<div
-	class="fixed inset-0 pt-12 lg:pt-4 transition-all duration-1000 ease-in-out {mobile.current ? 'overflow-y-auto' : ''}"
-	style="background: linear-gradient(135deg, rgba(139, 69, 191, 0.1) 0%, rgba(75, 0, 130, 0.1) 50%, rgba(139, 69, 191, 0.1) 100%);"
->
+<div class="relative pt-12 lg:pt-4 transition-all duration-1000 ease-in-out">
 	<div class="h-full flex flex-col lg:flex-row px-4 pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
 		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
 		<div class="flex-1 lg:w-2/3 flex flex-col items-center">
@@ -322,7 +319,7 @@
 		</div>
 
 		<!-- Upgrades Area - Right side (1/3 on desktop, full width on mobile) -->
-		<div class="w-full lg:w-1/3 lg:max-w-xs {mobile.current ? 'max-h-[50vh] overflow-y-auto' : ''}">
+		<div class="w-full lg:w-1/3 lg:max-w-xs">
 			<PhotonUpgrades />
 		</div>
 	</div>

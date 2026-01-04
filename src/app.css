@@ -30,43 +30,51 @@
 	:root {
 		--accent-color: #4a90e2;
 		background-color: #1a1a1a;
-		background-blend-mode: screen;
-		background-attachment: fixed;
-		min-height: 100vh;
-		min-height: 100dvh;
-
-		background-image:
-			radial-gradient(
-				circle at 10% 20%,
-				rgba(74, 144, 226, 0.12) 0%,
-				transparent 60%
-			),
-			radial-gradient(
-				circle at 95% 90%,
-				rgba(74, 144, 226, 0.12) 0%,
-				transparent 50%
-			);
 		color: rgba(255, 255, 255, 0.87);
 		color-scheme: light dark;
 		font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-
 		font-synthesis: none;
 		font-weight: 400;
 		line-height: 1.5;
+		min-height: 100dvh;
+		min-height: 100vh;
 		text-rendering: optimizeLegibility;
 	}
 
 	* {
+		box-sizing: border-box;
 		user-select: none;
 	}
 
 	body {
 		margin: 0;
-		min-height: 100vh;
 		min-height: 100dvh;
+		min-height: 100vh;
 		min-width: 320px;
 		overflow-x: hidden;
 		position: relative;
+	}
+
+	.custom-scrollbar {
+		scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+		scrollbar-width: thin;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar {
+		width: 5px;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 10px;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+		background: rgba(255, 255, 255, 0.2);
 	}
 
 	h1,
@@ -90,10 +98,6 @@
 		outline: none;
 	}
 
-	* {
-		box-sizing: border-box;
-	}
-
 	@keyframes pulse {
 		0% {
 			transform: scale(1);
@@ -107,10 +111,10 @@
 	}
 
 	canvas {
-		position: absolute;
-		top: 0;
 		left: 0;
 		pointer-events: none;
+		position: absolute;
+		top: 0;
 		z-index: 1;
 	}
 }

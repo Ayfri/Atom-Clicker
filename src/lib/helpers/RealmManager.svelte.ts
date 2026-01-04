@@ -8,6 +8,7 @@ import type { Currency } from '$lib/types';
 import type { Component } from 'svelte';
 
 export interface RealmConfig {
+	background?: string;
 	component: Component;
 	currency: Currency;
 	id: RealmType;
@@ -19,12 +20,16 @@ class RealmManager {
 
 	realms: RealmConfig[] = [
 		{
+			background:
+				'radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--color-accent-400), transparent 88%) 0%, color-mix(in srgb, var(--color-accent-400), transparent 92%) 30%, transparent 60%), radial-gradient(circle at 95% 90%, color-mix(in srgb, var(--color-accent-400), transparent 88%) 0%, color-mix(in srgb, var(--color-accent-400), transparent 92%) 25%, transparent 50%)',
 			component: AtomRealm,
 			currency: CURRENCIES[CurrenciesTypes.ATOMS],
 			id: RealmTypes.ATOMS,
 			title: 'Atoms Realm'
 		},
 		{
+			background:
+				'linear-gradient(135deg, color-mix(in srgb, var(--color-realm-500), transparent 90%) 0%, color-mix(in srgb, var(--color-realm-950), transparent 90%) 50%, color-mix(in srgb, var(--color-realm-500), transparent 90%) 100%)',
 			component: PhotonRealm,
 			currency: CURRENCIES[CurrenciesTypes.PHOTONS],
 			id: RealmTypes.PHOTONS,

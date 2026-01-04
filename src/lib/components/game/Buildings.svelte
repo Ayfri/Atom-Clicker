@@ -70,7 +70,7 @@ import { fade, fly, scale } from 'svelte/transition';
 	});
 </script>
 
-<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 buildings flex flex-col gap-2">
+<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 buildings flex flex-col gap-2 h-[600px] lg:h-[calc(100vh-180px)]">
 	<h2 class="text-lg">Buildings</h2>
 	<div class="flex items-center gap-1 my-1">
 		{#each purchaseModes as mode}
@@ -83,7 +83,7 @@ import { fade, fly, scale } from 'svelte/transition';
 		{/each}
 	</div>
 
-	<div class="flex flex-col gap-1.5 overflow-y-auto">
+	<div class="flex flex-col gap-1.5 overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each buildingsEntries as [type, building], i}
 			{@const saveData = gameManager.buildings[type]}
 			{@const unaffordable = !affordableBuildings.includes(type)}

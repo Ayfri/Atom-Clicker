@@ -38,6 +38,9 @@ export class GameManager {
 			autoClickPhotons: false,
 			buildings: [],
 			upgrades: false
+		},
+		upgrades: {
+			displayAlreadyBought: false
 		}
 	});
 	skillUpgrades = $state<string[]>([]);
@@ -363,7 +366,25 @@ export class GameManager {
 	loadSaveData(data: Partial<GameState>) {
 		for (const key of Object.keys(this.statsConfig)) {
 			if (key in data) {
-				this[key as keyof this] = data[key as keyof GameState] as any;
+				if (key === 'settings') {
+					const savedSettings = data.settings as Settings;
+					const defaultSettings = this.statsConfig.settings.defaultValue as Settings;
+
+					this.settings = {
+						...defaultSettings,
+						...savedSettings,
+						automation: {
+							...defaultSettings.automation,
+							...(savedSettings?.automation ?? {})
+						},
+						upgrades: {
+							...defaultSettings.upgrades,
+							...(savedSettings?.upgrades ?? {})
+						}
+					};
+				} else {
+					this[key as keyof this] = data[key as keyof GameState] as any;
+				}
 			}
 		}
 		if (data.lastInteractionTime) {

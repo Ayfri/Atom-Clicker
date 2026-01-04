@@ -93,7 +93,7 @@
 
 	<main
 		class="relative flex-1 {mobile.current ? 'overflow-y-auto' : 'overflow-hidden'} lg:pb-4 transition-all duration-300"
-		style="padding-top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(3rem + 1.5rem)' : '3rem'}; padding-bottom: 3rem;"
+		style="padding-top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(3rem + 1.5rem)' : '3rem'};"
 	>
 		{#if gameManager.upgrades.includes('feature_levels')}
 			<Levels/>
@@ -102,17 +102,18 @@
 		<!-- Use transform and opacity for virtual desktop swipe effect -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
 			<div
-				class="absolute inset-0 overflow-y-auto transition-all duration-300 ease-in-out"
+				class="absolute inset-0 transition-all duration-300 ease-in-out overflow-hidden"
 				class:opacity-100={realmManager.selectedRealm.id === realm.id}
 				class:translate-x-0={realmManager.selectedRealm.id === realm.id}
 				class:opacity-0={realmManager.selectedRealm.id !== realm.id}
 				class:pointer-events-none={realmManager.selectedRealm.id !== realm.id}
-				style="transform: translateX({realmManager.selectedRealm.id === realm.id ? '0' : (i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%' : '-100%')});"
+				style="transform: translateX({realmManager.selectedRealm.id === realm.id ? '0' : (i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%' : '-100%')}); {realm.background ? `background-image: ${realm.background};` : ''}"
 			>
-				<div class="relative min-h-full">
-					<realm.component />
-					<!-- Footer at the end of each realm for scrolling -->
-					<div class="absolute bottom-0 left-0 right-0 pointer-events-auto">
+				<div class="absolute inset-0 overflow-y-auto custom-scrollbar">
+					<div class="flex flex-col min-h-full">
+						<div class="flex-1">
+							<realm.component />
+						</div>
 						<RealmFooter />
 					</div>
 				</div>

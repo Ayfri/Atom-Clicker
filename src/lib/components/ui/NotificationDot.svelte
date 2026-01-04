@@ -5,23 +5,23 @@
 	type SpanAttributes = SvelteHTMLElements['span'];
 
 	interface Props extends SpanAttributes {
+		color?: string;
 		hasNotification?: boolean;
 		children?: Snippet;
 	}
 
-	let { hasNotification = false, children, ...rest }: Props = $props();
+	let { color = 'var(--color-accent-400)', hasNotification = false, children, ...rest }: Props = $props();
 </script>
 
 <span
-	class="
-		relative
-		{
-			hasNotification ?
-			'after:absolute after:-top-1 after:-right-1 after:size-2 after:bg-accent-400 after:rounded-full after:shadow-[0_0_10px] after:shadow-accent-400 after:animate-pulse' :
-			''
-		}
-	"
+	class="relative"
 	{...rest}
 >
+	{#if hasNotification}
+		<span
+			class="absolute -top-1 -right-1 size-2 rounded-full animate-pulse shadow-[0_0_10px]"
+			style="background-color: {color}; shadow-color: {color};"
+		></span>
+	{/if}
 	{@render children?.()}
 </span>

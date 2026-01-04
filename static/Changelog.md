@@ -1,6 +1,7 @@
 # What's new 04-01-2026
 
 - **Leaderboard**: Added a way to edit your profile picture, added platform button, you can click on it to use the username/profile picture of this platform.
+- **Upgrades**: Added a toggle button for displaying already bought upgrades.
 
 # What's new 30-12-2025
 

@@ -109,6 +109,9 @@ export interface Settings {
 		buildings: BuildingType[];
 		upgrades: boolean;
 	};
+	upgrades: {
+		displayAlreadyBought: boolean;
+	};
 }
 
 export interface SkillUpgrade {
