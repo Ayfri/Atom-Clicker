@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Login, {getAuthConnection} from '@components/modals/Login.svelte';
+	import Login from '@components/modals/Login.svelte';
+	import Profile from '@components/system/Profile.svelte';
+	import Avatar from '@components/ui/Avatar.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import type { LeaderboardEntry } from '$lib/types/leaderboard';
-	import {capitalize, formatNumber} from '$lib/utils';
-	import { gameManager } from '$helpers/GameManager.svelte';
+	import {formatNumber} from '$lib/utils';
 	import {leaderboard} from '$stores/leaderboard.svelte';
 	import {supabaseAuth} from '$stores/supabaseAuth.svelte';
-	import {LogOut, Edit2, Save, Search, Users, Trophy, Medal, Crown} from 'lucide-svelte';
+	import {Search, Users, Trophy, Medal, Crown} from 'lucide-svelte';
 	import {onDestroy, onMount} from 'svelte';
-	import {fade} from 'svelte/transition';
 	import {VList} from 'virtua/svelte';
 
 	interface Props {
@@ -21,24 +21,10 @@
 		return user?.username || 'Anonymous';
 	}
 
-	let editError: string | null = $state(null);
-	let isEditingUsername = $state(false);
-	let isSavingUsername = $state(false);
-	let newUsername = $state('');
 	let refreshInterval: ReturnType<typeof setInterval>;
 	let searchQuery = $state('');
 	let selectedFilter: 'all' | 'top10' | 'top50' | 'top100' = $state('all');
 	let showLoginModal = $state(false);
-
-	function formatStartDate(timestamp: number) {
-		return new Intl.DateTimeFormat('en-us', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-		}).format(timestamp);
-	}
 
 	onMount(() => {
 		leaderboard.fetchLeaderboard();
@@ -49,9 +35,6 @@
 		if (refreshInterval) clearInterval(refreshInterval);
 	});
 
-	let currentUserId = $derived(supabaseAuth.user?.id);
-	let username = $derived(supabaseAuth.profile?.username || supabaseAuth.user?.user_metadata?.full_name || supabaseAuth.user?.user_metadata?.username || supabaseAuth.user?.email?.split('@')[0] || 'Anonymous');
-	let userRank = $derived(leaderboard.entries.findIndex(entry => entry.userId === currentUserId) + 1);
 	let stats = $derived(leaderboard.stats);
 
 	// Filter and search leaderboard
@@ -79,13 +62,6 @@
 		}
 	});
 
-	// Calculate user percentile
-	let userPercentile = $derived.by(() => {
-		if (userRank <= 0 || stats.totalUsers === 0) return null;
-		const percentile = ((stats.totalUsers - userRank) / stats.totalUsers) * 100;
-		return Math.round(percentile);
-	});
-
 	function getRankIcon(rank: number) {
 		switch (rank) {
 			case 1:
@@ -110,45 +86,6 @@
 			default:
 				return 'text-accent';
 		}
-	}
-
-	function cancelEditing() {
-		editError = null;
-		isEditingUsername = false;
-		isSavingUsername = false;
-		newUsername = '';
-	}
-
-	async function handleUsernameUpdate(event: SubmitEvent) {
-		event.preventDefault();
-
-		// Prevent multiple submissions
-		if (isSavingUsername || !supabaseAuth.supabase) return;
-
-		const trimmedUsername = newUsername.trim();
-		if (!trimmedUsername || trimmedUsername === username) {
-			cancelEditing();
-			return;
-		}
-
-		isSavingUsername = true;
-		editError = null;
-
-		try {
-			await supabaseAuth.updateProfile({ username: trimmedUsername });
-			cancelEditing();
-			// No need to fetch leaderboard immediately, it will be fetched on next interval
-		} catch (error) {
-			editError = 'Failed to update username. Please try again.';
-			isSavingUsername = false;
-		}
-	}
-
-	function startEditing() {
-		editError = null;
-		isEditingUsername = true;
-		isSavingUsername = false;
-		newUsername = username;
 	}
 </script>
 
@@ -181,114 +118,7 @@
 			</button>
 		</div>
 	{:else}
-		{@const authConnection = getAuthConnection(supabaseAuth.user?.identities?.[0]?.provider)}
-
-		<div class="mb-4 rounded-lg bg-black/20 p-4">
-			<div class="flex items-center gap-4">
-				<div class="group relative">
-					{#if supabaseAuth.profile?.picture || supabaseAuth.user?.user_metadata?.avatar_url || supabaseAuth.user?.user_metadata?.picture}
-						<img
-							src={supabaseAuth.profile?.picture || supabaseAuth.user?.user_metadata?.avatar_url || supabaseAuth.user?.user_metadata?.picture}
-							alt={username}
-							class="size-16 rounded-full object-cover ring-2 ring-accent-400 ring-offset-2 ring-offset-accent-900"
-						/>
-					{:else}
-						<div
-							class="size-16 rounded-full bg-accent-400/30 flex items-center justify-center text-xl font-bold ring-2 ring-accent-400 ring-offset-2 ring-offset-accent-900"
-						>
-							{username[0].toUpperCase()}
-						</div>
-					{/if}
-					{#if userRank > 0}
-						<div
-							class="absolute -bottom-2 -right-2 flex size-7 items-center justify-center rounded-full bg-accent-600 font-bold text-white ring-2 ring-accent-900"
-						>
-							#{userRank}
-						</div>
-						{#if userPercentile !== null}
-							<div class="absolute left-1/2 top-full z-10 mt-2 hidden w-max -translate-x-1/2 rounded-lg bg-black/90 px-3 py-2 text-sm text-white shadow-xl group-hover:block">
-								Top {userPercentile}% of all players
-							</div>
-						{/if}
-					{/if}
-				</div>
-				<div class="flex-1">
-					<div class="mb-1 flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							{#if isEditingUsername}
-								<form
-									onsubmit={handleUsernameUpdate}
-									class="flex items-center gap-2"
-								>
-									<!-- svelte-ignore a11y_autofocus -->
-									<input
-										type="text"
-										bind:value={newUsername}
-										disabled={isSavingUsername}
-										class="bg-black/20 rounded-sm px-2 py-1 text-white border border-accent/50 focus:border-accent outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-										placeholder="Enter new username"
-										maxlength="30"
-										minlength="3"
-										autofocus
-									/>
-									<button
-										type="submit"
-										disabled={isSavingUsername || !newUsername.trim()}
-										class="text-accent hover:text-accent-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-										title="Save username"
-									>
-										<Save class="size-4" />
-									</button>
-									<button
-										type="button"
-										onclick={cancelEditing}
-										disabled={isSavingUsername}
-										class="text-white/60 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-										title="Cancel"
-									>
-										Cancel
-									</button>
-								</form>
-							{:else}
-								<div class="font-bold text-white text-lg capitalize">
-									{username}
-									<button
-										onclick={startEditing}
-										class="ml-2 text-accent/60 hover:text-accent inline-flex items-center transition-colors"
-										title="Edit username"
-									>
-										<Edit2 class="size-4" />
-									</button>
-								</div>
-							{/if}
-							{#if authConnection}
-								<img
-									class="size-4 align-middle"
-									src={authConnection.icon}
-									alt={authConnection.name}
-									title="Connected with {capitalize(authConnection.name)}"
-								/>
-							{/if}
-						</div>
-						<button
-							onclick={() => supabaseAuth.signOut()}
-							class="flex items-center gap-2 text-sm text-red-500 hover:text-red-400 transition-colors"
-							title="Log out"
-						>
-							<LogOut class="size-5"/>
-						</button>
-					</div>
-					{#if editError}
-						<div class="text-red-500 text-sm mt-1" transition:fade>
-							{editError}
-						</div>
-					{/if}
-					<div class="text-sm text-white/60 mt-1">
-						Playing since {formatStartDate(gameManager.startDate)}
-					</div>
-				</div>
-			</div>
-		</div>
+		<Profile />
 	{/if}
 
 	<!-- Search and Filters -->
@@ -378,17 +208,11 @@
 							{/if}
 						</div>
 						<div class="flex items-center gap-3 flex-1">
-							{#if entry.picture}
-								<img
-									src={entry.picture}
-									alt={getDisplayUsername(entry)}
-									class="size-10 rounded-full object-cover"
-								/>
-							{:else}
-								<div class="size-10 rounded-full bg-accent-400/30 flex items-center justify-center text-sm font-bold">
-									{(getDisplayUsername(entry))[0].toUpperCase()}
-								</div>
-							{/if}
+							<Avatar
+								alt={getDisplayUsername(entry)}
+								class="size-10 text-sm"
+								src={entry.picture}
+							/>
 							<div>
 								<div class="font-bold capitalize text-white flex items-center gap-2">
 									{getDisplayUsername(entry)}
