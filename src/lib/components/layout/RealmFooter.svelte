@@ -4,19 +4,6 @@
 	import { Coffee } from 'lucide-svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 
-	export interface FooterTheme {
-		baseClass: string;
-		hoverClass: string;
-		mutedClass: string;
-		mutedHoverClass: string;
-	}
-
-	interface Props {
-		footerTheme: FooterTheme;
-	}
-
-	let { footerTheme }: Props = $props();
-
 	function handleWebsiteClick() {
 		if (!gameManager.achievements.includes('website_click')) {
 			gameManager.unlockAchievement('website_click');
@@ -42,11 +29,11 @@
 	}
 </script>
 
-<footer class="px-4 py-2 text-xs {footerTheme.baseClass}">
+<footer class="px-4 py-2 text-xs text-white/60">
 	<div class="mx-auto max-w-4xl flex flex-col items-center gap-1.5">
 		<div class="flex flex-wrap items-center justify-center gap-3">
 			<a
-				class="group flex items-center gap-1 transition-colors {footerTheme.hoverClass}"
+				class="group flex items-center gap-1 transition-colors hover:text-white"
 				href="https://discord.ayfri.com"
 				rel="noopener noreferrer"
 				target="_blank"
@@ -56,7 +43,7 @@
 				<Discord class="w-3.5 h-3.5" />
 			</a>
 			<a
-				class="flex items-center gap-1 transition-colors {footerTheme.hoverClass}"
+				class="flex items-center gap-1 transition-colors hover:text-white"
 				href="https://github.com/Ayfri/Atom-Clicker"
 				rel="noopener noreferrer"
 				target="_blank"
@@ -66,7 +53,7 @@
 				<GitHub class="w-3.5 h-3.5" />
 			</a>
 			<a
-				class="transition-colors {footerTheme.hoverClass}"
+				class="transition-colors hover:text-white"
 				href="https://ayfri.com"
 				rel="noopener noreferrer"
 				target="_blank"
@@ -87,11 +74,11 @@
 				<span>Buy me a coffee</span>
 			</a>
 		</div>
-		<div class="{footerTheme.mutedClass} text-[0.7rem]">
+		<div class="text-white/40 text-[0.7rem]">
 			Atom Clicker © {new Date().getFullYear()} • Made with ❤️ by
 			<a
 				href="https://ayfri.com"
-				class="transition-colors {footerTheme.mutedHoverClass}"
+				class="transition-colors hover:text-white"
 				target="_blank"
 				rel="noopener noreferrer"
 				onclick={handleWebsiteClick}

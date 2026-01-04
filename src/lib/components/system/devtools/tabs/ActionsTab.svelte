@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { RealmTypes } from '$data/realms';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { UPGRADES } from '$data/upgrades';
 	import { ACHIEVEMENTS } from '$data/achievements';
@@ -18,9 +19,9 @@
 		}
 	}
 
-	function togglePurpleRealm() {
-		gameManager.purpleRealmUnlocked = !gameManager.purpleRealmUnlocked;
-		if (gameManager.purpleRealmUnlocked && !gameManager.upgrades.includes('feature_purple_realm')) {
+	function togglePhotonRealm() {
+		gameManager.realms[RealmTypes.PHOTONS].unlocked = !gameManager.realms[RealmTypes.PHOTONS].unlocked;
+		if (gameManager.realms[RealmTypes.PHOTONS].unlocked && !gameManager.upgrades.includes('feature_purple_realm')) {
 			gameManager.upgrades = [...gameManager.upgrades, 'feature_purple_realm'];
 		}
 	}
@@ -44,11 +45,11 @@
 				/>
 			</label>
 			<label class="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-white/5 cursor-pointer hover:bg-black/30 transition-colors">
-				<span class="text-sm text-white/80">Purple Realm</span>
+				<span class="text-sm text-white/80">Photon Realm</span>
 				<input
 					type="checkbox"
-					checked={gameManager.purpleRealmUnlocked}
-					onchange={togglePurpleRealm}
+					checked={gameManager.realms[RealmTypes.PHOTONS].unlocked}
+					onchange={togglePhotonRealm}
 					class="w-4 h-4 rounded border-white/10 bg-black/20 text-accent-500 focus:ring-accent-500/50 cursor-pointer"
 				/>
 			</label>

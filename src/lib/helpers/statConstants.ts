@@ -1,3 +1,5 @@
+import { RealmTypes } from '$data/realms';
+
 // Layer types
 // 0 = never reset
 // 1 = reset all stats at layer
@@ -32,7 +34,7 @@ export const statsConfig: Record<string, StatConfig> = {
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL, minVersion: 1 },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM, minVersion: 12 },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
-	purpleRealmUnlocked: { defaultValue: false, layer: LAYERS.PHOTON_REALM, minVersion: 13 },
+	realms: { defaultValue: { [RealmTypes.ATOMS]: { unlocked: true }, [RealmTypes.PHOTONS]: { unlocked: false } }, layer: LAYERS.NEVER, minVersion: 19 },
 	settings: { defaultValue: { automation: { autoClick: false, autoClickPhotons: false, buildings: [], upgrades: false } }, layer: LAYERS.NEVER, minVersion: 8 },
 	skillUpgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 3 },
 	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER, minVersion: 5 },
@@ -59,7 +61,7 @@ export const STATS = {
 	LAST_SAVE: 'lastSave',
 	PHOTON_UPGRADES: 'photonUpgrades',
 	POWER_UPS_COLLECTED: 'powerUpsCollected',
-	PURPLE_REALM_UNLOCKED: 'purpleRealmUnlocked',
+	REALMS: 'realms',
 	SETTINGS: 'settings',
 	SKILL_UPGRADES: 'skillUpgrades',
 	START_DATE: 'startDate',

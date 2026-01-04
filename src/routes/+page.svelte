@@ -79,7 +79,7 @@
 			<div class="flex flex-col gap-1">
 				{#each realmManager.availableRealms as realm (realm.id)}
 					<button
-						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 {realmManager.selectedRealmId === realm.id ? realm.activeClasses : 'bg-white/5 hover:bg-white/10'}"
+						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 {realmManager.selectedRealmId === realm.id ? 'bg-accent-500/60 border-accent-400/50' : 'bg-white/5 hover:bg-white/10'}"
 						onclick={() => realmManager.selectRealm(realm.id)}
 						title="{realm.title} - {formatNumber(realmManager.realmValues[realm.id] ?? 0)} {realm.currency.name.toLowerCase()}"
 					>
@@ -113,7 +113,7 @@
 					<realm.component />
 					<!-- Footer at the end of each realm for scrolling -->
 					<div class="absolute bottom-0 left-0 right-0 pointer-events-auto">
-						<RealmFooter footerTheme={realm.footerTheme} />
+						<RealmFooter />
 					</div>
 				</div>
 			</div>

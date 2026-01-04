@@ -1,12 +1,13 @@
 import { ACHIEVEMENTS } from '$data/achievements';
 import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST } from '$data/buildings';
+import { RealmTypes, type RealmType } from '$data/realms';
 import { CurrenciesTypes } from '$data/currencies';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
 import { POWER_UP_DEFAULT_INTERVAL } from '$data/powerUp';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-import { type Building, type GameState, type PowerUp, type Price, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
+import { type Building, type GameState, type PowerUp, type Price, type RealmState, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState } from '$helpers/saves';
@@ -27,7 +28,10 @@ export class GameManager {
 	lastSave = $state(Date.now());
 	photonUpgrades = $state<Record<string, number>>({});
 	powerUpsCollected = $state(0);
-	purpleRealmUnlocked = $state(false);
+	realms = $state<Record<RealmType, RealmState>>({
+		[RealmTypes.ATOMS]: { unlocked: true },
+		[RealmTypes.PHOTONS]: { unlocked: false }
+	});
 	settings = $state<Settings>({
 		automation: {
 			autoClick: false,
@@ -320,7 +324,7 @@ export class GameManager {
 			lastSave: this.lastSave,
 			photonUpgrades: this.photonUpgrades,
 			powerUpsCollected: this.powerUpsCollected,
-			purpleRealmUnlocked: this.purpleRealmUnlocked,
+			realms: this.realms,
 			settings: this.settings,
 			skillUpgrades: this.skillUpgrades,
 			startDate: this.startDate,
@@ -533,7 +537,7 @@ export class GameManager {
 			this.upgrades = [...this.upgrades, id];
 
 			if (id === 'feature_purple_realm') {
-				this.purpleRealmUnlocked = true;
+				this.realms[RealmTypes.PHOTONS].unlocked = true;
 			}
 
 			this.totalUpgradesPurchasedAllTime += 1;
@@ -574,7 +578,7 @@ export class GameManager {
 
 			this.upgrades = persistentUpgrades;
 			if (persistentUpgrades.includes('feature_purple_realm')) {
-				this.purpleRealmUnlocked = true;
+				this.realms[RealmTypes.PHOTONS].unlocked = true;
 			}
 			currenciesManager.add(CurrenciesTypes.ELECTRONS, electronGain);
 
@@ -600,7 +604,7 @@ export class GameManager {
 
 			this.upgrades = persistentUpgrades;
 			if (persistentUpgrades.includes('feature_purple_realm')) {
-				this.purpleRealmUnlocked = true;
+				this.realms[RealmTypes.PHOTONS].unlocked = true;
 			}
 			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
 

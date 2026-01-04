@@ -1,11 +1,12 @@
 import {BUILDING_LEVEL_UP_COST, type BuildingType} from '$data/buildings';
 import {CurrenciesTypes} from '$data/currencies';
 import type {Building, GameState} from '$lib/types';
+import { RealmTypes } from '$data/realms';
 import {saveRecovery, type SaveErrorType} from '$stores/saveRecovery';
 import {statsConfig} from '$helpers/statConstants';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 export interface LoadSaveResult {
 	errorDetails?: string;
@@ -408,6 +409,15 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 			if (state.activePowerUps) {
 				state.activePowerUps = state.activePowerUps.filter((p: any) => p.duration <= 100_000);
 			}
+		}
+
+		if (state.version === 18) {
+			state.realms = {
+				[RealmTypes.ATOMS]: { unlocked: true },
+				[RealmTypes.PHOTONS]: { unlocked: state.photonRealmUnlocked ?? state.purpleRealmUnlocked ?? false }
+			};
+			delete state.photonRealmUnlocked;
+			delete state.purpleRealmUnlocked;
 		}
 
 		state.version = nextVersion;

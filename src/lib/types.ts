@@ -1,4 +1,5 @@
-import type {BuildingType} from '$data/buildings';
+import type { RealmType } from '$data/realms';
+import type { BuildingType } from '$data/buildings';
 import type {CurrencyName} from '$data/currencies';
 import type {GameManager} from '$helpers/GameManager.svelte';
 import type {LayerType} from '$helpers/statConstants';
@@ -47,6 +48,10 @@ export interface PowerUp {
 	startTime: number;
 }
 
+export interface RealmState {
+	unlocked: boolean;
+}
+
 export interface Settings {
 	automation: {
 		autoClick: boolean;
@@ -71,7 +76,7 @@ export interface GameState {
 	lastSave: number;
 	photonUpgrades: Record<string, number>;
 	powerUpsCollected: number;
-	purpleRealmUnlocked: boolean;
+	realms: Record<RealmType, RealmState>;
 	settings: Settings;
 	skillUpgrades: string[];
 	startDate: number;
