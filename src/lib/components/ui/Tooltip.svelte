@@ -1,152 +1,127 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
+	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 
 	interface Props {
 		children: Snippet;
-		content: Snippet;
-		position?: 'top' | 'bottom' | 'left' | 'right';
-		size?: 'sm' | 'md' | 'lg';
 		class?: string;
+		content: Snippet;
+		position?: 'bottom' | 'left' | 'right' | 'top';
+		size?: 'lg' | 'md' | 'sm';
 	}
 
-	let { children, content, position = 'top', size = 'md', class: className = '' }: Props = $props();
+	let {
+		children,
+		class: className = '',
+		content,
+		position = 'top',
+		size = 'md'
+	}: Props = $props();
 
-	const tooltipId = `tooltip-${Math.random().toString(36).substring(2, 11)}`;
-	let triggerElement = $state<HTMLButtonElement>();
-	let popoverElement = $state<HTMLDivElement>();
-	let desktopTriggerElement = $state<HTMLDivElement>();
-	let desktopTooltipElement = $state<HTMLDivElement>();
+	const tooltipId = `tt-${Math.random().toString(36).slice(2, 7)}`;
+	let trigger = $state<HTMLElement>();
+	let tooltipElement = $state<HTMLDivElement>();
 
-	function positionTooltip(trigger: HTMLElement, tooltip: HTMLElement) {
-		if (!trigger || !tooltip) return;
+	function syncPosition() {
+		if (!trigger || !tooltipElement) return;
 
 		const triggerRect = trigger.getBoundingClientRect();
-		const tooltipRect = tooltip.getBoundingClientRect();
+		const tooltipRect = tooltipElement.getBoundingClientRect();
 
-		let top: number, left: number;
+		let left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+		let top = triggerRect.top - tooltipRect.height - 8;
 
 		switch (position) {
-			case 'top':
-				top = triggerRect.top - tooltipRect.height - 8;
-				left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
-				break;
 			case 'bottom':
 				top = triggerRect.bottom + 8;
-				left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
 				break;
 			case 'left':
-				top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
 				left = triggerRect.left - tooltipRect.width - 8;
+				top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
 				break;
 			case 'right':
-				top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
 				left = triggerRect.right + 8;
+				top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
 				break;
 		}
 
-		// Keep tooltip within viewport
-		top = Math.max(8, Math.min(top, (innerHeight.current ?? window.innerHeight) - tooltipRect.height - 8));
-		left = Math.max(8, Math.min(left, (innerWidth.current ?? window.innerWidth) - tooltipRect.width - 8));
+		const viewportWidth = innerWidth.current ?? window.innerWidth;
+		const viewportHeight = innerHeight.current ?? window.innerHeight;
 
-		tooltip.style.top = `${top}px`;
-		tooltip.style.left = `${left}px`;
+		tooltipElement.style.left = `${Math.max(8, Math.min(left, viewportWidth - tooltipRect.width - 8))}px`;
+		tooltipElement.style.top = `${Math.max(8, Math.min(top, viewportHeight - tooltipRect.height - 8))}px`;
+		tooltipElement.style.visibility = 'visible';
 	}
 
-	function handleToggle(event: ToggleEvent) {
-		if ((event.target as HTMLElement).matches(':popover-open')) {
-			// Popover just opened, position it
-			requestAnimationFrame(() => {
-				if (!triggerElement || !popoverElement) return;
-				positionTooltip(triggerElement, popoverElement);
-			});
+	function toggle(show: boolean) {
+		if (!tooltipElement) return;
+		if (show) {
+			tooltipElement.showPopover();
+			syncPosition();
+		} else {
+			tooltipElement.hidePopover();
 		}
 	}
 
-	function showDesktopTooltip() {
-		desktopTooltipElement?.showPopover();
-		requestAnimationFrame(() => {
-			if (!desktopTriggerElement || !desktopTooltipElement) return;
-			positionTooltip(desktopTriggerElement, desktopTooltipElement);
-		});
+	function handleToggle(event: ToggleEvent & { currentTarget: HTMLDivElement }) {
+		if (event.currentTarget.matches(':popover-open')) {
+			requestAnimationFrame(syncPosition);
+		} else {
+			if (tooltipElement) tooltipElement.style.visibility = 'hidden';
+		}
 	}
 
-	function hideDesktopTooltip() {
-		desktopTooltipElement?.hidePopover();
-	}
+	const sizeClasses = $derived(({
+		lg: 'min-w-[400px] text-base',
+		md: 'min-w-[300px] text-sm',
+		sm: 'min-w-[200px] text-xs'
+	})[size]);
 
-	const positionClasses = $derived({
-		top: 'bottom-full mb-2',
-		bottom: 'top-full mt-2',
-		left: 'right-full mr-2',
-		right: 'left-full ml-2'
-	}[position]);
-
-	const sizeClasses = $derived({
-		sm: 'min-w-[200px] text-xs p-2',
-		md: 'min-w-[300px] text-sm p-3',
-		lg: 'min-w-[400px] text-base p-4'
-	}[size]);
-
-	const arrowClasses = $derived({
-			top: 'top-full left-1/2 transform -translate-x-1/2 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-black',
-			bottom: 'bottom-full left-1/2 transform -translate-x-1/2 border-l-[8px] border-r-[8px] border-b-[8px] border-l-transparent border-r-transparent border-b-black',
-			left: 'left-full top-1/2 transform -translate-y-1/2 border-t-[8px] border-b-[8px] border-l-[8px] border-t-transparent border-b-transparent border-l-black',
-		right: 'right-full top-1/2 transform -translate-y-1/2 border-t-[8px] border-b-[8px] border-r-[8px] border-t-transparent border-b-transparent border-r-black'
-	}[position]);
+	const arrowClasses = $derived(({
+		bottom: 'bottom-full left-1/2 -translate-x-1/2 border-x-8 border-b-8 border-x-transparent border-b-accent-950',
+		left: 'left-full top-1/2 -translate-y-1/2 border-y-8 border-l-8 border-y-transparent border-l-accent-950',
+		right: 'right-full top-1/2 -translate-y-1/2 border-y-8 border-r-8 border-y-transparent border-r-accent-950',
+		top: 'top-full left-1/2 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent border-t-accent-950'
+	})[position]);
 </script>
 
-<div class="relative inline-block {className}">
-	<!-- Desktop: hover trigger -->
-	<div bind:this={desktopTriggerElement} class="hidden sm:block h-full w-full" role="button" tabindex="0" onmouseenter={showDesktopTooltip} onmouseleave={hideDesktopTooltip}>
+<div
+	class="inline-block relative {className}"
+	onmouseenter={() => toggle(true)}
+	onmouseleave={() => toggle(false)}
+	role="none"
+>
+	<button
+		bind:this={trigger}
+		class="cursor-help"
+		type="button"
+		onclick={(e) => {
+			e.stopPropagation();
+			tooltipElement?.matches(':popover-open') ? toggle(false) : toggle(true);
+		}}
+	>
 		{@render children()}
+	</button>
 
-		<!-- Desktop tooltip (popover) -->
-		<div bind:this={desktopTooltipElement} popover="manual" class="fixed bg-black/95 backdrop-blur-xs rounded-lg {sizeClasses} z-50">
-			<div class="text-white/90">
+	<div
+		bind:this={tooltipElement}
+		id={tooltipId}
+		popover="auto"
+		ontoggle={handleToggle}
+		class="backdrop-blur-md bg-accent-950/95 border border-white/10 p-0 overflow-visible rounded-xl shadow-2xl text-white/90 {sizeClasses}"
+	>
+		<div class="relative p-2.5">
+			<button
+				onclick={() => toggle(false)}
+				class="absolute -top-1 p-1.5 right-1 sm:hidden text-white/40 hover:text-white text-2xl"
+				aria-label="Close"
+			>
+				×
+			</button>
+			<div class="flex-1">
 				{@render content()}
 			</div>
-			<!-- Arrow -->
-			<div class="absolute size-0 {arrowClasses}"></div>
+			<div class="absolute size-0 pointer-events-none {arrowClasses}"></div>
 		</div>
 	</div>
-
-	<!-- Mobile: popover trigger -->
-	<div class="sm:hidden">
-		<button bind:this={triggerElement} popovertarget={tooltipId} class="flex items-center justify-center">
-			{@render children()}
-		</button>
-	</div>
 </div>
-
-<!-- Popover tooltip for mobile -->
-<div
-	bind:this={popoverElement}
-	id={tooltipId}
-	popover="auto"
-	ontoggle={handleToggle}
-	class="fixed bg-black/95 backdrop-blur-xs rounded-lg p-3 border border-white/20 max-w-[90vw] min-w-50 text-white/90 text-sm"
->
-	<div class="flex justify-between items-start">
-		<div>
-			{@render content()}
-		</div>
-		<button
-			onclick={() => popoverElement?.hidePopover()}
-			class="ml-2 text-white/60 hover:text-white/90 text-lg leading-none"
-			aria-label="Close tooltip"
-		>
-			×
-		</button>
-	</div>
-	<!-- Arrow positioned dynamically via JS -->
-	<div class="popover-arrow absolute size-0 {arrowClasses}"></div>
-</div>
-
-<style>
-		/* Popover styles */
-	[popover] {
-		inset: unset;
-		overflow: visible;
-	}
-</style>
