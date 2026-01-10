@@ -11,7 +11,7 @@
 
 <div class="mb-8 text-center z-1 sm:mb-4 relative">
 	<div class="mb-2">
-		{#if gameManager.currencies[CurrenciesTypes.PHOTONS].earnedAllTime > 0}
+		{#if gameManager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime > 0}
 			<div>
 				<span id="excited-photons-value" class="text-2xl font-bold text-yellow-400">{formatNumber(gameManager.excitedPhotons)}</span>
 				<span class="font-bold text-lg opacity-80 text-realm-200">excited photons</span>
