@@ -420,7 +420,11 @@ export class GameManager {
 
 	resetAll() {
 		for (const [key, config] of Object.entries(this.statsConfig)) {
-			this[key as keyof this] = config.defaultValue;
+			if (key === 'currencies') {
+				currenciesManager.hardReset();
+			} else {
+				this[key as keyof this] = config.defaultValue;
+			}
 		}
 	}
 

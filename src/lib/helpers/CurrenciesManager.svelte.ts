@@ -45,6 +45,16 @@ export class CurrenciesManager {
 		return this.currencies[type]?.earnedAllTime || 0;
 	}
 
+	hardReset() {
+		for (const type of Object.values(CurrenciesTypes)) {
+			this.currencies[type] = {
+				amount: 0,
+				earnedAllTime: 0,
+				earnedRun: 0
+			};
+		}
+	}
+
 	reset(layer: LayerType) {
 		for (const [type, data] of Object.entries(CURRENCIES)) {
 			const currencyLayer = data.layer ?? LAYERS.NEVER;
