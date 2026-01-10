@@ -292,7 +292,7 @@
 							/>
 							{#if userRank > 0}
 								<div class="absolute -bottom-1 -right-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-accent-600 px-1.5 font-bold text-white shadow-lg ring-2 ring-black" in:scale>
-									<span class="text-[10px]">#{userRank}</span>
+									<span class="text-[12px]">#{userRank}</span>
 								</div>
 							{/if}
 						</div>
@@ -523,36 +523,18 @@
 						</h3>
 
 						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<TrendingUp size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white">{formatNumber(gameManager.globalMultiplier)}×</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Global Mult</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Sparkles size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white">{formatNumber(gameManager.xpGainMultiplier)}×</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">XP Mult</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Flame size={16} class="text-accent-400/30" />
-								<span class="text-lg font-bold text-accent-400">{formatNumber(gameManager.highestAPS)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Record APS</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Currency name={CurrenciesTypes.PROTONS} size={16} />
-								<span class="text-lg font-bold text-white">{formatNumber(gameManager.totalProtonisesAllTime)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Protonises</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Currency name={CurrenciesTypes.ELECTRONS} size={16} />
-								<span class="text-lg font-bold text-white">{formatNumber(gameManager.totalElectronizesAllTime)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Electronizes</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Currency name={CurrenciesTypes.ATOMS} size={16} />
-								<span class="text-lg font-bold text-white truncate max-w-full">{formatNumber(gameManager.currencies[CurrenciesTypes.ATOMS].earnedAllTime)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Total Atoms</span>
-							</div>
+							{#each [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS, CurrenciesTypes.HIGGS_BOSON] as currencyType}
+								{@const currency = gameManager.currencies[currencyType]}
+								{#if (currency?.earnedAllTime ?? 0) > 0}
+									<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10" in:scale>
+										<Currency name={currencyType} size={16} />
+										<span class="text-lg font-bold text-white truncate max-w-full">
+											{formatNumber(currency.earnedAllTime)}
+										</span>
+										<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Total {currencyType}</span>
+									</div>
+								{/if}
+							{/each}
 						</div>
 					</div>
 				</div>
