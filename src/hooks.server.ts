@@ -4,7 +4,7 @@ import { logError } from '$lib/server/errorHandler.server';
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 	// Allow itch.io, local development, and file system (for testing embed.html locally)
-	response.headers.set('Content-Security-Policy', "frame-ancestors 'self' https://ayfri.itch.io file:");
+	response.headers.set('Content-Security-Policy', "frame-ancestors 'self' https://ayfri.itch.io https://html.itch.zone file:");
 	// Remove X-Frame-Options because CSP frame-ancestors takes precedence and is more flexible
 	response.headers.delete('X-Frame-Options');
 	return response;
