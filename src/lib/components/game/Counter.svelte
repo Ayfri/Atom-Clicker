@@ -36,9 +36,9 @@
 				<span class="font-bold text-lg opacity-80">protons</span>
 			</div>
 		{/if}
-		<div class="flex items-center gap-2">
-			<span id="atoms-value" class=" sm:text-[2.75rem] sm:leading-[1.35] text-5xl font-bold text-accent-500 transition-[filter] duration-200 {gameManager.hasBonus ? 'drop-shadow-[0_0_10px_#4a90e2]' : ''}">{formatNumber(gameManager.atoms)}</span>
-			<span class="font-bold text-2xl opacity-80">atoms</span>
+		<div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-0">
+			<span id="atoms-value" class="text-3xl sm:text-4xl md:text-5xl font-bold text-accent-500 transition-[filter] duration-200 {gameManager.hasBonus ? 'drop-shadow-[0_0_10px_#4a90e2]' : ''}">{formatNumber(gameManager.atoms)}</span>
+			<span class="font-bold text-xl sm:text-2xl opacity-80">atoms</span>
 
 			{#if !mobile.current && hasAutoClick}
 				<div class="mt-1.5">

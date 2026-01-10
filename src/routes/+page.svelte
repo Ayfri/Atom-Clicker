@@ -92,7 +92,7 @@
 	{/if}
 
 	<main
-		class="relative flex-1 {mobile.current ? 'overflow-y-auto' : 'overflow-hidden'} lg:pb-4 transition-all duration-300"
+		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'} lg:pb-4 transition-all duration-300"
 		style="padding-top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(3rem + 1.5rem)' : '3rem'};"
 	>
 		{#if gameManager.upgrades.includes('feature_levels')}

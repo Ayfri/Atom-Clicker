@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Login from '@components/modals/Login.svelte';
-	import Profile from '@components/system/Profile.svelte';
+	import Profile from '@components/settings/Profile.svelte';
 	import Avatar from '@components/ui/Avatar.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import type { LeaderboardEntry } from '$lib/types/leaderboard';
@@ -104,26 +104,13 @@
 		</div>
 	{/snippet}
 
-	{#if !supabaseAuth.isAuthenticated}
-		<div class="flex flex-col gap-2 text-center mb-3">
-			<h3 class="text-lg font-bold text-accent">Login Required</h3>
-			<p class="text-white/60">
-				Please log in to participate in the global leaderboard.
-			</p>
-			<button
-				onclick={() => showLoginModal = true}
-				class="mx-auto rounded-lg bg-accent px-6 py-2 font-semibold text-white transition-colors hover:bg-accent-600"
-			>
-				Login
-			</button>
-		</div>
-	{:else}
-		<Profile />
-	{/if}
+	<div class="mb-4">
+		<Profile small={true} />
+	</div>
 
 	<!-- Search and Filters -->
 	<div class="mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-		<div class="relative flex-1">
+		<div class="relative flex-1 w-full">
 			<Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/40" />
 			<input
 				type="text"

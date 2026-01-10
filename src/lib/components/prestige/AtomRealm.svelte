@@ -29,25 +29,25 @@
 	{/if}
 	<Bonus />
 
-	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-8 text-sm xl:max-w-360">
+	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 lg:p-8 text-sm xl:max-w-360">
 		<div class="left-panel flex flex-col gap-1.5 z-10">
 			<div class="grid grid-flow-col gap-2 auto-cols-fr">
 				<button
-					class="backdrop-blur-xs rounded-lg p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 {activeTab === 'upgrades'
+					class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {activeTab === 'upgrades'
 						? 'bg-accent-400 text-white'
 						: 'bg-white/5 hover:bg-white/10'}"
 					onclick={() => (activeTab = 'upgrades')}>Upgrades</button
 				>
 				{#if mobile.current}
 					<button
-						class="backdrop-blur-xs rounded-lg p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 {activeTab === 'buildings'
+						class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {activeTab === 'buildings'
 							? 'bg-accent-400 text-white'
 							: 'bg-white/5 hover:bg-white/10'}"
 						onclick={() => (activeTab = 'buildings')}>Buildings</button
 					>
 				{/if}
 				<button
-					class="backdrop-blur-xs rounded-lg p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 {activeTab === 'achievements'
+					class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {activeTab === 'achievements'
 						? 'bg-accent-400 text-white'
 						: 'bg-white/5 hover:bg-white/10'}"
 					onclick={() => (activeTab = 'achievements')}
@@ -96,8 +96,8 @@
 	@media (max-width: 900px) {
 		.game-container {
 			grid-template-areas: 'atom' 'upgrades' 'buildings';
-			grid-template-columns: 1fr;
-			max-width: 100vw;
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 100%;
 			overflow-x: hidden;
 		}
 	}

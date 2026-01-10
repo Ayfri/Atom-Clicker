@@ -1,20 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { marked } from 'marked';
-	import Modal from '@components/ui/Modal.svelte';
 	import { changelog } from '$stores/changelog';
 	import { gameManager } from '$helpers/GameManager.svelte';
-
-	interface Props {
-		onClose: () => void;
-	}
-
-	let { onClose }: Props = $props();
 
 	// Check if achievement is already unlocked
 	let isAlreadyUnlocked = $derived(gameManager.achievements.includes('changelog_modal_opener'));
 
-	// Unlock achievement when modal opens
+	// Unlock achievement when component mounts (since it replaces the modal opening)
 	$effect(() => {
 		if (!isAlreadyUnlocked) {
 			gameManager.unlockAchievement('changelog_modal_opener');
@@ -52,18 +45,11 @@
 	});
 </script>
 
-<Modal
-	title="Changelog"
-	{onClose}
->
-	{#if changelogContent}
-		<div class="prose prose-invert max-w-none">
-			{@html marked(changelogContent)}
-		</div>
-	{:else}
-		<p class="text-center text-white/60">Loading changelog...</p>
-	{/if}
-</Modal>
+{#if changelogContent}
+    <div class="prose prose-invert max-w-none h-full overflow-y-auto custom-scrollbar pr-4">
+        {@html marked(changelogContent)}
+    </div>
+{/if}
 
 <style lang="postcss">
 	@reference '../../../app.css';
