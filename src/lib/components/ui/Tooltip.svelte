@@ -19,8 +19,14 @@
 	}: Props = $props();
 
 	const tooltipId = `tt-${Math.random().toString(36).slice(2, 7)}`;
-	let trigger = $state<HTMLElement>();
+	let isVisible = $state(false);
 	let tooltipElement = $state<HTMLDivElement>();
+	let trigger = $state<HTMLElement>();
+
+	const hasPopover = $derived.by(() => {
+		if (import.meta.env.SSR) return true;
+		return typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
+	});
 
 	function syncPosition() {
 		if (!trigger || !tooltipElement) return;
@@ -55,11 +61,17 @@
 
 	function toggle(show: boolean) {
 		if (!tooltipElement) return;
-		if (show) {
-			tooltipElement.showPopover();
-			syncPosition();
-		} else {
-			tooltipElement.hidePopover();
+		isVisible = show;
+
+		if (hasPopover) {
+			if (show) {
+				tooltipElement.showPopover();
+				syncPosition();
+			} else {
+				tooltipElement.hidePopover();
+			}
+		} else if (show) {
+			requestAnimationFrame(syncPosition);
 		}
 	}
 
@@ -94,34 +106,39 @@
 	<button
 		bind:this={trigger}
 		class="cursor-help"
-		type="button"
 		onclick={(e) => {
 			e.stopPropagation();
-			tooltipElement?.matches(':popover-open') ? toggle(false) : toggle(true);
+			if (hasPopover) {
+				tooltipElement?.matches(':popover-open') ? toggle(false) : toggle(true);
+			} else {
+				toggle(!isVisible);
+			}
 		}}
+		type="button"
 	>
 		{@render children()}
 	</button>
 
 	<div
 		bind:this={tooltipElement}
+		class="backdrop-blur-md bg-accent-950/95 border border-white/10 overflow-visible p-0 rounded-xl shadow-2xl text-white/90 {sizeClasses} {!hasPopover && !isVisible ? 'hidden' : ''} {!hasPopover ? 'fixed z-9999' : ''}"
 		id={tooltipId}
-		popover="auto"
 		ontoggle={handleToggle}
-		class="backdrop-blur-md bg-accent-950/95 border border-white/10 p-0 overflow-visible rounded-xl shadow-2xl text-white/90 {sizeClasses}"
+		popover={hasPopover ? 'auto' : null}
 	>
 		<div class="relative p-2.5">
 			<button
-				onclick={() => toggle(false)}
-				class="absolute -top-1 p-1.5 right-1 sm:hidden text-white/40 hover:text-white text-2xl"
 				aria-label="Close"
+				class="absolute -top-1 p-1.5 right-1 sm:hidden text-white/40 hover:text-white text-2xl"
+				onclick={() => toggle(false)}
+				type="button"
 			>
 				×
 			</button>
 			<div class="flex-1">
 				{@render content()}
 			</div>
-			<div class="absolute size-0 pointer-events-none {arrowClasses}"></div>
+			<div class="absolute pointer-events-none size-0 {arrowClasses}"></div>
 		</div>
 	</div>
 </div>
