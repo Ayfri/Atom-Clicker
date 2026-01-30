@@ -1,13 +1,10 @@
 
 import { CurrenciesTypes, type CurrencyName, CURRENCIES } from '$data/currencies';
 import { type LayerType, LAYERS } from '$helpers/statConstants';
+import type { CurrencyStateMap } from '$lib/types';
 
 export class CurrenciesManager {
-	currencies = $state<Record<CurrencyName, {
-		amount: number;
-		earnedRun: number;
-		earnedAllTime: number;
-	}>>({} as any);
+	currencies = $state<CurrencyStateMap>({} as CurrencyStateMap);
 
 	constructor() {
 		// Initialize all currencies with 0

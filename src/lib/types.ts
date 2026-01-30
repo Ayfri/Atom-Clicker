@@ -32,6 +32,18 @@ export interface Currency {
 	stat?: CurrencyName;
 }
 
+export interface CurrencyState {
+	amount: number;
+	earnedAllTime: number;
+	earnedRun: number;
+}
+
+export type BuildingCountMap = Partial<Record<BuildingType, number>>;
+
+export type CurrencyAmountMap = Partial<Record<CurrencyName, number>>;
+
+export type CurrencyStateMap = Record<CurrencyName, CurrencyState>;
+
 export interface Effect {
 	apply: (currentValue: number, manager: GameManager) => number;
 	description: string;
@@ -55,11 +67,7 @@ export interface GameState {
 	achievements: string[];
 	activePowerUps: PowerUp[];
 	buildings: Partial<Record<BuildingType, Building>>;
-	currencies: Record<CurrencyName, {
-		amount: number;
-		earnedAllTime: number;
-		earnedRun: number;
-	}>;
+	currencies: CurrencyStateMap;
 	highestAPS: number;
 	inGameTime: number;
 	lastInteractionTime: number;
@@ -82,6 +90,28 @@ export interface GameState {
 	totalXP: number;
 	upgrades: string[];
 	version: number;
+}
+
+export interface OfflineProgressSummary {
+	appliedMs: number;
+	atomAutoClickEnabled: boolean;
+	atomAutoClicks: number;
+	autoBuyCounts: BuildingCountMap;
+	autoBuyEnabled: boolean;
+	autoBuyFactor: number;
+	autoUpgradeEnabled: boolean;
+	autoUpgradePurchases: number;
+	awayMs: number;
+	capMs: number;
+	currencyGains: CurrencyAmountMap;
+	incomeMultiplier: number;
+	photonAutoClickEnabled: boolean;
+	photonAutoClickFactor: number;
+	photonAutoClicks: number;
+	photonAutoClicksPerSecond: number;
+	photonClickExpectedExcited: number;
+	photonClickExpectedNormal: number;
+	photonClickExpectedTotal: number;
 }
 
 export interface PowerUp {
@@ -108,6 +138,9 @@ export interface Settings {
 		autoClickPhotons: boolean;
 		buildings: BuildingType[];
 		upgrades: boolean;
+	};
+	gameplay: {
+		offlineProgressEnabled: boolean;
 	};
 	upgrades: {
 		displayAlreadyBought: boolean;

@@ -7,9 +7,10 @@ import { REALMS, RealmTypes, type RealmType } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-import { type Building, type GameState, type PowerUp, type Price, type RealmState, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
+import { type Building, type GameState, type OfflineProgressSummary, type PowerUp, type Price, type RealmState, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
+import { applyOfflineProgress } from '$helpers/offlineProgress';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState } from '$helpers/saves';
 import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
 import { Trophy } from 'lucide-svelte';
@@ -39,10 +40,14 @@ export class GameManager {
 			buildings: [],
 			upgrades: false
 		},
+		gameplay: {
+			offlineProgressEnabled: true
+		},
 		upgrades: {
 			displayAlreadyBought: false
 		}
 	});
+	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
 	skillUpgrades = $state<string[]>([]);
 	startDate = $state(Date.now());
 	totalBuildingsPurchasedAllTime = $state(0);
@@ -351,6 +356,10 @@ export class GameManager {
 
 		if (result.success && result.state) {
 			this.loadSaveData(result.state);
+			const offlineSummary = applyOfflineProgress(this);
+			if (offlineSummary) {
+				this.offlineProgressSummary = offlineSummary;
+			}
 			console.log('Game loaded successfully');
 			this.save();
 		} else if (!result.success && result.errorType) {
@@ -361,6 +370,10 @@ export class GameManager {
 			);
 			console.error('Save load failed:', result.errorType, result.errorDetails);
 		}
+	}
+
+	clearOfflineProgressSummary() {
+		this.offlineProgressSummary = null;
 	}
 
 	loadSaveData(data: Partial<GameState>) {
@@ -376,6 +389,10 @@ export class GameManager {
 						automation: {
 							...defaultSettings.automation,
 							...(savedSettings?.automation ?? {})
+						},
+						gameplay: {
+							...defaultSettings.gameplay,
+							...(savedSettings?.gameplay ?? {})
 						},
 						upgrades: {
 							...defaultSettings.upgrades,
