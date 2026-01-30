@@ -76,6 +76,7 @@
 			class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
 			class:active={selectedCurrency === CurrenciesTypes.ATOMS}
 			onclick={() => selectedCurrency = CurrenciesTypes.ATOMS}
+			title={CURRENCIES[CurrenciesTypes.ATOMS].name}
 		>
 			<Currency name={CurrenciesTypes.ATOMS} />
 		</button>
@@ -84,6 +85,7 @@
 				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
 				class:active={selectedCurrency === CurrenciesTypes.PROTONS}
 				onclick={() => selectedCurrency = CurrenciesTypes.PROTONS}
+				title={CURRENCIES[CurrenciesTypes.PROTONS].name}
 			>
 				<Currency name={CurrenciesTypes.PROTONS} />
 			</button>
@@ -93,6 +95,7 @@
 				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
 				class:active={selectedCurrency === CurrenciesTypes.ELECTRONS}
 				onclick={() => selectedCurrency = CurrenciesTypes.ELECTRONS}
+				title={CURRENCIES[CurrenciesTypes.ELECTRONS].name}
 			>
 				<Currency name={CurrenciesTypes.ELECTRONS} />
 			</button>
