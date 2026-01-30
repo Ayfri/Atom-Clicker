@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import { PROTONS_ATOMS_REQUIRED } from '$lib/constants';
 	import { CurrenciesTypes } from '$data/currencies';
-	import Value from '@components/ui/Value.svelte';
-	import { formatDuration } from '$lib/utils';
+	import { getUpgradesWithEffects } from '$helpers/effects';
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import { PROTONS_ATOMS_REQUIRED } from '$lib/constants';
+	import { formatDuration, formatNumber } from '$lib/utils';
+	import Modal from '@components/ui/Modal.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
+	import Value from '@components/ui/Value.svelte';
 	import { Info } from 'lucide-svelte';
 
 	interface Props {
@@ -25,6 +26,61 @@
 	let stabilityProgress = $state(0);
 	let maxBoostDisplay = $state(0);
 	let timeLeftDisplay = $state(0);
+
+	interface GainBreakdownItem {
+		after: number;
+		before: number;
+		description: string;
+		name: string;
+	}
+
+	const formatUpgradeName = (value: string) => value
+		.replace(/[_-]+/g, ' ')
+		.replace(/([a-z])([A-Z])/g, '$1 $2')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.replace(/\b\w/g, char => char.toUpperCase());
+
+	const getUpgradeLabel = (upgrade: { id?: string; name?: string }) => {
+		const rawName = typeof upgrade.name === 'string' && upgrade.name.trim().length > 0
+			? upgrade.name
+			: upgrade.id ?? 'Unknown Upgrade';
+		return formatUpgradeName(rawName);
+	};
+
+	const protonGainBreakdown = $derived.by(() => {
+		const baseGain = gameManager.atoms < PROTONS_ATOMS_REQUIRED
+			? 0
+			: Math.floor(Math.sqrt(gameManager.atoms / PROTONS_ATOMS_REQUIRED));
+		const options = { type: 'proton_gain' as const };
+		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
+		let currentValue = baseGain;
+		const effects: GainBreakdownItem[] = [];
+
+		for (const upgrade of upgrades) {
+			if (!('effects' in upgrade) || !Array.isArray(upgrade.effects)) continue;
+			const upgradeName = getUpgradeLabel(upgrade);
+			for (const effect of upgrade.effects) {
+				if (effect.type !== options.type) continue;
+				const before = currentValue;
+				const after = effect.apply(currentValue, gameManager);
+				effects.push({
+					after,
+					before,
+					description: effect.description,
+					name: upgradeName,
+				});
+				currentValue = after;
+			}
+		}
+
+		return {
+			base: baseGain,
+			effects,
+			final: currentValue,
+			multiplier: baseGain > 0 ? currentValue / baseGain : 0,
+		};
+	});
 
 	$effect(() => {
 		const interval = setInterval(() => {
@@ -71,7 +127,76 @@
 				<Value value={gameManager.atoms} currency={CurrenciesTypes.ATOMS} class="font-bold" />
 			</div>
 			<div class="flex justify-between items-center">
-				<span class="text-gray-300">Protons to gain:</span>
+				<div class="flex items-center gap-2 text-gray-300">
+					<span>Protons to gain:</span>
+					<Tooltip position="right" size="md">
+						<span class="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/70 hover:text-white hover:bg-white/20">
+							Gain details
+							<Info size={12} class="opacity-70" />
+						</span>
+						{#snippet content()}
+							<div class="flex flex-col gap-2">
+								<span class="text-[11px] font-bold uppercase tracking-wider text-yellow-300">Proton Gain</span>
+								<p class="text-[11px] text-white/70">
+									Your reactor compresses vast atom clouds into dense proton cores — bigger stockpiles forge richer yields.
+								</p>
+								<div class="grid gap-1 text-xs">
+									<div class="flex items-center justify-between gap-3">
+										<span class="text-white/70">Core yield</span>
+										<Value value={protonGainBreakdown.base} currency={CurrenciesTypes.PROTONS} class="font-semibold text-yellow-200" />
+									</div>
+									<div class="flex items-center justify-between gap-3">
+										<span class="text-white/70">Reactor amplification</span>
+										{#if protonGainBreakdown.base > 0}
+											<span class="font-mono text-yellow-200">x{formatNumber(protonGainBreakdown.multiplier, 2)}</span>
+										{:else}
+											<span class="text-white/50">—</span>
+										{/if}
+									</div>
+									<div class="flex items-center justify-between gap-3">
+										<span class="text-white/70">Final yield</span>
+										<Value value={protonGainBreakdown.final} currency={CurrenciesTypes.PROTONS} class="font-semibold text-yellow-300" />
+									</div>
+								</div>
+
+								<div class="h-px bg-white/10"></div>
+								<span class="text-[10px] uppercase tracking-wider text-white/40">Upgrade effects</span>
+								{#if protonGainBreakdown.effects.length > 0}
+									<div class="flex flex-col gap-1 text-xs">
+										{#each protonGainBreakdown.effects as effect, effectIndex (effect.name + effect.description + effectIndex)}
+											<div class="flex items-start justify-between gap-3">
+												<div class="flex flex-col">
+													<span class="text-white/80">{effect.name}</span>
+													<span class="text-[11px] text-white/50">{effect.description}</span>
+												</div>
+												<span class="font-mono text-[11px] text-white/70 whitespace-nowrap">
+													{formatNumber(effect.before)} → {formatNumber(effect.after)}
+												</span>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<span class="text-[11px] text-white/50">No upgrades affecting gain.</span>
+								{/if}
+
+								<div class="h-px bg-white/10"></div>
+								<span class="text-[10px] uppercase tracking-wider text-white/40">Temporary boosts</span>
+								{#if gameManager.activePowerUps.length > 0}
+									<div class="flex flex-col gap-1 text-xs">
+										{#each gameManager.activePowerUps as powerUp (powerUp.id)}
+											<div class="flex items-center justify-between gap-3">
+												<span class="text-white/80">{powerUp.name}</span>
+												<span class="font-mono text-white/70">x{formatNumber(powerUp.multiplier, 2)}</span>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<span class="text-[11px] text-white/50">No active boosts.</span>
+								{/if}
+							</div>
+						{/snippet}
+					</Tooltip>
+				</div>
 				<Value value={gameManager.protoniseProtonsGain} currency={CurrenciesTypes.PROTONS} class="font-bold text-yellow-400" />
 			</div>
 			<div class="flex justify-between items-center">

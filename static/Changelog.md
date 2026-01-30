@@ -1,5 +1,6 @@
 # What's new 30-01-2026
 
+- **Gain Breakdown**: New detailed gain breakdown for protons and electrons in the protonize/electronize menus.
 - **Offline Progress**: Added offline progress with caps (6h → 3d), 10% income rate, and automation throttling (1/120 speed).
 - **Offline Summary**: New return panel showing time away, caps, multipliers, automation stats, and currency gains.
 - **Settings**: Added a toggle to disable offline progress.
