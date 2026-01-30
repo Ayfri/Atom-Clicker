@@ -16,6 +16,16 @@ export const SPECIAL_UPGRADES: Upgrade[] = [
 		effects: [],
 	},
 	{
+		id: 'feature_offline_progress',
+		name: 'Offline Progress',
+		description: 'Enable offline progress when you are away',
+		cost: {
+			amount: 250_000,
+			currency: CurrenciesTypes.ATOMS,
+		},
+		effects: [],
+	},
+	{
 		id: 'feature_purple_realm',
 		name: 'Purple Realm',
 		description: 'Unlock the mysterious purple realm',
@@ -30,11 +40,12 @@ export const SPECIAL_UPGRADES: Upgrade[] = [
 interface CreateUpgradesOptions {
 	condition?: (index: number, manager: GameManager) => boolean;
 	cost: (index: number) => number;
-	currency?: CurrencyName;
 	count: number;
+	currency?: CurrencyName;
 	description: (index: number) => string;
 	effects: (index: number) => Effect[];
 	id: string;
+	idForIndex?: (index: number) => string;
 	name: (index: number) => string;
 }
 
@@ -42,6 +53,7 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 	const upgrades: Upgrade[] = [];
 	for (let i = 1; i <= options.count; i++) {
 		const effects = options.effects(i);
+		const id = options.idForIndex?.(i) ?? `${options.id}_${i}`;
 		upgrades.push({
 			condition: state => options.condition?.(i, state) !== false,
 			cost: {
@@ -50,7 +62,7 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 			},
 			description: options.description(i),
 			effects,
-			id: `${options.id}_${i}`,
+			id,
 			name: options.name(i),
 		} as Upgrade);
 	}
@@ -194,6 +206,54 @@ function createGlobalUpgrades() {
 	);
 
 	return upgrades;
+}
+
+function createOfflineCapUpgrades() {
+	const isUnlocked = (state: GameManager) => state.upgrades.includes('feature_offline_progress');
+	const caps = [
+		{
+			cost: 900_000,
+			description: 'Increase offline cap to 12 hours',
+			id: 'offline_cap_12h',
+			name: 'Offline Cap 12h',
+		},
+		{
+			cost: 3_000_000,
+			description: 'Increase offline cap to 1 day',
+			id: 'offline_cap_1d',
+			name: 'Offline Cap 1d',
+		},
+		{
+			cost: 12_000_000,
+			description: 'Increase offline cap to 1.5 days',
+			id: 'offline_cap_1_5d',
+			name: 'Offline Cap 1.5d',
+		},
+		{
+			cost: 35_000_000,
+			description: 'Increase offline cap to 2 days',
+			id: 'offline_cap_2d',
+			name: 'Offline Cap 2d',
+		},
+		{
+			cost: 120_000_000,
+			description: 'Increase offline cap to 3 days',
+			id: 'offline_cap_3d',
+			name: 'Offline Cap 3d',
+		},
+	];
+
+	return createUpgrades({
+		condition: (_, state) => isUnlocked(state),
+		cost: index => caps[index - 1]?.cost ?? 0,
+		count: caps.length,
+		currency: CurrenciesTypes.ATOMS,
+		description: index => caps[index - 1]?.description ?? '',
+		effects: () => [],
+		id: 'offline_cap',
+		idForIndex: index => caps[index - 1]?.id ?? `offline_cap_${index}`,
+		name: index => caps[index - 1]?.name ?? `Offline Cap ${index}`,
+	});
 }
 
 function createPowerUpIntervalUpgrades() {
@@ -429,6 +489,32 @@ function createProtonUpgrades() {
 				},
 			],
 		}),
+	);
+
+	// Offline automation unlocks
+	upgrades.push(
+		{
+			condition: state => state.upgrades.includes('feature_offline_progress'),
+			cost: {
+				amount: 120,
+				currency: CurrenciesTypes.PROTONS,
+			},
+			description: 'Unlock offline auto-upgrades (1/120 speed)',
+			effects: [],
+			id: 'proton_offline_autobuy',
+			name: 'Offline Auto-upgrades',
+		} as Upgrade,
+		{
+			condition: state => state.upgrades.includes('feature_offline_progress'),
+			cost: {
+				amount: 250,
+				currency: CurrenciesTypes.PROTONS,
+			},
+			description: 'Unlock offline atom auto-clicks (1/120 speed)',
+			effects: [],
+			id: 'proton_offline_autoclick',
+			name: 'Offline Atom Auto-click',
+		} as Upgrade,
 	);
 
 	// Stability Field Unlock
@@ -678,6 +764,7 @@ const upgrades = [
 	...BUILDING_TYPES.map(createBuildingUpgrades).flat(),
 	...createClickPowerUpgrades(),
 	...createGlobalUpgrades(),
+	...createOfflineCapUpgrades(),
 	...createPowerUpIntervalUpgrades(),
 	...createLevelBoostUpgrades(),
 	...createProtonUpgrades(),

@@ -112,6 +112,16 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 		],
 		condition: (manager: GameManager) => manager.electrons >= 10,
 	},
+	offline_progress: {
+		id: 'offline_progress',
+		name: 'Offline Resonance',
+		description: () => 'Enable offline Photon Realm clicks and offline auto-buy',
+		baseCost: 1000,
+		costMultiplier: 1,
+		maxLevel: 1,
+		effects: () => [],
+		condition: (manager: GameManager) => manager.upgrades.includes('feature_offline_progress'),
+	},
 	photon_spawn_rate: {
 		id: 'photon_spawn_rate',
 		name: 'Faster Circles',
