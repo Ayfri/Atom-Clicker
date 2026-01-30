@@ -44,9 +44,20 @@
 		<!-- Content Column -->
 		<div class="flex-1 min-w-0 pr-6">
 			<h3 class="font-bold tracking-tight {config.title} truncate">{toast.title}</h3>
-			<p class="mt-1 text-sm leading-relaxed text-neutral-300">
-				{@html toast.message}
+			<p class="mt-1 text-sm leading-relaxed text-neutral-300 whitespace-pre-line">
+				{toast.message}
 			</p>
+			{#if toast.action && toast.actionLabel}
+				<button
+					class="mt-3 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10"
+					onclick={() => {
+						toast.action?.();
+						removeToast(toast.id);
+					}}
+				>
+					{toast.actionLabel}
+				</button>
+			{/if}
 		</div>
 
 		<!-- Close Button -->

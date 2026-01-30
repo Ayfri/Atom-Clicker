@@ -3,6 +3,8 @@ import type { Icon } from 'lucide-svelte';
 import type { Component } from 'svelte';
 
 export type Toast = {
+	action?: () => void;
+	actionLabel?: string;
 	duration: number;
 	icon?: Component | typeof Icon;
 	id: number;
@@ -30,6 +32,8 @@ export function clearAllToasts() {
 }
 
 export interface ToastOptions {
+	action?: () => void;
+	actionLabel?: string;
 	duration?: number;
 	icon?: Component | typeof Icon;
 	is_infinite?: boolean;
@@ -39,6 +43,8 @@ export interface ToastOptions {
 
 function createToast(type: Toast['type'], options: ToastOptions) {
 	addToast({
+		action: options.action,
+		actionLabel: options.actionLabel,
 		id: Date.now() + Math.floor(Math.random() * 100_000),
 		duration: options.duration ?? 10_000,
 		icon: options.icon,

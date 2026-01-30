@@ -9,6 +9,7 @@
 	import { remoteMessage } from '$stores/remoteMessage.svelte';
 	import { saveRecovery } from '$stores/saveRecovery';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import { warning } from '$stores/toasts';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
 	import Levels from '@components/game/Levels.svelte';
@@ -26,16 +27,49 @@
 	autoUpgradeManager.init();
 
 	const SAVE_INTERVAL = 1000;
+	const CLOUD_PULL_WARNING_THRESHOLD_MS = 5_000;
 	let saveLoop: ReturnType<typeof setInterval>;
 	let gameUpdateInterval: ReturnType<typeof setInterval> | null = null;
+	let hasCheckedCloudSaveOnLoad = false;
+	let authUnsubscribe: (() => void) | null = null;
 
 	function update(ticker: any) {
 		gameManager.addAtoms((gameManager.atomsPerSecond * ticker.deltaMS) / 1000);
 	}
 
+	async function checkCloudSaveOnLoad() {
+		if (hasCheckedCloudSaveOnLoad || !supabaseAuth.isAuthenticated) return;
+		hasCheckedCloudSaveOnLoad = true;
+
+		try {
+			const cloudSaveInfo = await supabaseAuth.getCloudSaveInfo();
+			if (typeof cloudSaveInfo?.inGameTime !== 'number') return;
+
+			const localGameTime = gameManager.inGameTime || 0;
+			if (cloudSaveInfo.inGameTime > localGameTime + CLOUD_PULL_WARNING_THRESHOLD_MS) {
+				warning({
+					action: () => ui.openSettings('cloud'),
+					actionLabel: 'Open Cloud Save',
+					title: 'Cloud Save Available',
+					message: 'A cloud save with more play time is available.',
+					duration: 12_000
+				});
+			}
+		} catch (error) {
+			console.warn('Cloud save check failed:', error);
+		}
+	}
+
 	onMount(async () => {
 		gameManager.initialize();
 		await supabaseAuth.init();
+		await checkCloudSaveOnLoad();
+
+		authUnsubscribe = supabaseAuth.subscribe(() => {
+			if (supabaseAuth.isAuthenticated) {
+				checkCloudSaveOnLoad();
+			}
+		});
 
 		if (gameManager.offlineProgressSummary && !ui.activeModal) {
 			ui.openModal(OfflineProgress);
@@ -67,6 +101,7 @@
 	onDestroy(() => {
 		if (saveLoop) clearInterval(saveLoop);
 		if (gameUpdateInterval) clearInterval(gameUpdateInterval);
+		if (authUnsubscribe) authUnsubscribe();
 		gameManager.cleanup();
 	});
 </script>

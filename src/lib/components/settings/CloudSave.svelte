@@ -3,12 +3,13 @@
 	import Login from '@components/modals/Login.svelte';
 	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes } from '$data/currencies';
-	import type { GameState } from '$lib/types';
-	import { autoSaveEnabled, autoSaveState, shouldAutoSave } from '$stores/autoSave';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import type { GameState } from '$lib/types';
+	import { formatDuration } from '$lib/utils';
+	import { autoSaveEnabled, autoSaveState, shouldAutoSave } from '$stores/autoSave';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { error as errorToast, info } from '$stores/toasts';
-	import { AlertCircle, Clock, CloudDownload, CloudUpload, RotateCcw } from 'lucide-svelte';
+	import { AlertCircle, AlertTriangle, Clock, CloudDownload, CloudUpload, RotateCcw } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -21,7 +22,8 @@
 		lastSaveDate: number | null;
 	} & GameState;
 
-	const SAVE_COOLDOWN = 30000; // 30 seconds
+	const CLOUD_NEWER_WARNING_THRESHOLD_MS = 5_000;
+	const SAVE_COOLDOWN = 30_000;
 
 	let autoSaveProgress = $state(0);
 	let cloudSaveInfo = $state<CloudSaveInfo | null>(null);
@@ -174,7 +176,11 @@
 		}
 	}
 
-    let canSave = $derived(cooldownProgress >= 1 && !loading);
+	let canSave = $derived(cooldownProgress >= 1 && !loading);
+	let isCloudNewerThanLocal = $derived(
+		typeof cloudSaveInfo?.inGameTime === 'number' &&
+		cloudSaveInfo.inGameTime > (gameManager.inGameTime + CLOUD_NEWER_WARNING_THRESHOLD_MS)
+	);
 
 </script>
 
@@ -199,7 +205,20 @@
             </div>
         {/if}
 
-        {#if cloudSaveInfo}
+		{#if cloudSaveInfo}
+			{#if isCloudNewerThanLocal}
+				<div class="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-yellow-100 mb-4">
+					<div class="flex items-start gap-2">
+						<AlertTriangle size={16} class="mt-0.5 shrink-0 text-yellow-300" />
+						<div class="flex-1 text-sm">
+							<div class="font-semibold">Cloud save has more play time than your local save.</div>
+							<div class="text-yellow-200/80">
+								Local: {formatDuration(gameManager.inGameTime)} · Cloud: {formatDuration(cloudSaveInfo.inGameTime)}
+							</div>
+						</div>
+					</div>
+				</div>
+			{/if}
             <div class="rounded-lg bg-black/20 p-4">
                 <div class="flex items-center gap-2 text-accent mb-2">
                     <Clock size={16} />

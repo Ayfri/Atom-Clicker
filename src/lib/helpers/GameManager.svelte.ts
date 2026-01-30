@@ -26,7 +26,10 @@ export class GameManager {
 	highestAPS = $state(0);
 	inGameTime = $state(0);
 	lastInteractionTime = $state(Date.now());
+	lastLoadedSave = $state(0);
 	lastSave = $state(Date.now());
+
+	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
 	photonUpgrades = $state<Record<string, number>>({});
 	powerUpsCollected = $state(0);
 	realms = $state<Record<RealmType, RealmState>>({
@@ -47,7 +50,6 @@ export class GameManager {
 			displayAlreadyBought: false
 		}
 	});
-	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
 	skillUpgrades = $state<string[]>([]);
 	startDate = $state(Date.now());
 	totalBuildingsPurchasedAllTime = $state(0);
@@ -356,6 +358,7 @@ export class GameManager {
 
 		if (result.success && result.state) {
 			this.loadSaveData(result.state);
+			this.lastLoadedSave = typeof result.state.lastSave === 'number' ? result.state.lastSave : 0;
 			const offlineSummary = applyOfflineProgress(this);
 			if (offlineSummary) {
 				this.offlineProgressSummary = offlineSummary;
@@ -701,7 +704,7 @@ export class GameManager {
 			if (achievement) {
 				info({
 					title: 'Achievement unlocked',
-					message: `<strong>${achievement.name}</strong><br>${achievement.description}`,
+					message: `${achievement.name}\n${achievement.description}`,
 					duration: 10000,
 					icon: achievement.icon || Trophy
 				});
