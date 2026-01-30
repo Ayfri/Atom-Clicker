@@ -105,6 +105,7 @@ export interface OfflineProgressSummary {
 	capMs: number;
 	currencyGains: CurrencyAmountMap;
 	incomeMultiplier: number;
+	levelsGained: number;
 	photonAutoClickEnabled: boolean;
 	photonAutoClickFactor: number;
 	photonAutoClicks: number;
@@ -112,6 +113,7 @@ export interface OfflineProgressSummary {
 	photonClickExpectedExcited: number;
 	photonClickExpectedNormal: number;
 	photonClickExpectedTotal: number;
+	xpGained: number;
 }
 
 export interface PowerUp {

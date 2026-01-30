@@ -167,9 +167,15 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		addCurrency(CurrenciesTypes.EXCITED_PHOTONS, expectedExcited);
 	}
 
+	const levelBefore = manager.playerLevel;
+	const xpBefore = manager.totalXP;
+
 	if (atomsGained > 0 && manager.upgrades.includes('feature_levels')) {
 		manager.totalXP += atomsGained * XP_PER_ATOM * manager.xpGainMultiplier;
 	}
+
+	const xpGained = manager.totalXP - xpBefore;
+	const levelsGained = manager.playerLevel - levelBefore;
 
 	const autoClickCountForStats = Math.floor(atomAutoClicks);
 	if (autoClickCountForStats > 0) {
@@ -225,6 +231,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		photonClickExpectedExcited,
 		photonClickExpectedNormal,
 		photonClickExpectedTotal,
+		levelsGained,
+		xpGained,
 	};
 }
 

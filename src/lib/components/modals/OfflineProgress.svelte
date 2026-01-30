@@ -6,7 +6,7 @@
 	import Modal from '@components/ui/Modal.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import Value from '@components/ui/Value.svelte';
-	import { Clock, Settings2, TrendingUp, Zap } from 'lucide-svelte';
+	import { Clock, Settings2, Star, TrendingUp, Zap } from 'lucide-svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -36,15 +36,8 @@
 	});
 	const hasCurrencyGains = $derived(currencyEntries.length > 0);
 
-	$effect(() => {
-		if (!summary) {
-			onClose();
-		}
-	});
-
 	function handleClose() {
 		gameManager.clearOfflineProgressSummary();
-		onClose();
 	}
 </script>
 
@@ -79,6 +72,27 @@
 					Offline income applied at {(summary.incomeMultiplier * 100).toFixed(0)}% of live production.
 				</div>
 			</div>
+
+			{#if summary.levelsGained > 0 || summary.xpGained > 0}
+				<div class="rounded-xl border border-white/10 bg-black/20 p-4">
+					<div class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/40">
+						<Star size={12} />
+						Leveling
+					</div>
+					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<span class="text-[10px] font-bold uppercase tracking-widest text-white/30">XP Gained</span>
+							<span class="text-lg font-semibold text-white">+{formatNumber(summary.xpGained)} XP</span>
+						</div>
+						{#if summary.levelsGained > 0}
+							<div class="flex flex-col gap-1">
+								<span class="text-[10px] font-bold uppercase tracking-widest text-white/30">Levels Gained</span>
+								<span class="text-lg font-semibold text-green-400">+{summary.levelsGained} Levels</span>
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
 
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 				<div class="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -164,6 +178,15 @@
 						</div>
 					</div>
 				</div>
+			</div>
+
+			<div class="mt-4 flex justify-center">
+				<button
+					class="cursor-pointer rounded-xl bg-green-600 px-14 py-2 text-lg font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-green-500 active:scale-95"
+					onclick={handleClose}
+				>
+					Yay!
+				</button>
 			</div>
 		</div>
 	</Modal>
