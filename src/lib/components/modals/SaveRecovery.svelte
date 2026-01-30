@@ -82,7 +82,7 @@
 	<div class="flex flex-col gap-6">
 		<!-- Error Banner -->
 		<div class="flex items-start gap-4 rounded-xl bg-red-500/20 p-4 border border-red-500/30">
-			<AlertTriangle class="size-8 shrink-0 text-red-400 mt-0.5" />
+			<AlertTriangle size={32} class="shrink-0 text-red-400 mt-0.5" />
 			<div class="flex-1">
 				<h3 class="text-lg font-bold text-red-300">Save Load Error</h3>
 				<p class="mt-1 text-red-200/80">
@@ -108,7 +108,7 @@
 		<!-- Backup Info -->
 		{#if $saveRecovery.backupKey}
 			<div class="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
-				<Database class="size-5 text-green-400" />
+				<Database size={20} class="text-green-400" />
 				<div class="flex-1">
 					<p class="text-sm text-green-300">A backup of your save has been created.</p>
 					<p class="text-xs text-green-400/60 mt-0.5">Key: {$saveRecovery.backupKey}</p>
@@ -127,7 +127,7 @@
 				onclick={handleLoadFromCloud}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/30">
-					<CloudDownload class="size-6 text-accent-300" />
+					<CloudDownload size={24} class="text-accent-300" />
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-white">Load from Cloud</div>
@@ -140,7 +140,7 @@
 					</div>
 				</div>
 				{#if loading}
-					<RefreshCw class="size-5 animate-spin text-accent-300" />
+					<RefreshCw size={20} class="animate-spin text-accent-300" />
 				{/if}
 			</button>
 
@@ -150,7 +150,7 @@
 				onclick={handleStartFresh}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-white/10">
-					<RefreshCw class="size-6 text-white/70" />
+					<RefreshCw size={24} class="text-white/70" />
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-white">Start Fresh</div>
@@ -166,7 +166,7 @@
 				onclick={handleDismiss}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-500/20">
-					<Trash2 class="size-6 text-red-400" />
+					<Trash2 size={24} class="text-red-400" />
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-red-300">Continue Anyway</div>

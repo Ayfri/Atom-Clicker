@@ -125,7 +125,7 @@
                             class="group flex items-baseline gap-2 rounded-lg bg-black/20 p-4 transition-colors hover:bg-black/30"
                             onclick={() => social.name === 'Discord' ? handleDiscordClick() : social.name === 'GitHub' ? handleGitHubClick() : undefined}
                         >
-                            <social.icon class="size-6 self-center mr-1" />
+                            <social.icon size={24} class="self-center mr-1" />
                             <span class="text-lg font-semibold text-white group-hover:text-accent">{social.name}</span>
                             <span class="text-sm text-white/60 flex-1">{social.description}</span>
                             <SquareArrowOutUpRight size={16} />

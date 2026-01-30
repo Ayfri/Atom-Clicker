@@ -35,9 +35,9 @@
 		<!-- Icon Container -->
 		<div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/5 border border-white/5">
 			{#if toast.icon}
-				<toast.icon class="size-6 {config.iconColor}" />
+				<toast.icon size={24} class={config.iconColor} />
 			{:else}
-				<config.icon class="size-6 {config.iconColor}" />
+				<config.icon size={24} class={config.iconColor} />
 			{/if}
 		</div>
 
@@ -54,7 +54,7 @@
 			class="absolute right-3 top-3 flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-white/10 hover:text-white"
 			onclick={() => removeToast(toast.id)}
 		>
-			<X class="size-4" />
+			<X size={16} />
 		</button>
 	</div>
 

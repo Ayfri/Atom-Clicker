@@ -111,7 +111,7 @@
 	<!-- Search and Filters -->
 	<div class="mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
 		<div class="relative flex-1 w-full">
-			<Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/40" />
+			<Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
 			<input
 				type="text"
 				bind:value={searchQuery}
@@ -187,7 +187,7 @@
 						<div class="flex items-center gap-2">
 							{#if RankIcon}
 								{@const Icon = RankIcon}
-								<Icon class="size-6 {rankColor}" />
+								<Icon size={24} class={rankColor} />
 							{:else}
 								<div class="flex size-7 items-center justify-center rounded-full bg-accent/30 font-bold text-white text-sm">
 									{entry.rank}
@@ -232,10 +232,10 @@
 	{:else}
 		<div class="text-center py-8 text-white/60">
 			{#if searchQuery.trim()}
-				<Search class="mx-auto mb-2 size-8 text-white/40" />
+				<Search size={32} class="mx-auto mb-2 text-white/40" />
 				<p>No players found matching "{searchQuery}"</p>
 			{:else}
-				<Users class="mx-auto mb-2 size-8 text-white/40" />
+				<Users size={32} class="mx-auto mb-2 text-white/40" />
 				<p>No entries yet. Be the first to join the leaderboard!</p>
 			{/if}
 		</div>

@@ -40,7 +40,7 @@
 				title="Join our Discord community"
 				onclick={handleDiscordClick}
 			>
-				<Discord class="w-3.5 h-3.5" />
+				<Discord size={14} />
 			</a>
 			<a
 				class="flex items-center gap-1 transition-colors hover:text-white"
@@ -50,7 +50,7 @@
 				title="View source code on GitHub"
 				onclick={handleGitHubClick}
 			>
-				<GitHub class="w-3.5 h-3.5" />
+				<GitHub size={14} />
 			</a>
 			<a
 				class="transition-colors hover:text-white"
@@ -70,7 +70,7 @@
 				title="Support the creator"
 				onclick={handleCoffeeClick}
 			>
-				<Coffee class="w-3 h-3 fill-transparent group-hover:fill-black duration-200 transition-all" />
+				<Coffee size={12} class="fill-transparent group-hover:fill-black duration-200 transition-all" />
 				<span>Buy me a coffee</span>
 			</a>
 		</div>

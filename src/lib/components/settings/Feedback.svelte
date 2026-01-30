@@ -29,7 +29,7 @@
             class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all border border-blue-500/20 text-sm font-medium"
             title="Chat with us on Discord"
         >
-            <Discord class="size-4" />
+            <Discord size={16} />
             <span>Discord</span>
         </a>
         <a
@@ -39,7 +39,7 @@
             class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all border border-white/10 text-sm font-medium"
             title="Post an issue on GitHub"
         >
-            <GitHub class="size-4" />
+            <GitHub size={16} />
             <span>GitHub</span>
         </a>
     </div>

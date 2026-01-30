@@ -202,7 +202,7 @@
         {#if cloudSaveInfo}
             <div class="rounded-lg bg-black/20 p-4">
                 <div class="flex items-center gap-2 text-accent mb-2">
-                    <Clock class="size-4" />
+                    <Clock size={16} />
                     <span class="text-sm">Last saved: {cloudSaveInfo.lastSaveDate ? formatDate(cloudSaveInfo.lastSaveDate) : 'Never'}</span>
                 </div>
                 <div class="flex flex-wrap gap-3 text-sm">
@@ -232,7 +232,7 @@
             <div class="p-4 pb-3">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        <Clock class="size-4 text-accent" />
+                        <Clock size={16} class="text-accent" />
                         <div>
                             <div class="text-sm font-semibold text-white">Auto-save</div>
                             <div class="text-xs text-white/60">Save automatically every 30 seconds</div>
@@ -264,7 +264,7 @@
                     disabled={!canSave}
                     style:transform="scale({0.9 + (cooldownProgress * 0.1)})"
                 >
-                    <CloudUpload class="size-5" />
+                    <CloudUpload size={20} />
                     Save to Cloud
                 </button>
                 <div
@@ -278,7 +278,7 @@
                 onclick={handleLoadFromCloud}
                 disabled={loading}
             >
-                <CloudDownload class="size-5" />
+                <CloudDownload size={20} />
                 Load from Cloud
             </button>
         </div>
@@ -290,13 +290,13 @@
         class="flex items-center justify-center gap-2 rounded-lg bg-red-900/40 px-6 py-3 font-semibold text-red-200 transition-colors hover:bg-red-900/60"
         onclick={() => showHardReset = true}
     >
-        <RotateCcw class="size-5" />
+        <RotateCcw size={20} />
         Hard Reset
     </button>
 
     <div class="rounded-lg bg-black/20 p-4 text-sm text-white/80">
         <div class="flex items-start gap-2">
-            <AlertCircle class="mt-0.5 size-4 shrink-0 text-accent" />
+            <AlertCircle size={16} class="mt-0.5 shrink-0 text-accent" />
             <p>
                 Cloud saves allow you to backup your game progress and sync it across devices. Your local save will be overwritten when loading from the cloud.
             </p>
