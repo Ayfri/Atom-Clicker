@@ -200,7 +200,7 @@
 							{/if}
 						</div>
 						<div class="flex flex-col items-center gap-0">
-							<h2 class="max-w-[100px] text-center font-bold leading-tight text-white wrap-break-word md:max-w-[140px] text-sm md:text-base">
+							<h2 class="max-w-25 text-center font-bold leading-tight text-white wrap-break-word md:max-w-35 text-sm md:text-base">
 								{username}
 							</h2>
 						</div>
@@ -515,6 +515,31 @@
 						</div>
 					</div>
 
+					<!-- Gameplay Settings -->
+					<div class="rounded-xl border border-white/5 bg-black/20 p-5 flex flex-col gap-5">
+						<h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
+							<Settings2 size={14} />
+							Gameplay
+						</h3>
+
+						<div class="flex flex-col gap-3">
+							<div class="flex items-center justify-between">
+								<div class="flex flex-col">
+									<span class="text-sm font-semibold text-white">Offline Progress</span>
+									<span class="text-xs text-white/50">Allow offline gains while away</span>
+								</div>
+								<label class="relative inline-flex items-center cursor-pointer">
+									<input
+										type="checkbox"
+										bind:checked={gameManager.settings.gameplay.offlineProgressEnabled}
+										class="sr-only peer"
+									/>
+									<div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+								</label>
+							</div>
+						</div>
+					</div>
+
 					<!-- Quantum Mastery Cluster -->
 					<div class="col-span-1 md:col-span-3 rounded-xl border border-white/5 bg-black/20 p-5 flex flex-col gap-5">
 						<h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
@@ -540,7 +565,7 @@
 				</div>
 			</div>
 		{:else}
-			<div class="relative flex h-[460px] flex-col items-center justify-center gap-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-10 text-center" in:fade>
+			<div class="relative flex h-115 flex-col items-center justify-center gap-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-10 text-center" in:fade>
 				<!-- Blurry color dots -->
 				<div class="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-accent-600/5 blur-[80px]"></div>
 				<div class="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-primary-600/5 blur-[80px]"></div>

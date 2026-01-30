@@ -1,24 +1,26 @@
 <script lang="ts">
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import { realmManager } from '$helpers/RealmManager.svelte';
+	import { setGlobals } from '$lib/globals';
+	import { formatNumber } from '$lib/utils';
 	import { autoBuyManager } from '$stores/autoBuy.svelte';
 	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import {onDestroy, onMount} from 'svelte';
-	import AutoSaveIndicator from '@components/system/AutoSaveIndicator.svelte';
+	import { app } from '$stores/pixi';
+	import { remoteMessage } from '$stores/remoteMessage.svelte';
+	import { saveRecovery } from '$stores/saveRecovery';
+	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import { ui } from '$stores/ui.svelte';
+	import { mobile } from '$stores/window.svelte';
 	import Levels from '@components/game/Levels.svelte';
 	import NavBar from '@components/layout/NavBar.svelte';
 	import RealmFooter from '@components/layout/RealmFooter.svelte';
 	import RemoteBanner from '@components/layout/RemoteBanner.svelte';
-	import SaveRecovery from '@components/modals/SaveRecovery.svelte';
 	import Toaster from '@components/layout/Toaster.svelte';
+	import OfflineProgress from '@components/modals/OfflineProgress.svelte';
+	import SaveRecovery from '@components/modals/SaveRecovery.svelte';
+	import AutoSaveIndicator from '@components/system/AutoSaveIndicator.svelte';
 	import Currency from '@components/ui/Currency.svelte';
-	import {gameManager} from '$helpers/GameManager.svelte';
-	import {realmManager} from '$helpers/RealmManager.svelte';
-	import {setGlobals} from '$lib/globals';
-	import {formatNumber} from '$lib/utils';
-	import {remoteMessage} from '$stores/remoteMessage.svelte';
-	import {app} from '$stores/pixi';
-	import {saveRecovery} from '$stores/saveRecovery';
-	import {supabaseAuth} from '$stores/supabaseAuth.svelte';
-	import {mobile} from '$stores/window.svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	autoBuyManager.init();
 	autoUpgradeManager.init();
@@ -34,6 +36,10 @@
 	onMount(async () => {
 		gameManager.initialize();
 		await supabaseAuth.init();
+
+		if (gameManager.offlineProgressSummary && !ui.activeModal) {
+			ui.openModal(OfflineProgress);
+		}
 
 		while (!$app) {
 			await new Promise(resolve => setTimeout(resolve, 100));
