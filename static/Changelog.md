@@ -1,3 +1,10 @@
+# What's new 30-01-2026
+
+- **Offline Progress**: Added offline progress with caps (6h → 3d), 10% income rate, and automation throttling (1/120 speed).
+- **Offline Summary**: New return panel showing time away, caps, multipliers, automation stats, and currency gains.
+- **Settings**: Added a toggle to disable offline progress.
+- **Upgrades**: Added new offline cap upgrades (Atoms) and offline automation unlocks (Protons).
+
 # What's new 04-01-2026
 
 - **Leaderboard**: Added a way to edit your profile picture, added platform button, you can click on it to use the username/profile picture of this platform.
