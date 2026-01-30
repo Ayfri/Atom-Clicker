@@ -35,7 +35,7 @@ export const statsConfig: Record<string, StatConfig> = {
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM, minVersion: 12 },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
 	realms: { defaultValue: { [RealmTypes.ATOMS]: { unlocked: true }, [RealmTypes.PHOTONS]: { unlocked: false } }, layer: LAYERS.NEVER, minVersion: 19 },
-	settings: { defaultValue: { automation: { autoClick: false, autoClickPhotons: false, buildings: [], upgrades: false }, upgrades: { displayAlreadyBought: false } }, layer: LAYERS.NEVER, minVersion: 8 },
+	settings: { defaultValue: { automation: { autoClick: false, autoClickPhotons: false, buildings: [], upgrades: false }, gameplay: { offlineProgressEnabled: true }, upgrades: { displayAlreadyBought: false } }, layer: LAYERS.NEVER, minVersion: 8 },
 	skillUpgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 3 },
 	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER, minVersion: 5 },
 	totalBuildingsPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },

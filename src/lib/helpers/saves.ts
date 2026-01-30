@@ -6,7 +6,7 @@ import {saveRecovery, type SaveErrorType} from '$stores/saveRecovery';
 import {statsConfig} from '$helpers/statConstants';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
 
 export interface LoadSaveResult {
 	errorDetails?: string;
@@ -142,10 +142,19 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 	const customValidators: Record<string, (v: unknown) => boolean> = {
 		settings: (v: unknown) => {
 			const val = v as Record<string, any>;
+			const hasValidGameplay = typeof val.gameplay === 'undefined' || (
+				typeof val.gameplay === 'object' && typeof val.gameplay?.offlineProgressEnabled === 'boolean'
+			);
+
 			return typeof val === 'object' && val !== null &&
 				typeof val.automation === 'object' &&
 				Array.isArray(val.automation?.buildings) &&
-				typeof val.automation?.upgrades === 'boolean';
+				typeof val.automation?.autoClick === 'boolean' &&
+				typeof val.automation?.autoClickPhotons === 'boolean' &&
+				typeof val.automation?.upgrades === 'boolean' &&
+				hasValidGameplay &&
+				typeof val.upgrades === 'object' &&
+				typeof val.upgrades?.displayAlreadyBought === 'boolean';
 		}
 	};
 
