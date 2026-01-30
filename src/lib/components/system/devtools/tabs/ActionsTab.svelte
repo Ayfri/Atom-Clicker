@@ -1,15 +1,18 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { RealmTypes, type RealmType } from '$data/realms';
-	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { UPGRADES } from '$data/upgrades';
 	import { ACHIEVEMENTS } from '$data/achievements';
 	import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
+	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { SAVE_KEY } from '$helpers/saves';
-	import { Save, Trash2, Zap, Unlock, Coins, Factory, Download, Upload, ToggleLeft, Sparkles, MessageSquare } from 'lucide-svelte';
+	import { RealmTypes, type RealmType } from '$data/realms';
+	import { UPGRADES } from '$data/upgrades';
+	import OfflineProgress from '@components/modals/OfflineProgress.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { success, error, info, warning } from '$stores/toasts';
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import { applyOfflineProgress } from '$helpers/offlineProgress';
+	import { SAVE_KEY } from '$helpers/saves';
+	import { ui } from '$stores/ui.svelte';
+	import { error, info, success, warning } from '$stores/toasts';
+	import { Clock, Coins, Download, Factory, MessageSquare, Save, Sparkles, ToggleLeft, Trash2, Unlock, Upload, Zap } from 'lucide-svelte';
 
 	function toggleFeature(upgradeId: string) {
 		if (gameManager.upgrades.includes(upgradeId)) {
@@ -93,6 +96,21 @@
 			>
 				<Save size={16} />
 				<span>Force Save</span>
+			</button>
+			<button
+				class="flex items-center justify-center gap-2 bg-blue-600/80 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer shadow-lg"
+				onclick={() => {
+					const summary = applyOfflineProgress(gameManager, 12 * 60 * 60 * 1000);
+					if (summary) {
+						gameManager.offlineProgressSummary = summary;
+						ui.openModal(OfflineProgress);
+					} else {
+						info({ title: 'Offline progress', message: 'Offline progress is not available with current settings.' });
+					}
+				}}
+			>
+				<Clock size={16} />
+				<span>Simulate 12h Offline</span>
 			</button>
 		</div>
 	</div>
