@@ -32,7 +32,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	globalMultiplier: {
-		cost: { amount: 500_000, currency: CurrenciesTypes.ATOMS },
+		cost: { amount: 5_000, currency: CurrenciesTypes.ATOMS },
 		description: '2x atoms production',
 		effects: [
 			{
@@ -47,7 +47,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	unlockLevels: {
-		cost: { amount: 2_500_000, currency: CurrenciesTypes.ATOMS },
+		cost: { amount: 10_000, currency: CurrenciesTypes.ATOMS },
 		description: 'Unlock the leveling system',
 		effects: [],
 		feature: FeatureTypes.LEVELS,
@@ -62,7 +62,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	atomicStability: {
-		cost: { amount: 10_000_000, currency: CurrenciesTypes.ATOMS },
+		cost: { amount: 100_000, currency: CurrenciesTypes.ATOMS },
 		description: '1.5x production for first 3 building types',
 		effects: [
 			{
@@ -91,7 +91,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	clickMastery: {
-		cost: { amount: 25_000_000, currency: CurrenciesTypes.ATOMS },
+		cost: { amount: 250_000, currency: CurrenciesTypes.ATOMS },
 		description: '+10% production per 100 total clicks',
 		effects: [
 			{
@@ -110,7 +110,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	molecularBoost: {
-		cost: { amount: 100_000_000, currency: CurrenciesTypes.ATOMS },
+		cost: { amount: 1_000_000, currency: CurrenciesTypes.ATOMS },
 		description: '3x Molecule and Crystal production',
 		effects: [
 			{
@@ -485,7 +485,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
 		const previousBuildingType = BUILDING_TYPES[i - 1];
-		const baseCost = 100_000 * Math.pow(4, i);
+		const baseCost = 1_000_000 * Math.pow(10, i);
 
 		return {
 			condition: (manager) => (manager.buildings[buildingType]?.count ?? 0) >= 100,
