@@ -45,7 +45,7 @@ function createBuildingUpgrades(buildingType: BuildingType) {
 		id: buildingType.toLowerCase(),
 		name: i => `${building.name} Boost ${i}`,
 		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${building.name} production`,
-		cost: i => building.cost.amount * 2.4 ** (i * 3) * (i > 10 ? i ** 3 : 1),
+		cost: i => building.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
 		effects: i => [
 			{
 				type: 'building',
@@ -66,8 +66,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Power ${i}`,
 			description: i => `${i < 6 ? '1.5x' : '2x'} click power`,
 			cost: i => {
-				const baseCost = 10 * 2 ** (i * 4);
-				return i > 8 ? baseCost * i ** 4.5 : baseCost;
+				const baseCost = 10 * 2 ** (i * 3);
+				return i > 8 ? baseCost * i ** 6.5 : baseCost;
 			},
 			effects: i => [
 				{
@@ -86,8 +86,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Value ${i}`,
 			description: i => `+${formatNumber(Math.ceil(10 ** i / 10))} base value per click`,
 			cost: i => {
-				const baseCost = 5 ** (i * 1.9) * 10;
-				return i > 6 ? baseCost * i ** 3.5 * 1.05 : baseCost * 1.05;
+				const baseCost = 4 ** (i * 2) * 10;
+				return i > 6 ? baseCost * i ** 3.5 * 1.1 : baseCost * 1.1;
 			},
 			effects: i => [
 				{
