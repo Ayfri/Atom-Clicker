@@ -1,17 +1,18 @@
 <script lang="ts">
-	import Settings from '@components/modals/Settings.svelte';
+	import CurrencyBoosts from '@components/modals/CurrencyBoosts.svelte';
 	import Leaderboard from '@components/modals/Leaderboard.svelte';
+	import Settings from '@components/modals/Settings.svelte';
 	import SkillTree from '@components/modals/SkillTree.svelte';
 	import Electronize from '@components/prestige/Electronize.svelte';
 	import Protonise from '@components/prestige/Protonise.svelte';
 	import NotificationDot from '@components/ui/NotificationDot.svelte';
-	import { PROTONS_ATOMS_REQUIRED, ELECTRONS_PROTONS_REQUIRED } from '$lib/constants';
+	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
 	import { changelog } from '$stores/changelog';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { remoteMessage } from '$stores/remoteMessage.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
-	import { Network, Atom, Trophy, Orbit, Settings as SettingsIcon, type Icon as IconType } from 'lucide-svelte';
+	import { Atom, Network, Orbit, Settings as SettingsIcon, Trophy, Zap, type Icon as IconType } from 'lucide-svelte';
 	import { onDestroy, onMount, type Component } from 'svelte';
 
 
@@ -35,8 +36,15 @@
 			icon: Network,
 			label: 'Skill Tree',
 			component: SkillTree,
-			condition: () => gameManager.skillPointsTotal > 0,
+			condition: () => gameManager.atoms >= 5000 || gameManager.skillPointsTotal > 0,
 			notification: () => gameManager.hasAvailableSkillUpgrades,
+		},
+		{
+			icon: Zap,
+			label: 'Boosts',
+			component: CurrencyBoosts,
+			condition: () => gameManager.totalProtonisesAllTime > 0,
+			notification: () => gameManager.skillPointsAvailable > 0,
 		},
 		{
 			icon: Atom,

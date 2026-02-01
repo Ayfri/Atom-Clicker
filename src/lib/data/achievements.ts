@@ -321,6 +321,31 @@ function createPhotonUpgradeAchievements(): Achievement[] {
 	return achievements;
 }
 
+function createCurrencyBoostAchievements(): Achievement[] {
+	return [
+		{
+			id: 'first_boost',
+			name: 'Power Amplifier',
+			description: 'Allocate your first skill point to a currency boost',
+			condition: (manager: GameManager) => {
+				const totalBoosts = Object.values(manager.skillPointBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
+				return totalBoosts >= 1;
+			},
+			hiddenCondition: (manager: GameManager) => manager.totalProtonisesAllTime < 1,
+		},
+		{
+			id: 'max_single_boost',
+			name: 'Laser Focus',
+			description: 'Maximize a single currency boost (20 points)',
+			condition: (manager: GameManager) => {
+				const boosts = Object.values(manager.skillPointBoosts || {});
+				return boosts.some((points) => (points ?? 0) >= 20);
+			},
+			hiddenCondition: (manager: GameManager) => manager.skillPointsTotal < 5,
+		},
+	];
+}
+
 const achievementsArray: Achievement[] = [
 	...BUILDING_TYPES.map(createBuildingAchievements).flat(),
 	...createBuildingTotalAchievements(),
@@ -331,6 +356,7 @@ const achievementsArray: Achievement[] = [
 	...createProtoniseAchievements(),
 	...createElectronizeAchievements(),
 	...createCurrencyAchievements(),
+	...createCurrencyBoostAchievements(),
 	...createPhotonUpgradeAchievements(),
 	...SPECIAL_ACHIEVEMENTS,
 ];
