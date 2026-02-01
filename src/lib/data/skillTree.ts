@@ -109,6 +109,25 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['unlockLevels']
 	},
 
+	levelMastery: {
+		cost: { amount: 500_000, currency: CurrenciesTypes.ATOMS },
+		description: '+20% atoms production per 10 levels',
+		effects: [
+			{
+				apply: (currentValue, state) => {
+					const levelBonus = Math.floor((state.playerLevel || 0) / 10) * 0.2;
+					return currentValue * (1 + levelBonus);
+				},
+				description: 'Add 20% atoms production per 10 levels',
+				type: 'global'
+			}
+		],
+		id: 'levelMastery',
+		name: 'Level Mastery',
+		position: gridPos(2, 0),
+		requires: ['unlockLevels']
+	},
+
 	molecularBoost: {
 		cost: { amount: 1_000_000, currency: CurrenciesTypes.ATOMS },
 		description: '3x Molecule and Crystal production',
