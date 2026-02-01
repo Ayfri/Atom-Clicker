@@ -75,11 +75,15 @@
 			}
 		}
 
+		const boostMultiplier = gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
+		const finalValue = currentValue * boostMultiplier;
+
 		return {
 			base: baseGain,
+			boostMultiplier,
 			effects,
-			final: currentValue,
-			multiplier: baseGain > 0 ? currentValue / baseGain : 0,
+			final: finalValue,
+			multiplier: baseGain > 0 ? finalValue / baseGain : 0,
 		};
 	});
 
@@ -178,6 +182,17 @@
 									</div>
 								{:else}
 									<span class="text-[11px] text-white/50">No upgrades affecting gain.</span>
+								{/if}
+
+								<div class="h-px bg-white/10"></div>
+								<span class="text-[10px] uppercase tracking-wider text-white/40">Currency Boost</span>
+								{#if protonGainBreakdown.boostMultiplier > 1}
+									<div class="flex items-center justify-between gap-3 text-xs">
+										<span class="text-white/80">Proton Boost</span>
+										<span class="font-mono text-white/70">x{formatNumber(protonGainBreakdown.boostMultiplier, 2)}</span>
+									</div>
+								{:else}
+									<span class="text-[11px] text-white/50">No active proton boosts.</span>
 								{/if}
 
 								<div class="h-px bg-white/10"></div>

@@ -131,6 +131,18 @@
                 prefix="×"
                 value={formatNumber(gameManager.xpGainMultiplier)}
             />
+            {#each [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS] as currencyType}
+                {@const boost = gameManager.getCurrencyBoostMultiplier(currencyType)}
+                {#if boost > 1}
+                    <StatItem
+                        currency={currencyType}
+                        fullValue={`${boost.toFixed(2)}×`}
+                        label={`${currencyType} Boost`}
+                        prefix="×"
+                        value={formatNumber(boost)}
+                    />
+                {/if}
+            {/each}
         </div>
     </section>
 

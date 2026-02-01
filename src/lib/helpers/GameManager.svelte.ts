@@ -128,7 +128,7 @@ export class GameManager {
 
 	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
 
-	// Skill Points System (from building levels, 10% boost per point, max 20 per currency)
+	// Currency Boost System (from building levels, 10% boost per point, max 20 per currency)
 	skillPointsTotal = $derived(Object.values(this.buildings).reduce((sum, building) => sum + (building?.level ?? 0), 0));
 	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
 	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillPointsUsed);

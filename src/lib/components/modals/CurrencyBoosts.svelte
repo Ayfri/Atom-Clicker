@@ -20,24 +20,24 @@
 	];
 </script>
 
-<Modal {onClose} title="Currency Boosts" width="sm">
+<Modal {onClose} title="Currency Boost" width="sm">
 	<div class="flex flex-col gap-4">
 		<!-- Header info -->
 		<div class="rounded-lg bg-black/20 p-4">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<Zap size={20} class="text-yellow-400" />
-					<span class="font-bold text-white">Skill Points</span>
+					<span class="font-bold text-white">Currency Boost</span>
 				</div>
 				<span class="font-mono text-xl font-bold text-yellow-400">
 					{gameManager.skillPointsAvailable} / {gameManager.skillPointsTotal}
 				</span>
 			</div>
 			<p class="mt-2 text-sm text-white/60">
-				Earn skill points by leveling up your buildings. Each point adds <span class="font-bold text-yellow-300">+10%</span> production to a currency (max 20 points per currency).
+				Earn currency boosts by leveling up your buildings. Each point adds <span class="font-bold text-yellow-300">+10%</span> production to a currency (max 20 points per currency).
 			</p>
 			<p class="mt-1 text-xs text-red-400/80">
-				Skill point allocations reset on Protonise or Electronize.
+				Currency boost allocations reset on Protonise or Electronize.
 			</p>
 		</div>
 

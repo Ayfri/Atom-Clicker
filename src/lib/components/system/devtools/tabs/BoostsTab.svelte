@@ -19,7 +19,7 @@
 		<div class="flex items-center justify-between">
 			<div class="flex items-center gap-2 text-accent-300">
 				<Zap size={20} class="text-yellow-400" />
-				<span class="font-bold">Skill Points</span>
+				<span class="font-bold">Currency Boost</span>
 			</div>
 			<span class="font-mono text-xl font-bold text-yellow-400">
 				{gameManager.skillPointsAvailable} / {gameManager.skillPointsTotal}
