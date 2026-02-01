@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { formatNumber } from '$lib/utils';
-	import { gameManager } from '$helpers/GameManager.svelte';
+	import { CurrenciesTypes } from '$data/currencies';
+	import { FeatureTypes } from '$data/features';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
-	import { onMount } from 'svelte';
+	import { formatNumber } from '$lib/utils';
+	import { addParticles } from '$stores/canvas';
+	import { mobile } from '$stores/window.svelte';
 	import PhotonCounter from '@components/prestige/PhotonCounter.svelte';
 	import PhotonUpgrades from '@components/prestige/PhotonUpgrades.svelte';
 	import Currency from '@components/ui/Currency.svelte';
-	import { addParticles } from '$stores/canvas';
-	import { CurrenciesTypes } from '$data/currencies';
-	import { mobile } from '$stores/window.svelte';
-
-	import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
+	import { onMount } from 'svelte';
 
 	export function simulateClick() {
 		if (!container || circles.length === 0) return;
@@ -182,11 +182,13 @@
 	}
 
 	function clickCircle(circle: Circle, event: MouseEvent) {
-		const amount = getCircleValue(circle);
+		const baseAmount = getCircleValue(circle);
 
 		if (circle.type === 'excited') {
+			const amount = baseAmount * gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.EXCITED_PHOTONS);
 			currenciesManager.add(CurrenciesTypes.EXCITED_PHOTONS, amount);
 		} else {
+			const amount = baseAmount * gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.PHOTONS);
 			currenciesManager.add(CurrenciesTypes.PHOTONS, amount);
 		}
 
@@ -288,7 +290,7 @@
 						class="absolute cursor-pointer flex items-center justify-center rounded-full"
 						onclick={(event) => clickCircle(circle, event)}
 						onpointerenter={(event) => {
-							if (gameManager.photonUpgrades['feature_hover_collection'] > 0) {
+							if (gameManager.features[FeatureTypes.HOVER_COLLECTION]) {
 								clickCircle(circle, event);
 							}
 						}}

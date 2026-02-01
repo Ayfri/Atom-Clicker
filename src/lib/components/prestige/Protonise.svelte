@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '$data/currencies';
+	import { FeatureTypes } from '$data/features';
 	import { getUpgradesWithEffects } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { PROTONS_ATOMS_REQUIRED } from '$lib/constants';
@@ -22,7 +23,7 @@
 		onClose();
 	}
 
-	let isStabilityUnlocked = $derived(!!gameManager.upgrades.includes('stability_unlock'));
+	let isStabilityUnlocked = $derived(gameManager.features[FeatureTypes.STABILITY_FIELD] === true);
 	let stabilityProgress = $state(0);
 	let maxBoostDisplay = $state(0);
 	let timeLeftDisplay = $state(0);

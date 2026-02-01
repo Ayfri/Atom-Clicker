@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { FeatureTypes } from '$data/features';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
 	import { setGlobals } from '$lib/globals';
@@ -136,7 +137,7 @@
 		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'} lg:pb-4 transition-all duration-300"
 		style="padding-top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(3rem + 1.5rem)' : '3rem'};"
 	>
-		{#if gameManager.upgrades.includes('feature_levels')}
+		{#if gameManager.features[FeatureTypes.LEVELS]}
 			<Levels/>
 		{/if}
 
