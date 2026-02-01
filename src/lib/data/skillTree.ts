@@ -200,27 +200,6 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['nanoEnhancement']
 	},
 
-	powerUpMastery: {
-		cost: { amount: 10_000_000, currency: CurrenciesTypes.ATOMS },
-		description: '0.9x power-up interval, 1.1x duration',
-		effects: [
-			{
-				apply: (currentValue) => currentValue * 0.9,
-				description: 'Multiply power-up interval by 0.9',
-				type: 'power_up_interval'
-			},
-			{
-				apply: (currentValue) => currentValue * 1.1,
-				description: 'Multiply power-up duration by 1.1',
-				type: 'power_up_duration'
-			}
-		],
-		id: 'powerUpMastery',
-		name: 'Power-up Mastery',
-		position: gridPos(3, 2),
-		requires: ['offlineProgress']
-	},
-
 	geologicalForce: {
 		cost: { amount: 15_000_000, currency: CurrenciesTypes.ATOMS },
 		description: '2x Rock and Planet production',
@@ -244,6 +223,27 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['biologicalAmplifier']
 	},
 
+	powerUpMastery: {
+		cost: { amount: 10_000_000, currency: CurrenciesTypes.ATOMS },
+		description: '0.9x power-up interval, 1.1x duration',
+		effects: [
+			{
+				apply: (currentValue) => currentValue * 0.9,
+				description: 'Multiply power-up interval by 0.9',
+				type: 'power_up_interval'
+			},
+			{
+				apply: (currentValue) => currentValue * 1.1,
+				description: 'Multiply power-up duration by 1.1',
+				type: 'power_up_duration'
+			}
+		],
+		id: 'powerUpMastery',
+		name: 'Power-up Mastery',
+		position: gridPos(2, 2),
+		requires: ['offlineProgress']
+	},
+
 	purpleRealm: {
 		cost: { amount: 10_000_000_000, currency: CurrenciesTypes.ATOMS },
 		description: 'Unlock the mysterious purple realm',
@@ -251,12 +251,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.PURPLE_REALM,
 		id: 'purpleRealm',
 		name: 'Purple Realm',
-		position: gridPos(4, 3),
+		position: gridPos(2, 3),
 		requires: ['powerUpMastery']
 	},
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// TIER 4 - PROTON BRANCH (Protons)
+	// TIER 4 - PROTON BRANCH (Protons) - Goes UP (negative y)
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	stabilityField: {
@@ -282,7 +282,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'electronHarvester',
 		name: 'Electron Harvester',
-		position: gridPos(-1, -1),
+		position: gridPos(-1, -2),
 		requires: ['stabilityField']
 	},
 
@@ -298,7 +298,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'protonCollector',
 		name: 'Proton Collector',
-		position: gridPos(-2, -2),
+		position: gridPos(-1, -3),
 		requires: ['electronHarvester']
 	},
 
@@ -317,7 +317,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'prestigeBonus',
 		name: 'Prestige Bonus',
-		position: gridPos(-3, -2),
+		position: gridPos(-1, -4),
 		requires: ['protonCollector']
 	},
 
@@ -340,13 +340,13 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'quantumResonance',
 		name: 'Quantum Resonance',
-		position: gridPos(-4, -3),
+		position: gridPos(-1, -5),
 		requires: ['prestigeBonus']
 	},
 
 	stellarCore: {
-		cost: { amount: 25_000_000, currency: CurrenciesTypes.PROTONS },
 		condition: (state) => (state.buildings.star?.count ?? 0) >= 5,
+		cost: { amount: 25_000_000, currency: CurrenciesTypes.PROTONS },
 		description: '2x production for Star and higher buildings',
 		effects: [
 			{
@@ -370,7 +370,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'stellarCore',
 		name: 'Stellar Core',
-		position: gridPos(-5, -3),
+		position: gridPos(-1, -6),
 		requires: ['quantumResonance']
 	},
 
@@ -389,9 +389,13 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'particleAccelerator',
 		name: 'Particle Accelerator',
-		position: gridPos(-6, -4),
+		position: gridPos(-1, -7),
 		requires: ['stellarCore']
 	},
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TIER 5 - ELECTRON/PHOTON BRANCH (Goes UP, right side)
+	// ═══════════════════════════════════════════════════════════════════════════
 
 	communityPower: {
 		cost: { amount: 1_000, currency: CurrenciesTypes.PROTONS },
@@ -408,13 +412,9 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'communityPower',
 		name: 'Community Power',
-		position: gridPos(1, -1),
+		position: gridPos(1, -2),
 		requires: ['stabilityField']
 	},
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// TIER 5 - ELECTRON BRANCH (Electrons)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	cosmicSynergy: {
 		cost: { amount: 10, currency: CurrenciesTypes.ELECTRONS },
@@ -433,13 +433,9 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'cosmicSynergy',
 		name: 'Cosmic Synergy',
-		position: gridPos(2, -1),
+		position: gridPos(1, -3),
 		requires: ['communityPower']
 	},
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// TIER 6 - PHOTON BRANCH (Photons / Excited Photons)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	hoverCollection: {
 		condition: (manager) => Object.keys(manager.photonUpgrades || {}).length >= 1,
@@ -449,7 +445,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.HOVER_COLLECTION,
 		id: 'hoverCollection',
 		name: 'Quantum Magnetism',
-		position: gridPos(3, -1),
+		position: gridPos(1, -4),
 		requires: ['cosmicSynergy']
 	},
 
@@ -472,7 +468,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'photonEfficiency',
 		name: 'Photon Efficiency',
-		position: gridPos(4, -2),
+		position: gridPos(1, -5),
 		requires: ['hoverCollection']
 	},
 
@@ -494,12 +490,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'photonProtonBoost',
 		name: 'Photon Proton Boost',
-		position: gridPos(5, -2),
+		position: gridPos(1, -6),
 		requires: ['photonEfficiency']
 	},
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// BUILDING MULTIPLIER BRANCH (Building-specific, requires 100 of each)
+	// BUILDING MULTIPLIER BRANCH (Left side, requires 100 of each building)
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
@@ -520,13 +516,62 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 			],
 			id: `${buildingType}Multiplier`,
 			name: `${building.name} Multiplier`,
-			position: gridPos(-(i + 0.5), 3 + Math.floor(i / 3)),
+			position: gridPos(-6 + Math.floor(i / 3), 4 + (i % 3)),
 			requires: previousBuildingType
 				? [`${previousBuildingType}Multiplier`]
 				: ['geologicalForce']
 		} satisfies SkillUpgrade;
+	}),
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// BUILDING LEVEL MASTERY BRANCH (Right side, building level-based bonuses)
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	...createBuildingsSkillUpgrades((buildingType, building, i) => {
+		const previousBuildingType = BUILDING_TYPES[i - 1];
+		const baseCost = 5_000_000 * Math.pow(10, i);
+
+		return {
+			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
+			description: `+10% ${building.name} production per 25 ${building.name} levels`,
+			effects: [
+				{
+					apply: (currentValue, state) => {
+						const buildingLevel = state.buildings[buildingType]?.level || 0;
+						const levelBonus = Math.floor(buildingLevel / 25) * 0.1;
+						return currentValue * (1 + levelBonus);
+					},
+					description: `Add 10% ${building.name} production per 25 ${building.name} levels`,
+					target: buildingType,
+					type: 'building'
+				}
+			],
+			id: `${buildingType}LevelMastery`,
+			name: `${building.name} Level Mastery`,
+			position: gridPos(3 + Math.floor(i / 3), 1 + (i % 3)),
+			requires: previousBuildingType
+				? [`${previousBuildingType}LevelMastery`]
+				: ['levelMastery']
+		} satisfies SkillUpgrade;
 	})
 };
+
+// Check for duplicate positions in dev mode
+if (import.meta.env.DEV) {
+	const positionMap = new Map<string, string[]>();
+	for (const [id, skill] of Object.entries(SKILL_UPGRADES)) {
+		const posKey = `${skill.position.x},${skill.position.y}`;
+		if (!positionMap.has(posKey)) {
+			positionMap.set(posKey, []);
+		}
+		positionMap.get(posKey)!.push(id);
+	}
+	for (const [pos, ids] of positionMap) {
+		if (ids.length > 1) {
+			console.warn(`[SkillTree] Duplicate position at ${pos}: ${ids.join(', ')}`);
+		}
+	}
+}
 
 // Skills that unlock persistent features (kept after prestige)
 export const PERSISTENT_SKILL_IDS = Object.values(SKILL_UPGRADES)
