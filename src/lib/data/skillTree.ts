@@ -473,7 +473,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	photonProtonBoost: {
-		cost: { amount: 2_500, currency: CurrenciesTypes.PHOTONS },
+		cost: { amount: 10_000, currency: CurrenciesTypes.PHOTONS },
 		description: 'Add 1% protons per photon upgrade owned',
 		effects: [
 			{
