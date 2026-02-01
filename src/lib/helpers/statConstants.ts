@@ -1,5 +1,3 @@
-import { RealmTypes } from '$data/realms';
-
 // Layer types
 // 0 = never reset
 // 1 = reset all stats at layer
@@ -29,12 +27,14 @@ export const statsConfig: Record<string, StatConfig> = {
 	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1, saveable: true },
 	buildings: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 1 },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 17 }, // Handled by CurrenciesManager
+	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 21 },
+	features: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 21 },
 	highestAPS: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL, minVersion: 1 },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM, minVersion: 12 },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
-	realms: { defaultValue: { [RealmTypes.ATOMS]: { unlocked: true }, [RealmTypes.PHOTONS]: { unlocked: false } }, layer: LAYERS.NEVER, minVersion: 19 },
+	realms: { defaultValue: { atoms: { unlocked: true }, photons: { unlocked: false } }, layer: LAYERS.NEVER, minVersion: 19 },
 	settings: { defaultValue: { automation: { autoClick: false, autoClickPhotons: false, buildings: [], upgrades: false }, gameplay: { offlineProgressEnabled: true }, upgrades: { displayAlreadyBought: false } }, layer: LAYERS.NEVER, minVersion: 8 },
 	skillUpgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 3 },
 	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER, minVersion: 5 },
@@ -56,6 +56,8 @@ export const STATS = {
 	ACTIVE_POWER_UPS: 'activePowerUps',
 	BUILDINGS: 'buildings',
 	CURRENCIES: 'currencies',
+	CURRENCY_BOOSTS: 'currencyBoosts',
+	FEATURES: 'features',
 	HIGHEST_APS: 'highestAPS',
 	IN_GAME_TIME: 'inGameTime',
 	LAST_SAVE: 'lastSave',

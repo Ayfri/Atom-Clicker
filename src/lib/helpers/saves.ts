@@ -1,12 +1,13 @@
-import {BUILDING_LEVEL_UP_COST, type BuildingType} from '$data/buildings';
-import {CurrenciesTypes} from '$data/currencies';
-import type {Building, GameState} from '$lib/types';
+import { BUILDING_LEVEL_UP_COST, type BuildingType } from '$data/buildings';
+import { CurrenciesTypes } from '$data/currencies';
 import { RealmTypes } from '$data/realms';
-import {saveRecovery, type SaveErrorType} from '$stores/saveRecovery';
-import {statsConfig} from '$helpers/statConstants';
+import type { Building, GameState } from '$lib/types';
+import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
+import { statsConfig } from '$helpers/statConstants';
+import { saveRecovery, type SaveErrorType } from '$stores/saveRecovery';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21;
 
 export interface LoadSaveResult {
 	errorDetails?: string;
@@ -140,6 +141,7 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 
 	// Define custom validators for complex types
 	const customValidators: Record<string, (v: unknown) => boolean> = {
+		features: (v: unknown) => typeof v === 'object' && v !== null,
 		settings: (v: unknown) => {
 			const val = v as Record<string, any>;
 			const hasValidGameplay = typeof val.gameplay === 'undefined' || (
@@ -427,6 +429,70 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 			};
 			delete state.photonRealmUnlocked;
 			delete state.purpleRealmUnlocked;
+		}
+
+		if (state.version === 20) {
+			// Major migration: Convert old skill-point system to new currency-based skill system
+			// 1. Move legacy skills that are now upgrades
+			// 2. Convert feature upgrades to new skill IDs
+			// 3. Initialize currencyBoosts
+
+			const upgrades = new Set(state.upgrades ?? []);
+			const skillUpgrades = new Set(state.skillUpgrades ?? []);
+
+			// Legacy skills that should be moved to upgrades (from previous system)
+			const legacySkillToUpgradeIds = [
+				'atomicFusion',
+				'bonusHiggsBosonSpeed0',
+				'bonusHiggsBosonSpeed1',
+				'bonusHiggsBosonSpeed2',
+				'clickPowerBoost0',
+				'clickPowerBoost1',
+				'clickPowerBoost2',
+				'levelBoost0',
+				'levelBoost1',
+				'powerUpBoost0',
+				'powerUpBoost1',
+				'xpBoost0',
+				'xpBoost1',
+				'xpBoost2'
+			];
+
+			// Move legacy skills to upgrades
+			legacySkillToUpgradeIds.forEach((id) => {
+				if (skillUpgrades.has(id)) {
+					upgrades.add(id);
+					skillUpgrades.delete(id);
+				}
+			});
+
+			// Map old upgrade IDs to new skill IDs (features are now skills)
+			const upgradeToSkillMap: Record<string, string> = {
+				feature_levels: 'unlockLevels',
+				feature_offline_progress: 'offlineProgress',
+				feature_purple_realm: 'purpleRealm',
+				proton_community_boost: 'communityPower',
+				stability_unlock: 'stabilityField'
+			};
+
+			// Convert old feature upgrades to skills
+			Object.entries(upgradeToSkillMap).forEach(([oldId, newId]) => {
+				if (upgrades.has(oldId)) {
+					skillUpgrades.add(newId);
+					upgrades.delete(oldId);
+				}
+			});
+
+			// Convert photon upgrade feature to skill
+			const photonUpgrades = state.photonUpgrades ?? {};
+			if (photonUpgrades.feature_hover_collection > 0) {
+				skillUpgrades.add('hoverCollection');
+			}
+
+			state.upgrades = Array.from(upgrades);
+			state.skillUpgrades = Array.from(skillUpgrades);
+			state.currencyBoosts = {};
+			state.features = deriveFeatureState({ skillUpgrades: state.skillUpgrades });
 		}
 
 		state.version = nextVersion;

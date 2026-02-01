@@ -1,41 +1,9 @@
 import { BUILDING_TYPES, BUILDINGS, type BuildingType } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import type { Effect, Upgrade } from '$lib/types';
+import { FeatureTypes } from '$data/features';
 import type { GameManager } from '$helpers/GameManager.svelte';
+import type { Effect, Upgrade } from '$lib/types';
 import { capitalize, formatNumber, shortNumberText } from '$lib/utils';
-
-export const SPECIAL_UPGRADES: Upgrade[] = [
-	{
-		id: 'feature_levels',
-		name: 'Unlock Levels',
-		description: 'Unlock the leveling system',
-		cost: {
-			amount: 15_000,
-			currency: CurrenciesTypes.ATOMS,
-		},
-		effects: [],
-	},
-	{
-		id: 'feature_offline_progress',
-		name: 'Offline Progress',
-		description: 'Enable offline progress when you are away',
-		cost: {
-			amount: 250_000,
-			currency: CurrenciesTypes.ATOMS,
-		},
-		effects: [],
-	},
-	{
-		id: 'feature_purple_realm',
-		name: 'Purple Realm',
-		description: 'Unlock the mysterious purple realm',
-		cost: {
-			amount: 1_500_000_000,
-			currency: CurrenciesTypes.ATOMS,
-		},
-		effects: [],
-	},
-];
 
 interface CreateUpgradesOptions {
 	condition?: (index: number, manager: GameManager) => boolean;
@@ -209,7 +177,7 @@ function createGlobalUpgrades() {
 }
 
 function createOfflineCapUpgrades() {
-	const isUnlocked = (state: GameManager) => state.upgrades.includes('feature_offline_progress');
+	const isUnlocked = (state: GameManager) => state.features[FeatureTypes.OFFLINE_PROGRESS] === true;
 	const caps = [
 		{
 			cost: 900_000,
@@ -291,7 +259,7 @@ function createLevelBoostUpgrades() {
 						: Math.ceil(5 ** (i * 4) * (i > 3 ? i ** 4 : 1) * 1.1),
 				currency: 'Atoms',
 			},
-			condition: state => state.upgrades.includes('feature_levels') || i === 1,
+			condition: state => state.features[FeatureTypes.LEVELS] === true || i === 1,
 			effects: [
 				{
 					type: 'global',
@@ -448,27 +416,6 @@ function createProtonUpgrades() {
 		}),
 	);
 
-	// Community boost
-	upgrades.push({
-		id: 'proton_community_boost',
-		name: 'Community Power',
-		description: '1% atom boost per thousand registered players',
-		cost: {
-			amount: 10,
-			currency: CurrenciesTypes.PROTONS,
-		},
-		effects: [
-			{
-				type: 'global',
-				description: '1% atom boost per thousand players',
-				apply: (currentValue, manager) => {
-					const boost = (manager.totalUsers / 1000) * 0.01;
-					return currentValue * (1 + boost);
-				},
-			},
-		],
-	} as Upgrade);
-
 	// Auto-clicker upgrade
 	upgrades.push(
 		...createUpgrades({
@@ -494,7 +441,7 @@ function createProtonUpgrades() {
 	// Offline automation unlocks
 	upgrades.push(
 		{
-			condition: state => state.upgrades.includes('feature_offline_progress'),
+			condition: state => state.features[FeatureTypes.OFFLINE_PROGRESS] === true,
 			cost: {
 				amount: 120,
 				currency: CurrenciesTypes.PROTONS,
@@ -505,7 +452,7 @@ function createProtonUpgrades() {
 			name: 'Offline Auto-upgrades',
 		} as Upgrade,
 		{
-			condition: state => state.upgrades.includes('feature_offline_progress'),
+			condition: state => state.features[FeatureTypes.OFFLINE_PROGRESS] === true,
 			cost: {
 				amount: 250,
 				currency: CurrenciesTypes.PROTONS,
@@ -517,24 +464,6 @@ function createProtonUpgrades() {
 		} as Upgrade,
 	);
 
-	// Stability Field Unlock
-	upgrades.push({
-		id: 'stability_unlock',
-		name: 'Stability Field',
-		description: 'Unlock the Stability Meter (Passive Idle Bonus)',
-		cost: {
-			amount: 5000,
-			currency: CurrenciesTypes.PROTONS,
-		},
-		effects: [
-			{
-				type: 'global',
-				description: 'Unlock Stability Meter',
-				apply: (val) => val,
-			},
-		],
-	} as Upgrade);
-
 	// Stability Boost
 	upgrades.push(
 		...createUpgrades({
@@ -543,7 +472,7 @@ function createProtonUpgrades() {
 			currency: CurrenciesTypes.PROTONS,
 			name: i => `Stable Resonance ${i}`,
 			description: i => `+${25 * i}% effect from Stability Meter`,
-			condition: (_, state) => state.upgrades.includes('stability_unlock'),
+			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
 			cost: i => {
 				const baseCost = Math.ceil(140 * 2.05 ** i);
 				return baseCost;
@@ -566,7 +495,7 @@ function createProtonUpgrades() {
 			currency: CurrenciesTypes.PROTONS,
 			name: i => `Field Coherence ${i}`,
 			description: i => `Stability grows 10% faster`,
-			condition: (_, state) => state.upgrades.includes('stability_unlock'),
+			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
 			cost: i => {
 				const baseCost = Math.ceil(100 * 2.25 ** i);
 				return baseCost;
@@ -589,7 +518,7 @@ function createProtonUpgrades() {
 			currency: CurrenciesTypes.PROTONS,
 			name: i => `Temporal Expansion ${i}`,
 			description: i => `Extends stability capacity and max bonus`,
-			condition: (_, state) => state.upgrades.includes('stability_unlock'),
+			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
 			cost: i => {
 				const baseCost = Math.ceil(500 * 3 ** i);
 				return baseCost;
@@ -760,7 +689,6 @@ function createElectronUpgrades() {
 }
 
 const upgrades = [
-	...SPECIAL_UPGRADES,
 	...BUILDING_TYPES.map(createBuildingUpgrades).flat(),
 	...createClickPowerUpgrades(),
 	...createGlobalUpgrades(),
@@ -768,7 +696,7 @@ const upgrades = [
 	...createPowerUpIntervalUpgrades(),
 	...createLevelBoostUpgrades(),
 	...createProtonUpgrades(),
-	...createElectronUpgrades(),
+	...createElectronUpgrades()
 ];
 
 export const UPGRADES = Object.fromEntries(upgrades.map(upgrade => [upgrade.id, upgrade]));

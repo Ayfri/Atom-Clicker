@@ -1,5 +1,6 @@
 import type { BuildingType } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
+import { FeatureTypes } from '$data/features';
 import { UPGRADES } from '$data/upgrades';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
@@ -13,19 +14,19 @@ const OFFLINE_CAP_UPGRADE_MAP = {
 	offline_cap_1_5d: 36 * 60 * 60 * 1000,
 	offline_cap_1d: 24 * 60 * 60 * 1000,
 	offline_cap_2d: 48 * 60 * 60 * 1000,
-	offline_cap_3d: 72 * 60 * 60 * 1000,
+	offline_cap_3d: 72 * 60 * 60 * 1000
 } as const;
 const OFFLINE_INCOME_MULTIPLIER = 0.1;
 const OFFLINE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
 const OFFLINE_MIN_MS = 30_000;
 const OFFLINE_PHOTON_MAX = 10;
 const OFFLINE_PHOTON_MIN = 1;
-const OFFLINE_UNLOCK_UPGRADE_ID = 'feature_offline_progress';
+const OFFLINE_UNLOCK_FEATURE = FeatureTypes.OFFLINE_PROGRESS;
 const XP_PER_ATOM = 0.1;
 
 export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number): OfflineProgressSummary | null {
 	if (!manager.settings.gameplay.offlineProgressEnabled) return null;
-	if (!manager.upgrades.includes(OFFLINE_UNLOCK_UPGRADE_ID)) return null;
+	if (!manager.features[OFFLINE_UNLOCK_FEATURE]) return null;
 
 	const now = Date.now();
 	const lastTimestamp = Math.max(manager.lastSave ?? 0, manager.lastInteractionTime ?? 0, manager.startDate ?? 0);
@@ -170,7 +171,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;
 
-	if (atomsGained > 0 && manager.upgrades.includes('feature_levels')) {
+	if (atomsGained > 0 && manager.features[FeatureTypes.LEVELS]) {
 		manager.totalXP += atomsGained * XP_PER_ATOM * manager.xpGainMultiplier;
 	}
 
@@ -298,7 +299,7 @@ function getOfflinePhotonValueBonus(manager: GameManager) {
 }
 
 function getOfflineProgressCapMs(manager: GameManager) {
-	if (!manager.upgrades.includes(OFFLINE_UNLOCK_UPGRADE_ID)) return 0;
+	if (!manager.features[OFFLINE_UNLOCK_FEATURE]) return 0;
 
 	let capMs = OFFLINE_BASE_MS;
 	Object.entries(OFFLINE_CAP_UPGRADE_MAP).forEach(([id, value]) => {

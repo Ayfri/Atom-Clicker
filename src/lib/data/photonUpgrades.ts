@@ -1,8 +1,8 @@
-import type { PhotonUpgrade } from '$lib/types';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import { formatNumber } from '$lib/utils';
 import { CurrenciesTypes } from '$data/currencies';
-
+import { FeatureTypes } from '$data/features';
+import type { GameManager } from '$helpers/GameManager.svelte';
+import type { PhotonUpgrade } from '$lib/types';
+import { formatNumber } from '$lib/utils';
 
 export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	auto_clicker: {
@@ -120,7 +120,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 		costMultiplier: 1,
 		maxLevel: 1,
 		effects: () => [],
-		condition: (manager: GameManager) => manager.upgrades.includes('feature_offline_progress'),
+		condition: (manager: GameManager) => manager.features[FeatureTypes.OFFLINE_PROGRESS] === true,
 	},
 	photon_spawn_rate: {
 		id: 'photon_spawn_rate',
@@ -327,17 +327,6 @@ export const EXCITED_PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 				apply: (currentValue) => currentValue + (0.0008 * level),
 			},
 		],
-	},
-	feature_hover_collection: {
-		baseCost: 100000,
-		condition: (manager) => manager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime >= 10000,
-		costMultiplier: 1,
-		currency: CurrenciesTypes.EXCITED_PHOTONS,
-		description: () => 'Unlock the ability to collect photons by simply hovering over them or touching them.',
-		effects: () => [],
-		id: 'feature_hover_collection',
-		maxLevel: 1,
-		name: 'Quantum Magnetism',
 	},
 	photon_overdrive: {
 		baseCost: 2000,

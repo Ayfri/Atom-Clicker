@@ -1,3 +1,4 @@
+import { FeatureTypes } from '$data/features';
 import type { GameState } from '$lib/types';
 
 export const RealmTypes = {
@@ -18,7 +19,7 @@ export const REALMS: Record<RealmType, RealmDefinition> = {
 		id: RealmTypes.ATOMS
 	},
 	[RealmTypes.PHOTONS]: {
-		condition: (state) => state.upgrades.includes('feature_purple_realm'),
+		condition: (state) => state.features[FeatureTypes.PURPLE_REALM] === true,
 		id: RealmTypes.PHOTONS
 	}
 };
