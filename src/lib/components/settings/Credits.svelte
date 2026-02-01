@@ -84,24 +84,22 @@
 </script>
 
 <div class="flex flex-col gap-6 h-full overflow-y-auto custom-scrollbar">
-    <div class="flex items-center gap-3">
-        <h2 class="text-2xl font-bold text-white">Credits</h2>
-        {#if !hiddenAtomClicked && !isAlreadyUnlocked}
-            <button
-                class="opacity-10 hover:opacity-50 transition-opacity duration-1000"
-                onclick={handleHiddenAtomClick}
-                transition:fade={{ duration: 1000 }}
-                aria-label="Hidden secret"
-                title="?"
-            >
-                <Currency name={CurrenciesTypes.ATOMS} />
-            </button>
-        {/if}
-    </div>
-
-    <div class="flex flex-col gap-8 md:flex-row md:gap-12">
-        <div class="flex-1 flex flex-col gap-6">
-            <h3 class="border-b border-accent/50 pb-2 text-lg font-bold text-accent">Created by</h3>
+	<div class="flex flex-col gap-8 md:flex-row md:gap-12">
+		<div class="flex-1 flex flex-col gap-6">
+			<div class="border-b border-accent/50 pb-2 flex items-center gap-2">
+				<h3 class="text-lg font-bold text-accent">Created by</h3>
+				{#if !hiddenAtomClicked && !isAlreadyUnlocked}
+					<button
+						class="opacity-8 hover:opacity-50 transition-opacity duration-1000"
+						onclick={handleHiddenAtomClick}
+						transition:fade={{ duration: 1000 }}
+						aria-label="Hidden secret"
+						title="?"
+					>
+						<Currency name={CurrenciesTypes.ATOMS} />
+					</button>
+				{/if}
+			</div>
             <div class="flex flex-col gap-4">
                 <a
                     href={creator.url}
