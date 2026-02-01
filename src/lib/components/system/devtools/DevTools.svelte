@@ -1,24 +1,26 @@
 <script lang="ts">
 	import { dev } from '$app/environment';
 	import Modal from '@components/ui/Modal.svelte';
-	import StatsTab from './tabs/StatsTab.svelte';
-	import UpgradesTab from './tabs/UpgradesTab.svelte';
 	import AchievementsTab from './tabs/AchievementsTab.svelte';
-	import JsonTab from './tabs/JsonTab.svelte';
 	import ActionsTab from './tabs/ActionsTab.svelte';
 	import AutomationTab from './tabs/AutomationTab.svelte';
-	import { BarChart3, TrendingUp, Trophy, FileJson, Zap, Settings, Cpu } from 'lucide-svelte';
+	import BoostsTab from './tabs/BoostsTab.svelte';
+	import JsonTab from './tabs/JsonTab.svelte';
+	import StatsTab from './tabs/StatsTab.svelte';
+	import UpgradesTab from './tabs/UpgradesTab.svelte';
+	import { BarChart3, Cpu, FileJson, Settings, TrendingUp, Trophy, Zap } from 'lucide-svelte';
 
 	let isOpen = $state(false);
-	let activeTab = $state<'stats' | 'upgrades' | 'achievements' | 'json' | 'actions' | 'automation'>('stats');
+	let activeTab = $state<'actions' | 'achievements' | 'automation' | 'boosts' | 'json' | 'stats' | 'upgrades'>('stats');
 
 	const tabs = [
-		{ id: 'stats' as const, label: 'Stats', icon: BarChart3 },
-		{ id: 'upgrades' as const, label: 'Upgrades', icon: TrendingUp },
-		{ id: 'achievements' as const, label: 'Achievements', icon: Trophy },
-		{ id: 'automation' as const, label: 'Automation', icon: Cpu },
-		{ id: 'json' as const, label: 'JSON', icon: FileJson },
-		{ id: 'actions' as const, label: 'Actions', icon: Zap }
+		{ icon: BarChart3, id: 'stats' as const, label: 'Stats' },
+		{ icon: TrendingUp, id: 'upgrades' as const, label: 'Upgrades' },
+		{ icon: Trophy, id: 'achievements' as const, label: 'Achievements' },
+		{ icon: Cpu, id: 'automation' as const, label: 'Automation' },
+		{ icon: Zap, id: 'boosts' as const, label: 'Boosts' },
+		{ icon: FileJson, id: 'json' as const, label: 'JSON' },
+		{ icon: Zap, id: 'actions' as const, label: 'Actions' }
 	];
 
 	function toggleDevTools() {
@@ -61,6 +63,8 @@
 					<UpgradesTab />
 				{:else if activeTab === 'achievements'}
 					<AchievementsTab />
+				{:else if activeTab === 'boosts'}
+					<BoostsTab />
 				{:else if activeTab === 'json'}
 					<JsonTab />
 				{:else if activeTab === 'actions'}

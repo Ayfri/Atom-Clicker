@@ -74,21 +74,5 @@
 				</div>
 			{/each}
 		</div>
-
-		<!-- Progress bars showing distribution -->
-		{#if gameManager.skillPointsTotal > 0}
-			<div class="rounded-lg bg-black/20 p-3">
-				<div class="mb-2 flex items-center justify-between text-xs text-white/50">
-					<span>Points allocated</span>
-					<span>{gameManager.skillPointsUsed} / {gameManager.skillPointsTotal}</span>
-				</div>
-				<div class="h-2 w-full overflow-hidden rounded-full bg-black/40">
-					<div
-						class="h-full bg-gradient-to-r from-yellow-500 to-yellow-300 transition-all duration-300"
-						style="width: {(gameManager.skillPointsUsed / gameManager.skillPointsTotal) * 100}%"
-					></div>
-				</div>
-			</div>
-		{/if}
-	</div>
+</div>
 </Modal>
