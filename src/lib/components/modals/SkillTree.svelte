@@ -3,6 +3,8 @@
 	import { Background, Controls, type Edge, type Node, Position, SvelteFlow } from '@xyflow/svelte';
 	import SkillNode from '@components/game/SkillNode.svelte';
 	import Modal from '@components/ui/Modal.svelte';
+	import { CurrenciesTypes } from '$data/currencies';
+	import { RealmTypes } from '$data/realms';
 	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
@@ -43,37 +45,76 @@
 	onDestroy(() => clearInterval(interval));
 
 	function updateTree() {
-		nodes = Object.values(SKILL_UPGRADES).map((skill) => ({
-			id: skill.id,
-			type: 'skill',
-			position: { ...skill.position },
-			data: {
-				...skill,
-				unlocked: gameManager.skillUpgrades.includes(skill.id),
-				available: canUnlockSkill(skill)
-			}
-		}));
+		const skillList = Object.values(SKILL_UPGRADES);
+		const unlockedSkills = gameManager.skillUpgrades;
 
-		edges = Object.values(SKILL_UPGRADES).flatMap((skill) =>
-			(skill.requires ?? []).map<Edge>((requireId) => {
-				const req = SKILL_UPGRADES[requireId];
-				const diff = { x: skill.position.x - req.position.x, y: skill.position.y - req.position.y };
-				const isHoriz = Math.abs(diff.x) > Math.abs(diff.y);
-				const [srcDir, tgtDir] = isHoriz
-					? diff.x > 0 ? [Position.Right, Position.Left] : [Position.Left, Position.Right]
-					: diff.y > 0 ? [Position.Bottom, Position.Top] : [Position.Top, Position.Bottom];
+		// A skill is visible if:
+		// 1. It is already unlocked
+		// 2. It has no requirements (root nodes)
+		// 3. Any of its requirements are already unlocked
+		const visibleSkillIds = new Set(
+			skillList
+				.filter((skill) => {
+					if (unlockedSkills.includes(skill.id)) return true;
+					if (!skill.requires || skill.requires.length === 0) return true;
+					return skill.requires.some((req) => unlockedSkills.includes(req));
+				})
+				.map((s) => s.id)
+		);
+
+		nodes = skillList
+			.filter((skill) => visibleSkillIds.has(skill.id))
+			.map((skill) => {
+				const currency = skill.cost.currency;
+				const currencyUnlocked =
+					currency === CurrenciesTypes.ATOMS ||
+					(currency === CurrenciesTypes.PROTONS && gameManager.canProtonise) ||
+					(currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0) ||
+					(currency === CurrenciesTypes.PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
+					(currency === CurrenciesTypes.EXCITED_PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
+					(currency === CurrenciesTypes.HIGGS_BOSON && gameManager.realms[RealmTypes.PHOTONS].unlocked);
 
 				return {
-					id: `${requireId}-${skill.id}`,
-					source: requireId,
-					target: skill.id,
-					sourceHandle: `${requireId}-${srcDir}`,
-					targetHandle: `${skill.id}-${tgtDir}`,
-					type: 'smoothstep',
-					class: canUnlockSkill(skill) || gameManager.skillUpgrades.includes(skill.id) ? 'unlocking' : ''
+					id: skill.id,
+					type: 'skill',
+					position: { ...skill.position },
+					data: {
+						...skill,
+						available: canUnlockSkill(skill),
+						currencyUnlocked,
+						unlocked: unlockedSkills.includes(skill.id)
+					}
 				};
-			})
-		);
+			});
+
+		edges = skillList
+			.filter((skill) => visibleSkillIds.has(skill.id))
+			.flatMap((skill) =>
+				(skill.requires ?? [])
+					.filter((reqId) => visibleSkillIds.has(reqId))
+					.map<Edge>((requireId) => {
+						const req = SKILL_UPGRADES[requireId];
+						const diff = { x: skill.position.x - req.position.x, y: skill.position.y - req.position.y };
+						const isHoriz = Math.abs(diff.x) > Math.abs(diff.y);
+						const [srcDir, tgtDir] = isHoriz
+							? diff.x > 0
+								? [Position.Right, Position.Left]
+								: [Position.Left, Position.Right]
+							: diff.y > 0
+								? [Position.Bottom, Position.Top]
+								: [Position.Top, Position.Bottom];
+
+						return {
+							id: `${requireId}-${skill.id}`,
+							source: requireId,
+							target: skill.id,
+							sourceHandle: `${requireId}-${srcDir}`,
+							targetHandle: `${skill.id}-${tgtDir}`,
+							type: 'smoothstep',
+							class: canUnlockSkill(skill) || unlockedSkills.includes(skill.id) ? 'unlocking' : ''
+						};
+					})
+			);
 	}
 </script>
 

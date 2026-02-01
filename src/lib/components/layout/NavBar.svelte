@@ -3,6 +3,7 @@
 	import Leaderboard from '@components/modals/Leaderboard.svelte';
 	import Settings from '@components/modals/Settings.svelte';
 	import SkillTree from '@components/modals/SkillTree.svelte';
+	import { SKILL_UPGRADES } from '$data/skillTree';
 	import Electronize from '@components/prestige/Electronize.svelte';
 	import Protonise from '@components/prestige/Protonise.svelte';
 	import NotificationDot from '@components/ui/NotificationDot.svelte';
@@ -36,7 +37,11 @@
 			icon: Network,
 			label: 'Skill Tree',
 			component: SkillTree,
-			condition: () => gameManager.atoms >= 5000 || gameManager.skillPointsTotal > 0,
+			condition: () => {
+				const roots = Object.values(SKILL_UPGRADES).filter((s) => !s.requires || s.requires.length === 0);
+				const canAffordAnyRoot = roots.some((root) => gameManager.canAfford(root.cost));
+				return canAffordAnyRoot || gameManager.skillUpgrades.length > 0;
+			},
 			notification: () => gameManager.hasAvailableSkillUpgrades,
 		},
 		{

@@ -11,6 +11,7 @@
 
 	interface SkillNodeData extends SkillUpgrade {
 		available: boolean;
+		currencyUnlocked: boolean;
 		onClick?: () => void;
 		unlocked: boolean;
 	}
@@ -21,9 +22,11 @@
 	const isFeature = $derived(!!skillData.feature);
 	const featureInfo = $derived(skillData.feature ? FEATURES[skillData.feature as FeatureType] : null);
 
+	const isCurrencyUnlocked = $derived(skillData.currencyUnlocked);
+
 	// Calculate current effect values for tooltip
 	const effectBreakdown = $derived.by(() => {
-		if (!skillData.unlocked || skillData.effects.length === 0) return null;
+		if (!skillData.unlocked || skillData.effects.length === 0 || !isCurrencyUnlocked) return null;
 
 		return skillData.effects.map((effect) => {
 			const before = 1;
@@ -50,17 +53,17 @@
 <Handle id="{id}-{Position.Right}" type="target" position={Position.Right} class="opacity-0" style="inset: 50%; transform: none;" />
 
 <div
-	aria-label="Unlock {skillData.name}"
+	aria-label="Unlock {isCurrencyUnlocked ? skillData.name : '?????'}"
 	class="skill-node relative flex h-36 w-72 flex-col justify-center rounded-lg p-5 shadow-md transition {isFeature ? 'border-2' : ''} {isFeature && !skillData.unlocked ? 'border-purple-400/50' : ''} {isFeature && skillData.unlocked ? 'border-purple-300' : ''}"
 	class:locked={!skillData.unlocked && !skillData.available}
 	class:available={skillData.available && !skillData.unlocked}
 	class:unlocked={skillData.unlocked && !isFeature}
 	class:unlocked-feature={skillData.unlocked && isFeature}
-	class:pointer-events-none={!skillData.available}
-	class:cursor-pointer={skillData.available}
-	onclick={() => skillData.onClick?.()}
+	class:pointer-events-none={!skillData.available || !isCurrencyUnlocked}
+	class:cursor-pointer={skillData.available && isCurrencyUnlocked}
+	onclick={() => isCurrencyUnlocked && skillData.onClick?.()}
 	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === ' ') {
+		if (isCurrencyUnlocked && (e.key === 'Enter' || e.key === ' ')) {
 			skillData.onClick?.();
 		}
 	}}
@@ -68,7 +71,7 @@
 	role="button"
 >
 	<!-- Feature badge -->
-	{#if isFeature}
+	{#if isFeature && isCurrencyUnlocked}
 		<div class="absolute -top-2 left-3 flex items-center gap-1 rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
 			<Sparkles size={10} />
 			Feature
@@ -76,7 +79,7 @@
 	{/if}
 
 	<!-- Effect tooltip -->
-	{#if skillData.unlocked && effectBreakdown && effectBreakdown.length > 0}
+	{#if skillData.unlocked && effectBreakdown && effectBreakdown.length > 0 && isCurrencyUnlocked}
 		<div
 			class="absolute right-2 top-2 z-10"
 			onclick={(e) => e.stopPropagation()}
@@ -103,9 +106,11 @@
 	{/if}
 
 	<div class="flex flex-col gap-1.5">
-		<h3 class="text-lg font-semibold leading-tight">{skillData.name}</h3>
+		<h3 class="text-lg font-semibold leading-tight">{isCurrencyUnlocked ? skillData.name : '?????'}</h3>
 		<p class="text-sm leading-snug opacity-90">
-			{#if isFeature && featureInfo}
+			{#if !isCurrencyUnlocked}
+				????? ????? ????? ????? ?????
+			{:else if isFeature && featureInfo}
 				{featureInfo.description}
 			{:else}
 				{skillData.description}
@@ -113,13 +118,17 @@
 		</p>
 		{#if skillData.cost}
 			<div class="mt-1 inline-flex items-center gap-1.5 text-sm font-medium" class:opacity-60={skillData.unlocked}>
-				<Value
-					value={skillData.cost.amount}
-					currency={skillData.cost.currency as CurrencyName}
-					currencyClass="h-5 w-5"
-				/>
-				{#if skillData.unlocked}
-					<span class="text-[10px] uppercase text-white/70">(owned)</span>
+				{#if isCurrencyUnlocked}
+					<Value
+						value={skillData.cost.amount}
+						currency={skillData.cost.currency as CurrencyName}
+						currencyClass="h-5 w-5"
+					/>
+					{#if skillData.unlocked}
+						<span class="text-[10px] uppercase text-white/70">(owned)</span>
+					{/if}
+				{:else}
+					<span class="text-white/40">Cost: ?????</span>
 				{/if}
 			</div>
 		{/if}
