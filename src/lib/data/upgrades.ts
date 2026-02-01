@@ -45,7 +45,7 @@ function createBuildingUpgrades(buildingType: BuildingType) {
 		id: buildingType.toLowerCase(),
 		name: i => `${building.name} Boost ${i}`,
 		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${building.name} production`,
-		cost: i => building.cost.amount * 2.5 ** (i * 3.1) * (i > 10 ? i ** 3.1 : 1),
+		cost: i => building.cost.amount * 2.4 ** (i * 3) * (i > 10 ? i ** 3 : 1),
 		effects: i => [
 			{
 				type: 'building',
@@ -66,8 +66,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Power ${i}`,
 			description: i => `${i < 6 ? '1.5x' : '2x'} click power`,
 			cost: i => {
-				const baseCost = 15 * 2 ** (i * 5);
-				return i > 8 ? baseCost * i ** 4.1 : baseCost;
+				const baseCost = 15 * 2 ** (i * 4.8);
+				return i > 8 ? baseCost * i ** 4 : baseCost;
 			},
 			effects: i => [
 				{
@@ -86,8 +86,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Value ${i}`,
 			description: i => `+${formatNumber(Math.ceil(10 ** i / 10))} base value per click`,
 			cost: i => {
-				const baseCost = 5 ** (i * 2) * 15;
-				return i > 6 ? baseCost * i ** 3.1 * 1.1 : baseCost * 1.1;
+				const baseCost = 5 ** (i * 1.9) * 12;
+				return i > 6 ? baseCost * i ** 3 * 1.1 : baseCost * 1.1;
 			},
 			effects: i => [
 				{
@@ -106,8 +106,8 @@ function createClickPowerUpgrades() {
 			name: i => `Global Click Power ${Math.ceil(i / 2)}`,
 			description: i => `+${Math.ceil(i / 2)}% of your Atoms per second per click`,
 			cost: i => {
-				const baseCost = 25 * 2 ** (i * 8);
-				return i > 3 ? baseCost * i ** 5.1 * 1.1 : baseCost * 1.1;
+				const baseCost = 10 * 2 ** (i * 9);
+				return i > 3 ? baseCost * i ** 6.5 * 1.1 : baseCost * 1.1;
 			},
 			effects: i => [
 				{
@@ -129,14 +129,14 @@ function createGlobalUpgrades() {
 		name: i => `Global Boost ${i}`,
 		description: i => `${formatNumber(1 + i / 100)}x all production`,
 		cost: i => {
-			const baseCost = 1.2 * 10 ** i;
+			const baseCost = 1.1 * 10 ** i;
 			if (i > 40) {
-				return baseCost * i ** 8;
+				return baseCost * i ** 7.5;
 			}
 			if (i > 30) {
-				return baseCost * i ** 6;
+				return baseCost * i ** 5.5;
 			}
-			return i > 20 ? baseCost * i ** 4 : baseCost;
+			return i > 20 ? baseCost * i ** 3.8 : baseCost;
 		},
 		effects: i => [
 			{
@@ -155,7 +155,7 @@ function createGlobalUpgrades() {
 			name: i => `Atom Soup ${i}`,
 			description: i => `+${Math.ceil(i / 5)}% production per achievement`,
 			cost: i => {
-				const baseCost = 1500 * 2 ** (i * 7);
+				const baseCost = 500 * 2 ** (i * 6);
 				return i > 5 ? baseCost * i ** 4 : baseCost;
 			},
 			effects: i => [
@@ -226,6 +226,7 @@ function createOfflineCapUpgrades() {
 
 function createPowerUpIntervalUpgrades() {
 	return createUpgrades({
+		condition: (_, state) => (state.currencies[CurrenciesTypes.HIGGS_BOSON]?.earnedAllTime ?? 0) > 0,
 		id: 'power_up_interval',
 		count: 15,
 		name: i => `Power Up Interval ${i + 1}`,
@@ -259,7 +260,7 @@ function createLevelBoostUpgrades() {
 						: Math.ceil(5 ** (i * 4) * (i > 3 ? i ** 4 : 1) * 1.1),
 				currency: 'Atoms',
 			},
-			condition: state => state.features[FeatureTypes.LEVELS] === true || i === 1,
+			condition: state => state.features[FeatureTypes.LEVELS] === true,
 			effects: [
 				{
 					type: 'global',
