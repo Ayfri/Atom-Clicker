@@ -61,13 +61,13 @@ function createClickPowerUpgrades() {
 	const upgrades: Upgrade[] = [];
 	upgrades.push(
 		...createUpgrades({
-			count: 15,
+			count: 20,
 			id: 'click_power_mul',
 			name: i => `Click Power ${i}`,
 			description: i => `${i < 6 ? '1.5x' : '2x'} click power`,
 			cost: i => {
-				const baseCost = 15 * 2 ** (i * 4.8);
-				return i > 8 ? baseCost * i ** 4 : baseCost;
+				const baseCost = 10 * 2 ** (i * 3.5);
+				return i > 8 ? baseCost * i ** 3.5 : baseCost;
 			},
 			effects: i => [
 				{
@@ -86,8 +86,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Value ${i}`,
 			description: i => `+${formatNumber(Math.ceil(10 ** i / 10))} base value per click`,
 			cost: i => {
-				const baseCost = 5 ** (i * 1.9) * 12;
-				return i > 6 ? baseCost * i ** 3 * 1.1 : baseCost * 1.1;
+				const baseCost = 5 ** (i * 1.7) * 10;
+				return i > 6 ? baseCost * i ** 2.5 * 1.05 : baseCost * 1.05;
 			},
 			effects: i => [
 				{
