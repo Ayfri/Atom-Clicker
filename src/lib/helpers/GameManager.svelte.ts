@@ -1,15 +1,17 @@
 import { ACHIEVEMENTS } from '$data/achievements';
 import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST } from '$data/buildings';
-import { CurrenciesTypes } from '$data/currencies';
+import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
+import { FeatureTypes } from '$data/features';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
 import { POWER_UP_DEFAULT_INTERVAL } from '$data/powerUp';
 import { REALMS, RealmTypes, type RealmType } from '$data/realms';
-import { SKILL_UPGRADES } from '$data/skillTree';
+import { PERSISTENT_SKILL_IDS, SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-import { type Building, type GameState, type OfflineProgressSummary, type PowerUp, type Price, type RealmState, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
+import { type Building, type CurrencyBoosts, type FeatureState, type GameState, type OfflineProgressSummary, type PowerUp, type Price, type RealmState, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
+import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
 import { applyOfflineProgress } from '$helpers/offlineProgress';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState } from '$helpers/saves';
 import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
@@ -23,6 +25,7 @@ export class GameManager {
 	achievements = $state<string[]>([]);
 	activePowerUps = $state<PowerUp[]>([]);
 	buildings = $state<Partial<Record<BuildingType, Building>>>({});
+	featuresManager = new FeaturesManager();
 	highestAPS = $state(0);
 	inGameTime = $state(0);
 	lastInteractionTime = $state(Date.now());
@@ -51,6 +54,7 @@ export class GameManager {
 		}
 	});
 	skillUpgrades = $state<string[]>([]);
+	skillPointBoosts = $state<CurrencyBoosts>({});
 	startDate = $state(Date.now());
 	totalBuildingsPurchasedAllTime = $state(0);
 	totalClicksAllTime = $state(0);
@@ -92,7 +96,7 @@ export class GameManager {
 	});
 
 	atomsPerSecond = $derived.by(() => {
-		return Object.entries(this.buildings).reduce((total, [type, building]) => {
+		const baseProduction = Object.entries(this.buildings).reduce((total, [type, building]) => {
 			if (!building) return total;
 
 			const options = { target: type as BuildingType, type: 'building' as const };
@@ -105,6 +109,7 @@ export class GameManager {
 
 			return total + production;
 		}, 0);
+		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
 
 	autoClicksPerSecond = $derived.by(() => {
@@ -122,6 +127,11 @@ export class GameManager {
 	});
 
 	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
+
+	// Skill Points System (from building levels, 10% boost per point, max 20 per currency)
+	skillPointsTotal = $derived(Object.values(this.buildings).reduce((sum, building) => sum + (building?.level ?? 0), 0));
+	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
+	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillPointsUsed);
 
 	buildingProductions = $derived.by(() => {
 		return Object.entries(this.buildings).reduce((acc, [type, building]) => {
@@ -168,7 +178,8 @@ export class GameManager {
 		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return 0;
 		const options = { type: 'electron_gain' as const };
 		const electronGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(electronGainUpgrades, this, 1, options);
+		const baseGain = calculateEffects(electronGainUpgrades, this, 1, options);
+		return baseGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
 	});
 
 	excitedPhotonChance = $derived.by(() => {
@@ -185,13 +196,14 @@ export class GameManager {
 	});
 
 	hasAvailableSkillUpgrades = $derived.by(() => {
-		if (this.skillPointsAvailable <= 0) return false;
-
-		return Object.values(SKILL_UPGRADES).some(skill => {
+		return Object.values(SKILL_UPGRADES).some((skill) => {
 			if (this.skillUpgrades.includes(skill.id)) return false;
 			if (skill.condition && !skill.condition(this)) return false;
-			if (skill.requires && !skill.requires.every(req => this.skillUpgrades.includes(req))) return false;
-			return true;
+			if (skill.requires && !skill.requires.every((req) => this.skillUpgrades.includes(req))) return false;
+			// Check if can afford
+			const currency = skill.cost.currency;
+			const amount = currenciesManager.getAmount(currency);
+			return amount >= skill.cost.amount;
 		});
 	});
 
@@ -232,20 +244,14 @@ export class GameManager {
 	protoniseProtonsGain = $derived.by(() => {
 		if (this.atoms < PROTONS_ATOMS_REQUIRED) return 0;
 
-		// Calculate base proton gain
 		const baseGain = Math.floor(Math.sqrt(this.atoms / PROTONS_ATOMS_REQUIRED));
-
-		// Get all proton gain multiplier upgrades
 		const options = { type: 'proton_gain' as const };
 		const protonGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-
-		// Apply multipliers to base gain
-		return calculateEffects(protonGainUpgrades, this, baseGain, options);
+		const boostedGain = calculateEffects(protonGainUpgrades, this, baseGain, options);
+		return boostedGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
 	});
 
 
-	skillPointsTotal = $derived(Object.values(this.buildings).reduce((sum, building) => sum + building.level, 0));
-	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillUpgrades.length);
 
 	stabilityCapacity = $derived.by(() => {
 		const options = { type: 'stability_capacity' as const };
@@ -261,7 +267,7 @@ export class GameManager {
 
 	stabilityMultiplier = $derived.by(() => {
 		// 1. Check unlock & pause conditions
-		if (!this.upgrades.includes('stability_unlock')) return 1;
+		if (!this.features[FeatureTypes.STABILITY_FIELD]) return 1;
 		if (this.activePowerUps.length > 0) return 1;
 
 		// 2. Calculate Time Requirements
@@ -312,11 +318,16 @@ export class GameManager {
 	get currencies() { return currenciesManager.currencies; }
 	get electrons() { return currenciesManager.getAmount(CurrenciesTypes.ELECTRONS); }
 	get excitedPhotons() { return currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS); }
+	get features() { return this.featuresManager.state; }
 	get photons() { return currenciesManager.getAmount(CurrenciesTypes.PHOTONS); }
 	get protons() { return currenciesManager.getAmount(CurrenciesTypes.PROTONS); }
 
 	set currencies(value) {
 		currenciesManager.currencies = value;
+	}
+
+	set features(value: FeatureState) {
+		this.featuresManager.state = value;
 	}
 
 	// Methods
@@ -328,6 +339,8 @@ export class GameManager {
 			activePowerUps: this.activePowerUps,
 			buildings: this.buildings,
 			currencies: this.currencies,
+			currencyBoosts: this.skillPointBoosts,
+			features: this.features,
 			highestAPS: this.highestAPS,
 			inGameTime: this.inGameTime,
 			lastInteractionTime: this.lastInteractionTime,
@@ -349,8 +362,37 @@ export class GameManager {
 			totalUsers: this.totalUsers,
 			totalXP: this.totalXP,
 			upgrades: this.upgrades,
-			version: SAVE_VERSION,
+			version: SAVE_VERSION
 		};
+	}
+
+	// Skill Point Boost Methods
+	getCurrencyBoostMultiplier(currency: CurrencyName): number {
+		const points = this.skillPointBoosts[currency] ?? 0;
+		return 1 + points * 0.1; // 10% per point
+	}
+
+	addCurrencyBoost(currency: CurrencyName): boolean {
+		if (this.skillPointsAvailable <= 0) return false;
+		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		if (currentPoints >= 20) return false; // Max 20 per currency
+
+		this.skillPointBoosts = {
+			...this.skillPointBoosts,
+			[currency]: currentPoints + 1
+		};
+		return true;
+	}
+
+	removeCurrencyBoost(currency: CurrencyName): boolean {
+		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		if (currentPoints <= 0) return false;
+
+		this.skillPointBoosts = {
+			...this.skillPointBoosts,
+			[currency]: currentPoints - 1
+		};
+		return true;
 	}
 
 	loadGame() {
@@ -379,6 +421,10 @@ export class GameManager {
 		this.offlineProgressSummary = null;
 	}
 
+	syncFeatures() {
+		this.featuresManager.syncFromState(this);
+	}
+
 	loadSaveData(data: Partial<GameState>) {
 		for (const key of Object.keys(this.statsConfig)) {
 			if (key in data) {
@@ -402,6 +448,8 @@ export class GameManager {
 							...(savedSettings?.upgrades ?? {})
 						}
 					};
+				} else if (key === 'currencyBoosts') {
+					this.skillPointBoosts = data.currencyBoosts ?? {};
 				} else {
 					this[key as keyof this] = data[key as keyof GameState] as any;
 				}
@@ -442,6 +490,10 @@ export class GameManager {
 		for (const [key, config] of Object.entries(this.statsConfig)) {
 			if (key === 'currencies') {
 				currenciesManager.hardReset();
+			} else if (key === 'features') {
+				this.featuresManager.reset();
+			} else if (key === 'currencyBoosts') {
+				this.skillPointBoosts = {};
 			} else {
 				this[key as keyof this] = config.defaultValue;
 			}
@@ -451,7 +503,13 @@ export class GameManager {
 	resetLayer(layer: LayerType) {
 		for (const [key, config] of Object.entries(this.statsConfig)) {
 			if (config.layer > 0 && config.layer <= layer) {
-				this[key as keyof this] = config.defaultValue;
+				if (key === 'features') {
+					this.featuresManager.reset();
+				} else if (key === 'currencyBoosts') {
+					this.skillPointBoosts = {};
+				} else {
+					this[key as keyof this] = config.defaultValue;
+				}
 			}
 		}
 		currenciesManager.reset(layer);
@@ -555,6 +613,7 @@ export class GameManager {
 				...this.photonUpgrades,
 				[upgradeId]: currentLevel + 1
 			};
+			this.syncFeatures();
 			this.checkRealmUnlocks();
 			return true;
 		}
@@ -566,12 +625,14 @@ export class GameManager {
 		if (!skill) return false;
 
 		if (this.skillUpgrades.includes(skillId)) return false;
-		if (this.skillPointsAvailable < 1) return false;
-
-		if (skill.requires && !skill.requires.every(req => this.skillUpgrades.includes(req))) return false;
+		if (skill.requires && !skill.requires.every((req) => this.skillUpgrades.includes(req))) return false;
 		if (skill.condition && !skill.condition(this)) return false;
 
+		// Spend currency
+		if (!this.spendCurrency(skill.cost)) return false;
+
 		this.skillUpgrades = [...this.skillUpgrades, skillId];
+		this.syncFeatures();
 		this.checkRealmUnlocks();
 		return true;
 	}
@@ -582,6 +643,7 @@ export class GameManager {
 
 		if (!purchased && this.spendCurrency(upgrade.cost)) {
 			this.upgrades = [...this.upgrades, id];
+			this.syncFeatures();
 
 			this.checkRealmUnlocks();
 
@@ -621,8 +683,11 @@ export class GameManager {
 		const electronGain = this.electronizeElectronsGain;
 
 		if (this.protons >= ELECTRONS_PROTONS_REQUIRED || electronGain > 0) {
-			const persistentUpgrades = this.upgrades.filter(id =>
-				id.startsWith('electron') || id.startsWith('proton') || id === 'feature_purple_realm'
+			const persistentUpgrades = this.upgrades.filter(
+				(id) => id.startsWith('electron') || id.startsWith('proton')
+			);
+			const persistentSkills = this.skillUpgrades.filter(
+				(id) => id.startsWith('electron') || id.startsWith('proton') || PERSISTENT_SKILL_IDS.includes(id)
 			);
 
 			this.totalElectronizesRun += 1;
@@ -632,6 +697,8 @@ export class GameManager {
 			this.resetLayer(LAYERS.ELECTRONIZE);
 
 			this.upgrades = persistentUpgrades;
+			this.skillUpgrades = persistentSkills;
+			this.syncFeatures();
 			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.ELECTRONS, electronGain);
 
@@ -646,8 +713,11 @@ export class GameManager {
 		const protonGain = this.protoniseProtonsGain;
 
 		if (this.atoms >= PROTONS_ATOMS_REQUIRED || protonGain > 0) {
-			const persistentUpgrades = this.upgrades.filter(id =>
-				id.startsWith('proton') || id.startsWith('electron') || id === 'feature_purple_realm'
+			const persistentUpgrades = this.upgrades.filter(
+				(id) => id.startsWith('proton') || id.startsWith('electron')
+			);
+			const persistentSkills = this.skillUpgrades.filter(
+				(id) => id.startsWith('proton') || id.startsWith('electron') || PERSISTENT_SKILL_IDS.includes(id)
 			);
 
 			this.totalProtonisesRun += 1;
@@ -656,6 +726,8 @@ export class GameManager {
 			this.resetLayer(LAYERS.PROTONIZER);
 
 			this.upgrades = persistentUpgrades;
+			this.skillUpgrades = persistentSkills;
+			this.syncFeatures();
 			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
 
@@ -670,7 +742,7 @@ export class GameManager {
 	addAtoms(amount: number) {
 		currenciesManager.add(CurrenciesTypes.ATOMS, amount);
 		if (amount > 0) {
-			if (this.upgrades.includes('feature_levels')) {
+			if (this.features[FeatureTypes.LEVELS]) {
 				const xpPerAtom = 0.1;
 				this.totalXP += amount * xpPerAtom * this.xpGainMultiplier;
 			}

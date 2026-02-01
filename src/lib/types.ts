@@ -51,6 +51,8 @@ export interface Effect {
 	type: 'auto_buy' | 'auto_click' | 'auto_speed' | 'auto_upgrade' | 'building' | 'click' | 'electron_gain' | 'excited_auto_click' | 'excited_photon_chance' | 'excited_photon_double' | 'excited_photon_duration' | 'excited_photon_from_max' | 'excited_photon_stability' | 'global' | 'photon_auto_click' | 'photon_double_chance' | 'photon_duration' | 'photon_size' | 'photon_spawn_interval' | 'photon_stability' | 'power_up_duration' | 'power_up_interval' | 'power_up_multiplier' | 'proton_gain' | 'stability_boost' | 'stability_capacity' | 'stability_speed' | 'xp_gain';
 }
 
+export type FeatureState = Record<string, boolean>;
+
 export interface PhotonUpgrade {
 	baseCost: number;
 	condition?: (manager: GameManager) => boolean;
@@ -63,11 +65,15 @@ export interface PhotonUpgrade {
 	name: string;
 }
 
+export type CurrencyBoosts = Partial<Record<CurrencyName, number>>;
+
 export interface GameState {
 	achievements: string[];
 	activePowerUps: PowerUp[];
 	buildings: Partial<Record<BuildingType, Building>>;
 	currencies: CurrencyStateMap;
+	currencyBoosts: CurrencyBoosts;
+	features: FeatureState;
 	highestAPS: number;
 	inGameTime: number;
 	lastInteractionTime: number;
@@ -151,8 +157,10 @@ export interface Settings {
 
 export interface SkillUpgrade {
 	condition?: (manager: GameManager) => boolean;
+	cost: Price;
 	description: string;
 	effects: Effect[];
+	feature?: string;
 	id: string;
 	name: string;
 	position: { x: number; y: number };
