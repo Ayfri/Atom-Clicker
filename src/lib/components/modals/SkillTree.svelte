@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '@xyflow/svelte/dist/style.css';
 	import { Background, Controls, type Edge, type Node, Position, SvelteFlow } from '@xyflow/svelte';
+	import { dev } from '$app/environment';
 	import SkillNode from '@components/game/SkillNode.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import { CurrenciesTypes } from '$data/currencies';
@@ -17,6 +18,8 @@
 	}
 
 	let { onClose }: Props = $props();
+
+	let showHiddenSkills = $state(false);
 
 	const nodeTypes = { skill: SkillNode };
 
@@ -52,9 +55,11 @@
 		// 1. It is already unlocked
 		// 2. It has no requirements (root nodes)
 		// 3. Any of its requirements are already unlocked
+		// 4. Mode dev is enabled and showHiddenSkills is true
 		const visibleSkillIds = new Set(
 			skillList
 				.filter((skill) => {
+					if (dev && showHiddenSkills) return true;
 					if (unlockedSkills.includes(skill.id)) return true;
 					if (!skill.requires || skill.requires.length === 0) return true;
 					return skill.requires.some((req) => unlockedSkills.includes(req));
@@ -120,8 +125,19 @@
 
 <Modal {onClose} containerClass="m-2 !p-0 rounded-xl" width="lg">
 	{#snippet header()}
-		<div class="flex w-full items-center justify-between">
+		<div class="flex w-full items-center justify-between gap-4 pr-10">
 			<h2 class="text-2xl font-bold text-white">Skill Tree</h2>
+			{#if dev}
+				<button
+					class="rounded-lg bg-accent-800 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-700 active:bg-accent-600"
+					onclick={() => {
+						showHiddenSkills = !showHiddenSkills;
+						updateTree();
+					}}
+				>
+					{showHiddenSkills ? 'Hide Hidden' : 'Show Hidden'} (Dev)
+				</button>
+			{/if}
 		</div>
 	{/snippet}
 
