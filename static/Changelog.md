@@ -1,3 +1,9 @@
+# What's new 01-02-2026
+
+- **Skill Tree**: Reworked from scratch the skill tree system, skills are now paid with currencies, important features and boosts are now available as skills.
+- **Currency Boosts**: Added a new system to boost currencies production based on the player's old skill points.
+- **Balanced upgrades**: Balanced many upgrades prices, game should be more interesting at the start and should slow down a bit on later stages.
+
 # What's new 30-01-2026
 
 - **Gain Breakdown**: New detailed gain breakdown for protons and electrons in the protonize/electronize menus.
