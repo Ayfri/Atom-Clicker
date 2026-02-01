@@ -66,8 +66,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Power ${i}`,
 			description: i => `${i < 6 ? '1.5x' : '2x'} click power`,
 			cost: i => {
-				const baseCost = 10 * 2 ** (i * 3.5);
-				return i > 8 ? baseCost * i ** 3.5 : baseCost;
+				const baseCost = 10 * 2 ** (i * 4);
+				return i > 8 ? baseCost * i ** 4.5 : baseCost;
 			},
 			effects: i => [
 				{
@@ -86,8 +86,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Value ${i}`,
 			description: i => `+${formatNumber(Math.ceil(10 ** i / 10))} base value per click`,
 			cost: i => {
-				const baseCost = 5 ** (i * 1.7) * 10;
-				return i > 6 ? baseCost * i ** 2.5 * 1.05 : baseCost * 1.05;
+				const baseCost = 5 ** (i * 1.9) * 10;
+				return i > 6 ? baseCost * i ** 3.5 * 1.05 : baseCost * 1.05;
 			},
 			effects: i => [
 				{
@@ -106,8 +106,8 @@ function createClickPowerUpgrades() {
 			name: i => `Global Click Power ${Math.ceil(i / 2)}`,
 			description: i => `+${Math.ceil(i / 2)}% of your Atoms per second per click`,
 			cost: i => {
-				const baseCost = 10 * 2 ** (i * 9);
-				return i > 3 ? baseCost * i ** 6.5 * 1.1 : baseCost * 1.1;
+				const baseCost = 10 * 2 ** (i * 10);
+				return i > 3 ? baseCost * i ** 8 * 1.1 : baseCost * 1.1;
 			},
 			effects: i => [
 				{
@@ -129,14 +129,14 @@ function createGlobalUpgrades() {
 		name: i => `Global Boost ${i}`,
 		description: i => `${formatNumber(1 + i / 100)}x all production`,
 		cost: i => {
-			const baseCost = 1.1 * 10 ** i;
+			const baseCost = 1.25 * 10 ** (i * 1.1);
 			if (i > 40) {
-				return baseCost * i ** 7.5;
+				return baseCost * i ** 9.5;
 			}
 			if (i > 30) {
-				return baseCost * i ** 5.5;
+				return baseCost * i ** 7.5;
 			}
-			return i > 20 ? baseCost * i ** 3.8 : baseCost;
+			return i > 20 ? baseCost * i ** 5.5 : baseCost;
 		},
 		effects: i => [
 			{
@@ -180,31 +180,31 @@ function createOfflineCapUpgrades() {
 	const isUnlocked = (state: GameManager) => state.features[FeatureTypes.OFFLINE_PROGRESS] === true;
 	const caps = [
 		{
-			cost: 900_000,
+			cost: 50_000_000,
 			description: 'Increase offline cap to 12 hours',
 			id: 'offline_cap_12h',
 			name: 'Offline Cap 12h',
 		},
 		{
-			cost: 3_000_000,
+			cost: 750_000_000,
 			description: 'Increase offline cap to 1 day',
 			id: 'offline_cap_1d',
 			name: 'Offline Cap 1d',
 		},
 		{
-			cost: 12_000_000,
+			cost: 25_000_000_000,
 			description: 'Increase offline cap to 1.5 days',
 			id: 'offline_cap_1_5d',
 			name: 'Offline Cap 1.5d',
 		},
 		{
-			cost: 35_000_000,
+			cost: 500_000_000_000,
 			description: 'Increase offline cap to 2 days',
 			id: 'offline_cap_2d',
 			name: 'Offline Cap 2d',
 		},
 		{
-			cost: 120_000_000,
+			cost: 10_000_000_000_000,
 			description: 'Increase offline cap to 3 days',
 			id: 'offline_cap_3d',
 			name: 'Offline Cap 3d',
@@ -213,14 +213,14 @@ function createOfflineCapUpgrades() {
 
 	return createUpgrades({
 		condition: (_, state) => isUnlocked(state),
-		cost: index => caps[index - 1]?.cost ?? 0,
+		cost: (index) => caps[index - 1]?.cost ?? 0,
 		count: caps.length,
 		currency: CurrenciesTypes.ATOMS,
-		description: index => caps[index - 1]?.description ?? '',
+		description: (index) => caps[index - 1]?.description ?? '',
 		effects: () => [],
 		id: 'offline_cap',
-		idForIndex: index => caps[index - 1]?.id ?? `offline_cap_${index}`,
-		name: index => caps[index - 1]?.name ?? `Offline Cap ${index}`,
+		idForIndex: (index) => caps[index - 1]?.id ?? `offline_cap_${index}`,
+		name: (index) => caps[index - 1]?.name ?? `Offline Cap ${index}`,
 	});
 }
 
