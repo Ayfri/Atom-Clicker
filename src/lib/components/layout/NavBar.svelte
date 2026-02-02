@@ -16,7 +16,6 @@
 	import { Atom, Network, Orbit, Settings as SettingsIcon, Trophy, Zap, type Icon as IconType } from 'lucide-svelte';
 	import { onDestroy, onMount, type Component } from 'svelte';
 
-
 	type NavBarComponent = Component<{ onClose: () => void }>;
 
 	interface Link {
@@ -38,8 +37,8 @@
 			label: 'Skill Tree',
 			component: SkillTree,
 			condition: () => {
-				const roots = Object.values(SKILL_UPGRADES).filter((s) => !s.requires || s.requires.length === 0);
-				const canAffordAnyRoot = roots.some((root) => gameManager.canAfford(root.cost));
+				const roots = Object.values(SKILL_UPGRADES).filter(s => !s.requires || s.requires.length === 0);
+				const canAffordAnyRoot = roots.some(root => gameManager.canAfford(root.cost));
 				return canAffordAnyRoot || gameManager.skillUpgrades.length > 0;
 			},
 			notification: () => gameManager.hasAvailableSkillUpgrades,
@@ -55,14 +54,14 @@
 			icon: Atom,
 			label: 'Protonise',
 			component: Protonise,
-			condition: () => gameManager.atoms >= PROTONS_ATOMS_REQUIRED || gameManager.protons > 0,
+			condition: () => gameManager.atoms >= PROTONS_ATOMS_REQUIRED || gameManager.totalProtonisesAllTime > 0,
 			notification: () => gameManager.protoniseProtonsGain > gameManager.protons,
 		},
 		{
 			icon: Orbit,
 			label: 'Electronize',
 			component: Electronize,
-			condition: () => gameManager.protons >= ELECTRONS_PROTONS_REQUIRED || gameManager.electrons > 0,
+			condition: () => gameManager.protons >= ELECTRONS_PROTONS_REQUIRED || gameManager.totalElectronizesAllTime > 0,
 			notification: () => gameManager.electronizeElectronsGain > 0,
 		},
 		{
