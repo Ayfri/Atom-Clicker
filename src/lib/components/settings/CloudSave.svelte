@@ -67,9 +67,13 @@
 		startProgressTimer();
 	}
 
-	// React to auto-save state changes
+	// Sync local state with store state
 	$effect(() => {
 		if (autoSave.lastSaveTime > 0) lastAutoSaveTime = autoSave.lastSaveTime;
+	});
+
+	// Trigger cooldown when auto-save starts
+	$effect(() => {
 		if (autoSave.isSaving && cooldownProgress >= 1) startCooldown();
 	});
 

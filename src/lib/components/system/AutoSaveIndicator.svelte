@@ -29,7 +29,7 @@
 	}
 
 	$effect(() => {
-		if (autoSave.isSaving && !isSaving) startSaveAnimation(autoSave.lastSaveTime);
+		if (autoSave.isSaving && !isSaving) startSaveAnimation(Date.now());
 		else if (!autoSave.isSaving && isSaving) stopSaveAnimation();
 	});
 </script>
