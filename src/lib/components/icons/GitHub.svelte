@@ -1,10 +1,22 @@
 <script lang="ts">
-	import type { SvelteHTMLElements  } from 'svelte/elements';
+	import type { SvelteHTMLElements } from 'svelte/elements';
 
-	let { ...props }: SvelteHTMLElements['svg'] = $props();
+	type SvgProps = SvelteHTMLElements['svg'];
+
+	interface Props extends SvgProps {
+		size?: number;
+	}
+
+	let { size = 18, ...props }: Props = $props();
 </script>
 
-<svg width="98" height="96" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 98 96" {...props}>
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	viewBox="0 0 98 96"
+	height={size}
+	width={size}
+	{...props}
+>
 	<path
 		fill-rule="evenodd"
 		clip-rule="evenodd"

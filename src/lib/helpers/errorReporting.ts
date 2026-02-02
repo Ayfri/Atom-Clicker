@@ -1,7 +1,6 @@
 import { browser, dev } from '$app/environment';
 import { gameManager } from '$helpers/GameManager.svelte';
-import { get } from 'svelte/store';
-import { supabaseAuth } from '$stores/supabaseAuth';
+import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 
 export interface BrowserInfo {
 	language: string;
@@ -108,8 +107,7 @@ export function getCurrentUserId(): string | null {
 	if (!browser) return null;
 
 	try {
-		const authState = get(supabaseAuth);
-		return authState.user?.id ?? null;
+		return supabaseAuth.user?.id ?? null;
 	} catch {
 		return null;
 	}

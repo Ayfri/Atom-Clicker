@@ -3,9 +3,9 @@
 	import Modal from '@components/ui/Modal.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { saveRecovery } from '$stores/saveRecovery';
-	import { supabaseAuth } from '$stores/supabaseAuth';
+	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { error as errorToast, info, success } from '$stores/toasts';
-	import { AlertTriangle, CloudDownload, Database, RefreshCw, Trash2 } from 'lucide-svelte';
+	import { AlertTriangle, CloudDownload, Database, RefreshCw, Trash2, Trophy, X } from 'lucide-svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -15,6 +15,7 @@
 
 	let loading = $state(false);
 	let showLoginModal = $state(false);
+	let isAlreadyUnlocked = $state(false); // Is achievement unlocked
 
 	const errorMessages: Record<string, string> = {
 		corrupted: 'Your save file appears to be corrupted.',
@@ -25,7 +26,7 @@
 	};
 
 	async function handleLoadFromCloud() {
-		if (!$supabaseAuth.isAuthenticated) {
+		if (!supabaseAuth.isAuthenticated) {
 			showLoginModal = true;
 			return;
 		}
@@ -34,14 +35,14 @@
 		try {
 			const loaded = await supabaseAuth.loadGameFromCloud();
 			if (loaded) {
-				success('Recovery Successful', 'Your game has been loaded from the cloud save.');
+				success({ title: 'Recovery Successful', message: 'Your game has been loaded from the cloud save.' });
 				saveRecovery.clearError();
 				onClose();
 			} else {
-				errorToast('No Cloud Save', 'No cloud save was found for your account.');
+				errorToast({ title: 'No Cloud Save', message: 'No cloud save was found for your account.' });
 			}
 		} catch (e) {
-			errorToast('Error', e instanceof Error ? e.message : 'Failed to load from cloud');
+			errorToast({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to load from cloud' });
 		} finally {
 			loading = false;
 		}
@@ -52,7 +53,12 @@
 		saveRecovery.cleanOldBackups();
 		// Reset game state
 		gameManager.reset();
-		info('New Game', 'A new game has been started. Your corrupted save has been backed up.');
+		info({
+			title: 'New Game',
+			message: 'A new game has been started. Your corrupted save has been backed up.',
+			duration: 5000,
+			icon: RefreshCw
+		});
 		saveRecovery.clearError();
 		onClose();
 	}
@@ -62,13 +68,21 @@
 		saveRecovery.clearError();
 		onClose();
 	}
+
+	// Unlock achievement when modal opens
+	$effect(() => {
+		if (showLoginModal && !isAlreadyUnlocked) {
+			gameManager.unlockAchievement('reset_modal_opener');
+			isAlreadyUnlocked = true; // Mark as unlocked to prevent repeated notifications
+		}
+	});
 </script>
 
 <Modal onClose={handleDismiss} title="Save Recovery" width="sm">
 	<div class="flex flex-col gap-6">
 		<!-- Error Banner -->
 		<div class="flex items-start gap-4 rounded-xl bg-red-500/20 p-4 border border-red-500/30">
-			<AlertTriangle class="size-8 shrink-0 text-red-400 mt-0.5" />
+			<AlertTriangle size={32} class="shrink-0 text-red-400 mt-0.5" />
 			<div class="flex-1">
 				<h3 class="text-lg font-bold text-red-300">Save Load Error</h3>
 				<p class="mt-1 text-red-200/80">
@@ -94,7 +108,7 @@
 		<!-- Backup Info -->
 		{#if $saveRecovery.backupKey}
 			<div class="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
-				<Database class="size-5 text-green-400" />
+				<Database size={20} class="text-green-400" />
 				<div class="flex-1">
 					<p class="text-sm text-green-300">A backup of your save has been created.</p>
 					<p class="text-xs text-green-400/60 mt-0.5">Key: {$saveRecovery.backupKey}</p>
@@ -113,12 +127,12 @@
 				onclick={handleLoadFromCloud}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/30">
-					<CloudDownload class="size-6 text-accent-300" />
+					<CloudDownload size={24} class="text-accent-300" />
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-white">Load from Cloud</div>
 					<div class="text-sm text-white/60">
-						{#if $supabaseAuth.isAuthenticated}
+						{#if supabaseAuth.isAuthenticated}
 							Restore your progress from your cloud backup.
 						{:else}
 							Log in to access your cloud saves.
@@ -126,7 +140,7 @@
 					</div>
 				</div>
 				{#if loading}
-					<RefreshCw class="size-5 animate-spin text-accent-300" />
+					<RefreshCw size={20} class="animate-spin text-accent-300" />
 				{/if}
 			</button>
 
@@ -136,7 +150,7 @@
 				onclick={handleStartFresh}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-white/10">
-					<RefreshCw class="size-6 text-white/70" />
+					<RefreshCw size={24} class="text-white/70" />
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-white">Start Fresh</div>
@@ -152,7 +166,7 @@
 				onclick={handleDismiss}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-500/20">
-					<Trash2 class="size-6 text-red-400" />
+					<Trash2 size={24} class="text-red-400" />
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-red-300">Continue Anyway</div>
@@ -174,7 +188,7 @@
 	<Login onClose={() => {
 		showLoginModal = false;
 		// Re-check authentication after login
-		if ($supabaseAuth.isAuthenticated) {
+		if (supabaseAuth.isAuthenticated) {
 			handleLoadFromCloud();
 		}
 	}} />

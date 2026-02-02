@@ -44,6 +44,7 @@
 		});
 
 		Object.entries(statsConfig).forEach(([key, config]) => {
+			if (key === 'realms') return;
 			const value = gameManager[key as keyof GameManager];
 
 			let icon: any = FileBox;
@@ -62,7 +63,7 @@
 
 			if (key.startsWith('total')) {
 				groups.totals.push(stat);
-			} else if (['purpleRealmUnlocked', 'protoniseProtonsGain', 'electronizeElectronsGain'].includes(key)) {
+			} else if (['protoniseProtonsGain', 'electronizeElectronsGain'].includes(key)) {
 				groups.prestige.push(stat);
 			} else if (['lastSave', 'startDate', 'inGameTime', 'settings'].includes(key)) {
 				groups.system.push(stat);

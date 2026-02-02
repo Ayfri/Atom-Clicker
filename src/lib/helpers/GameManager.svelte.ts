@@ -1,42 +1,72 @@
 import { ACHIEVEMENTS } from '$data/achievements';
 import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST } from '$data/buildings';
-import { CurrenciesTypes } from '$data/currencies';
+import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
+import { FeatureTypes } from '$data/features';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
 import { POWER_UP_DEFAULT_INTERVAL } from '$data/powerUp';
-import { SKILL_UPGRADES } from '$data/skillTree';
+import { REALMS, RealmTypes, type RealmType } from '$data/realms';
+import { PERSISTENT_SKILL_IDS, SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
-import { browser } from '$app/environment';
 import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-import { type Building, type GameState, type PowerUp, type Price, type Settings, type SkillUpgrade, type Upgrade } from '$lib/types';
+import {
+	type Building,
+	type CurrencyBoosts,
+	type FeatureState,
+	type GameState,
+	type OfflineProgressSummary,
+	type PowerUp,
+	type Price,
+	type RealmState,
+	type Settings,
+	type SkillUpgrade,
+	type Upgrade,
+} from '$lib/types';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
+import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
+import { applyOfflineProgress } from '$helpers/offlineProgress';
+import { SAVE_KEY, SAVE_VERSION, loadSavedState } from '$helpers/saves';
 import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
-import { leaderboardStats } from '$stores/leaderboard.svelte';
+import { Trophy } from 'lucide-svelte';
+import { leaderboard } from '$stores/leaderboard.svelte';
 import { saveRecovery } from '$stores/saveRecovery';
 import { info } from '$stores/toasts';
-import { SAVE_KEY, SAVE_VERSION, loadSavedState } from '$helpers/saves';
 
 export class GameManager {
 	// State
 	achievements = $state<string[]>([]);
 	activePowerUps = $state<PowerUp[]>([]);
 	buildings = $state<Partial<Record<BuildingType, Building>>>({});
+	featuresManager = new FeaturesManager();
 	highestAPS = $state(0);
 	inGameTime = $state(0);
 	lastInteractionTime = $state(Date.now());
+	lastLoadedSave = $state(0);
 	lastSave = $state(Date.now());
+
+	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
 	photonUpgrades = $state<Record<string, number>>({});
 	powerUpsCollected = $state(0);
-	purpleRealmUnlocked = $state(false);
+	realms = $state<Record<RealmType, RealmState>>({
+		[RealmTypes.ATOMS]: { unlocked: true },
+		[RealmTypes.PHOTONS]: { unlocked: false },
+	});
 	settings = $state<Settings>({
 		automation: {
 			autoClick: false,
 			autoClickPhotons: false,
 			buildings: [],
-			upgrades: false
-		}
+			upgrades: false,
+		},
+		gameplay: {
+			offlineProgressEnabled: true,
+		},
+		upgrades: {
+			displayAlreadyBought: false,
+		},
 	});
 	skillUpgrades = $state<string[]>([]);
+	skillPointBoosts = $state<CurrencyBoosts>({});
 	startDate = $state(Date.now());
 	totalBuildingsPurchasedAllTime = $state(0);
 	totalClicksAllTime = $state(0);
@@ -46,7 +76,7 @@ export class GameManager {
 	totalProtonisesAllTime = $state(0);
 	totalProtonisesRun = $state(0);
 	totalUpgradesPurchasedAllTime = $state(0);
-	totalUsers = $state(0);
+	totalUsers = $derived(leaderboard.stats.totalUsers);
 	totalXP = $state(0);
 	upgrades = $state<string[]>([]);
 
@@ -57,12 +87,6 @@ export class GameManager {
 	initialize() {
 		this.loadGame();
 		this.setupInterval();
-
-		if (browser) {
-			leaderboardStats.subscribe(stats => {
-				this.totalUsers = stats.totalUsers;
-			});
-		}
 	}
 
 	cleanup() {
@@ -84,19 +108,21 @@ export class GameManager {
 	});
 
 	atomsPerSecond = $derived.by(() => {
-		return Object.entries(this.buildings).reduce((total, [type, building]) => {
+		const baseProduction = Object.entries(this.buildings).reduce((total, [type, building]) => {
 			if (!building) return total;
 
-			const options = { target: type, type: 'building' as const };
+			const options = { target: type as BuildingType, type: 'building' as const };
 			const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
 			const multiplier = calculateEffects(upgrades, this, building.rate, options);
 			const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;
 			const linearMultiplier = (building.level + 1) * 100;
 			const levelMultiplier = building.level > 0 ? Math.sqrt(oldMultiplier * linearMultiplier) : 1;
-			const production = building.count * multiplier * levelMultiplier * this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
+			const production =
+				building.count * multiplier * levelMultiplier * this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
 
 			return total + production;
 		}, 0);
+		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
 
 	autoClicksPerSecond = $derived.by(() => {
@@ -115,23 +141,37 @@ export class GameManager {
 
 	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
 
+	// Currency Boost System (from building levels, 10% boost per point, max 20 per currency)
+	skillPointsTotal = $derived(Object.values(this.buildings).reduce((sum, building) => sum + (building?.level ?? 0), 0));
+	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
+	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillPointsUsed);
+
 	buildingProductions = $derived.by(() => {
-		return Object.entries(this.buildings).reduce((acc, [type, building]) => {
-			let production = 0;
-			if (building) {
-				const options = { target: type, type: 'building' as const };
-				const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-				const multiplier = calculateEffects(upgrades, this, building.rate, options);
-				const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;
-				const linearMultiplier = (building.level + 1) * 100;
-				const levelMultiplier = building.level > 0 ? Math.sqrt(oldMultiplier * linearMultiplier) : 1;
-				production = building.count * multiplier * levelMultiplier * this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
-			}
-			return {
-				...acc,
-				[type]: production,
-			};
-		}, {} as Record<BuildingType, number>);
+		return Object.entries(this.buildings).reduce(
+			(acc, [type, building]) => {
+				let production = 0;
+				if (building) {
+					const options = { target: type as BuildingType, type: 'building' as const };
+					const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
+					const multiplier = calculateEffects(upgrades, this, building.rate, options);
+					const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;
+					const linearMultiplier = (building.level + 1) * 100;
+					const levelMultiplier = building.level > 0 ? Math.sqrt(oldMultiplier * linearMultiplier) : 1;
+					production =
+						building.count *
+						multiplier *
+						levelMultiplier *
+						this.globalMultiplier *
+						this.bonusMultiplier *
+						this.stabilityMultiplier;
+				}
+				return {
+					...acc,
+					[type]: production,
+				};
+			},
+			{} as Record<BuildingType, number>,
+		);
 	});
 
 	canProtonise = $derived(this.atoms >= PROTONS_ATOMS_REQUIRED || this.protons > 0);
@@ -151,16 +191,15 @@ export class GameManager {
 
 	currentUpgradesBought = $derived.by(() => {
 		const allUpgradeIds = [...this.upgrades, ...this.skillUpgrades];
-		return allUpgradeIds
-			.filter(id => UPGRADES[id] || SKILL_UPGRADES[id])
-			.map(id => UPGRADES[id] || SKILL_UPGRADES[id]);
+		return allUpgradeIds.filter(id => UPGRADES[id] || SKILL_UPGRADES[id]).map(id => UPGRADES[id] || SKILL_UPGRADES[id]);
 	});
 
 	electronizeElectronsGain = $derived.by(() => {
 		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return 0;
 		const options = { type: 'electron_gain' as const };
 		const electronGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(electronGainUpgrades, this, 1, options);
+		const baseGain = calculateEffects(electronGainUpgrades, this, 1, options);
+		return baseGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
 	});
 
 	excitedPhotonChance = $derived.by(() => {
@@ -177,13 +216,14 @@ export class GameManager {
 	});
 
 	hasAvailableSkillUpgrades = $derived.by(() => {
-		if (this.skillPointsAvailable <= 0) return false;
-
 		return Object.values(SKILL_UPGRADES).some(skill => {
 			if (this.skillUpgrades.includes(skill.id)) return false;
 			if (skill.condition && !skill.condition(this)) return false;
 			if (skill.requires && !skill.requires.every(req => this.skillUpgrades.includes(req))) return false;
-			return true;
+			// Check if can afford
+			const currency = skill.cost.currency;
+			const amount = currenciesManager.getAmount(currency);
+			return amount >= skill.cost.amount;
 		});
 	});
 
@@ -218,26 +258,21 @@ export class GameManager {
 	powerUpInterval = $derived.by(() => {
 		const options = { type: 'power_up_interval' as const };
 		const powerUpIntervalUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return POWER_UP_DEFAULT_INTERVAL.map(interval => calculateEffects(powerUpIntervalUpgrades, this, interval, options)) as [number, number];
+		return POWER_UP_DEFAULT_INTERVAL.map(interval => calculateEffects(powerUpIntervalUpgrades, this, interval, options)) as [
+			number,
+			number,
+		];
 	});
 
 	protoniseProtonsGain = $derived.by(() => {
 		if (this.atoms < PROTONS_ATOMS_REQUIRED) return 0;
 
-		// Calculate base proton gain
 		const baseGain = Math.floor(Math.sqrt(this.atoms / PROTONS_ATOMS_REQUIRED));
-
-		// Get all proton gain multiplier upgrades
 		const options = { type: 'proton_gain' as const };
 		const protonGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-
-		// Apply multipliers to base gain
-		return calculateEffects(protonGainUpgrades, this, baseGain, options);
+		const boostedGain = calculateEffects(protonGainUpgrades, this, baseGain, options);
+		return boostedGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
 	});
-
-
-	skillPointsTotal = $derived(Object.values(this.buildings).reduce((sum, building) => sum + building.level, 0));
-	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillUpgrades.length);
 
 	stabilityCapacity = $derived.by(() => {
 		const options = { type: 'stability_capacity' as const };
@@ -253,7 +288,7 @@ export class GameManager {
 
 	stabilityMultiplier = $derived.by(() => {
 		// 1. Check unlock & pause conditions
-		if (!this.upgrades.includes('stability_unlock')) return 1;
+		if (!this.features[FeatureTypes.STABILITY_FIELD]) return 1;
 		if (this.activePowerUps.length > 0) return 1;
 
 		// 2. Calculate Time Requirements
@@ -280,7 +315,7 @@ export class GameManager {
 		// 5. Apply Curve (Linear)
 		// The current boost is simply the Max Possible Boost scaled linearly by progress
 		// e.g., 50% progress = 50% of the possible bonus
-		const currentBoost = 1 + (scaledBonus * progress);
+		const currentBoost = 1 + scaledBonus * progress;
 
 		return currentBoost;
 	});
@@ -300,15 +335,34 @@ export class GameManager {
 	xpProgress = $derived((this.currentLevelXP / this.nextLevelXP) * 100);
 
 	// Stats Getters for Currencies
-	get atoms() { return currenciesManager.getAmount(CurrenciesTypes.ATOMS); }
-	get currencies() { return currenciesManager.currencies; }
-	get electrons() { return currenciesManager.getAmount(CurrenciesTypes.ELECTRONS); }
-	get excitedPhotons() { return currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS); }
-	get photons() { return currenciesManager.getAmount(CurrenciesTypes.PHOTONS); }
-	get protons() { return currenciesManager.getAmount(CurrenciesTypes.PROTONS); }
+	get atoms() {
+		return currenciesManager.getAmount(CurrenciesTypes.ATOMS);
+	}
+	get currencies() {
+		return currenciesManager.currencies;
+	}
+	get electrons() {
+		return currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
+	}
+	get excitedPhotons() {
+		return currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
+	}
+	get features() {
+		return this.featuresManager.state;
+	}
+	get photons() {
+		return currenciesManager.getAmount(CurrenciesTypes.PHOTONS);
+	}
+	get protons() {
+		return currenciesManager.getAmount(CurrenciesTypes.PROTONS);
+	}
 
 	set currencies(value) {
 		currenciesManager.currencies = value;
+	}
+
+	set features(value: FeatureState) {
+		this.featuresManager.state = value;
 	}
 
 	// Methods
@@ -320,13 +374,15 @@ export class GameManager {
 			activePowerUps: this.activePowerUps,
 			buildings: this.buildings,
 			currencies: this.currencies,
+			currencyBoosts: this.skillPointBoosts,
+			features: this.features,
 			highestAPS: this.highestAPS,
 			inGameTime: this.inGameTime,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
 			photonUpgrades: this.photonUpgrades,
 			powerUpsCollected: this.powerUpsCollected,
-			purpleRealmUnlocked: this.purpleRealmUnlocked,
+			realms: this.realms,
 			settings: this.settings,
 			skillUpgrades: this.skillUpgrades,
 			startDate: this.startDate,
@@ -345,27 +401,89 @@ export class GameManager {
 		};
 	}
 
+	// Skill Point Boost Methods
+	getCurrencyBoostMultiplier(currency: CurrencyName): number {
+		const points = this.skillPointBoosts[currency] ?? 0;
+		return 1 + points * 0.1; // 10% per point
+	}
+
+	addCurrencyBoost(currency: CurrencyName): boolean {
+		if (this.skillPointsAvailable <= 0) return false;
+		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		if (currentPoints >= 20) return false; // Max 20 per currency
+
+		this.skillPointBoosts = {
+			...this.skillPointBoosts,
+			[currency]: currentPoints + 1,
+		};
+		return true;
+	}
+
+	removeCurrencyBoost(currency: CurrencyName): boolean {
+		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		if (currentPoints <= 0) return false;
+
+		this.skillPointBoosts = {
+			...this.skillPointBoosts,
+			[currency]: currentPoints - 1,
+		};
+		return true;
+	}
+
 	loadGame() {
 		const result = loadSavedState();
 
 		if (result.success && result.state) {
 			this.loadSaveData(result.state);
+			this.lastLoadedSave = typeof result.state.lastSave === 'number' ? result.state.lastSave : 0;
+			const offlineSummary = applyOfflineProgress(this);
+			if (offlineSummary) {
+				this.offlineProgressSummary = offlineSummary;
+			}
 			console.log('Game loaded successfully');
 			this.save();
 		} else if (!result.success && result.errorType) {
-			saveRecovery.setError(
-				result.errorType,
-				result.errorDetails || 'Unknown error loading save',
-				result.rawData ?? null
-			);
+			saveRecovery.setError(result.errorType, result.errorDetails || 'Unknown error loading save', result.rawData ?? null);
 			console.error('Save load failed:', result.errorType, result.errorDetails);
 		}
+	}
+
+	clearOfflineProgressSummary() {
+		this.offlineProgressSummary = null;
+	}
+
+	syncFeatures() {
+		this.featuresManager.syncFromState(this);
 	}
 
 	loadSaveData(data: Partial<GameState>) {
 		for (const key of Object.keys(this.statsConfig)) {
 			if (key in data) {
-				this[key as keyof this] = data[key as keyof GameState] as any;
+				if (key === 'settings') {
+					const savedSettings = data.settings as Settings;
+					const defaultSettings = this.statsConfig.settings.defaultValue as Settings;
+
+					this.settings = {
+						...defaultSettings,
+						...savedSettings,
+						automation: {
+							...defaultSettings.automation,
+							...(savedSettings?.automation ?? {}),
+						},
+						gameplay: {
+							...defaultSettings.gameplay,
+							...(savedSettings?.gameplay ?? {}),
+						},
+						upgrades: {
+							...defaultSettings.upgrades,
+							...(savedSettings?.upgrades ?? {}),
+						},
+					};
+				} else if (key === 'currencyBoosts') {
+					this.skillPointBoosts = data.currencyBoosts ?? {};
+				} else {
+					this[key as keyof this] = data[key as keyof GameState] as any;
+				}
 			}
 		}
 		if (data.lastInteractionTime) {
@@ -380,7 +498,7 @@ export class GameManager {
 				return now < p.startTime + p.duration;
 			});
 			this.activePowerUps.forEach(p => {
-				const remaining = (p.startTime + p.duration) - now;
+				const remaining = p.startTime + p.duration - now;
 				setTimeout(() => this.removePowerUp(p.id), remaining);
 			});
 		}
@@ -401,14 +519,28 @@ export class GameManager {
 
 	resetAll() {
 		for (const [key, config] of Object.entries(this.statsConfig)) {
-			this[key as keyof this] = config.defaultValue;
+			if (key === 'currencies') {
+				currenciesManager.hardReset();
+			} else if (key === 'features') {
+				this.featuresManager.reset();
+			} else if (key === 'currencyBoosts') {
+				this.skillPointBoosts = {};
+			} else {
+				this[key as keyof this] = config.defaultValue;
+			}
 		}
 	}
 
 	resetLayer(layer: LayerType) {
 		for (const [key, config] of Object.entries(this.statsConfig)) {
 			if (config.layer > 0 && config.layer <= layer) {
-				this[key as keyof this] = config.defaultValue;
+				if (key === 'features') {
+					this.featuresManager.reset();
+				} else if (key === 'currencyBoosts') {
+					this.skillPointBoosts = {};
+				} else {
+					this[key as keyof this] = config.defaultValue;
+				}
 			}
 		}
 		currenciesManager.reset(layer);
@@ -435,8 +567,8 @@ export class GameManager {
 		const currentCount = this.buildings[type]?.count ?? 0;
 		const baseCost = building.cost.amount;
 		const r = BUILDING_COST_MULTIPLIER;
-		const a = baseCost * (r ** currentCount);
-		const cost = a * (Math.pow(r, amount) - 1) / (r - 1);
+		const a = baseCost * r ** currentCount;
+		const cost = (a * (Math.pow(r, amount) - 1)) / (r - 1);
 		return Math.round(cost);
 	}
 
@@ -446,30 +578,32 @@ export class GameManager {
 		const currentCount = this.buildings[type]?.count ?? 0;
 		const baseCost = building.cost.amount;
 		const r = BUILDING_COST_MULTIPLIER;
-		const a = baseCost * (r ** currentCount);
+		const a = baseCost * r ** currentCount;
 
 		if (currency < a) return 0;
 
-		const n = Math.log((currency * (r - 1) / a) + 1) / Math.log(r);
+		const n = Math.log((currency * (r - 1)) / a + 1) / Math.log(r);
 		return Math.floor(n);
 	}
 
 	// Purchasing
 	purchaseBuilding(type: BuildingType, amount: number = 1) {
 		const building = BUILDINGS[type];
-		const currentBuilding = this.buildings[type] ?? {
-			cost: building.cost,
-			rate: building.rate,
-			level: 0,
-			count: 0,
-			unlocked: true,
-		} as Building;
+		const currentBuilding =
+			this.buildings[type] ??
+			({
+				cost: building.cost,
+				rate: building.rate,
+				level: 0,
+				count: 0,
+				unlocked: true,
+			} as Building);
 
 		const totalCost = this.getBuildingCost(type, amount);
 
 		const cost = {
 			amount: totalCost,
-			currency: currentBuilding.cost.currency
+			currency: currentBuilding.cost.currency,
 		};
 
 		if (!this.spendCurrency(cost)) return false;
@@ -479,15 +613,15 @@ export class GameManager {
 			...currentBuilding,
 			cost: {
 				amount: this.getBuildingCost(type, 1),
-				currency: cost.currency
+				currency: cost.currency,
 			},
 			count: newCount,
-			level: Math.floor(newCount / BUILDING_LEVEL_UP_COST)
+			level: Math.floor(newCount / BUILDING_LEVEL_UP_COST),
 		};
 
 		this.buildings = {
 			...this.buildings,
-			[type]: newBuilding
+			[type]: newBuilding,
 		};
 
 		this.totalBuildingsPurchasedAllTime += amount;
@@ -504,14 +638,16 @@ export class GameManager {
 
 		const cost = {
 			amount: getPhotonUpgradeCost(upgrade, currentLevel),
-			currency: upgrade.currency || CurrenciesTypes.PHOTONS
+			currency: upgrade.currency || CurrenciesTypes.PHOTONS,
 		};
 
 		if (this.spendCurrency(cost)) {
 			this.photonUpgrades = {
 				...this.photonUpgrades,
-				[upgradeId]: currentLevel + 1
+				[upgradeId]: currentLevel + 1,
 			};
+			this.syncFeatures();
+			this.checkRealmUnlocks();
 			return true;
 		}
 		return false;
@@ -522,12 +658,15 @@ export class GameManager {
 		if (!skill) return false;
 
 		if (this.skillUpgrades.includes(skillId)) return false;
-		if (this.skillPointsAvailable < 1) return false;
-
 		if (skill.requires && !skill.requires.every(req => this.skillUpgrades.includes(req))) return false;
 		if (skill.condition && !skill.condition(this)) return false;
 
+		// Spend currency
+		if (!this.spendCurrency(skill.cost)) return false;
+
 		this.skillUpgrades = [...this.skillUpgrades, skillId];
+		this.syncFeatures();
+		this.checkRealmUnlocks();
 		return true;
 	}
 
@@ -537,15 +676,24 @@ export class GameManager {
 
 		if (!purchased && this.spendCurrency(upgrade.cost)) {
 			this.upgrades = [...this.upgrades, id];
+			this.syncFeatures();
 
-			if (id === 'feature_purple_realm') {
-				this.purpleRealmUnlocked = true;
-			}
+			this.checkRealmUnlocks();
 
 			this.totalUpgradesPurchasedAllTime += 1;
 			return true;
 		}
 		return false;
+	}
+
+	checkRealmUnlocks() {
+		const state = this.getCurrentState();
+		Object.values(REALMS).forEach(realmDef => {
+			if (!this.realms[realmDef.id].unlocked && realmDef.condition(state)) {
+				this.realms[realmDef.id].unlocked = true;
+				info({ title: 'Realm Unlocked', message: `${realmDef.id} Realm is now available!` });
+			}
+		});
 	}
 
 	unlockBuilding(type: BuildingType) {
@@ -559,7 +707,7 @@ export class GameManager {
 				level: 0,
 				count: 0,
 				unlocked: true,
-			}
+			},
 		};
 	}
 
@@ -568,9 +716,15 @@ export class GameManager {
 		const electronGain = this.electronizeElectronsGain;
 
 		if (this.protons >= ELECTRONS_PROTONS_REQUIRED || electronGain > 0) {
-			const persistentUpgrades = this.upgrades.filter(id =>
-				id.startsWith('electron') || id.startsWith('proton') || id === 'feature_purple_realm'
-			);
+			const persistentUpgrades = this.upgrades.filter(id => id.startsWith('electron') || id.startsWith('proton'));
+			const persistentSkills = this.skillUpgrades.filter(id => {
+				const skill = SKILL_UPGRADES[id];
+				return (
+					!!skill?.feature ||
+					skill?.cost.currency === CurrenciesTypes.PROTONS ||
+					skill?.cost.currency === CurrenciesTypes.ELECTRONS
+				);
+			});
 
 			this.totalElectronizesRun += 1;
 			this.totalElectronizesAllTime += 1;
@@ -579,9 +733,9 @@ export class GameManager {
 			this.resetLayer(LAYERS.ELECTRONIZE);
 
 			this.upgrades = persistentUpgrades;
-			if (persistentUpgrades.includes('feature_purple_realm')) {
-				this.purpleRealmUnlocked = true;
-			}
+			this.skillUpgrades = persistentSkills;
+			this.syncFeatures();
+			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.ELECTRONS, electronGain);
 
 			this.lastInteractionTime = Date.now();
@@ -595,9 +749,15 @@ export class GameManager {
 		const protonGain = this.protoniseProtonsGain;
 
 		if (this.atoms >= PROTONS_ATOMS_REQUIRED || protonGain > 0) {
-			const persistentUpgrades = this.upgrades.filter(id =>
-				id.startsWith('proton') || id.startsWith('electron') || id === 'feature_purple_realm'
-			);
+			const persistentUpgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
+			const persistentSkills = this.skillUpgrades.filter(id => {
+				const skill = SKILL_UPGRADES[id];
+				return (
+					!!skill?.feature ||
+					skill?.cost.currency === CurrenciesTypes.PROTONS ||
+					skill?.cost.currency === CurrenciesTypes.ELECTRONS
+				);
+			});
 
 			this.totalProtonisesRun += 1;
 			this.totalProtonisesAllTime += 1;
@@ -605,9 +765,9 @@ export class GameManager {
 			this.resetLayer(LAYERS.PROTONIZER);
 
 			this.upgrades = persistentUpgrades;
-			if (persistentUpgrades.includes('feature_purple_realm')) {
-				this.purpleRealmUnlocked = true;
-			}
+			this.skillUpgrades = persistentSkills;
+			this.syncFeatures();
+			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
 
 			this.lastInteractionTime = Date.now();
@@ -621,7 +781,7 @@ export class GameManager {
 	addAtoms(amount: number) {
 		currenciesManager.add(CurrenciesTypes.ATOMS, amount);
 		if (amount > 0) {
-			if (this.upgrades.includes('feature_levels')) {
+			if (this.features[FeatureTypes.LEVELS]) {
 				const xpPerAtom = 0.1;
 				this.totalXP += amount * xpPerAtom * this.xpGainMultiplier;
 			}
@@ -639,9 +799,10 @@ export class GameManager {
 		this.totalClicksRun += 1;
 		this.totalClicksAllTime += 1;
 
-		const shouldUpdate = isAuto
-			? !this.upgrades.includes('electron_bypass_atom_autoclick_stability')
-			: !this.upgrades.includes('electron_bypass_atom_click_stability');
+		const shouldUpdate =
+			isAuto ?
+				!this.upgrades.includes('electron_bypass_atom_autoclick_stability')
+			:	!this.upgrades.includes('electron_bypass_atom_click_stability');
 
 		if (shouldUpdate) {
 			this.lastInteractionTime = Date.now();
@@ -651,6 +812,15 @@ export class GameManager {
 	unlockAchievement(achievementId: string) {
 		if (!this.achievements.includes(achievementId)) {
 			this.achievements = [...this.achievements, achievementId];
+			const achievement = ACHIEVEMENTS[achievementId];
+			if (achievement) {
+				info({
+					title: 'Achievement unlocked',
+					message: `${achievement.name}\n${achievement.description}`,
+					duration: 10000,
+					icon: achievement.icon || Trophy,
+				});
+			}
 		}
 	}
 
@@ -688,8 +858,8 @@ export class GameManager {
 			...this.settings,
 			automation: {
 				...this.settings.automation,
-				buildings
-			}
+				buildings,
+			},
 		};
 	}
 
@@ -698,8 +868,8 @@ export class GameManager {
 			...this.settings,
 			automation: {
 				...this.settings.automation,
-				autoClick: !this.settings.automation.autoClick
-			}
+				autoClick: !this.settings.automation.autoClick,
+			},
 		};
 	}
 
@@ -708,8 +878,8 @@ export class GameManager {
 			...this.settings,
 			automation: {
 				...this.settings.automation,
-				autoClickPhotons: !this.settings.automation.autoClickPhotons
-			}
+				autoClickPhotons: !this.settings.automation.autoClickPhotons,
+			},
 		};
 	}
 
@@ -718,8 +888,8 @@ export class GameManager {
 			...this.settings,
 			automation: {
 				...this.settings.automation,
-				upgrades: !this.settings.automation.upgrades
-			}
+				upgrades: !this.settings.automation.upgrades,
+			},
 		};
 	}
 
@@ -753,14 +923,13 @@ export class GameManager {
 
 			Object.entries(ACHIEVEMENTS).forEach(([id, achievement]) => {
 				if (!this.achievements.includes(id) && achievement.condition(this)) {
-					this.achievements = [...this.achievements, id];
-					info("Achievement unlocked", `<strong>${achievement.name}</strong><br>${achievement.description}`);
+					this.unlockAchievement(id);
 				}
 			});
 
 			if (this.activePowerUps.length > 0) {
 				const now = Date.now();
-				this.activePowerUps = this.activePowerUps.filter((p) => now < p.startTime + p.duration);
+				this.activePowerUps = this.activePowerUps.filter(p => now < p.startTime + p.duration);
 			}
 		}, 1000);
 	}

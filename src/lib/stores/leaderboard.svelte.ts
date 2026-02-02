@@ -1,7 +1,6 @@
-import { writable, get } from 'svelte/store';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { browser } from '$app/environment';
-import { supabaseAuth } from '$stores/supabaseAuth';
+import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 import type { LeaderboardEntry } from '$lib/types/leaderboard';
 import { obfuscateClientData } from '$lib/utils/obfuscation';
 
@@ -19,50 +18,43 @@ interface LeaderboardData {
 	stats: LeaderboardStats;
 }
 
-function createLeaderboardStore() {
-	const { subscribe, set } = writable<LeaderboardEntry[]>([]);
-	const { subscribe: subscribeStats, set: setStats } = writable<LeaderboardStats>({
-		totalUsers: 0
-	});
+export class LeaderboardStore {
+	entries = $state<LeaderboardEntry[]>([]);
+	stats = $state<LeaderboardStats>({ totalUsers: 0 });
+	isUpdating = $state(false);
 
-	// Update control variables
-	let isUpdating = false;
-
-	async function fetchLeaderboard() {
-		if (!browser) return;
+	async fetchLeaderboard() {
 		try {
-			const authState = get(supabaseAuth);
-			const userId = authState.isAuthenticated ? authState.user?.id : '';
+			const userId = supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : '';
 			const response = await fetch(`/api/leaderboard?userId=${userId}`);
 			if (!response.ok) throw new Error('Failed to fetch leaderboard');
 			const data: LeaderboardData = await response.json();
-			set(data.entries);
-			setStats(data.stats);
+			this.entries = data.entries;
+			this.stats = data.stats;
 		} catch (error) {
 			console.error('Error fetching leaderboard:', error);
 		}
 	}
 
-	async function updateScore(atoms: number, level: number) {
-		if (!browser || isUpdating) return;
+	async updateScore(atoms: number, level: number) {
+		if (!browser || this.isUpdating) return;
 
 		try {
-			isUpdating = true;
-			const authState = get(supabaseAuth);
-			if (!authState.isAuthenticated || !authState.user) return;
+			this.isUpdating = true;
+			if (!supabaseAuth.isAuthenticated || !supabaseAuth.user) return;
 
-			const username = authState.profile?.username ??
-				authState.user.user_metadata?.username ??
-				authState.user.user_metadata?.full_name ??
-				authState.user.email?.split('@')[0] ??
+			const username = supabaseAuth.profile?.username ??
+				supabaseAuth.user.user_metadata?.username ??
+				supabaseAuth.user.user_metadata?.full_name ??
+				supabaseAuth.user.email?.split('@')[0] ??
 				'Anonymous';
 
 			const data = {
 				username,
 				atoms,
 				level,
-				userId: authState.user.id,
-				picture: authState.profile?.picture ?? authState.user.user_metadata?.avatar_url ?? authState.user.user_metadata?.picture
+				userId: supabaseAuth.user.id,
+				picture: supabaseAuth.profile?.picture ?? supabaseAuth.user.user_metadata?.avatar_url ?? supabaseAuth.user.user_metadata?.picture
 			};
 
 			const obfuscatedData = obfuscateClientData(data);
@@ -83,61 +75,49 @@ function createLeaderboardStore() {
 			}
 
 			// Refresh leaderboard after update
-			await fetchLeaderboard();
+			await this.fetchLeaderboard();
 		} catch (error) {
 			console.error('Error updating leaderboard:', error);
 		} finally {
-			isUpdating = false;
+			this.isUpdating = false;
 		}
 	}
 
-	if (browser) {
-		setInterval(fetchLeaderboard, REFRESH_INTERVAL);
+	constructor() {
+		if (browser) {
+			this.fetchLeaderboard();
+			setInterval(() => this.fetchLeaderboard(), REFRESH_INTERVAL);
+
+			let lastAtoms = 0;
+			let lastLevel = 0;
+			let lastUpdate = 0;
+
+			$effect.root(() => {
+				$effect(() => {
+					const atoms = gameManager.atoms;
+					const level = gameManager.playerLevel;
+
+					if (!supabaseAuth.isAuthenticated) return;
+
+					const now = Date.now();
+					if (now - lastUpdate < MIN_UPDATE_INTERVAL) return;
+
+					const atomsChange = Math.abs(atoms - lastAtoms) / Math.max(lastAtoms, 1);
+					const shouldUpdate =
+						lastAtoms === 0 || // First update
+						atomsChange > MIN_ATOMS_CHANGE_PERCENT || // Significant change in atoms
+						level !== lastLevel; // Level change
+
+					if (shouldUpdate) {
+						lastAtoms = atoms;
+						lastLevel = level;
+						lastUpdate = now;
+						this.updateScore(atoms, level);
+					}
+				});
+			});
+		}
 	}
-
-	return {
-		entries: { subscribe },
-		fetchLeaderboard,
-		stats: { subscribe: subscribeStats },
-		updateScore
-	};
 }
 
-const leaderboardStore = createLeaderboardStore();
-
-export const leaderboard = leaderboardStore.entries;
-export const leaderboardStats = leaderboardStore.stats;
-export const fetchLeaderboard = leaderboardStore.fetchLeaderboard;
-export const updateLeaderboardScore = leaderboardStore.updateScore;
-
-if (browser) {
-	let lastAtoms = 0;
-	let lastLevel = 0;
-	let lastUpdate = 0;
-
-	$effect.root(() => {
-		$effect(() => {
-			const atoms = gameManager.atoms;
-			const level = gameManager.playerLevel;
-			const auth = get(supabaseAuth);
-
-			if (!auth.isAuthenticated) return;
-
-			const now = Date.now();
-			if (now - lastUpdate < MIN_UPDATE_INTERVAL) return;
-
-			const atomsChange = Math.abs(atoms - lastAtoms) / Math.max(lastAtoms, 1);
-			const shouldUpdate =
-				lastAtoms === 0 || // First update
-				atomsChange > MIN_ATOMS_CHANGE_PERCENT || // Significant change in atoms
-				level !== lastLevel; // Level change
-
-			if (shouldUpdate) {
-				lastAtoms = atoms;
-				lastLevel = level;
-				lastUpdate = now;
-				updateLeaderboardScore(atoms, level);
-			}
-		});
-	});
-}
+export const leaderboard = new LeaderboardStore();

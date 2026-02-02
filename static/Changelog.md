@@ -1,3 +1,28 @@
+# What's new 02-02-2026
+
+- **Bonus Display**: Added a display for active power ups in the atom realm.
+- **Building icons**: Added icons for buildings.
+- **Prestige Animations**: Added new animations for protonise and electronise.
+
+# What's new 01-02-2026
+
+- **Skill Tree**: Reworked from scratch the skill tree system, skills are now paid with currencies, important features and boosts are now available as skills.
+- **Currency Boosts**: Added a new system to boost currencies production based on the player's old skill points.
+- **Balanced upgrades**: Balanced many upgrades prices, game should be more interesting at the start and should slow down a bit on later stages.
+
+# What's new 30-01-2026
+
+- **Gain Breakdown**: New detailed gain breakdown for protons and electrons in the protonize/electronize menus.
+- **Offline Progress**: Added offline progress with caps (6h → 3d), 10% income rate, and automation throttling (1/120 speed).
+- **Offline Summary**: New return panel showing time away, caps, multipliers, automation stats, and currency gains.
+- **Settings**: Added a toggle to disable offline progress.
+- **Upgrades**: Added new offline cap upgrades (Atoms) and offline automation unlocks (Protons).
+
+# What's new 04-01-2026
+
+- **Leaderboard**: Added a way to edit your profile picture, added platform button, you can click on it to use the username/profile picture of this platform.
+- **Upgrades**: Added a toggle button for displaying already bought upgrades.
+
 # What's new 30-12-2025
 
 - **Excited Photons**: New rare currency in the Purple Realm with dedicated upgrades and achievements.

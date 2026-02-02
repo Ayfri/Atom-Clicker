@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth';
+	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { HardDrive, Cloud, Download, RefreshCw } from 'lucide-svelte';
 
 	let jsonView = $state<'save' | 'supabase'>('save');
@@ -12,7 +12,7 @@
 	async function loadSupabaseData() {
 		loadingSupabase = true;
 		try {
-			const supabase = $supabaseAuth.supabase;
+			const supabase = supabaseAuth.supabase;
 			if (!supabase) {
 				supabaseData = { error: 'Supabase not initialized' };
 				return;

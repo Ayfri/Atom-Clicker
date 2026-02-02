@@ -1,85 +1,62 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-import type { Currency } from '$lib/types';
-import type { Component } from 'svelte';
 import AtomRealm from '@components/prestige/AtomRealm.svelte';
 import PhotonRealm from '@components/prestige/PhotonRealm.svelte';
+import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+import { gameManager } from '$helpers/GameManager.svelte';
+import { RealmTypes, type RealmType } from '$data/realms';
+import type { Currency } from '$lib/types';
+import type { Component } from 'svelte';
 
 export interface RealmConfig {
+	background?: string;
 	component: Component;
-	activeClasses: string;
 	currency: Currency;
-	footerTheme: RealmFooterTheme;
-	id: string;
-	isUnlocked: () => boolean;
-	props?: Record<string, unknown>;
+	id: RealmType;
 	title: string;
-	getValue: () => number;
-}
-
-export interface RealmFooterTheme {
-	baseClass: string;
-	hoverClass: string;
-	mutedClass: string;
-	mutedHoverClass: string;
 }
 
 class RealmManager {
-	selectedRealmId = $state('atoms');
+	selectedRealmId = $state<RealmType>(RealmTypes.ATOMS);
 
 	realms: RealmConfig[] = [
 		{
-			activeClasses: 'bg-accent-500/60 border-accent-400/50',
+			background:
+				'radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--color-accent-400), transparent 88%) 0%, color-mix(in srgb, var(--color-accent-400), transparent 92%) 30%, transparent 60%), radial-gradient(circle at 95% 90%, color-mix(in srgb, var(--color-accent-400), transparent 88%) 0%, color-mix(in srgb, var(--color-accent-400), transparent 92%) 25%, transparent 50%)',
 			component: AtomRealm,
 			currency: CURRENCIES[CurrenciesTypes.ATOMS],
-			footerTheme: {
-				baseClass: 'text-white/60',
-				hoverClass: 'hover:text-white',
-				mutedClass: 'text-white/40',
-				mutedHoverClass: 'hover:text-white'
-			},
-			id: 'atoms',
-			title: 'Atoms Realm',
-			isUnlocked: () => true,
-			getValue: () => gameManager.atoms
+			id: RealmTypes.ATOMS,
+			title: 'Atoms Realm'
 		},
 		{
-			activeClasses: 'bg-realm-500/60 border-realm-400/50',
+			background:
+				'linear-gradient(135deg, color-mix(in srgb, var(--color-realm-500), transparent 90%) 0%, color-mix(in srgb, var(--color-realm-950), transparent 90%) 50%, color-mix(in srgb, var(--color-realm-500), transparent 90%) 100%)',
 			component: PhotonRealm,
 			currency: CURRENCIES[CurrenciesTypes.PHOTONS],
-			footerTheme: {
-				baseClass: 'text-white/85',
-				hoverClass: 'hover:text-purple-200',
-				mutedClass: 'text-white/70',
-				mutedHoverClass: 'hover:text-purple-200'
-			},
-			id: 'photons',
-			title: 'Purple Realm',
-			isUnlocked: () => gameManager.purpleRealmUnlocked,
-			getValue: () => gameManager.photons
+			id: RealmTypes.PHOTONS,
+			title: 'Photon Realm'
 		}
 	];
 
 	get availableRealms() {
-		return this.realms.filter((r) => r.isUnlocked());
+		return this.realms.filter((r) => gameManager.realms[r.id].unlocked);
+	}
+
+	get realmValues() {
+		return this.realms.reduce(
+			(acc, realm) => {
+				acc[realm.id] = currenciesManager.getAmount(realm.currency.name);
+				return acc;
+			},
+			{} as Record<RealmType, number>
+		);
 	}
 
 	get selectedRealm() {
 		return this.realms.find((r) => r.id === this.selectedRealmId) || this.realms[0];
 	}
 
-	get realmValues() {
-		return this.realms.reduce(
-			(acc, realm) => {
-				acc[realm.id] = realm.getValue();
-				return acc;
-			},
-			{} as Record<string, number>
-		);
-	}
-
-	selectRealm(id: string) {
-		if (this.realms.find((r) => r.id === id && r.isUnlocked())) {
+	selectRealm(id: RealmType) {
+		if (this.realms.find((r) => r.id === id && gameManager.realms[r.id].unlocked)) {
 			this.selectedRealmId = id;
 		}
 	}

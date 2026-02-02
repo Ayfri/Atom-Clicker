@@ -37,7 +37,7 @@
 {#if isSaving}
 	<div class="fixed bottom-4 right-4 z-50">
 		<div class="animate-bounce">
-			<CloudUpload class="size-7 text-accent drop-shadow-lg" />
+			<CloudUpload size={28} class="text-accent drop-shadow-lg" />
 		</div>
 	</div>
 {/if}

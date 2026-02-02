@@ -4,33 +4,18 @@ import { formatNumber } from '$lib/utils';
 import { BUILDING_TYPES, BUILDINGS, type BuildingType } from '$data/buildings';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { SKILL_UPGRADES } from '$data/skillTree';
+import GitHub from '@components/icons/GitHub.svelte';
+import Discord from '@components/icons/Discord.svelte';
+import { Award, Coffee, Globe, Trophy } from 'lucide-svelte';
 
 export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
-	{
-		id: 'first_atom',
-		name: 'Baby Steps',
-		description: 'Click your first atom',
-		condition: (manager: GameManager) => manager.atoms >= 1,
-	},
-	{
-		id: 'secret_achievement',
-		name: 'Have more than 100 buildings',
-		description: 'A mysterious achievement',
-		hiddenCondition: (manager: GameManager) => {
-			const totalBuildings = Object.values(manager.buildings).reduce((sum, b) => sum + b.count, 0);
-			return totalBuildings >= 100;
-		},
-		condition: (manager: GameManager) => {
-			const totalBuildings = Object.values(manager.buildings).reduce((sum, b) => sum + b.count, 0);
-			return totalBuildings >= 100;
-		},
-	},
 	{
 		id: 'hidden_atom_clicked',
 		name: 'Atomic Discoverer',
 		description: 'Found the hidden atom in the credits',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('hidden_atom_clicked'),
 		condition: (manager: GameManager) => manager.achievements.includes('hidden_atom_clicked'),
+		icon: Award,
 	},
 	{
 		id: 'skill_tree_master',
@@ -48,6 +33,7 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		description: 'Found the reset button... but decided not to press it',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('reset_modal_opener'),
 		condition: (manager: GameManager) => manager.achievements.includes('reset_modal_opener'),
+		icon: Trophy,
 	},
 	{
 		id: 'play_time_10min',
@@ -91,6 +77,7 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		description: 'Visited the creator\'s website',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('website_click'),
 		condition: (manager: GameManager) => manager.achievements.includes('website_click'),
+		icon: Globe,
 	},
 	{
 		id: 'coffee_click',
@@ -98,6 +85,7 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		description: 'Clicked on the Buy me a coffee link',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('coffee_click'),
 		condition: (manager: GameManager) => manager.achievements.includes('coffee_click'),
+		icon: Coffee,
 	},
 	{
 		id: 'discord_click',
@@ -105,6 +93,7 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		description: 'Joined the Discord community',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('discord_click'),
 		condition: (manager: GameManager) => manager.achievements.includes('discord_click'),
+		icon: Discord,
 	},
 	{
 		id: 'github_click',
@@ -112,6 +101,7 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		description: 'Visited the GitHub repository',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('github_click'),
 		condition: (manager: GameManager) => manager.achievements.includes('github_click'),
+		icon: GitHub,
 	},
 	{
 		id: 'changelog_modal_opener',
@@ -119,6 +109,26 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		description: 'Checked what\'s new in the game',
 		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('changelog_modal_opener'),
 		condition: (manager: GameManager) => manager.achievements.includes('changelog_modal_opener'),
+	},
+	{
+		id: 'higgs_no_atoms',
+		name: 'Pure Luck',
+		description: 'Click a Higgs Boson without ever earning an atom',
+		condition: (manager: GameManager) => {
+			const higgsEarned = manager.currencies[CurrenciesTypes.HIGGS_BOSON]?.earnedAllTime || 0;
+			const atomsEarned = manager.currencies[CurrenciesTypes.ATOMS]?.earnedAllTime || 0;
+			return higgsEarned > 0 && atomsEarned === 0;
+		},
+	},
+	{
+		id: 'atoms_1000_no_upgrades',
+		name: 'Minimalist',
+		description: 'Reach 1,000 atoms without ever buying an upgrade',
+		condition: (manager: GameManager) => {
+			const atoms = manager.currencies[CurrenciesTypes.ATOMS]?.amount || 0;
+			const hasUpgrades = manager.upgrades.length > 0 || manager.skillUpgrades.length > 0;
+			return atoms >= 1000 && !hasUpgrades;
+		},
 	},
 ];
 
@@ -312,6 +322,31 @@ function createPhotonUpgradeAchievements(): Achievement[] {
 	return achievements;
 }
 
+function createCurrencyBoostAchievements(): Achievement[] {
+	return [
+		{
+			id: 'first_boost',
+			name: 'Power Amplifier',
+			description: 'Allocate your first skill point to a currency boost',
+			condition: (manager: GameManager) => {
+				const totalBoosts = Object.values(manager.skillPointBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
+				return totalBoosts >= 1;
+			},
+			hiddenCondition: (manager: GameManager) => manager.totalProtonisesAllTime < 1,
+		},
+		{
+			id: 'max_single_boost',
+			name: 'Laser Focus',
+			description: 'Maximize a single currency boost (20 points)',
+			condition: (manager: GameManager) => {
+				const boosts = Object.values(manager.skillPointBoosts || {});
+				return boosts.some((points) => (points ?? 0) >= 20);
+			},
+			hiddenCondition: (manager: GameManager) => manager.skillPointsTotal < 5,
+		},
+	];
+}
+
 const achievementsArray: Achievement[] = [
 	...BUILDING_TYPES.map(createBuildingAchievements).flat(),
 	...createBuildingTotalAchievements(),
@@ -322,6 +357,7 @@ const achievementsArray: Achievement[] = [
 	...createProtoniseAchievements(),
 	...createElectronizeAchievements(),
 	...createCurrencyAchievements(),
+	...createCurrencyBoostAchievements(),
 	...createPhotonUpgradeAchievements(),
 	...SPECIAL_ACHIEVEMENTS,
 ];

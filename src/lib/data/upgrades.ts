@@ -1,40 +1,19 @@
 import { BUILDING_TYPES, BUILDINGS, type BuildingType } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import type { Effect, Upgrade } from '$lib/types';
+import { FeatureTypes } from '$data/features';
 import type { GameManager } from '$helpers/GameManager.svelte';
+import type { Effect, Upgrade } from '$lib/types';
 import { capitalize, formatNumber, shortNumberText } from '$lib/utils';
-
-export const SPECIAL_UPGRADES: Upgrade[] = [
-	{
-		id: 'feature_levels',
-		name: 'Unlock Levels',
-		description: 'Unlock the leveling system',
-		cost: {
-			amount: 15_000,
-			currency: CurrenciesTypes.ATOMS,
-		},
-		effects: [],
-	},
-	{
-		id: 'feature_purple_realm',
-		name: 'Purple Realm',
-		description: 'Unlock the mysterious purple realm',
-		cost: {
-			amount: 1_500_000_000,
-			currency: CurrenciesTypes.ATOMS,
-		},
-		effects: [],
-	},
-];
 
 interface CreateUpgradesOptions {
 	condition?: (index: number, manager: GameManager) => boolean;
 	cost: (index: number) => number;
-	currency?: CurrencyName;
 	count: number;
+	currency?: CurrencyName;
 	description: (index: number) => string;
 	effects: (index: number) => Effect[];
 	id: string;
+	idForIndex?: (index: number) => string;
 	name: (index: number) => string;
 }
 
@@ -42,6 +21,7 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 	const upgrades: Upgrade[] = [];
 	for (let i = 1; i <= options.count; i++) {
 		const effects = options.effects(i);
+		const id = options.idForIndex?.(i) ?? `${options.id}_${i}`;
 		upgrades.push({
 			condition: state => options.condition?.(i, state) !== false,
 			cost: {
@@ -50,7 +30,7 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 			},
 			description: options.description(i),
 			effects,
-			id: `${options.id}_${i}`,
+			id,
 			name: options.name(i),
 		} as Upgrade);
 	}
@@ -65,7 +45,7 @@ function createBuildingUpgrades(buildingType: BuildingType) {
 		id: buildingType.toLowerCase(),
 		name: i => `${building.name} Boost ${i}`,
 		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${building.name} production`,
-		cost: i => building.cost.amount * 2.5 ** (i * 3.1) * (i > 10 ? i ** 3.1 : 1),
+		cost: i => building.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
 		effects: i => [
 			{
 				type: 'building',
@@ -81,13 +61,13 @@ function createClickPowerUpgrades() {
 	const upgrades: Upgrade[] = [];
 	upgrades.push(
 		...createUpgrades({
-			count: 15,
+			count: 20,
 			id: 'click_power_mul',
 			name: i => `Click Power ${i}`,
 			description: i => `${i < 6 ? '1.5x' : '2x'} click power`,
 			cost: i => {
-				const baseCost = 15 * 2 ** (i * 5);
-				return i > 8 ? baseCost * i ** 4.1 : baseCost;
+				const baseCost = 10 * 2 ** (i * 3);
+				return i > 8 ? baseCost * i ** 6.5 : baseCost;
 			},
 			effects: i => [
 				{
@@ -106,8 +86,8 @@ function createClickPowerUpgrades() {
 			name: i => `Click Value ${i}`,
 			description: i => `+${formatNumber(Math.ceil(10 ** i / 10))} base value per click`,
 			cost: i => {
-				const baseCost = 5 ** (i * 2) * 15;
-				return i > 6 ? baseCost * i ** 3.1 * 1.1 : baseCost * 1.1;
+				const baseCost = 4 ** (i * 2) * 10;
+				return i > 6 ? baseCost * i ** 3.5 * 1.1 : baseCost * 1.1;
 			},
 			effects: i => [
 				{
@@ -126,8 +106,8 @@ function createClickPowerUpgrades() {
 			name: i => `Global Click Power ${Math.ceil(i / 2)}`,
 			description: i => `+${Math.ceil(i / 2)}% of your Atoms per second per click`,
 			cost: i => {
-				const baseCost = 25 * 2 ** (i * 8);
-				return i > 3 ? baseCost * i ** 5.1 * 1.1 : baseCost * 1.1;
+				const baseCost = 10 * 2 ** (i * 10);
+				return i > 3 ? baseCost * i ** 8 * 1.1 : baseCost * 1.1;
 			},
 			effects: i => [
 				{
@@ -149,14 +129,14 @@ function createGlobalUpgrades() {
 		name: i => `Global Boost ${i}`,
 		description: i => `${formatNumber(1 + i / 100)}x all production`,
 		cost: i => {
-			const baseCost = 1.2 * 10 ** i;
+			const baseCost = 1.25 * 10 ** (i * 1.1);
 			if (i > 40) {
-				return baseCost * i ** 8;
+				return baseCost * i ** 9.5;
 			}
 			if (i > 30) {
-				return baseCost * i ** 6;
+				return baseCost * i ** 7.5;
 			}
-			return i > 20 ? baseCost * i ** 4 : baseCost;
+			return i > 20 ? baseCost * i ** 5.5 : baseCost;
 		},
 		effects: i => [
 			{
@@ -175,7 +155,7 @@ function createGlobalUpgrades() {
 			name: i => `Atom Soup ${i}`,
 			description: i => `+${Math.ceil(i / 5)}% production per achievement`,
 			cost: i => {
-				const baseCost = 1500 * 2 ** (i * 7);
+				const baseCost = 500 * 2 ** (i * 6);
 				return i > 5 ? baseCost * i ** 4 : baseCost;
 			},
 			effects: i => [
@@ -196,8 +176,57 @@ function createGlobalUpgrades() {
 	return upgrades;
 }
 
+function createOfflineCapUpgrades() {
+	const isUnlocked = (state: GameManager) => state.features[FeatureTypes.OFFLINE_PROGRESS] === true;
+	const caps = [
+		{
+			cost: 50_000_000,
+			description: 'Increase offline cap to 12 hours',
+			id: 'offline_cap_12h',
+			name: 'Offline Cap 12h',
+		},
+		{
+			cost: 750_000_000,
+			description: 'Increase offline cap to 1 day',
+			id: 'offline_cap_1d',
+			name: 'Offline Cap 1d',
+		},
+		{
+			cost: 25_000_000_000,
+			description: 'Increase offline cap to 1.5 days',
+			id: 'offline_cap_1_5d',
+			name: 'Offline Cap 1.5d',
+		},
+		{
+			cost: 500_000_000_000,
+			description: 'Increase offline cap to 2 days',
+			id: 'offline_cap_2d',
+			name: 'Offline Cap 2d',
+		},
+		{
+			cost: 10_000_000_000_000,
+			description: 'Increase offline cap to 3 days',
+			id: 'offline_cap_3d',
+			name: 'Offline Cap 3d',
+		},
+	];
+
+	return createUpgrades({
+		condition: (_, state) => isUnlocked(state),
+		cost: (index) => caps[index - 1]?.cost ?? 0,
+		count: caps.length,
+		currency: CurrenciesTypes.ATOMS,
+		description: (index) => caps[index - 1]?.description ?? '',
+		effects: () => [],
+		id: 'offline_cap',
+		idForIndex: (index) => caps[index - 1]?.id ?? `offline_cap_${index}`,
+		name: (index) => caps[index - 1]?.name ?? `Offline Cap ${index}`,
+	});
+}
+
 function createPowerUpIntervalUpgrades() {
 	return createUpgrades({
+		condition: (_, state) => (state.currencies[CurrenciesTypes.HIGGS_BOSON]?.earnedAllTime ?? 0) > 0,
 		id: 'power_up_interval',
 		count: 15,
 		name: i => `Power Up Interval ${i + 1}`,
@@ -231,7 +260,7 @@ function createLevelBoostUpgrades() {
 						: Math.ceil(5 ** (i * 4) * (i > 3 ? i ** 4 : 1) * 1.1),
 				currency: 'Atoms',
 			},
-			condition: state => state.upgrades.includes('feature_levels') || i === 1,
+			condition: state => state.features[FeatureTypes.LEVELS] === true,
 			effects: [
 				{
 					type: 'global',
@@ -388,27 +417,6 @@ function createProtonUpgrades() {
 		}),
 	);
 
-	// Community boost
-	upgrades.push({
-		id: 'proton_community_boost',
-		name: 'Community Power',
-		description: '1% atom boost per thousand registered players',
-		cost: {
-			amount: 10,
-			currency: CurrenciesTypes.PROTONS,
-		},
-		effects: [
-			{
-				type: 'global',
-				description: '1% atom boost per thousand players',
-				apply: (currentValue, manager) => {
-					const boost = (manager.totalUsers / 1000) * 0.01;
-					return currentValue * (1 + boost);
-				},
-			},
-		],
-	} as Upgrade);
-
 	// Auto-clicker upgrade
 	upgrades.push(
 		...createUpgrades({
@@ -431,23 +439,31 @@ function createProtonUpgrades() {
 		}),
 	);
 
-	// Stability Field Unlock
-	upgrades.push({
-		id: 'stability_unlock',
-		name: 'Stability Field',
-		description: 'Unlock the Stability Meter (Passive Idle Bonus)',
-		cost: {
-			amount: 5000,
-			currency: CurrenciesTypes.PROTONS,
-		},
-		effects: [
-			{
-				type: 'global',
-				description: 'Unlock Stability Meter',
-				apply: (val) => val,
+	// Offline automation unlocks
+	upgrades.push(
+		{
+			condition: state => state.features[FeatureTypes.OFFLINE_PROGRESS] === true,
+			cost: {
+				amount: 120,
+				currency: CurrenciesTypes.PROTONS,
 			},
-		],
-	} as Upgrade);
+			description: 'Unlock offline auto-upgrades (1/120 speed)',
+			effects: [],
+			id: 'proton_offline_autobuy',
+			name: 'Offline Auto-upgrades',
+		} as Upgrade,
+		{
+			condition: state => state.features[FeatureTypes.OFFLINE_PROGRESS] === true,
+			cost: {
+				amount: 250,
+				currency: CurrenciesTypes.PROTONS,
+			},
+			description: 'Unlock offline atom auto-clicks (1/120 speed)',
+			effects: [],
+			id: 'proton_offline_autoclick',
+			name: 'Offline Atom Auto-click',
+		} as Upgrade,
+	);
 
 	// Stability Boost
 	upgrades.push(
@@ -457,7 +473,7 @@ function createProtonUpgrades() {
 			currency: CurrenciesTypes.PROTONS,
 			name: i => `Stable Resonance ${i}`,
 			description: i => `+${25 * i}% effect from Stability Meter`,
-			condition: (_, state) => state.upgrades.includes('stability_unlock'),
+			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
 			cost: i => {
 				const baseCost = Math.ceil(140 * 2.05 ** i);
 				return baseCost;
@@ -480,7 +496,7 @@ function createProtonUpgrades() {
 			currency: CurrenciesTypes.PROTONS,
 			name: i => `Field Coherence ${i}`,
 			description: i => `Stability grows 10% faster`,
-			condition: (_, state) => state.upgrades.includes('stability_unlock'),
+			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
 			cost: i => {
 				const baseCost = Math.ceil(100 * 2.25 ** i);
 				return baseCost;
@@ -503,7 +519,7 @@ function createProtonUpgrades() {
 			currency: CurrenciesTypes.PROTONS,
 			name: i => `Temporal Expansion ${i}`,
 			description: i => `Extends stability capacity and max bonus`,
-			condition: (_, state) => state.upgrades.includes('stability_unlock'),
+			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
 			cost: i => {
 				const baseCost = Math.ceil(500 * 3 ** i);
 				return baseCost;
@@ -674,14 +690,14 @@ function createElectronUpgrades() {
 }
 
 const upgrades = [
-	...SPECIAL_UPGRADES,
 	...BUILDING_TYPES.map(createBuildingUpgrades).flat(),
 	...createClickPowerUpgrades(),
 	...createGlobalUpgrades(),
+	...createOfflineCapUpgrades(),
 	...createPowerUpIntervalUpgrades(),
 	...createLevelBoostUpgrades(),
 	...createProtonUpgrades(),
-	...createElectronUpgrades(),
+	...createElectronUpgrades()
 ];
 
 export const UPGRADES = Object.fromEntries(upgrades.map(upgrade => [upgrade.id, upgrade]));

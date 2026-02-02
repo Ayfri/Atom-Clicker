@@ -1,13 +1,12 @@
-export type AuthProvider = 'google' | 'discord' | 'x';
+import type { Provider } from '@supabase/supabase-js';
+export type AuthProvider = Provider;
 
 export interface AuthConnection {
-    id: AuthProvider;
-    name: string;
-    icon: string;
-    provider: AuthProvider;
-    connection: string;
-    scope: string;
-    backgroundColor: string;
-    hoverBackgroundColor: string;
-    textColor: string;
+	icon: string;
+	id: string;
+	name: string;
+	provider: AuthProvider;
+	backgroundColor: string;
+	hoverBackgroundColor: string;
+	textColor: string;
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { supabaseAuth } from '$stores/supabaseAuth';
+	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 
 	let isLoading = $state(true);
 	let error: string | null = $state(null);
@@ -10,8 +10,14 @@
 		try {
 			// Handle Supabase auth callback
 			await supabaseAuth.init();
-			// Supabase handles the callback automatically via onAuthStateChange
-			await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for auth state to settle
+
+			// Wait for auth state to settle (loading becomes false)
+			let retryCount = 0;
+			while (supabaseAuth.loading && retryCount < 50) {
+				await new Promise(resolve => setTimeout(resolve, 100));
+				retryCount++;
+			}
+
 			goto('/');
 		} catch (err: unknown) {
 			console.error('Authentication callback error:', err);

@@ -1,5 +1,15 @@
-import type { HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { logError } from '$lib/server/errorHandler.server';
+
+export const handle: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	// Allow itch.io (all subdomains) and local development
+	response.headers.set('Content-Security-Policy', "frame-ancestors 'self' https://*.itch.io https://*.itch.zone file:");
+	// Remove X-Frame-Options because CSP frame-ancestors takes precedence and is more flexible
+	response.headers.delete('X-Frame-Options');
+	response.headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+	return response;
+};
 
 /**
  * Extract browser info from request headers (server-side approximation)

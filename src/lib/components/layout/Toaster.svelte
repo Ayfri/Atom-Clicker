@@ -1,33 +1,46 @@
 <script lang="ts">
-	import {removeToast, toasts, clearAllToasts} from '$stores/toasts';
-	import {X, Trash2} from 'lucide-svelte';
-	import {fade} from 'svelte/transition';
+	import { toasts, clearAllToasts } from '$stores/toasts';
+	import { AlertCircle, AlertTriangle, CheckCircle, Info, Trash2 } from 'lucide-svelte';
+	import { fade } from 'svelte/transition';
+	import Toast from './Toast.svelte';
+
+	const typeConfig = {
+		error: {
+			border: 'border-red-500/50',
+			icon: AlertCircle,
+			iconColor: 'text-red-500',
+			progressBarColor: 'bg-red-500',
+			title: 'text-red-400'
+		},
+		info: {
+			border: 'border-blue-500/50',
+			icon: Info,
+			iconColor: 'text-blue-500',
+			progressBarColor: 'bg-blue-500',
+			title: 'text-blue-200'
+		},
+		success: {
+			border: 'border-green-500/50',
+			icon: CheckCircle,
+			iconColor: 'text-green-500',
+			progressBarColor: 'bg-green-500',
+			title: 'text-green-200'
+		},
+		warning: {
+			border: 'border-yellow-500/50',
+			icon: AlertTriangle,
+			iconColor: 'text-yellow-500',
+			progressBarColor: 'bg-yellow-500',
+			title: 'text-yellow-500'
+		}
+	} as const;
 </script>
 
 <div
-	class="fixed bottom-0 right-0 z-50 flex flex-col gap-3 p-4 sm:bottom-8 sm:right-8 sm:p-0"
+	class="fixed bottom-0 right-0 z-100 flex flex-col gap-3 p-4 sm:bottom-8 sm:right-8 sm:p-0"
 >
-	{#each $toasts as toast}
-		<div
-			class="flex w-full flex-col gap-1 overflow-hidden rounded-lg
-			bg-accent-900/90 p-3 shadow-lg backdrop-blur-xs transition-all duration-300
-			hover:scale-[1.02] sm:w-80"
-			class:type={toast.type}
-			transition:fade={{ duration: 400 }}
-		>
-			<div class="flex items-center justify-between gap-4">
-				<h3 class="text-sm font-bold text-white">{toast.title}</h3>
-				<button
-					class="flex h-6 w-6 items-center justify-center rounded-lg transition-colors hover:bg-white/10 *:hover:stroke-3"
-					onclick={() => removeToast(toast.id)}
-				>
-					<X class="transition-all duration-300" size={14}/>
-				</button>
-			</div>
-			<p class="text-xs text-white/90">
-				{@html toast.message}
-			</p>
-		</div>
+	{#each $toasts as toast (toast.id)}
+		<Toast {toast} config={typeConfig[toast.type]} />
 	{/each}
 
 	{#if $toasts.length > 1}

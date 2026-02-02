@@ -1,13 +1,17 @@
 <script lang="ts">
 	import '@xyflow/svelte/dist/style.css';
-	import { mobile } from '$stores/window.svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { SKILL_UPGRADES } from '$data/skillTree';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { SkillUpgrade } from '$lib/types';
-	import { SvelteFlow, Background, Controls, type Node, type Edge, Position } from '@xyflow/svelte';
+	import { Background, Controls, type Edge, type Node, Position, SvelteFlow } from '@xyflow/svelte';
+	import { dev } from '$app/environment';
 	import SkillNode from '@components/game/SkillNode.svelte';
 	import Modal from '@components/ui/Modal.svelte';
+	import { CurrenciesTypes } from '$data/currencies';
+	import { RealmTypes } from '$data/realms';
+	import { SKILL_UPGRADES } from '$data/skillTree';
+	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import type { SkillUpgrade } from '$lib/types';
+	import { mobile } from '$stores/window.svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -15,110 +19,125 @@
 
 	let { onClose }: Props = $props();
 
-	const nodeTypes = {
-		skill: SkillNode,
-	};
+	let showHiddenSkills = $state(false);
+
+	const nodeTypes = { skill: SkillNode };
 
 	let nodes = $state.raw<Node[]>([]);
 	let edges = $state.raw<Edge[]>([]);
 
-	// Skill management
 	function canUnlockSkill(skill: SkillUpgrade): boolean {
 		if (!gameManager.skillUpgrades) return false;
 		if (gameManager.skillUpgrades.includes(skill.id)) return false;
-		if (gameManager.skillPointsAvailable < 1) return false;
-
 		if (skill.condition !== undefined && !skill.condition(gameManager)) return false;
-		return skill.requires?.every((req) => gameManager.skillUpgrades?.includes(req)) ?? true;
+		if (skill.requires && !skill.requires.every((req) => gameManager.skillUpgrades?.includes(req))) return false;
+		return currenciesManager.getAmount(skill.cost.currency) >= skill.cost.amount;
 	}
 
 	function unlockSkill(skill: SkillUpgrade) {
 		if (!canUnlockSkill(skill)) return;
 		gameManager.purchaseSkill(skill.id);
-		// Force immediate update after unlock
 		updateTree();
 	}
 
 	let interval: ReturnType<typeof setInterval>;
 	onMount(() => {
 		updateTree();
-		interval = setInterval(() => updateTree(), 300);
+		interval = setInterval(updateTree, 300);
 	});
-
 	onDestroy(() => clearInterval(interval));
 
 	function updateTree() {
-		// Convert skills to nodes - create new objects each time to trigger reactivity
-		const newNodes = Object.values(SKILL_UPGRADES).map((skill) => ({
-			id: skill.id,
-			type: 'skill',
-			position: { ...skill.position },
-			data: {
-				...skill,
-				unlocked: gameManager.skillUpgrades.includes(skill.id),
-				available: canUnlockSkill(skill),
-			},
-		}));
+		const skillList = Object.values(SKILL_UPGRADES);
+		const unlockedSkills = gameManager.skillUpgrades;
 
-		// Only update if there are actual changes
-		nodes = newNodes;
+		// A skill is visible if:
+		// 1. It is already unlocked
+		// 2. It has no requirements (root nodes)
+		// 3. Any of its requirements are already unlocked
+		// 4. Mode dev is enabled and showHiddenSkills is true
+		const visibleSkillIds = new Set(
+			skillList
+				.filter((skill) => {
+					if (dev && showHiddenSkills) return true;
+					if (unlockedSkills.includes(skill.id)) return true;
+					if (!skill.requires || skill.requires.length === 0) return true;
+					return skill.requires.some((req) => unlockedSkills.includes(req));
+				})
+				.map((s) => s.id)
+		);
 
-		// Convert skill requirements to edges
-		edges = Object.values(SKILL_UPGRADES).flatMap((skill) =>
-			(skill.requires ?? []).map<Edge>((requireId) => {
-				const require = SKILL_UPGRADES[requireId];
-				const targetPositionDiff = {
-					x: skill.position.x - require.position.x,
-					y: skill.position.y - require.position.y,
-				};
-
-				// Calculate which direction is more dominant (horizontal or vertical)
-				const isHorizontalDominant = Math.abs(targetPositionDiff.x) > Math.abs(targetPositionDiff.y);
-
-				let sourceDirection: Position;
-				let targetDirection: Position;
-
-				if (isHorizontalDominant) {
-					// Horizontal connection
-					if (targetPositionDiff.x > 0) {
-						sourceDirection = Position.Right;
-						targetDirection = Position.Left;
-					} else {
-						sourceDirection = Position.Left;
-						targetDirection = Position.Right;
-					}
-				} else {
-					// Vertical connection
-					if (targetPositionDiff.y > 0) {
-						sourceDirection = Position.Bottom;
-						targetDirection = Position.Top;
-					} else {
-						sourceDirection = Position.Top;
-						targetDirection = Position.Bottom;
-					}
-				}
+		nodes = skillList
+			.filter((skill) => visibleSkillIds.has(skill.id))
+			.map((skill) => {
+				const currency = skill.cost.currency;
+				const currencyUnlocked =
+					currency === CurrenciesTypes.ATOMS ||
+					(currency === CurrenciesTypes.PROTONS && gameManager.canProtonise) ||
+					(currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0) ||
+					(currency === CurrenciesTypes.PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
+					(currency === CurrenciesTypes.EXCITED_PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
+					(currency === CurrenciesTypes.HIGGS_BOSON && gameManager.realms[RealmTypes.PHOTONS].unlocked);
 
 				return {
-					id: `${requireId}-${skill.id}`,
-					source: requireId,
-					target: skill.id,
-					sourceHandle: `${requireId}-${sourceDirection}`,
-					targetHandle: `${skill.id}-${targetDirection}`,
-					type: 'smoothstep',
-					class: canUnlockSkill(skill) || gameManager.skillUpgrades.includes(skill.id) ? 'unlocking' : '',
+					id: skill.id,
+					type: 'skill',
+					position: { ...skill.position },
+					data: {
+						...skill,
+						available: canUnlockSkill(skill),
+						currencyUnlocked,
+						unlocked: unlockedSkills.includes(skill.id)
+					}
 				};
-			}),
-		);
+			});
+
+		edges = skillList
+			.filter((skill) => visibleSkillIds.has(skill.id))
+			.flatMap((skill) =>
+				(skill.requires ?? [])
+					.filter((reqId) => visibleSkillIds.has(reqId))
+					.map<Edge>((requireId) => {
+						const req = SKILL_UPGRADES[requireId];
+						const diff = { x: skill.position.x - req.position.x, y: skill.position.y - req.position.y };
+						const isHoriz = Math.abs(diff.x) > Math.abs(diff.y);
+						const [srcDir, tgtDir] = isHoriz
+							? diff.x > 0
+								? [Position.Right, Position.Left]
+								: [Position.Left, Position.Right]
+							: diff.y > 0
+								? [Position.Bottom, Position.Top]
+								: [Position.Top, Position.Bottom];
+
+						return {
+							id: `${requireId}-${skill.id}`,
+							source: requireId,
+							target: skill.id,
+							sourceHandle: `${requireId}-${srcDir}`,
+							targetHandle: `${skill.id}-${tgtDir}`,
+							type: 'smoothstep',
+							class: canUnlockSkill(skill) || unlockedSkills.includes(skill.id) ? 'unlocking' : ''
+						};
+					})
+			);
 	}
 </script>
 
 <Modal {onClose} containerClass="m-2 !p-0 rounded-xl" width="lg">
 	{#snippet header()}
-		<div  class="flex w-full items-center justify-between">
+		<div class="flex w-full items-center justify-between gap-4 pr-10">
 			<h2 class="text-2xl font-bold text-white">Skill Tree</h2>
-			<div class="points-counter bg-accent-400/20 border border-accent-400/20 px-4 py-2 rounded-lg text-accent-400 font-medium">
-				Available Points: {gameManager.skillPointsAvailable}
-			</div>
+			{#if dev}
+				<button
+					class="rounded-lg bg-accent-800 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-700 active:bg-accent-600"
+					onclick={() => {
+						showHiddenSkills = !showHiddenSkills;
+						updateTree();
+					}}
+				>
+					{showHiddenSkills ? 'Hide Hidden' : 'Show Hidden'} (Dev)
+				</button>
+			{/if}
 		</div>
 	{/snippet}
 
@@ -130,10 +149,7 @@
 		minZoom={0.3}
 		maxZoom={2}
 		initialViewport={{ x: mobile.current ? 100 : 500, y: 200, zoom: 0.8 }}
-		translateExtent={[
-			[-10000, -10000],
-			[10000, 10000],
-		]}
+		translateExtent={[[-10000, -10000], [10000, 10000]]}
 		elementsSelectable={false}
 		nodesConnectable={false}
 		nodesDraggable={false}
@@ -141,11 +157,7 @@
 		preventScrolling={true}
 		zoomOnPinch={true}
 		zoomOnScroll={true}
-		onnodeclick={({ node }) => {
-			// @ts-ignore
-			const data = node.data as SkillUpgrade;
-			unlockSkill(data);
-		}}
+		onnodeclick={({ node }) => unlockSkill(node.data as unknown as SkillUpgrade)}
 	>
 		<Background gap={35} lineWidth={1} />
 		{#if !mobile.current}

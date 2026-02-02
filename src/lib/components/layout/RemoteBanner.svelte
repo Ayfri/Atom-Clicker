@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { remoteMessage } from '$stores/remoteMessage';
+	import { remoteMessage } from '$stores/remoteMessage.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { X, Megaphone } from 'lucide-svelte';
@@ -13,14 +13,14 @@
 	});
 </script>
 
-{#if $remoteMessage.message}
-	{#if $remoteMessage.isVisible}
+{#if remoteMessage.message}
+	{#if remoteMessage.isVisible}
 		<div
 			class="remote-message-banner fixed inset-x-0 top-0 z-60 flex h-6 items-center justify-center bg-black/60 px-4 text-center backdrop-blur-xs border-b border-white/5"
 			transition:slide={{ duration: 300 }}
 		>
 			<div class="text-[10px] leading-tight text-white/90 md:text-xs">
-				{@html $remoteMessage.message.message_html}
+				{@html remoteMessage.message.message_html}
 			</div>
 
 			<button

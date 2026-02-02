@@ -3,37 +3,31 @@
 
 	export const AUTH_CONNECTIONS: AuthConnection[] = [
 		{
+			backgroundColor: 'bg-white',
+			hoverBackgroundColor: 'hover:bg-gray-200',
+			icon: '/google.svg',
 			id: 'google',
 			name: 'Google',
-			icon: '/google.svg',
 			provider: 'google',
-			connection: 'google-oauth2',
-			scope: 'openid profile email',
-			backgroundColor: 'bg-white',
-			hoverBackgroundColor: 'hover:bg-gray-100',
 			textColor: 'text-gray-800',
 		},
 		{
-			id: 'discord',
-			name: 'Discord',
-			icon: '/discord.svg',
-			provider: 'discord',
-			connection: 'discord',
-			scope: 'openid profile email identify',
 			backgroundColor: 'bg-[#5865F2]',
 			hoverBackgroundColor: 'hover:bg-[#4752C4]',
+			icon: '/discord.svg',
+			id: 'discord',
+			name: 'Discord',
+			provider: 'discord',
 			textColor: 'text-white',
 		},
 		{
+			backgroundColor: 'bg-black',
+			hoverBackgroundColor: 'hover:bg-accent-950',
+			icon: '/x.svg',
 			id: 'x',
 			name: 'X',
-			icon: '/x.svg',
-			provider: 'x',
-			connection: 'twitter',
-			scope: 'openid profile email',
-			backgroundColor: 'bg-white',
-			hoverBackgroundColor: 'hover:bg-gray-100',
-			textColor: 'text-gray-800',
+			provider: 'twitter',
+			textColor: 'text-white',
 		},
 	];
 
@@ -44,7 +38,7 @@
 
 <script lang="ts">
 	import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
-	import {supabaseAuth} from '$stores/supabaseAuth';
+	import {supabaseAuth} from '$stores/supabaseAuth.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 
 	interface Props {
@@ -59,30 +53,12 @@
 	async function handleLogin(connection: AuthConnection) {
 		error = null;
 		try {
-			// Check Supabase configuration
 			if (!PUBLIC_SUPABASE_URL || !PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
 				error = 'Supabase configuration is missing. Please check your environment variables.';
 				return;
 			}
 
-			// Map provider names to Supabase format
-			let provider: 'google' | 'discord' | 'twitter';
-			switch (connection.id) {
-				case 'google':
-					provider = 'google';
-					break;
-				case 'discord':
-					provider = 'discord';
-					break;
-				case 'x':
-					provider = 'twitter';
-					break;
-				default:
-					error = `Provider ${connection.id} is not supported yet`;
-					return;
-			}
-
-			await supabaseAuth.signInWithProvider(provider);
+			await supabaseAuth.signInWithProvider(connection.provider);
 		} catch (e) {
 			if (e instanceof Error) {
 				if (e.message.includes('connection is not enabled') || e.message.includes('not configured')) {
@@ -107,10 +83,10 @@
 	{/if}
 
 	<div class="flex flex-col gap-4">
-		{#each AUTH_CONNECTIONS as connection}
+		{#each AUTH_CONNECTIONS as connection (connection.id)}
 			<button
 				onclick={() => handleLogin(connection)}
-				class="flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold transition-colors
+				class="flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold transition-colors duration-200
 				{connection.backgroundColor} {connection.hoverBackgroundColor} {connection.textColor}"
 			>
 				<img src={connection.icon} alt={connection.name} class="h-6 w-6"/>

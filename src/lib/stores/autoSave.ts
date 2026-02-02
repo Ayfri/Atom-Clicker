@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 import { derived, writable } from 'svelte/store';
-import { supabaseAuth } from './supabaseAuth';
+import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 
 export interface AutoSaveState {
 	lastSaveTime: number;
