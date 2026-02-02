@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { derived, writable } from 'svelte/store';
 import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+import { gameManager } from '$helpers/GameManager.svelte';
 
 export interface AutoSaveState {
 	lastSaveTime: number;
@@ -10,15 +11,12 @@ export interface AutoSaveState {
 export const autoSaveEnabled = writable(false);
 export const autoSaveState = writable<AutoSaveState>({
 	isSaving: false,
-	lastSaveTime: 0
+	lastSaveTime: 0,
 });
 
-export const shouldAutoSave = derived(
-	[supabaseAuth, autoSaveEnabled],
-	([$auth, $enabled]) => $enabled && $auth.isAuthenticated
-);
+export const shouldAutoSave = derived([supabaseAuth, autoSaveEnabled], ([$auth, $enabled]) => $enabled && $auth.isAuthenticated);
 
-export const autoSaveInterval = derived(shouldAutoSave, ($shouldAutoSave) => ($shouldAutoSave ? 30000 : 0));
+export const autoSaveInterval = derived(shouldAutoSave, $shouldAutoSave => ($shouldAutoSave ? 30000 : 0));
 
 if (browser) {
 	let timer: ReturnType<typeof setInterval> | null = null;
@@ -31,21 +29,25 @@ if (browser) {
 
 	autoSaveInterval.subscribe(interval => {
 		if (timer) clearInterval(timer);
-		timer = interval > 0 ? setInterval(async () => {
-			try {
-				autoSaveState.update(state => ({ ...state, isSaving: true, lastSaveTime: Date.now() }));
-				await supabaseAuth.saveGameToCloud();
-			} catch (error) {
-				console.warn('Auto-save failed:', error);
-			} finally {
-				autoSaveState.update(state => ({ ...state, isSaving: false }));
-			}
-		}, interval) : null;
+		if (interval > 0) {
+			timer = setInterval(async () => {
+				try {
+					autoSaveState.update(state => ({ ...state, isSaving: true, lastSaveTime: Date.now() }));
+					await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
+				} catch (error) {
+					console.warn('Auto-save failed:', error);
+				} finally {
+					autoSaveState.update(state => ({ ...state, isSaving: false }));
+				}
+			}, interval);
+		} else {
+			timer = null;
+		}
 	});
 }
 
 export const autoSaveStore = {
 	subscribe: autoSaveState.subscribe,
 	startSave: () => autoSaveState.update(state => ({ ...state, isSaving: true, lastSaveTime: Date.now() })),
-	stopSave: () => autoSaveState.update(state => ({ ...state, isSaving: false }))
+	stopSave: () => autoSaveState.update(state => ({ ...state, isSaving: false })),
 };

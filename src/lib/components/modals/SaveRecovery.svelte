@@ -33,8 +33,9 @@
 
 		loading = true;
 		try {
-			const loaded = await supabaseAuth.loadGameFromCloud();
-			if (loaded) {
+			const loadedState = await supabaseAuth.loadGameFromCloud();
+			if (loadedState) {
+				gameManager.loadSaveData(loadedState);
 				success({ title: 'Recovery Successful', message: 'Your game has been loaded from the cloud save.' });
 				saveRecovery.clearError();
 				onClose();
@@ -57,7 +58,7 @@
 			title: 'New Game',
 			message: 'A new game has been started. Your corrupted save has been backed up.',
 			duration: 5000,
-			icon: RefreshCw
+			icon: RefreshCw,
 		});
 		saveRecovery.clearError();
 		onClose();
@@ -78,11 +79,18 @@
 	});
 </script>
 
-<Modal onClose={handleDismiss} title="Save Recovery" width="sm">
+<Modal
+	onClose={handleDismiss}
+	title="Save Recovery"
+	width="sm"
+>
 	<div class="flex flex-col gap-6">
 		<!-- Error Banner -->
 		<div class="flex items-start gap-4 rounded-xl bg-red-500/20 p-4 border border-red-500/30">
-			<AlertTriangle size={32} class="shrink-0 text-red-400 mt-0.5" />
+			<AlertTriangle
+				size={32}
+				class="shrink-0 text-red-400 mt-0.5"
+			/>
 			<div class="flex-1">
 				<h3 class="text-lg font-bold text-red-300">Save Load Error</h3>
 				<p class="mt-1 text-red-200/80">
@@ -94,9 +102,7 @@
 		<!-- Technical Details (collapsible) -->
 		{#if $saveRecovery.errorDetails}
 			<details class="rounded-lg bg-black/30 border border-white/10">
-				<summary class="cursor-pointer px-4 py-3 text-sm text-white/60 hover:text-white/80">
-					Technical Details
-				</summary>
+				<summary class="cursor-pointer px-4 py-3 text-sm text-white/60 hover:text-white/80"> Technical Details </summary>
 				<div class="px-4 pb-4">
 					<code class="block whitespace-pre-wrap break-all text-xs text-white/50 font-mono bg-black/20 p-2 rounded">
 						{$saveRecovery.errorDetails}
@@ -108,7 +114,10 @@
 		<!-- Backup Info -->
 		{#if $saveRecovery.backupKey}
 			<div class="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
-				<Database size={20} class="text-green-400" />
+				<Database
+					size={20}
+					class="text-green-400"
+				/>
 				<div class="flex-1">
 					<p class="text-sm text-green-300">A backup of your save has been created.</p>
 					<p class="text-xs text-green-400/60 mt-0.5">Key: {$saveRecovery.backupKey}</p>
@@ -127,7 +136,10 @@
 				onclick={handleLoadFromCloud}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/30">
-					<CloudDownload size={24} class="text-accent-300" />
+					<CloudDownload
+						size={24}
+						class="text-accent-300"
+					/>
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-white">Load from Cloud</div>
@@ -140,7 +152,10 @@
 					</div>
 				</div>
 				{#if loading}
-					<RefreshCw size={20} class="animate-spin text-accent-300" />
+					<RefreshCw
+						size={20}
+						class="animate-spin text-accent-300"
+					/>
 				{/if}
 			</button>
 
@@ -150,13 +165,14 @@
 				onclick={handleStartFresh}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-white/10">
-					<RefreshCw size={24} class="text-white/70" />
+					<RefreshCw
+						size={24}
+						class="text-white/70"
+					/>
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-white">Start Fresh</div>
-					<div class="text-sm text-white/60">
-						Begin a new game. Your old save is backed up.
-					</div>
+					<div class="text-sm text-white/60">Begin a new game. Your old save is backed up.</div>
 				</div>
 			</button>
 
@@ -166,30 +182,31 @@
 				onclick={handleDismiss}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-500/20">
-					<Trash2 size={24} class="text-red-400" />
+					<Trash2
+						size={24}
+						class="text-red-400"
+					/>
 				</div>
 				<div class="flex-1">
 					<div class="font-semibold text-red-300">Continue Anyway</div>
-					<div class="text-sm text-red-200/60">
-						Try to play with the current state. Not recommended.
-					</div>
+					<div class="text-sm text-red-200/60">Try to play with the current state. Not recommended.</div>
 				</div>
 			</button>
 		</div>
 
 		<!-- Warning -->
-		<p class="text-center text-xs text-white/40">
-			We recommend loading from cloud or starting fresh to avoid further issues.
-		</p>
+		<p class="text-center text-xs text-white/40">We recommend loading from cloud or starting fresh to avoid further issues.</p>
 	</div>
 </Modal>
 
 {#if showLoginModal}
-	<Login onClose={() => {
-		showLoginModal = false;
-		// Re-check authentication after login
-		if (supabaseAuth.isAuthenticated) {
-			handleLoadFromCloud();
-		}
-	}} />
+	<Login
+		onClose={() => {
+			showLoginModal = false;
+			// Re-check authentication after login
+			if (supabaseAuth.isAuthenticated) {
+				handleLoadFromCloud();
+			}
+		}}
+	/>
 {/if}

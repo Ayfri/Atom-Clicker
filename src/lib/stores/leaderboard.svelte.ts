@@ -89,11 +89,8 @@ export class LeaderboardStore {
 
 	constructor() {
 		if (browser) {
-			// Delay initial fetch to allow circular dependencies to resolve
-			setTimeout(() => {
-				this.fetchLeaderboard();
-				setInterval(() => this.fetchLeaderboard(), REFRESH_INTERVAL);
-			}, 0);
+			this.fetchLeaderboard();
+			setInterval(() => this.fetchLeaderboard(), REFRESH_INTERVAL);
 
 			let lastAtoms = 0;
 			let lastLevel = 0;

@@ -3,10 +3,8 @@ import { browser } from '$app/environment';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
 import type { GameState } from '$lib/types';
 import type { Database, Profile } from '$lib/types/supabase';
-import { gameManager } from '$helpers/GameManager.svelte';
 import { multiTabDetector } from '$stores/multiTab.svelte';
 import { isValidGameState, SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
-
 
 export class SupabaseAuth {
 	isAuthenticated = $state(false);
@@ -35,8 +33,8 @@ export class SupabaseAuth {
 				auth: {
 					autoRefreshToken: true,
 					persistSession: true,
-					detectSessionInUrl: true
-				}
+					detectSessionInUrl: true,
+				},
 			});
 
 			multiTabDetector.init();
@@ -44,7 +42,9 @@ export class SupabaseAuth {
 			this.initialized = true;
 
 			// Get initial session
-			const { data: { session } } = await this.supabase.auth.getSession();
+			const {
+				data: { session },
+			} = await this.supabase.auth.getSession();
 			this.currentSession = session;
 			await this.handleAuthStateChange(session?.user || null);
 
@@ -62,14 +62,13 @@ export class SupabaseAuth {
 						method: 'POST',
 						headers: {
 							'Authorization': `Bearer ${this.currentSession.access_token}`,
-							'Content-Type': 'application/json'
+							'Content-Type': 'application/json',
 						},
 						body: JSON.stringify({ is_online: false }),
-						keepalive: true
+						keepalive: true,
 					});
 				}
 			});
-
 		} catch (err) {
 			console.error('Supabase auth initialization error:', err);
 			this.error = err as Error;
@@ -87,21 +86,13 @@ export class SupabaseAuth {
 				console.log('Auth state change for user:', user.id);
 
 				// Fetch user profile
-				let { data: profile, error } = await this.supabase!
-					.from('profiles')
-					.select('*')
-					.eq('id', user.id)
-					.single();
+				let { data: profile, error } = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
 
 				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
 				if (error && error.code === 'PGRST116') {
 					console.log('Profile not found yet, retrying in 1s...');
 					await new Promise(resolve => setTimeout(resolve, 1000));
-					const retry = await this.supabase!
-						.from('profiles')
-						.select('*')
-						.eq('id', user.id)
-						.single();
+					const retry = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
 					profile = retry.data;
 					error = retry.error;
 				}
@@ -111,11 +102,10 @@ export class SupabaseAuth {
 					console.log('Found profile:', profile.username);
 
 					// Update online status
-					await this.supabase!
-						.from('profiles')
+					await this.supabase!.from('profiles')
 						.update({
 							is_online: true,
-							updated_at: new Date().toISOString()
+							updated_at: new Date().toISOString(),
 						})
 						.eq('id', user.id);
 
@@ -151,9 +141,9 @@ export class SupabaseAuth {
 						method: 'POST',
 						headers: {
 							'Authorization': `Bearer ${this.currentSession.access_token}`,
-							'Content-Type': 'application/json'
+							'Content-Type': 'application/json',
 						},
-						body: JSON.stringify({ is_online: true })
+						body: JSON.stringify({ is_online: true }),
 					});
 				} catch (err) {
 					console.error('Heartbeat failed:', err);
@@ -182,9 +172,9 @@ export class SupabaseAuth {
 					redirectTo: `${window.location.origin}/callback`,
 					queryParams: {
 						access_type: 'offline',
-						prompt: 'consent'
-					}
-				}
+						prompt: 'consent',
+					},
+				},
 			});
 
 			if (error) {
@@ -201,13 +191,15 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const { data: { user } } = await this.supabase.auth.getUser();
+			const {
+				data: { user },
+			} = await this.supabase.auth.getUser();
 			if (user) {
 				await this.supabase
 					.from('profiles')
 					.update({
 						is_online: false,
-						updated_at: new Date().toISOString()
+						updated_at: new Date().toISOString(),
 					})
 					.eq('id', user.id);
 			}
@@ -227,14 +219,16 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const { data: { user } } = await this.supabase.auth.getUser();
+			const {
+				data: { user },
+			} = await this.supabase.auth.getUser();
 			if (!user) throw new Error('No authenticated user');
 
 			const { error } = await this.supabase
 				.from('profiles')
 				.update({
 					...updates,
-					updated_at: new Date().toISOString()
+					updated_at: new Date().toISOString(),
 				})
 				.eq('id', user.id);
 
@@ -249,25 +243,26 @@ export class SupabaseAuth {
 		}
 	}
 
-	async saveGameToCloud() {
+	async saveGameToCloud(currentState: GameState) {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const { data: { user } } = await this.supabase.auth.getUser();
+			const {
+				data: { user },
+			} = await this.supabase.auth.getUser();
 			if (!user) throw new Error('No authenticated user');
 
-			const currentState = gameManager.getCurrentState();
 			const saveData = {
 				...currentState,
 				version: SAVE_VERSION,
-				lastSaveDate: Date.now()
+				lastSaveDate: Date.now(),
 			};
 
 			const { error } = await this.supabase
 				.from('profiles')
 				.update({
 					save: saveData as any,
-					updated_at: new Date().toISOString()
+					updated_at: new Date().toISOString(),
 				})
 				.eq('id', user.id);
 
@@ -277,7 +272,7 @@ export class SupabaseAuth {
 				this.profile = {
 					...this.profile,
 					save: saveData as any,
-					updated_at: new Date().toISOString()
+					updated_at: new Date().toISOString(),
 				};
 			}
 		} catch (err) {
@@ -286,30 +281,27 @@ export class SupabaseAuth {
 		}
 	}
 
-	async loadGameFromCloud() {
-		if (!browser || !this.supabase) return false;
+	async loadGameFromCloud(): Promise<GameState | null> {
+		if (!browser || !this.supabase) return null;
 
 		try {
-			const { data: { user } } = await this.supabase.auth.getUser();
+			const {
+				data: { user },
+			} = await this.supabase.auth.getUser();
 			if (!user) throw new Error('No authenticated user');
 
-			const { data: profile, error } = await this.supabase
-				.from('profiles')
-				.select('save')
-				.eq('id', user.id)
-				.single();
+			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', user.id).single();
 
 			if (error) throw error;
-			if (!profile?.save) return false;
+			if (!profile?.save) return null;
 
 			const savedState = profile.save as any;
 			const migratedState = migrateSavedState(savedState);
 
 			if (migratedState && isValidGameState(migratedState)) {
-				gameManager.loadSaveData(migratedState);
-				return true;
+				return migratedState as GameState;
 			}
-			return false;
+			return null;
 		} catch (err) {
 			console.error('Error loading game from cloud:', err);
 			throw err;
@@ -320,14 +312,12 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return null;
 
 		try {
-			const { data: { user } } = await this.supabase.auth.getUser();
+			const {
+				data: { user },
+			} = await this.supabase.auth.getUser();
 			if (!user) return null;
 
-			const { data: profile, error } = await this.supabase
-				.from('profiles')
-				.select('save, last_updated')
-				.eq('id', user.id)
-				.single();
+			const { data: profile, error } = await this.supabase.from('profiles').select('save, last_updated').eq('id', user.id).single();
 
 			if (error) throw error;
 			if (!profile?.save) return null;
@@ -341,7 +331,7 @@ export class SupabaseAuth {
 
 			return {
 				lastSaveDate: saveData.lastSaveDate || null,
-				...finalData
+				...finalData,
 			};
 		} catch (err) {
 			console.error('Error getting cloud save info:', err);
