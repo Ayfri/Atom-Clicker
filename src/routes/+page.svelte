@@ -53,7 +53,7 @@
 					actionLabel: 'Open Cloud Save',
 					title: 'Cloud Save Available',
 					message: 'A cloud save with more play time is available.',
-					duration: 12_000
+					duration: 12_000,
 				});
 			}
 		} catch (error) {
@@ -108,10 +108,10 @@
 </script>
 
 <div class="flex flex-col min-h-screen">
-	<RemoteBanner/>
-	<NavBar/>
-	<Toaster/>
-	<AutoSaveIndicator/>
+	<RemoteBanner />
+	<NavBar />
+	<Toaster />
+	<AutoSaveIndicator />
 
 	{#if realmManager.availableRealms.length > 1}
 		<div
@@ -121,7 +121,11 @@
 			<div class="flex flex-col gap-1">
 				{#each realmManager.availableRealms as realm (realm.id)}
 					<button
-						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 {realmManager.selectedRealmId === realm.id ? 'bg-accent-500/60 border-accent-400/50' : 'bg-white/5 hover:bg-white/10'}"
+						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 {(
+							realmManager.selectedRealmId === realm.id
+						) ?
+							'bg-accent-500/60 border-accent-400/50'
+						:	'bg-white/5 hover:bg-white/10'}"
 						onclick={() => realmManager.selectRealm(realm.id)}
 						title="{realm.title} - {formatNumber(realmManager.realmValues[realm.id] ?? 0)} {realm.currency.name.toLowerCase()}"
 					>
@@ -134,11 +138,13 @@
 	{/if}
 
 	<main
-		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'} lg:pb-4 transition-all duration-300"
+		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : (
+			'overflow-hidden'
+		)} lg:pb-4 transition-all duration-300"
 		style="padding-top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(3rem + 1.5rem)' : '3rem'};"
 	>
 		{#if gameManager.features[FeatureTypes.LEVELS]}
-			<Levels/>
+			<Levels />
 		{/if}
 
 		<!-- Use transform and opacity for virtual desktop swipe effect -->
@@ -149,7 +155,9 @@
 				class:translate-x-0={realmManager.selectedRealm.id === realm.id}
 				class:opacity-0={realmManager.selectedRealm.id !== realm.id}
 				class:pointer-events-none={realmManager.selectedRealm.id !== realm.id}
-				style="transform: translateX({realmManager.selectedRealm.id === realm.id ? '0' : (i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%' : '-100%')}); {realm.background ? `background-image: ${realm.background};` : ''}"
+				style="transform: translateX({realmManager.selectedRealm.id === realm.id ? '0'
+				: i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%'
+				: '-100%'}); {realm.background ? `background-image: ${realm.background};` : ''}"
 			>
 				<div class="absolute inset-0 overflow-y-auto custom-scrollbar">
 					<div class="flex flex-col min-h-full">

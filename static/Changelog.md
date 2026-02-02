@@ -1,3 +1,9 @@
+# What's new 02-02-2026
+
+- **Bonus Display**: Added a display for active power ups in the atom realm.
+- **Building icons**: Added icons for buildings.
+- **Prestige Animations**: Added new animations for protonise and electronise.
+
 # What's new 01-02-2026
 
 - **Skill Tree**: Reworked from scratch the skill tree system, skills are now paid with currencies, important features and boosts are now available as skills.

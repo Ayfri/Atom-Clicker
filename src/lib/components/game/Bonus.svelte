@@ -18,7 +18,6 @@
 		duration: 0,
 		id: Date.now().toString(),
 		multiplier: 0,
-		name: 'Double Atoms',
 		startTime: Date.now(),
 	} satisfies PowerUp);
 
@@ -118,8 +117,8 @@
 		class:opacity-0={isFadingOut}
 		style="left: {x}px; top: {y}px;"
 		onclick={onClick}
-		onmouseenter={() => isHovered = true}
-		onmouseleave={() => isHovered = false}
+		onmouseenter={() => (isHovered = true)}
+		onmouseleave={() => (isHovered = false)}
 		aria-label="Collect bonus power-up"
 	>
 		<div
@@ -142,12 +141,24 @@
 
 <style>
 	@keyframes vibrate {
-		0% { transform: translate(0, 0); }
-		20% { transform: translate(-1px, 1px); }
-		40% { transform: translate(-1px, -1px); }
-		60% { transform: translate(1px, 1px); }
-		80% { transform: translate(1px, -1px); }
-		100% { transform: translate(0, 0); }
+		0% {
+			transform: translate(0, 0);
+		}
+		20% {
+			transform: translate(-1px, 1px);
+		}
+		40% {
+			transform: translate(-1px, -1px);
+		}
+		60% {
+			transform: translate(1px, 1px);
+		}
+		80% {
+			transform: translate(1px, -1px);
+		}
+		100% {
+			transform: translate(0, 0);
+		}
 	}
 
 	.vibrate {

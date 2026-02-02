@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Achievements from '@components/game/Achievements.svelte';
+	import ActivePowerUps from '@components/hud/ActivePowerUps.svelte';
 	import Atom from '@components/game/Atom.svelte';
 	import Bonus from '@components/game/Bonus.svelte';
 	import Buildings from '@components/game/Buildings.svelte';
@@ -74,6 +75,7 @@
 		<div class="grid-area-atom relative z-0 flex flex-col items-center justify-start">
 			<Counter />
 			<Atom />
+			<ActivePowerUps />
 		</div>
 		{#if !mobile.current}
 			<div class="grid-area-buildings pt-12">
