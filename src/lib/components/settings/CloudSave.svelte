@@ -6,7 +6,7 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import type { GameState } from '$lib/types';
 	import { formatDuration } from '$lib/utils';
-	import { autoSaveEnabled, autoSaveState, shouldAutoSave } from '$stores/autoSave';
+	import { autoSave } from '$stores/autoSave.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { error as errorToast, info } from '$stores/toasts';
 	import { AlertCircle, AlertTriangle, Clock, CloudDownload, CloudUpload, RotateCcw } from 'lucide-svelte';
@@ -40,7 +40,7 @@
 		const now = Date.now();
 		cooldownProgress = Math.min(1, (now - lastManualSaveTime) / SAVE_COOLDOWN);
 
-		if ($shouldAutoSave && lastAutoSaveTime > 0) {
+		if (autoSave.shouldAutoSave && lastAutoSaveTime > 0) {
 			autoSaveProgress = Math.min(1, (now - lastAutoSaveTime) / SAVE_COOLDOWN);
 		} else {
 			autoSaveProgress = 0;
@@ -67,15 +67,19 @@
 		startProgressTimer();
 	}
 
-	// Subscribe to auto-save state
-	autoSaveState.subscribe(state => {
-		if (state.lastSaveTime > 0) lastAutoSaveTime = state.lastSaveTime;
-		if (state.isSaving && cooldownProgress >= 1) startCooldown();
+	// Sync local state with store state
+	$effect(() => {
+		if (autoSave.lastSaveTime > 0) lastAutoSaveTime = autoSave.lastSaveTime;
 	});
 
-	// Subscribe to shouldAutoSave
-	shouldAutoSave.subscribe(enabled => {
-		enabled ? startProgressTimer() : stopProgressTimer();
+	// Trigger cooldown when auto-save starts
+	$effect(() => {
+		if (autoSave.isSaving && cooldownProgress >= 1) startCooldown();
+	});
+
+	// React to shouldAutoSave changes
+	$effect(() => {
+		autoSave.shouldAutoSave ? startProgressTimer() : stopProgressTimer();
 	});
 
 	async function refreshCloudSaveInfo() {
@@ -103,10 +107,10 @@
 			cooldownProgress = 1;
 		}
 
-		if ($shouldAutoSave) startProgressTimer();
+		if (autoSave.shouldAutoSave) startProgressTimer();
 
 		const handleBeforeUnload = async () => {
-			if ($autoSaveEnabled && supabaseAuth.isAuthenticated) {
+			if (autoSave.enabled && supabaseAuth.isAuthenticated) {
 				try {
 					await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
 				} catch (e) {
@@ -264,7 +268,7 @@
 					<label class="relative inline-flex items-center cursor-pointer">
 						<input
 							type="checkbox"
-							bind:checked={$autoSaveEnabled}
+							bind:checked={autoSave.enabled}
 							class="sr-only peer"
 						/>
 						<div
@@ -273,7 +277,7 @@
 					</label>
 				</div>
 			</div>
-			{#if $shouldAutoSave}
+			{#if autoSave.shouldAutoSave}
 				<div
 					class="h-0.5 bg-accent-500 transition-all duration-100 ease-linear"
 					style:width="{autoSaveProgress * 100}%"

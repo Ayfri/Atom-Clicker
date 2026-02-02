@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CloudUpload } from 'lucide-svelte';
-	import { autoSaveStore } from '$stores/autoSave';
+	import { autoSave } from '$stores/autoSave.svelte';
 
 	const SAVE_ANIMATION_DURATION = 1000;
 	let animationTimeout: ReturnType<typeof setTimeout>;
@@ -28,16 +28,19 @@
 		}
 	}
 
-	autoSaveStore.subscribe(state => {
-		if (state.isSaving && !isSaving) startSaveAnimation(state.lastSaveTime);
-		else if (!state.isSaving && isSaving) stopSaveAnimation();
+	$effect(() => {
+		if (autoSave.isSaving && !isSaving) startSaveAnimation(Date.now());
+		else if (!autoSave.isSaving && isSaving) stopSaveAnimation();
 	});
 </script>
 
 {#if isSaving}
 	<div class="fixed bottom-4 right-4 z-50">
 		<div class="animate-bounce">
-			<CloudUpload size={28} class="text-accent drop-shadow-lg" />
+			<CloudUpload
+				size={28}
+				class="text-accent drop-shadow-lg"
+			/>
 		</div>
 	</div>
 {/if}

@@ -27,7 +27,7 @@
 }
 
 @utility grid-area-* {
-	grid-area: --value();
+	grid-area: --value(--grid-area-*, [*]);
 }
 
 @layer base {
