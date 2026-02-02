@@ -89,7 +89,7 @@
 	});
 </script>
 
-<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 buildings flex flex-col gap-2 h-[600px] lg:h-[calc(100vh-180px)]">
+<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-[600px] lg:h-[calc(100vh-180px)]">
 	<h2 class="text-lg">Buildings</h2>
 	<div class="flex items-center gap-1 my-1">
 		{#each purchaseModes as mode}
@@ -212,14 +212,3 @@
 		{/each}
 	</div>
 </div>
-
-<style>
-	.buildings {
-		grid-area: buildings;
-	}
-
-	:global(.skill-tree-icon) {
-		cursor: pointer;
-		float: right;
-	}
-</style>

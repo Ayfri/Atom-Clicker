@@ -26,6 +26,10 @@
 	--color-realm-950: #2d1142;
 }
 
+@utility grid-area-* {
+	grid-area: --value();
+}
+
 @layer base {
 	:root {
 		--accent-color: #4a90e2;
