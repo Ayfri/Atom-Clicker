@@ -22,11 +22,11 @@
 	const isFeature = $derived(!!skillData.feature);
 	const featureInfo = $derived(skillData.feature ? FEATURES[skillData.feature as FeatureType] : null);
 
-	const isCurrencyUnlocked = $derived(skillData.currencyUnlocked);
+	const isContentVisible = $derived(skillData.currencyUnlocked || skillData.unlocked);
 
 	// Calculate current effect values for tooltip
 	const effectBreakdown = $derived.by(() => {
-		if (!skillData.unlocked || skillData.effects.length === 0 || !isCurrencyUnlocked) return null;
+		if (!skillData.unlocked || skillData.effects.length === 0 || !isContentVisible) return null;
 
 		return skillData.effects.map(effect => {
 			const baseValue = 1;
@@ -100,7 +100,7 @@
 />
 
 <div
-	aria-label="Unlock {isCurrencyUnlocked ? skillData.name : '?????'}"
+	aria-label="Unlock {isContentVisible ? skillData.name : '?????'}"
 	class="skill-node relative flex h-36 w-72 flex-col justify-center rounded-lg p-5 shadow-md transition {isFeature ? 'border-2' : ''} {(
 		isFeature && !skillData.unlocked
 	) ?
@@ -110,11 +110,11 @@
 	class:available={skillData.available && !skillData.unlocked}
 	class:unlocked={skillData.unlocked && !isFeature}
 	class:unlocked-feature={skillData.unlocked && isFeature}
-	class:pointer-events-none={!skillData.available || !isCurrencyUnlocked}
-	class:cursor-pointer={skillData.available && isCurrencyUnlocked}
-	onclick={() => isCurrencyUnlocked && skillData.onClick?.()}
+	class:pointer-events-none={!skillData.available || !isContentVisible}
+	class:cursor-pointer={skillData.available && isContentVisible}
+	onclick={() => isContentVisible && skillData.onClick?.()}
 	onkeydown={e => {
-		if (isCurrencyUnlocked && (e.key === 'Enter' || e.key === ' ')) {
+		if (isContentVisible && (e.key === 'Enter' || e.key === ' ')) {
 			skillData.onClick?.();
 		}
 	}}
@@ -122,7 +122,7 @@
 	role="button"
 >
 	<!-- Feature badge -->
-	{#if isFeature && isCurrencyUnlocked}
+	{#if isFeature && isContentVisible}
 		<div
 			class="absolute -top-2 left-3 flex items-center gap-1 rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-md"
 		>
@@ -132,7 +132,7 @@
 	{/if}
 
 	<!-- Effect tooltip -->
-	{#if skillData.unlocked && effectBreakdown && effectBreakdown.length > 0 && isCurrencyUnlocked}
+	{#if skillData.unlocked && effectBreakdown && effectBreakdown.length > 0 && isContentVisible}
 		<div
 			class="absolute right-2 top-2 z-10 pointer-events-auto"
 			onclick={e => e.stopPropagation()}
@@ -169,9 +169,9 @@
 	{/if}
 
 	<div class="flex flex-col gap-1.5">
-		<h3 class="text-lg font-semibold leading-tight">{isCurrencyUnlocked ? skillData.name : '?????'}</h3>
+		<h3 class="text-lg font-semibold leading-tight">{isContentVisible ? skillData.name : '?????'}</h3>
 		<p class="text-sm leading-snug opacity-90">
-			{#if !isCurrencyUnlocked}
+			{#if !isContentVisible}
 				????? ????? ????? ????? ?????
 			{:else if isFeature && featureInfo}
 				{featureInfo.description}
@@ -184,7 +184,7 @@
 				class="mt-1 inline-flex items-center gap-1.5 text-sm font-medium"
 				class:opacity-60={skillData.unlocked}
 			>
-				{#if isCurrencyUnlocked}
+				{#if isContentVisible}
 					<Value
 						value={skillData.cost.amount}
 						currency={skillData.cost.currency as CurrencyName}
