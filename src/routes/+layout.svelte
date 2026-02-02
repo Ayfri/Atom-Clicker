@@ -2,6 +2,8 @@
 	import '@/app.css';
 	import { browser } from '$app/environment';
 	import Analytics from '@components/system/Analytics.svelte';
+	import { prestigeStore } from '$stores/prestige.svelte';
+	import PrestigeAnimation from '@components/prestige/PrestigeAnimation.svelte';
 	import SEO from '@components/system/SEO.svelte';
 	import DevTools from '@components/system/devtools/DevTools.svelte';
 	import TooltipPortal from '@components/ui/TooltipPortal.svelte';
@@ -17,6 +19,10 @@
 
 <Analytics />
 <SEO />
+<PrestigeAnimation
+	animation={prestigeStore.animation}
+	onComplete={() => prestigeStore.reset()}
+/>
 
 {#if !browser}
 	<div class="flex h-screen w-screen items-center justify-center gap-4 flex-col">

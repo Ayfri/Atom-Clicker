@@ -12,12 +12,27 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { applyOfflineProgress } from '$helpers/offlineProgress';
 	import { SAVE_KEY } from '$helpers/saves';
+	import { prestigeStore } from '$stores/prestige.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { error, info, success, warning } from '$stores/toasts';
-	import { Clock, Coins, Download, Factory, MessageSquare, Save, Sparkles, ToggleLeft, Trash2, Unlock, Upload, Zap } from 'lucide-svelte';
+	import {
+		Atom,
+		Clock,
+		Coins,
+		Download,
+		Factory,
+		MessageSquare,
+		Save,
+		Sparkles,
+		ToggleLeft,
+		Trash2,
+		Unlock,
+		Upload,
+		Zap,
+	} from 'lucide-svelte';
 
 	// Get skills that unlock features
-	const featureSkills = Object.values(SKILL_UPGRADES).filter((skill) => skill.feature);
+	const featureSkills = Object.values(SKILL_UPGRADES).filter(skill => skill.feature);
 
 	function isFeatureEnabled(feature: FeatureType) {
 		return gameManager.features[feature] === true;
@@ -25,7 +40,7 @@
 
 	function toggleFeature(skillId: string) {
 		if (gameManager.skillUpgrades.includes(skillId)) {
-			gameManager.skillUpgrades = gameManager.skillUpgrades.filter((u) => u !== skillId);
+			gameManager.skillUpgrades = gameManager.skillUpgrades.filter(u => u !== skillId);
 		} else {
 			gameManager.skillUpgrades = [...gameManager.skillUpgrades, skillId];
 		}
@@ -46,7 +61,9 @@
 		</h3>
 		<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
 			{#each featureSkills as skill (skill.id)}
-				<label class="flex cursor-pointer items-center justify-between rounded-lg border border-white/5 bg-black/20 p-2 transition-colors hover:bg-black/30">
+				<label
+					class="flex cursor-pointer items-center justify-between rounded-lg border border-white/5 bg-black/20 p-2 transition-colors hover:bg-black/30"
+				>
 					<span class="text-sm text-white/80">{skill.name}</span>
 					<input
 						checked={skill.feature ? isFeatureEnabled(skill.feature as FeatureType) : false}
@@ -67,7 +84,9 @@
 		</h3>
 		<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
 			{#each Object.values(RealmTypes) as id (id)}
-				<label class="flex cursor-pointer items-center justify-between rounded-lg border border-white/5 bg-black/20 p-2 transition-colors hover:bg-black/30">
+				<label
+					class="flex cursor-pointer items-center justify-between rounded-lg border border-white/5 bg-black/20 p-2 transition-colors hover:bg-black/30"
+				>
 					<span class="text-sm capitalize text-white/80">{id} Realm</span>
 					<input
 						type="checkbox"
@@ -140,9 +159,7 @@
 					gameManager.upgrades = Object.keys(UPGRADES);
 					gameManager.skillUpgrades = Object.keys(SKILL_UPGRADES);
 					gameManager.achievements = Object.keys(ACHIEVEMENTS);
-					gameManager.photonUpgrades = Object.fromEntries(
-						Object.keys(ALL_PHOTON_UPGRADES).map((key) => [key, 100])
-					);
+					gameManager.photonUpgrades = Object.fromEntries(Object.keys(ALL_PHOTON_UPGRADES).map(key => [key, 100]));
 					gameManager.syncFeatures();
 					alert('Everything unlocked!');
 				}}
@@ -153,7 +170,7 @@
 			<button
 				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent-600/80 px-4 py-2 text-sm font-semibold shadow-lg transition-all hover:bg-accent-600"
 				onclick={() => {
-					Object.keys(CurrenciesTypes).forEach((currency) => {
+					Object.keys(CurrenciesTypes).forEach(currency => {
 						currenciesManager.add(currency as CurrencyName, 1e300);
 					});
 					alert('Resources maxed!');
@@ -165,14 +182,14 @@
 			<button
 				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-green-600/80 px-4 py-2 text-sm font-semibold shadow-lg transition-all hover:bg-green-600"
 				onclick={() => {
-					BUILDING_TYPES.forEach((id) => {
+					BUILDING_TYPES.forEach(id => {
 						if (!gameManager.buildings[id]) {
 							gameManager.buildings[id] = {
 								count: 100,
 								level: 10,
 								unlocked: true,
 								cost: { ...BUILDINGS[id].cost },
-								rate: BUILDINGS[id].rate
+								rate: BUILDINGS[id].rate,
 							};
 						} else {
 							const b = gameManager.buildings[id]!;
@@ -278,6 +295,34 @@
 				onclick={() => warning({ title: 'Test Normal', message: 'This is a 5s warning.', duration: 5000 })}
 			>
 				Warn 5s
+			</button>
+		</div>
+	</div>
+
+	<!-- Prestige Testing -->
+	<div class="rounded-xl border border-white/5 bg-white/5 p-3">
+		<h3 class="mb-3 flex items-center gap-2 text-base font-bold text-accent-300">
+			<Sparkles size={18} />
+			<span>Prestige Animation Testing</span>
+		</h3>
+		<div class="grid grid-cols-2 gap-2">
+			<button
+				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-yellow-600/80 px-4 py-2 text-sm font-semibold shadow-lg transition-all hover:bg-yellow-600"
+				onclick={() => {
+					prestigeStore.trigger('protonise');
+				}}
+			>
+				<Atom size={16} />
+				<span>Test Protonise</span>
+			</button>
+			<button
+				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-green-600/80 px-4 py-2 text-sm font-semibold shadow-lg transition-all hover:bg-green-600"
+				onclick={() => {
+					prestigeStore.trigger('electronize');
+				}}
+			>
+				<Zap size={16} />
+				<span>Test Electronize</span>
 			</button>
 		</div>
 	</div>
