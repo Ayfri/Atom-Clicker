@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BarChart3, Check, Clock, Cog, FileBox, Sparkles, X, Activity, type Icon as IconType } from '@lucide/svelte';
+	import { BarChart3, Check, Clock, Cog, FileBox, Sparkles, X, Activity } from '@lucide/svelte';
 	import Currency from '@components/ui/Currency.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import { CURRENCIES, type CurrencyName } from '$data/currencies';
