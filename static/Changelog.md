@@ -8,6 +8,7 @@
 - **Rebalancing**: Auto-clicks now pay once instead of twice.
 - **Rebalancing**: Level Boost and Atom Soup (achievement) upgrades now stack additively within their own family instead of multiplying each other into absurd numbers.
 - **Rebalancing**: Power-ups can no longer spawn closer together than 20 seconds apart.
+- **Stats Panel**: The panel now covers the Radiation Realm, the Stability Field, skill points, skill tree nodes, photon upgrade levels, Quarks and a daily summary, and every stat gets its own icon instead of a coloured badge.
 - **Mobile**: The realm switcher sits below the navigation instead of over it, toasts and the autosave indicator no longer swallow taps meant for a modal, and holding a button keeps working when your finger drifts.
 
 # What's new 12-08-2026
