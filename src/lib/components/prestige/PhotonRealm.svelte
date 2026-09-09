@@ -5,9 +5,10 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
+	import { calculateEffects } from '$helpers/effects';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
+	import type { SkillUpgrade, Upgrade } from '$lib/types';
 	import { formatNumber } from '$lib/utils';
 	import { addParticles } from '$stores/canvas';
 	import { mobile } from '$stores/window.svelte';
@@ -27,8 +28,10 @@
 		// Get a random circle from our valid circles array
 		const randomCircle = validCircles[Math.floor(Math.random() * validCircles.length)];
 
-		const containerRect = container.getBoundingClientRect();
-		clickCircle(randomCircle, containerRect.left + randomCircle.x, containerRect.top + randomCircle.y, true);
+		const rect = getContainerRect();
+		if (!rect) return;
+
+		clickCircle(randomCircle, rect.left + randomCircle.x, rect.top + randomCircle.y, true);
 	}
 
 	interface Circle {
@@ -77,46 +80,55 @@
 	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
 	const MAX_PIXEL_RATIO = 2;
 
+	/**
+	 * `calculateEffects` caches its effect index on the source array identity, so handing it a freshly filtered array
+	 * rebuilt the whole index on every spawn and every click. The full source list keeps the cache warm, and the bucket
+	 * it reads back is the same one the pre-filtered list would have produced.
+	 */
+	const singleSourceCache = new Map<string, (Upgrade | SkillUpgrade)[]>();
+	let singleSourceKey: unknown = null;
+
+	function sourcesById(id: string) {
+		if (singleSourceKey !== gameManager.allEffectSources) {
+			singleSourceKey = gameManager.allEffectSources;
+			singleSourceCache.clear();
+		}
+
+		let cached = singleSourceCache.get(id);
+		if (!cached) {
+			const upgrade = gameManager.allEffectSources.find(u => u.id === id);
+			cached = upgrade ? [upgrade] : [];
+			singleSourceCache.set(id, cached);
+		}
+		return cached;
+	}
+
 	function getSizeMultiplier() {
-		const options = { type: 'photon_size' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
-		return calculateEffects(upgrades, gameManager, baseSizeMultiplier, options);
+		return calculateEffects(gameManager.allEffectSources, gameManager, baseSizeMultiplier, { type: 'photon_size' });
 	}
 
 	function getPhotonValueBonus() {
-		const upgrade = gameManager.allEffectSources.find(u => u.id === 'photon_value');
-		if (!upgrade) return 0;
-		return calculateEffects([upgrade], gameManager, 0, { type: 'click' });
+		return calculateEffects(sourcesById('photon_value'), gameManager, 0, { type: 'click' });
 	}
 
 	function getExcitedFromMaxBonus() {
-		const options = { type: 'excited_photon_from_max' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
-		return calculateEffects(upgrades, gameManager, 0, options);
+		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'excited_photon_from_max' });
 	}
 
 	function getLifetimeBonus() {
-		const upgrade = gameManager.allEffectSources.find(u => u.id === 'circle_lifetime');
-		if (!upgrade) return 0;
-		return calculateEffects([upgrade], gameManager, 0, { type: 'photon_duration' });
+		return calculateEffects(sourcesById('circle_lifetime'), gameManager, 0, { type: 'photon_duration' });
 	}
 
 	function getExcitedLifetimeMultiplier() {
-		const options = { type: 'excited_photon_duration' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
-		return calculateEffects(upgrades, gameManager, 1, options);
+		return calculateEffects(gameManager.allEffectSources, gameManager, 1, { type: 'excited_photon_duration' });
 	}
 
 	function getDoubleChance() {
-		const options = { type: 'photon_double_chance' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
-		return calculateEffects(upgrades, gameManager, 0, options);
+		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'photon_double_chance' });
 	}
 
 	function getExcitedDoubleChance() {
-		const options = { type: 'excited_photon_double' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
-		return calculateEffects(upgrades, gameManager, 0, options);
+		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'excited_photon_double' });
 	}
 
 	function getIsExcited() {
@@ -126,8 +138,7 @@
 	function getCircleValue(circle: Circle) {
 		const amount = circle.photons;
 		const type = circle.type === 'excited' ? 'excited_photon_stability' : 'photon_stability';
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, { type });
-		return Math.floor(calculateEffects(upgrades, gameManager, amount, { type }));
+		return Math.floor(calculateEffects(gameManager.allEffectSources, gameManager, amount, { type }));
 	}
 
 	// Labels are redrawn every frame, so results are memoized until the effect sources change.
@@ -150,9 +161,10 @@
 	}
 
 	function spawnCircle() {
-		if (!container) return;
+		// The canvas size is already tracked by the ResizeObserver, reading a fresh rect here forced a layout per spawn.
+		if (!container || canvasWidth === 0) return;
+		if (circles.length >= MAX_CIRCLES) return;
 
-		const rect = container.getBoundingClientRect();
 		const margin = MAX_SIZE;
 
 		// Apply upgrades
@@ -191,8 +203,8 @@
 
 		const circle: Circle = {
 			id: nextId++,
-			x: Math.random() * (rect.width - margin * 2) + margin,
-			y: Math.random() * (rect.height - margin * 2) + margin,
+			x: Math.random() * (canvasWidth - margin * 2) + margin,
+			y: Math.random() * (canvasHeight - margin * 2) + margin,
 			size: baseSize * sizeMultiplier,
 			photons: Math.floor(finalPhotons),
 			lifetime: 0,
@@ -202,8 +214,7 @@
 			baseValue: isExcited ? 1 : 1
 		};
 
-		// Limit the number of circles to 100
-		if (circles.length < MAX_CIRCLES) circles.push(circle);
+		circles.push(circle);
 	}
 
 	function clickCircle(circle: Circle, x: number, y: number, isAuto: boolean) {
@@ -271,10 +282,30 @@
 		return 1;
 	}
 
+	// The canvas fills the container, so one rect serves both. getBoundingClientRect forces a synchronous layout, and this
+	// runs on every pointermove and every auto-click, so it is measured once and invalidated on scroll/resize.
+	let cachedRect: DOMRect | null = null;
+
+	function getContainerRect() {
+		if (!cachedRect && container) cachedRect = container.getBoundingClientRect();
+		return cachedRect;
+	}
+
+	$effect(() => {
+		const invalidate = () => (cachedRect = null);
+		window.addEventListener('resize', invalidate, { passive: true });
+		window.addEventListener('scroll', invalidate, { capture: true, passive: true });
+		return () => {
+			window.removeEventListener('resize', invalidate);
+			window.removeEventListener('scroll', invalidate, { capture: true });
+		};
+	});
+
 	function resizeCanvas() {
 		if (!canvas || !container || !ctx) return;
 
 		const rect = container.getBoundingClientRect();
+		cachedRect = rect;
 		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
 
 		canvasWidth = rect.width;
@@ -336,8 +367,8 @@
 	}
 
 	function circleFromEvent(event: MouseEvent) {
-		if (!canvas) return null;
-		const rect = canvas.getBoundingClientRect();
+		const rect = getContainerRect();
+		if (!rect) return null;
 		return circleAt(event.clientX - rect.left, event.clientY - rect.top);
 	}
 
