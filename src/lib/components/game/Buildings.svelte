@@ -45,9 +45,23 @@
 
 	let selectedPurchaseMode: PurchaseMode = $state('x1');
 
+	// The rows re-render on every atom commit, so the automation lookup is folded once instead of scanning every upgrade per row.
+	const automatedByUpgrade = $derived(
+		new Set(
+			getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_buy' })
+				.flatMap(upgrade => upgrade.effects ?? [])
+				.filter(effect => effect.type === 'auto_buy' && effect.target)
+				.map(effect => effect.target as BuildingType),
+		),
+	);
+
 	const hiddenBuildings = $derived(
 		buildingsEntries.filter(([type, building]) => !gameManager.buildings[type]?.unlocked && !gameManager.canAfford(building.cost)),
 	);
+
+	const obfuscatedBuildings = $derived(new Set(hiddenBuildings.map(([type]) => type)));
+	// The first hidden building is teased rather than fully hidden, so the player always sees the next thing to unlock.
+	const fullyHiddenBuildings = $derived(new Set(hiddenBuildings.slice(1).map(([type]) => type)));
 
 	const purchaseAmounts = $derived(
 		Object.fromEntries(
@@ -61,18 +75,20 @@
 	);
 
 	const affordableBuildings = $derived(
-		buildingsEntries
-			.filter(([type]) => {
-				const amount = purchaseAmounts[type];
-				if (amount <= 0) return false;
-				const cost = gameManager.getBuildingCost(type, amount);
-				return gameManager.canAfford({ amount: cost, currency: BUILDINGS[type].cost.currency });
-			})
-			.map(([type]) => type),
+		new Set(
+			buildingsEntries
+				.filter(([type]) => {
+					const amount = purchaseAmounts[type];
+					if (amount <= 0) return false;
+					const cost = gameManager.getBuildingCost(type, amount);
+					return gameManager.canAfford({ amount: cost, currency: BUILDINGS[type].cost.currency });
+				})
+				.map(([type]) => type),
+		),
 	);
 
 	function handlePurchase(type: BuildingType) {
-		if (!affordableBuildings.includes(type)) return;
+		if (!affordableBuildings.has(type)) return;
 		const amount = purchaseAmounts[type];
 		if (amount > 0) {
 			gameManager.purchaseBuilding(type, amount);
@@ -121,16 +137,15 @@
 	<div id="buildings-list" class="flex flex-col gap-1.5 overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each buildingsEntries as [type, building], i}
 			{@const saveData = gameManager.buildings[type]}
-			{@const unaffordable = !affordableBuildings.includes(type)}
-			{@const obfuscated = hiddenBuildings.some(([t]) => t === type)}
-			{@const hidden = hiddenBuildings.slice(1).some(([t]) => t === type)}
+			{@const unaffordable = !affordableBuildings.has(type)}
+			{@const obfuscated = obfuscatedBuildings.has(type)}
+			{@const hidden = fullyHiddenBuildings.has(type)}
 			{@const level = saveData?.level ?? 0}
 			{@const color = BUILDING_COLORS[level]}
 			{@const purchaseAmount = purchaseAmounts[type]}
 			{@const totalCost = gameManager.getBuildingCost(type, purchaseAmount || 1)}
 			{@const isAutomated = gameManager.settings.automation.buildings.includes(type)}
-			{@const hasAutomation =
-				getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_buy', target: type }).length > 0}
+			{@const hasAutomation = automatedByUpgrade.has(type)}
 			{@const autoPurchasedCount = autoBuyManager.recentlyAutoPurchasedBuildings.get(type) || 0}
 			{@const IconComponent = BUILDING_ICONS[type]}
 			{@const autoBuyInterval = autoBuyManager.autoBuyIntervals[type]}

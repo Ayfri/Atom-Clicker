@@ -28,6 +28,8 @@
 
 	const settingsLoader: ModalLoader = () => import('@components/modals/Settings.svelte');
 
+	const SKILL_TREE_ROOTS = Object.values(SKILL_UPGRADES).filter(skill => !skill.requires || skill.requires.length === 0);
+
 	const links: Link[] = [
 		{
 			icon: Trophy,
@@ -40,11 +42,7 @@
 			id: 'skill-tree',
 			label: 'Skill Tree',
 			load: () => import('@components/modals/SkillTree.svelte'),
-			condition: () => {
-				const roots = Object.values(SKILL_UPGRADES).filter(s => !s.requires || s.requires.length === 0);
-				const canAffordAnyRoot = roots.some(root => gameManager.canAfford(root.cost));
-				return canAffordAnyRoot || gameManager.skillUpgrades.length > 0;
-			},
+			condition: () => gameManager.skillUpgrades.length > 0 || SKILL_TREE_ROOTS.some(root => gameManager.canAfford(root.cost)),
 			notification: () => gameManager.hasAvailableSkillUpgrades,
 		},
 		{
@@ -96,8 +94,11 @@
 
 	onMount(() => {
 		ui.registerSettings(settingsLoader);
+		// Reassigning unconditionally re-rendered the whole nav ten times a second, the visible set almost never changes.
 		const updateVisible = () => {
-			visibleComponents = links.filter(link => !link.condition || link.condition());
+			const next = links.filter(link => !link.condition || link.condition());
+			if (next.length === visibleComponents.length && next.every((link, i) => link === visibleComponents[i])) return;
+			visibleComponents = next;
 		};
 		updateVisible();
 		interval = setInterval(updateVisible, 100);
