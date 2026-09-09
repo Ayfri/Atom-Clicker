@@ -141,7 +141,7 @@
 			<NotificationDot hasNotification={link.notification ? link.notification() : false}>
 				<button
 					aria-label={link.label}
-					class="flex items-center justify-center rounded-lg bg-accent/90 p-2 text-white transition-all hover:bg-accent pointer-events-auto"
+					class="flex items-center justify-center rounded-lg p-2 text-white/85 transition-all hover:text-white pointer-events-auto"
 					id="nav-{link.label.toLowerCase().replace(/\s+/g, '-')}"
 					onclick={() => ui.openModalLazy(link.id, link.load)}
 				>
@@ -155,7 +155,7 @@
 		<NotificationDot hasNotification={settingsLink.notification ? settingsLink.notification() : false}>
 			<button
 				aria-label={settingsLink.label}
-				class="flex items-center justify-center rounded-lg bg-accent/90 p-2 text-white transition-all hover:bg-accent pointer-events-auto"
+				class="flex items-center justify-center rounded-lg p-2 text-white/85 transition-all hover:text-white pointer-events-auto"
 				id="nav-{settingsLink.label.toLowerCase().replace(/\s+/g, '-')}"
 				onclick={() => ui.openModalLazy(settingsLink.id, settingsLink.load)}
 			>
@@ -171,13 +171,13 @@
 		{#each visibleComponents as link}
 			<NotificationDot hasNotification={link.notification ? link.notification() : false}>
 				<button
-					class="group relative flex h-12 w-12 items-center justify-center rounded-lg bg-accent/90 text-white transition-all hover:bg-accent"
+					class="group relative flex h-12 w-12 items-center justify-center rounded-lg text-white/85 transition-all hover:text-white"
 					id="nav-{link.label.toLowerCase().replace(/\s+/g, '-')}"
 					onclick={() => ui.openModalLazy(link.id, link.load)}
 				>
 					<link.icon size={32} {...link.iconProps} />
 					<span
-						class="label invisible absolute left-[calc(100%+1.25rem)] whitespace-nowrap rounded-lg bg-accent/90 px-3 py-2 text-sm opacity-0 transition-all group-hover:visible group-hover:opacity-100 bg-accent-900 border border-white/10 shadow-xl z-50"
+						class="label invisible absolute left-[calc(100%+1.25rem)] whitespace-nowrap rounded-xl bg-accent-950/95 backdrop-blur-md px-3 py-2 text-sm text-white/90 opacity-0 transition-all group-hover:visible group-hover:opacity-100 border border-white/10 shadow-2xl z-50"
 					>
 						{link.label}
 					</span>
@@ -189,7 +189,7 @@
 
 		<NotificationDot hasNotification={settingsLink.notification ? settingsLink.notification() : false}>
 			<button
-				class="group relative flex h-12 w-12 items-center justify-center rounded-lg bg-accent/90 text-white transition-all hover:bg-accent"
+				class="group relative flex h-12 w-12 items-center justify-center rounded-lg text-white/85 transition-all hover:text-white"
 				id="nav-{settingsLink.label.toLowerCase().replace(/\s+/g, '-')}"
 				onclick={() => ui.openModalLazy(settingsLink.id, settingsLink.load)}
 			>
@@ -197,7 +197,7 @@
 					<settingsLink.icon size={32} />
 				</div>
 				<span
-					class="label invisible absolute left-[calc(100%+1.25rem)] whitespace-nowrap rounded-lg bg-accent/90 px-3 py-2 text-sm opacity-0 transition-all group-hover:visible group-hover:opacity-100 bg-accent-900 border border-white/10 shadow-xl z-50"
+					class="label invisible absolute left-[calc(100%+1.25rem)] whitespace-nowrap rounded-xl bg-accent-950/95 backdrop-blur-md px-3 py-2 text-sm text-white/90 opacity-0 transition-all group-hover:visible group-hover:opacity-100 border border-white/10 shadow-2xl z-50"
 				>
 					{settingsLink.label}
 				</span>
@@ -221,6 +221,6 @@
 		transform: translateY(-50%);
 		border-width: 0.5rem;
 		border-style: solid;
-		border-color: transparent var(--color-accent-900) transparent transparent;
+		border-color: transparent var(--color-accent-950) transparent transparent;
 	}
 </style>
