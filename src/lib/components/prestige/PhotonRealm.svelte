@@ -232,16 +232,19 @@
 		if (index !== -1) circles.splice(index, 1);
 		if (lastHoveredId === circle.id) lastHoveredId = null;
 
-		const particleCount = Math.floor(circle.photons / 2) + 1;
-		const addedParticles: Particle[] = [];
-		const currencyType = circle.type === 'excited' ? CurrenciesTypes.EXCITED_PHOTONS : CurrenciesTypes.PHOTONS;
+		// The auto-clicker keeps collecting from another realm, but its particles must not float over that realm.
+		if (visible) {
+			const particleCount = Math.floor(circle.photons / 2) + 1;
+			const addedParticles: Particle[] = [];
+			const currencyType = circle.type === 'excited' ? CurrenciesTypes.EXCITED_PHOTONS : CurrenciesTypes.PHOTONS;
 
-		for (let i = 0; i < particleCount; i++) {
-			const particle = createClickParticleSync(x, y, currencyType);
-			if (particle) addedParticles.push(particle);
-		}
-		if (addedParticles.length > 0) {
-			addParticles(addedParticles);
+			for (let i = 0; i < particleCount; i++) {
+				const particle = createClickParticleSync(x, y, currencyType);
+				if (particle) addedParticles.push(particle);
+			}
+			if (addedParticles.length > 0) {
+				addParticles(addedParticles);
+			}
 		}
 
 		// Excited stabilization: interacting with the realm resets/collapses it

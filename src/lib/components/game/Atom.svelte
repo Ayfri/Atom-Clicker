@@ -1,5 +1,7 @@
 <script lang="ts">
 	import {gameManager} from '$helpers/GameManager.svelte';
+	import {realmManager} from '$helpers/RealmManager.svelte';
+	import {RealmTypes} from '$data/realms';
 	import {BUILDING_TYPES, BUILDING_COLORS, BUILDING_LEVEL_UP_COST} from '$data/buildings';
 	import {onDestroy} from 'svelte';
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
@@ -49,7 +51,8 @@
 		if (!isAuto) gameManager.addAtoms(clickPower);
 		gameManager.incrementClicks(isAuto);
 
-		if (!shouldCreateParticles()) return;
+		// The atom realm stays mounted while another one is on screen, so its auto-click particles would drift over that realm.
+		if (!shouldCreateParticles() || realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
 
 		const newParticles: Particle[] = [];
 		const textParticle = createClickTextParticleSync(x + Math.random() * 10, y + Math.random() * 10, `+${formatNumber(clickPower)}`);
