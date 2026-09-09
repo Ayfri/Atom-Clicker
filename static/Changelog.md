@@ -1,7 +1,8 @@
 # Unreleased
 
 - **Faster Loading**: The game downloads roughly half as much code before it starts, the game loop runs right away instead of waiting for the account, cloud save and leaderboard requests, and panels like the Skill Tree, Leaderboard and Settings load in the background.
-- **Smoother Gameplay**: The game loop, click particles, achievements and upgrade effects do far less work every frame, and the Photon Realm animations stop while you are in another realm.
+- **Smoother Gameplay**: The game loop, click particles, achievements and upgrade effects do far less work every frame, the buildings and navigation panels stop recomputing themselves dozens of times a second, and the Photon Realm animations stop while you are in another realm.
+- **Lower Memory Use**: The reactor no longer piles up radiation particles while you are in another realm, so long sessions stay as fast as they started.
 - **Rebalancing**: Building level bonus is now a smooth doubling every 100 owned plus a 1.5x per level, replacing the old cliff at exactly 100 owned.
 - **Rebalancing**: Buildings now pay exactly the atoms per second shown in the counter, instead of twice that.
 - **Rebalancing**: Auto-clicks now pay once instead of twice.
