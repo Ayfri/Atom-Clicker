@@ -136,16 +136,17 @@
 
 	let animationFrame: number;
 
+	/** Entities are mutated in place: rebuilding the three arrays every frame churned ~100 objects per frame for the GC. */
 	function animate() {
-		// Animate nucleons
-		nucleons = nucleons.map(n => {
+		const maxDist = 30;
+
+		for (const n of nucleons) {
 			let newX = n.x + n.vx * speedMultiplier;
 			let newY = n.y + n.vy * speedMultiplier;
 			let newVx = n.vx;
 			let newVy = n.vy;
 
 			const dist = Math.sqrt(newX * newX + newY * newY);
-			const maxDist = 30;
 
 			if (dist > maxDist) {
 				const nx = newX / dist;
@@ -161,25 +162,26 @@
 				newVx += (Math.random() - 0.5) * 0.08 * speedMultiplier;
 				newVy += (Math.random() - 0.5) * 0.08 * speedMultiplier;
 			}
-			return { ...n, vx: newVx, vy: newVy, x: newX, y: newY };
-		});
 
-		// Animate electrons
-		electrons = electrons.map(e => ({
-			...e,
-			angle: e.angle + e.speed * speedMultiplier,
-		}));
+			n.vx = newVx;
+			n.vy = newVy;
+			n.x = newX;
+			n.y = newY;
+		}
 
-		// Animate particles
-		particles = particles
-			.map(p => ({
-				...p,
-				alpha: p.life,
-				life: p.life - 0.015,
-				x: p.x + p.vx,
-				y: p.y + p.vy,
-			}))
-			.filter(p => p.life > 0);
+		for (const e of electrons) e.angle += e.speed * speedMultiplier;
+
+		for (let i = particles.length - 1; i >= 0; i--) {
+			const p = particles[i];
+			p.alpha = p.life;
+			p.life -= 0.015;
+			if (p.life <= 0) {
+				particles.splice(i, 1);
+				continue;
+			}
+			p.x += p.vx;
+			p.y += p.vy;
+		}
 
 		coreGlow = 0.25 + Math.sin(Date.now() / 600) * 0.08 + instability * 0.15;
 
@@ -189,19 +191,24 @@
 	// The realm stays mounted while another one is on screen, animating it then costs a frame for nothing.
 	const visible = $derived(realmManager.selectedRealmId === RealmTypes.RADIATION);
 
+	// Spawning is tied to the same visibility: only `animate` retires particles, so a hidden reactor used to grow the
+	// particle array (and its SVG nodes) forever while nobody was looking at it.
 	$effect(() => {
-		if (!visible) return;
+		if (!visible) {
+			particles = [];
+			return;
+		}
 
+		const syncInterval = setInterval(updateCounts, 200);
 		animationFrame = requestAnimationFrame(animate);
-		return () => cancelAnimationFrame(animationFrame);
+
+		return () => {
+			clearInterval(syncInterval);
+			cancelAnimationFrame(animationFrame);
+		};
 	});
 
-	const syncInterval = setInterval(updateCounts, 200);
-
-	onDestroy(() => {
-		clearInterval(syncInterval);
-		cancelAnimationFrame(animationFrame);
-	});
+	onDestroy(() => cancelAnimationFrame(animationFrame));
 </script>
 
 <div class="relative w-full h-full flex flex-col items-center justify-center">
