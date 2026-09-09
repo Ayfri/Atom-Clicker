@@ -23,6 +23,7 @@
 		alpha: number;
 		id: number;
 		life: number;
+		maxDist: number;
 		size: number;
 		vx: number;
 		vy: number;
@@ -85,11 +86,12 @@
 	function spawnRadiationParticle() {
 		const angle = Math.random() * Math.PI * 2;
 		const r = 10 + Math.random() * 20; // Start inside core
-		const speed = 0.5 + Math.random() * 1.5;
+		const speed = 0.35 + Math.random() * 0.9;
 		particles.push({
-			alpha: 1,
+			alpha: 0,
 			id: nextEntityId++,
 			life: 1.0,
+			maxDist: 36 + Math.random() * 6, // Stay inside the r=44 ring so nothing reaches the panel border
 			size: 0.8 + Math.random() * 1.5, // Smaller: 0.8-2.3
 			vx: Math.cos(angle) * speed,
 			vy: Math.sin(angle) * speed,
@@ -173,14 +175,22 @@
 
 		for (let i = particles.length - 1; i >= 0; i--) {
 			const p = particles[i];
-			p.alpha = p.life;
-			p.life -= 0.015;
-			if (p.life <= 0) {
+			p.life -= 0.012;
+			p.vx *= 0.985;
+			p.vy *= 0.985;
+			p.x += p.vx;
+			p.y += p.vy;
+
+			const dist = Math.hypot(p.x, p.y);
+			if (p.life <= 0 || dist >= p.maxDist) {
 				particles.splice(i, 1);
 				continue;
 			}
-			p.x += p.vx;
-			p.y += p.vy;
+
+			/** Particles dissolve over the last units before their own radius, otherwise they get visibly clipped by the SVG frame. */
+			const edgeFade = Math.min(1, (p.maxDist - dist) / 9);
+			const spawnFade = Math.min(1, (1 - p.life) * 8);
+			p.alpha = Math.min(p.life, edgeFade, spawnFade);
 		}
 
 		coreGlow = 0.25 + Math.sin(Date.now() / 600) * 0.08 + instability * 0.15;
