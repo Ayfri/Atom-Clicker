@@ -25,6 +25,8 @@
 	--color-realm-800: #582379;
 	--color-realm-900: #4a1e64;
 	--color-realm-950: #2d1142;
+
+	--color-radiation: #39ff14;
 }
 
 @utility grid-area-* {
