@@ -17,7 +17,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	breeder_reactor: {
 		baseCost: 25,
 		costMultiplier: 1.4,
-		description: level => `Passive mass regeneration: +${(level * 0.2).toFixed(1)} mass/sec`,
+		description: level => `Regenerates +${(level * 0.2).toFixed(1)} u of fuel per second`,
 		effects: level => [
 			{
 				apply: value => value + level * 0.2,
@@ -32,7 +32,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	cherenkov_glow: {
 		baseCost: 100,
 		costMultiplier: 1.6,
-		description: level => `${(level * 5).toFixed(0)}% bonus to radiation multiplier`,
+		description: level => `+${(level * 5).toFixed(0)}% production bonus`,
 		effects: level => [
 			{
 				apply: value => value + level * 0.05,
@@ -47,7 +47,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	coolant_pumps: {
 		baseCost: 30,
 		costMultiplier: 1.5,
-		description: level => `+${(level * 50).toFixed(0)}% max CPM cap`,
+		description: level => `Raises the output cap by ${(level * 50).toFixed(0)}%`,
 		effects: level => [
 			{
 				apply: value => value * (1 + level * 0.5),
@@ -62,7 +62,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	graphite_moderators: {
 		baseCost: 15,
 		costMultiplier: 1.15,
-		description: level => `-${(level * 10).toFixed(0)}% fuel burn rate`,
+		description: level => `Fuel burns ${(level * 10).toFixed(0)}% slower`,
 		effects: level => [
 			{
 				apply: value => value * (1 - level * 0.1),
@@ -77,7 +77,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	isotopic_enrichment: {
 		baseCost: 10,
 		costMultiplier: 1.25,
-		description: level => `+${(level * 25).toFixed(0)}% CPM output`,
+		description: level => `+${(level * 25).toFixed(0)}% output from the same fuel`,
 		effects: level => [
 			{
 				apply: value => value * (1 + level * 0.25),
@@ -92,7 +92,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	magnetic_confinement: {
 		baseCost: 50,
 		costMultiplier: 1.5,
-		description: level => `${(level * 10).toFixed(0)}% chance to halve fuel burn`,
+		description: level => `${(level * 10).toFixed(0)}% chance each second to burn only half the fuel`,
 		effects: level => [
 			{
 				apply: value => value + level * 0.1,

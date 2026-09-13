@@ -3,7 +3,7 @@
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 
 	const controlLevel = $derived(radiationManager.controlRodLevel);
-	const cpm = $derived(radiationManager.currentCpm);
+	const stableLevel = $derived(radiationManager.stableControlLevel);
 
 	function handleChange(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -20,9 +20,9 @@
 	);
 </script>
 
-<div class="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-green-500/20">
+<div class="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-radiation/20">
 	<div class="flex items-center justify-between mb-2">
-		<h3 class="text-xs font-semibold text-green-400 flex items-center gap-2">
+		<h3 class="text-xs font-semibold text-radiation flex items-center gap-2">
 			<svg
 				class="w-3.5 h-3.5"
 				viewBox="0 0 24 24"
@@ -45,21 +45,21 @@
 				></line>
 			</svg>
 			Power Level
+			<HelpIcon position="top">
+				{#snippet content()}
+					<div class="text-left">
+						<p class="text-white/70"><strong>Power</strong> is how hard the reactor runs.</p>
+						<p class="text-white/60 mt-1 text-xs">Double the power: double the output (CPM).</p>
+						<p class="text-white/60 mt-1 text-xs">Double the power: four times the fuel burn.</p>
+						<p class="text-radiation/80 mt-1 text-xs">The white tick is the highest power your regen can keep up with forever.</p>
+					</div>
+				{/snippet}
+			</HelpIcon>
 		</h3>
-		<HelpIcon class="ml-auto" position="top">
-			{#snippet content()}
-				<div class="text-left">
-					<p class="text-white/70"><strong>CPM = Cycles Per Minute</strong></p>
-					<p class="text-white/60 mt-1 text-xs">It represents the reactor's output intensity.</p>
-					<p class="text-white/60 mt-1 text-xs">Higher CPM = Higher production multiplier.</p>
-					<p class="text-green-400/80 mt-1 text-xs font-mono">100 CPM adds +200% bonus!</p>
-				</div>
-			{/snippet}
-		</HelpIcon>
 	</div>
 
 	<!-- Slider -->
-	<div class="mb-2">
+	<div class="relative mb-2 py-1.5">
 		<input
 			type="range"
 			min="0"
@@ -70,6 +70,13 @@
 			class="w-full h-2 rounded-lg appearance-none cursor-pointer"
 			style="background: linear-gradient(to right, #3b82f6, #22c55e 33%, #eab308 66%, #ef4444)"
 		/>
+		{#if stableLevel > 0}
+			<div
+				class="absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-white/80 rounded-full pointer-events-none"
+				style="left: calc(9px + (100% - 18px) * {stableLevel})"
+				title="Stable up to {(stableLevel * 100).toFixed(0)}%"
+			></div>
+		{/if}
 	</div>
 
 	<!-- Stats row -->
@@ -83,8 +90,8 @@
 			<div class={status.color + ' font-medium'}>{status.label}</div>
 		</div>
 		<div class="text-center">
-			<div class="text-white/40">Output</div>
-			<div class="font-mono text-green-400">{cpm.toFixed(0)}</div>
+			<div class="text-white/40">Stable up to</div>
+			<div class="font-mono {stableLevel > 0 ? 'text-radiation' : 'text-white/40'}">{stableLevel > 0 ? `${(stableLevel * 100).toFixed(0)}%` : 'no regen'}</div>
 		</div>
 	</div>
 </div>
@@ -94,9 +101,9 @@
 		box-sizing: border-box;
 		appearance: none;
 		background: white;
-		border: 2px solid #39ff14;
+		border: 2px solid var(--color-radiation);
 		border-radius: 50%;
-		box-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+		box-shadow: 0 0 8px color-mix(in srgb, var(--color-radiation) 50%, transparent);
 		cursor: pointer;
 		height: 18px;
 		width: 18px;
@@ -105,9 +112,9 @@
 	input[type='range']::-moz-range-thumb {
 		box-sizing: border-box;
 		background: white;
-		border: 2px solid #39ff14;
+		border: 2px solid var(--color-radiation);
 		border-radius: 50%;
-		box-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+		box-shadow: 0 0 8px color-mix(in srgb, var(--color-radiation) 50%, transparent);
 		cursor: pointer;
 		height: 18px;
 		width: 18px;

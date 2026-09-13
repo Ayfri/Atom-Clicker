@@ -23,22 +23,30 @@ class RadiationManager {
 	random: () => number = () => Math.random();
 	mass = $state(0);
 	unlocked = $state(false);
+	/** Last fuel insertion, not saved: the reactor visual watches it to play the intake burst. */
+	lastBombard = $state({ mass: 0, seq: 0 });
 
 	// Upgrade levels (synced from GameManager)
 	upgradeLevels = $state<Record<string, number>>({});
 
 	// === DERIVED VALUES ===
 
+	// Graphite Moderators reduce decay rate
+	moderatorBonus = $derived(Math.max(0.2, 1 - this.getUpgradeEffect('graphite_moderators') * 0.1));
+
 	// Decay rate per second (% of mass)
 	decayRatePercent = $derived.by(() => {
 		// Exponential curve: low values have minimal decay
 		// At 0%: ~0% decay, at 50%: ~0.5% decay, at 100%: 2% decay
 		const controlEffect = Math.pow(this.controlRodLevel, 2);
-		const baseRate = BASE_DECAY_PERCENT * controlEffect;
+		return BASE_DECAY_PERCENT * controlEffect * this.moderatorBonus;
+	});
 
-		// Graphite Moderators reduce decay rate
-		const moderatorBonus = 1 - this.getUpgradeEffect('graphite_moderators') * 0.1;
-		return baseRate * Math.max(0.2, moderatorBonus);
+	/** Highest control level where expected burn still matches regen, so the core never drains. 0 when there is no regen. */
+	stableControlLevel = $derived.by(() => {
+		if (this.mass <= 0 || this.regenRate <= 0) return 0;
+		const expectedBurn = this.mass * BASE_DECAY_PERCENT * this.moderatorBonus * (1 - 0.5 * this.preservationChance);
+		return Math.min(1, Math.sqrt(this.regenRate / expectedBurn));
 	});
 
 	// Mass lost per second
@@ -86,11 +94,13 @@ class RadiationManager {
 
 	// CPM = Mass × ControlLevel × 10 × Enrichment
 	// Simple: more mass + higher control = more CPM
-	currentCpm = $derived.by(() => {
-		if (this.mass <= 0 || this.controlRodLevel <= 0) return 0;
-		const rawCpm = this.mass * this.controlRodLevel * 10 * this.enrichmentBonus;
-		return Math.min(rawCpm, this.maxCpm);
-	});
+	currentCpm = $derived(this.cpmFor(this.mass, this.controlRodLevel));
+
+	/** Same formula as currentCpm for arbitrary inputs, used by the UI to preview a fuel purchase before spending. */
+	cpmFor(mass: number, controlLevel: number): number {
+		if (mass <= 0 || controlLevel <= 0) return 0;
+		return Math.min(mass * controlLevel * 10 * this.enrichmentBonus, this.maxCpm);
+	}
 
 	// Radiation Multiplier = 1 + (CPM / 50)
 	// 100 CPM = x3, 500 CPM = x11, 1000 CPM = x21
@@ -131,7 +141,9 @@ class RadiationManager {
 		if (electronBalance < electronAmount) return false;
 
 		currenciesManager.remove(CurrenciesTypes.ELECTRONS, electronAmount);
-		this.mass += electronAmount * MASS_PER_ELECTRON;
+		const added = electronAmount * MASS_PER_ELECTRON;
+		this.mass += added;
+		this.lastBombard = { mass: added, seq: this.lastBombard.seq + 1 };
 		return true;
 	}
 
