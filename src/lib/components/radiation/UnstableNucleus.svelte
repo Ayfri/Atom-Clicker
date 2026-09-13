@@ -6,6 +6,7 @@
 
 	const mass = $derived(radiationManager.mass);
 	const instability = $derived(radiationManager.instability);
+	const power = $derived(radiationManager.controlRodLevel);
 
 	// Core nucleons (Protons/Neutrons only)
 	interface Nucleon {
@@ -39,16 +40,31 @@
 		speed: number;
 	}
 
+	/** Electrons flying in from the ring when fuel is added, absorbed once they reach the core. */
+	interface FuelParticle {
+		id: number;
+		size: number;
+		vx: number;
+		vy: number;
+		x: number;
+		y: number;
+	}
+
 	let nucleons = $state<Nucleon[]>([]);
 	let electrons = $state<Electron[]>([]);
 	let particles = $state<RadiationParticle[]>([]);
+	let fuelParticles = $state<FuelParticle[]>([]);
 	// Monotonic, because Date.now() based ids collide when two updateCounts() run in the same millisecond and break the keyed each blocks.
 	let nextEntityId = 0;
 	let coreGlow = $state(0.3);
+	let flash = $state(0);
+	let ringAngle = $state(0);
 
 	const targetNucleonCount = $derived(Math.min(60, Math.max(0, Math.floor(mass / 3))));
 	const targetElectronCount = $derived(Math.min(6, Math.max(0, Math.floor(mass / 15))));
-	const speedMultiplier = $derived(0.3 + instability * 1.5);
+	/** 0% power freezes the reactor completely, the rest scales with the slider so the core visibly wakes up as it is raised. */
+	const speedMultiplier = $derived(power <= 0 ? 0 : 0.2 + power * 1.3 + instability * 0.5);
+	const heat = $derived(mass > 0 ? power * power : 0);
 
 	function randomInSphere(maxRadius: number): { x: number; y: number } {
 		const angle = Math.random() * Math.PI * 2;
@@ -62,7 +78,7 @@
 	function createNucleon(id: number): Nucleon {
 		const pos = randomInSphere(28);
 		const angle = Math.random() * Math.PI * 2;
-		const speed = (0.15 + Math.random() * 0.2) * speedMultiplier;
+		const speed = 0.15 + Math.random() * 0.2;
 		return {
 			id,
 			type: Math.random() > 0.5 ? 'proton' : 'neutron',
@@ -100,6 +116,24 @@
 		});
 	}
 
+	function spawnFuelBurst(addedMass: number) {
+		const count = 8 + Math.min(24, Math.round(addedMass));
+		for (let i = 0; i < count; i++) {
+			const angle = Math.random() * Math.PI * 2;
+			const r = 46 + Math.random() * 4;
+			const speed = 0.9 + Math.random() * 0.9;
+			fuelParticles.push({
+				id: nextEntityId++,
+				size: 1 + Math.random() * 1.2,
+				vx: -Math.cos(angle) * speed,
+				vy: -Math.sin(angle) * speed,
+				x: Math.cos(angle) * r,
+				y: Math.sin(angle) * r,
+			});
+		}
+		fuelParticles = [...fuelParticles];
+	}
+
 	function updateCounts() {
 		// Nucleons
 		const currentN = nucleons.length;
@@ -124,12 +158,9 @@
 			electrons = electrons.slice(0, targetElectronCount);
 		}
 
-		// Spawn radiation particles based on mass/instability
-		// More frequent spawning
-		const intensity = 0.3 + instability * 0.7;
+		const intensity = power * 0.8 + instability * 0.4;
 		if (mass > 0 && Math.random() < intensity) {
 			spawnRadiationParticle();
-			// Chance for double spawn at high instability
 			if (instability > 0.5 && Math.random() < 0.5) {
 				spawnRadiationParticle();
 			}
@@ -193,10 +224,30 @@
 			p.alpha = Math.min(p.life, edgeFade, spawnFade);
 		}
 
-		coreGlow = 0.25 + Math.sin(Date.now() / 600) * 0.08 + instability * 0.15;
+		for (let i = fuelParticles.length - 1; i >= 0; i--) {
+			const p = fuelParticles[i];
+			p.x += p.vx;
+			p.y += p.vy;
+			if (Math.hypot(p.x, p.y) < 8) {
+				fuelParticles.splice(i, 1);
+				flash = Math.min(1, flash + 0.15);
+			}
+		}
+
+		flash *= 0.94;
+		ringAngle += 0.05 + power * 0.6;
+		coreGlow = 0.12 + power * 0.3 + Math.sin(Date.now() / 600) * 0.08 * power + instability * 0.15;
 
 		animationFrame = requestAnimationFrame(animate);
 	}
+
+	let seenBombard = 0;
+	$effect(() => {
+		const { mass: added, seq } = radiationManager.lastBombard;
+		if (seq <= seenBombard) return;
+		seenBombard = seq;
+		if (visible) spawnFuelBurst(added);
+	});
 
 	// The realm stays mounted while another one is on screen, animating it then costs a frame for nothing.
 	const visible = $derived(realmManager.selectedRealmId === RealmTypes.RADIATION);
@@ -206,6 +257,7 @@
 	$effect(() => {
 		if (!visible) {
 			particles = [];
+			fuelParticles = [];
 			return;
 		}
 
@@ -233,19 +285,12 @@
 				cy="0"
 				r="44"
 				fill="none"
-				stroke="rgba(57, 255, 20, 0.1)"
+				stroke="var(--color-radiation)"
+				stroke-opacity={0.1 + heat * 0.3}
 				stroke-width="1"
 				stroke-dasharray="3 3"
-			>
-				<animateTransform
-					attributeName="transform"
-					type="rotate"
-					from="0 0 0"
-					to="360 0 0"
-					dur="25s"
-					repeatCount="indefinite"
-				></animateTransform>
-			</circle>
+				transform="rotate({ringAngle})"
+			></circle>
 
 			<defs>
 				<radialGradient
@@ -255,11 +300,13 @@
 				>
 					<stop
 						offset="0%"
-						stop-color="rgba(57, 255, 20, 0.35)"
+						stop-color="var(--color-radiation)"
+						stop-opacity="0.35"
 					></stop>
 					<stop
 						offset="50%"
-						stop-color="rgba(30, 70, 32, 0.25)"
+						stop-color="color-mix(in srgb, var(--color-radiation) 30%, black)"
+						stop-opacity="0.25"
 					></stop>
 					<stop
 						offset="100%"
@@ -284,8 +331,9 @@
 				cy="0"
 				r="35"
 				fill="url(#coreGradient)"
-				stroke="rgba(57, 255, 20, 0.25)"
-				stroke-width="0.8"
+				stroke="var(--color-radiation)"
+				stroke-opacity={0.15 + heat * 0.5 + flash * 0.5}
+				stroke-width={0.8 + heat * 0.8}
 			></circle>
 
 			<!-- Electron orbits -->
@@ -333,19 +381,42 @@
 					cx={p.x}
 					cy={p.y}
 					r={p.size}
-					fill="rgba(57, 255, 20, {p.alpha})"
+					fill="var(--color-radiation)"
+					fill-opacity={p.alpha}
 					filter="url(#nucleonGlow)"
 				></circle>
 			{/each}
 
-			<!-- Central glow -->
+			<!-- Incoming fuel -->
+			{#each fuelParticles as p (p.id)}
+				<circle
+					cx={p.x}
+					cy={p.y}
+					r={p.size}
+					fill="rgba(0, 200, 255, 0.9)"
+					filter="url(#nucleonGlow)"
+				></circle>
+			{/each}
+
+			<!-- Central glow, turns white-hot as the power rises and flashes when fuel lands -->
 			<circle
 				cx="0"
 				cy="0"
-				r="8"
-				fill="rgba(57, 255, 20, {coreGlow})"
+				r={8 + heat * 4 + flash * 6}
+				fill="var(--color-radiation)"
+				fill-opacity={coreGlow + flash * 0.4}
 				filter="url(#nucleonGlow)"
 			></circle>
+			{#if heat > 0.05 || flash > 0.02}
+				<circle
+					cx="0"
+					cy="0"
+					r={4 + heat * 4 + flash * 4}
+					fill="white"
+					fill-opacity={heat * 0.6 + flash * 0.5}
+					filter="url(#nucleonGlow)"
+				></circle>
+			{/if}
 		</svg>
 
 		{#if mass <= 0}
@@ -358,8 +429,10 @@
 		{/if}
 	</div>
 
-	<div class="text-center mt-2">
-		<div class="text-white/40 text-xs uppercase tracking-wider">Core Mass</div>
-		<div class="text-green-400 text-xl font-mono font-bold">{mass.toFixed(1)} u</div>
-	</div>
+	{#if mass > 0}
+		<div class="text-center mt-2">
+			<div class="text-white/40 text-xs uppercase tracking-wider">{power <= 0 ? 'Core idle' : 'Core Mass'}</div>
+			<div class="text-radiation text-xl font-mono font-bold">{mass.toFixed(1)} u</div>
+		</div>
+	{/if}
 </div>
