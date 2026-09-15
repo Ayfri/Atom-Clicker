@@ -7,7 +7,10 @@
 	import { onMount } from 'svelte';
 
 	interface Nucleon {
+		alpha: number;
+		fading: boolean;
 		size: number;
+		speed: number;
 		type: 'proton' | 'neutron';
 		vx: number;
 		vy: number;
@@ -41,8 +44,13 @@
 		y: number;
 	}
 
+	const CORE_SPEED = 1.5;
 	const DEFAULT_ACCENT = '#39ff14';
+	/** Steps are tuned for 60 fps, the elapsed time is expressed in those frames so high refresh rate screens don't run faster. */
+	const FRAME_MS = 1000 / 60;
+	const LOW_POWER = 0.1;
 	const MAX_PIXEL_RATIO = 2;
+	const NUCLEON_FADE_RATE = 1 / 40;
 	const MAX_RADIATION_PARTICLES = 40;
 	const SPAWN_INTERVAL_MS = 200;
 	/** Everything is simulated in the SVG-era -50..50 unit space, the canvas transform maps it to pixels. */
@@ -56,10 +64,15 @@
 		return (themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined) ?? DEFAULT_ACCENT;
 	});
 
-	const targetNucleonCount = $derived(Math.min(60, Math.max(0, Math.floor(mass / 3))));
+	/** Below LOW_POWER the core empties down to a fifth of its nucleons, so the frozen 0% core still shows a few. */
+	const targetNucleonCount = $derived(
+		Math.floor(Math.min(60, Math.max(0, mass / 3)) * (0.2 + 0.8 * Math.min(1, power / LOW_POWER))),
+	);
 	const targetElectronCount = $derived(Math.min(6, Math.max(0, Math.floor(mass / 15))));
-	/** 0% power freezes the reactor completely, the rest scales with the slider so the core visibly wakes up as it is raised. */
-	const speedMultiplier = $derived(power <= 0 ? 0 : 0.2 + power * 1.3 + instability * 0.5);
+	/** 0% power freezes the reactor completely, the sixth power keeps everything below ~80% calm and makes the core race at full power. */
+	const speedMultiplier = $derived(power <= 0 ? 0 : 0.2 + power * 0.9 + power ** 6 * 3.4 + instability * 0.5);
+	/** Orbiting electrons keep a linear ramp, the nucleons' full power spike made them a blur. */
+	const electronSpeedMultiplier = $derived(power <= 0 ? 0 : 0.2 + power * 1.2 + instability * 0.5);
 	const heat = $derived(mass > 0 ? power * power : 0);
 	const visible = $derived(realmManager.selectedRealmId === RealmTypes.RADIATION);
 
@@ -142,7 +155,10 @@
 		const angle = Math.random() * Math.PI * 2;
 		const speed = 0.15 + Math.random() * 0.2;
 		return {
+			alpha: 0,
+			fading: false,
 			size: 3 + Math.random() * 2.5,
+			speed,
 			type: Math.random() > 0.5 ? 'proton' : 'neutron',
 			vx: Math.cos(angle) * speed,
 			vy: Math.sin(angle) * speed,
@@ -193,11 +209,26 @@
 	}
 
 	function updateCounts() {
-		if (nucleons.length < targetNucleonCount) {
-			const toAdd = Math.min(4, targetNucleonCount - nucleons.length);
-			for (let i = 0; i < toAdd; i++) nucleons.push(createNucleon());
-		} else if (nucleons.length > targetNucleonCount) {
-			nucleons.length = targetNucleonCount;
+		let alive = 0;
+		for (const n of nucleons) if (!n.fading) alive++;
+
+		if (alive < targetNucleonCount) {
+			let toAdd = Math.min(4, targetNucleonCount - alive);
+			for (const n of nucleons) {
+				if (toAdd === 0) break;
+				if (n.fading) {
+					n.fading = false;
+					toAdd--;
+				}
+			}
+			for (; toAdd > 0; toAdd--) nucleons.push(createNucleon());
+		} else if (alive > targetNucleonCount) {
+			let toFade = Math.min(2, alive - targetNucleonCount);
+			for (let i = nucleons.length - 1; i >= 0 && toFade > 0; i--) {
+				if (nucleons[i].fading) continue;
+				nucleons[i].fading = true;
+				toFade--;
+			}
 		}
 
 		if (electrons.length < targetElectronCount) {
@@ -213,11 +244,19 @@
 		}
 	}
 
-	function step() {
+	function step(dt: number) {
 		const maxDist = 30;
-		const speed = speedMultiplier;
+		const speed = speedMultiplier * CORE_SPEED * dt;
 
-		for (const n of nucleons) {
+		const fade = NUCLEON_FADE_RATE * dt;
+		for (let i = nucleons.length - 1; i >= 0; i--) {
+			const n = nucleons[i];
+			n.alpha = n.fading ? n.alpha - fade : Math.min(1, n.alpha + fade);
+			if (n.alpha <= 0) {
+				nucleons.splice(i, 1);
+				continue;
+			}
+
 			let newX = n.x + n.vx * speed;
 			let newY = n.y + n.vy * speed;
 			let newVx = n.vx;
@@ -234,9 +273,13 @@
 				newY = ny * maxDist * 0.95;
 			}
 
-			if (Math.random() < 0.08) {
-				newVx += (Math.random() - 0.5) * 0.08 * speed;
-				newVy += (Math.random() - 0.5) * 0.08 * speed;
+			/** Kicks only turn the nucleon: added straight to the velocity they random-walked the speed up the longer the core ran. */
+			if (speed > 0 && Math.random() < 0.08 * dt) {
+				newVx += (Math.random() - 0.5) * 0.08;
+				newVy += (Math.random() - 0.5) * 0.08;
+				const norm = n.speed / Math.hypot(newVx, newVy);
+				newVx *= norm;
+				newVy *= norm;
 			}
 
 			n.vx = newVx;
@@ -245,15 +288,16 @@
 			n.y = newY;
 		}
 
-		for (const e of electrons) e.angle += e.speed * speed;
+		for (const e of electrons) e.angle += e.speed * electronSpeedMultiplier * CORE_SPEED * dt;
 
+		const drag = 0.985 ** dt;
 		for (let i = particles.length - 1; i >= 0; i--) {
 			const p = particles[i];
-			p.life -= 0.012;
-			p.vx *= 0.985;
-			p.vy *= 0.985;
-			p.x += p.vx;
-			p.y += p.vy;
+			p.life -= 0.012 * dt;
+			p.vx *= drag;
+			p.vy *= drag;
+			p.x += p.vx * dt;
+			p.y += p.vy * dt;
 
 			const dist = Math.hypot(p.x, p.y);
 			if (p.life <= 0 || dist >= p.maxDist) {
@@ -268,16 +312,16 @@
 
 		for (let i = fuelParticles.length - 1; i >= 0; i--) {
 			const p = fuelParticles[i];
-			p.x += p.vx;
-			p.y += p.vy;
+			p.x += p.vx * dt;
+			p.y += p.vy * dt;
 			if (Math.hypot(p.x, p.y) < 8) {
 				fuelParticles.splice(i, 1);
 				flash = Math.min(1, flash + 0.15);
 			}
 		}
 
-		flash *= 0.94;
-		ringAngle += (0.05 + power * 0.6) * (Math.PI / 180);
+		flash *= 0.94 ** dt;
+		ringAngle += (0.05 + power * 0.4 + power ** 6 * 1.6) * CORE_SPEED * dt * (Math.PI / 180);
 		coreGlow = 0.12 + power * 0.3 + Math.sin(performance.now() / 600) * 0.08 * power + instability * 0.15;
 	}
 
@@ -329,7 +373,10 @@
 			drawBody(sprites.electron, Math.cos(e.angle) * e.orbitRadius, Math.sin(e.angle) * e.orbitRadius, 2, electronPulse);
 		}
 
-		for (const n of nucleons) drawBody(n.type === 'proton' ? sprites.proton : sprites.neutron, n.x, n.y, n.size, 0.85);
+		for (const n of nucleons) {
+			const grow = n.alpha * (2 - n.alpha);
+			drawBody(n.type === 'proton' ? sprites.proton : sprites.neutron, n.x, n.y, n.size * grow, 0.85 * n.alpha);
+		}
 		for (const p of particles) drawBody(sprites.accent, p.x, p.y, p.size, p.alpha);
 		for (const p of fuelParticles) drawBody(sprites.electron, p.x, p.y, p.size, 0.9);
 
@@ -342,6 +389,7 @@
 	}
 
 	let animationFrame = 0;
+	let lastFrame = 0;
 	let lastSpawn = 0;
 
 	/** Spawning lives in the frame loop on purpose: a setInterval kept adding particles in background tabs where rAF is paused. */
@@ -350,7 +398,8 @@
 			lastSpawn = now;
 			updateCounts();
 		}
-		step();
+		step(lastFrame ? Math.min(3, (now - lastFrame) / FRAME_MS) : 1);
+		lastFrame = now;
 		draw();
 		animationFrame = requestAnimationFrame(animate);
 	}
@@ -383,6 +432,7 @@
 	// The realm stays mounted while another one is on screen, animating it then costs a frame for nothing.
 	$effect(() => {
 		if (!visible || !ctx) return;
+		lastFrame = 0;
 		lastSpawn = 0;
 		animationFrame = requestAnimationFrame(animate);
 		return () => {
