@@ -1,4 +1,4 @@
-# Unreleased
+# What's new 15-09-2026
 
 - **Faster Loading**: The game downloads about half as much code and starts without waiting for your account to load.
 - **Smoother Gameplay**: The game does far less work every frame, about 20% less in the Atom Realm and 12% in the others.
