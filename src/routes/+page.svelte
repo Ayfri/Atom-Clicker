@@ -50,13 +50,15 @@
 	const CLOUD_PULL_WARNING_THRESHOLD_MS = 5_000;
 	// Long gaps (background tab, stalled frame) are clamped so production never jumps, offline progress handles those.
 	const MAX_FRAME_MS = 100;
-	// Production is summed outside the reactive state and committed at this rate, so displays stay smooth without invalidating every frame.
+	/**
+	 * Production is committed on a timer at this rate, not from a rAF loop: a pending rAF makes Chrome run a full main
+	 * frame at the display rate (179 per second on a 179 Hz screen), while the counters only change at 50 Hz.
+	 */
 	const COMMIT_INTERVAL_MS = 20;
 	let saveLoop: ReturnType<typeof setInterval>;
-	let gameUpdateFrame = 0;
+	let commitLoop: ReturnType<typeof setInterval>;
 	let hasCheckedCloudSaveOnLoad = false;
 	let authUnsubscribe: (() => void) | null = null;
-	let lastCommitTime = 0;
 	let lastUpdateTime = 0;
 	let pendingAtoms = 0;
 	let quarkUserId: string | null = null;
@@ -67,11 +69,11 @@
 		pendingAtoms = 0;
 	}
 
-	function update(deltaMs: number, now: number) {
-		pendingAtoms += (gameManager.atomsPerSecond * deltaMs) / 1000;
-		if (now - lastCommitTime < COMMIT_INTERVAL_MS) return;
+	function update() {
+		const now = performance.now();
+		pendingAtoms += (gameManager.atomsPerSecond * Math.min(now - lastUpdateTime, MAX_FRAME_MS)) / 1000;
+		lastUpdateTime = now;
 		commitPendingAtoms();
-		lastCommitTime = now;
 	}
 
 	async function checkCloudSaveOnLoad() {
@@ -139,12 +141,7 @@
 		}
 
 		lastUpdateTime = performance.now();
-		lastCommitTime = lastUpdateTime;
-		gameUpdateFrame = requestAnimationFrame(function loop(now) {
-			gameUpdateFrame = requestAnimationFrame(loop);
-			update(Math.min(now - lastUpdateTime, MAX_FRAME_MS), now);
-			lastUpdateTime = now;
-		});
+		commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
 
 		setGlobals();
 
@@ -162,7 +159,7 @@
 
 	onDestroy(() => {
 		if (saveLoop) clearInterval(saveLoop);
-		cancelAnimationFrame(gameUpdateFrame);
+		clearInterval(commitLoop);
 		commitPendingAtoms();
 		if (authUnsubscribe) authUnsubscribe();
 		gameManager.cleanup();

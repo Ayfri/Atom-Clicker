@@ -14,8 +14,30 @@
 	let ctx: CanvasRenderingContext2D | null = null;
 	let engine: ParticleEngine | null = null;
 	let frame = 0;
-	let hadParticles = false;
 	let lastTime = 0;
+	let unsubscribeQueue: (() => void) | null = null;
+
+	/** The loop only runs while particles are alive: an idle pending rAF still costs Chrome a full main frame per vsync. */
+	function start() {
+		if (frame || !engine || !ctx) return;
+		lastTime = performance.now();
+		frame = requestAnimationFrame(loop);
+	}
+
+	function loop(now: number) {
+		if (!engine || !ctx || !canvas) return;
+		const deltaMs = Math.min(now - lastTime, MAX_FRAME_MS);
+		lastTime = now;
+		engine.update(deltaMs / FRAME_MS);
+
+		ctx.save();
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.restore();
+		engine.draw(ctx);
+
+		frame = engine.count > 0 ? requestAnimationFrame(loop) : 0;
+	}
 
 	function resize() {
 		if (!canvas || !ctx) return;
@@ -53,30 +75,13 @@
 		resize();
 		document.body.appendChild(canvas);
 		engine = new ParticleEngine(particleQueue);
-
-		lastTime = performance.now();
-		frame = requestAnimationFrame(function loop(now) {
-			frame = requestAnimationFrame(loop);
-
-			const deltaMs = Math.min(now - lastTime, MAX_FRAME_MS);
-			lastTime = now;
-
-			engine!.update(deltaMs / FRAME_MS);
-
-			// Nothing to show: skip the fullscreen clear entirely once the last particle is gone.
-			const hasParticles = engine!.count > 0;
-			if (!hasParticles && !hadParticles) return;
-			hadParticles = hasParticles;
-
-			ctx!.save();
-			ctx!.setTransform(1, 0, 0, 1, 0, 0);
-			ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
-			ctx!.restore();
-			engine!.draw(ctx!);
+		unsubscribeQueue = particleQueue.subscribe(added => {
+			if (added.length > 0) start();
 		});
 	});
 
 	onDestroy(() => {
+		unsubscribeQueue?.();
 		cancelAnimationFrame(frame);
 		engine?.destroy();
 		canvas?.remove();
