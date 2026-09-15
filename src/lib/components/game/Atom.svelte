@@ -79,13 +79,13 @@
 	{#each BUILDING_TYPES.filter(name => name in gameManager.buildings) as name, i}
 		{@const data = gameManager.buildings[name]}
 
-		{#if data && data.count > 0}
-			{@const color = BUILDING_COLORS[data.level]}
-			<div class="electron-shell" style="--line: {i}; --count: {data.count % BUILDING_LEVEL_UP_COST}; --color: {color};">
-				{#each new Array(data.count % BUILDING_LEVEL_UP_COST) as _, j}
-					<div class="electron" style="--i: {j};"></div>
-				{/each}
-			</div>
+		{#if data && data.count % BUILDING_LEVEL_UP_COST > 0}
+			{@const count = data.count % BUILDING_LEVEL_UP_COST}
+			<!-- One round-capped dash per electron: `pathLength` spaces them evenly, where a div per electron cost a style and paint pass each. -->
+			<svg class="electron-shell" style="--line: {i}; --color: {BUILDING_COLORS[data.level]};">
+				<circle class="orbit" cx="50%" cy="50%" />
+				<circle class="electrons" cx="50%" cy="50%" pathLength={count} stroke-dasharray="0 1" stroke-dashoffset={(-count * i * 20) / 360} />
+			</svg>
 		{/if}
 	{/each}
 	<div class="nucleus h-15 w-15 rounded-full md:h-12.5 md:w-12.5"></div>
@@ -123,29 +123,26 @@
 	.electron-shell {
 		--radius: calc(var(--initial-electrons-spacing) + var(--line) * var(--electron-line-spacing));
 		animation: rotate calc((4s + var(--line) * 2s) / var(--speed)) linear infinite;
-		border: 2px solid color-mix(in oklab, var(--color) 10%, transparent 10%);
-		border-radius: 50%;
 		height: var(--radius);
+		overflow: visible;
 		position: absolute;
 		width: var(--radius);
 	}
 
-	.electron {
-		--size: max(5px, calc(5px + var(--line) * 1px));
-		--offset: calc(var(--line) * 20deg);
-		--angle: calc(var(--offset) + (var(--i) / var(--count)) * 360deg);
+	.orbit {
+		fill: none;
+		r: calc(var(--radius) / 2 - 1px);
+		stroke: color-mix(in oklab, var(--color) 10%, transparent 10%);
+		stroke-width: 2px;
+	}
 
-		/* use angle to calculate position with cosinus and sinus */
-		left: calc(50% + var(--radius) / 2 * cos(var(--angle)) - var(--size) / 2);
-		top: calc(50% + var(--radius) / 2 * sin(var(--angle)) - var(--size) / 2);
-
-		background: var(--color);
-		border-radius: 50%;
-		box-shadow: 0 0 10px color-mix(in oklab, var(--color) 50%, transparent 10%);
-		height: var(--size);
-		transition: all 0.5s;
-		position: absolute;
-		width: var(--size);
+	.electrons {
+		fill: none;
+		filter: drop-shadow(0 0 5px color-mix(in oklab, var(--color) 50%, transparent 10%));
+		r: calc(var(--radius) / 2);
+		stroke: var(--color);
+		stroke-linecap: round;
+		stroke-width: calc(5px + var(--line) * 1px);
 	}
 
 	@keyframes rotate {
