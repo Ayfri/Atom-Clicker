@@ -1,17 +1,17 @@
 # Unreleased
 
-- **Faster Loading**: The game downloads roughly half as much code before it starts, the game loop runs right away instead of waiting for the account, cloud save and leaderboard requests, and panels like the Skill Tree, Leaderboard and Settings load in the background.
-- **Smoother Gameplay**: The game loop, click particles, achievements and upgrade effects do far less work every frame, the buildings and navigation panels stop recomputing themselves dozens of times a second, and the Photon Realm animations stop while you are in another realm.
+- **Faster Loading**: The game downloads about half as much code and starts without waiting for your account to load.
+- **Smoother Gameplay**: The game does far less work every frame, about 20% less in the Atom Realm and 12% in the others.
 - **Lower Memory Use**: The reactor no longer piles up radiation particles while you are in another realm, so long sessions stay as fast as they started.
 - **Rebalancing**: Building level bonus is now a smooth doubling every 100 owned plus a 1.5x per level, replacing the old cliff at exactly 100 owned.
 - **Rebalancing**: Buildings now pay exactly the atoms per second shown in the counter, instead of twice that.
 - **Rebalancing**: Auto-clicks now pay once instead of twice.
 - **Rebalancing**: Level Boost and Atom Soup (achievement) upgrades now stack additively within their own family instead of multiplying each other into absurd numbers.
 - **Rebalancing**: Power-ups can no longer spawn closer together than 20 seconds apart.
-- **Radiation Realm**: A reactor strip shows how fuel and power turn into output and into your production bonus, with the output cap visible so Coolant Pumps finally make sense. The power slider marks the highest level your regen can sustain forever, the fuel slider previews the CPM you are buying, and the help texts explain the mechanics in plain words.
-- **Reactor Visuals**: The core freezes at 0% power and turns white-hot at 100%, added fuel flies into the core as electrons, and the equipped Quark Shop theme now recolors the whole realm instead of only the Add Fuel button.
-- **Stats Panel**: The panel now covers the Radiation Realm, the Stability Field, skill points, skill tree nodes, photon upgrade levels, Quarks and a daily summary, and every stat gets its own icon instead of a coloured badge.
-- **Mobile**: The realm switcher sits below the navigation instead of over it, toasts and the autosave indicator no longer swallow taps meant for a modal, and holding a button keeps working when your finger drifts.
+- **Radiation Realm**: A new reactor strip and clearer sliders and help texts show how fuel and power turn into your production bonus.
+- **Reactor Visuals**: The reactor core is redrawn, reacts to your power level and follows your Quark Shop theme.
+- **Stats Panel**: The panel now covers the Radiation Realm, skill tree, Quarks and a daily summary, with an icon for every stat.
+- **Mobile**: The realm switcher, toasts and hold buttons no longer get in the way of your taps.
 
 # What's new 12-08-2026
 
