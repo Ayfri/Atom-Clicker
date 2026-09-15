@@ -214,8 +214,14 @@
 			{@const RealmComponent = realmComponents[realm.componentId]}
 			{@const background = getRealmBackground(realm)}
 
+			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
+			     animations. `transition-discrete` holds it visible until the slide out ends. -->
 			<div
-				class="absolute inset-x-0 bottom-0 transition-all duration-300 ease-in-out overflow-hidden"
+				class="absolute inset-x-0 bottom-0 transition-all transition-discrete duration-300 ease-in-out overflow-hidden {(
+					realmManager.selectedRealm.id !== realm.id
+				) ?
+					'[content-visibility:hidden]'
+				:	''}"
 				class:opacity-100={realmManager.selectedRealm.id === realm.id}
 				class:translate-x-0={realmManager.selectedRealm.id === realm.id}
 				class:opacity-0={realmManager.selectedRealm.id !== realm.id}
