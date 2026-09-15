@@ -47,7 +47,7 @@ export const REALM_TUTORIALS: Partial<Record<RealmType, RealmTutorialStep[]>> = 
 			id: 'fuel',
 			title: 'Core Fuel',
 			description:
-				'Fuel (mass) naturally burns over time and is replenished by your atom production. Keep an eye on the burn/regen rates so the core never runs dry.',
+				'Fuel (mass) burns as soon as you raise the power, and nothing puts it back until you buy the Breeder Reactor upgrade. Keep an eye on the burn rate so the core never runs dry.',
 			condition: () => radiationManager.mass > 0,
 		},
 		{

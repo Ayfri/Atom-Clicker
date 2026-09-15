@@ -158,7 +158,7 @@
 							+1
 						</div>
 					{/if}
-					<h3 class="{isBought ? 'text-blue-400' : 'text-blue-400'} text-sm flex items-center gap-2">
+					<h3 class="text-blue-400 text-sm flex items-center gap-2">
 						{#if Icon}
 							<Icon size={14} color="currentColor" />
 						{/if}
@@ -167,7 +167,7 @@
 							<span class="text-[10px] uppercase font-bold text-white/50 bg-white/10 px-1 rounded-sm">Bought</span>
 						{/if}
 					</h3>
-					<p class="text-xs my-0.5 {isBought ? '' : ''}">{upgrade.description}</p>
+					<p class="text-xs my-0.5">{upgrade.description}</p>
 					<div class="text-xs mt-1" style="color: {CURRENCIES[upgrade.cost.currency].color}">
 						{#if !isBought}
 							Cost: <Value value={upgrade.cost.amount} currency={upgrade.cost.currency}/>

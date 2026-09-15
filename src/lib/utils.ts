@@ -147,12 +147,14 @@ export function formatNumberFull(num: number): string {
 	return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
+const SIM_TIME_FORMAT = new Intl.DurationFormat('en', { style: 'narrow' });
+
 export function formatSimTimePrecise(ms: number): string {
 	const h = Math.floor(ms / 3600000);
 	const m = Math.floor((ms % 3600000) / 60000);
 	const s = Math.floor((ms % 60000) / 1000);
 	const msRem = Math.floor(ms % 1000);
-	return new Intl.DurationFormat('en', { style: 'narrow' }).format({ hours: h, milliseconds: msRem, minutes: m, seconds: s });
+	return SIM_TIME_FORMAT.format({ hours: h, milliseconds: msRem, minutes: m, seconds: s });
 }
 
 export function formatDuration(ms: number): string {

@@ -49,7 +49,7 @@
 </script>
 
 <div
-	class="relative flex w-full max-w-sm overflow-hidden rounded-xl border {config.border} bg-neutral-900/95 p-4 shadow-xl backdrop-blur-sm sm:w-85"
+	class="relative flex w-full max-w-sm overflow-hidden rounded-xl border {config.border} bg-neutral-900/95 p-4 shadow-xl backdrop-blur-sm pointer-events-auto sm:w-85"
 	transition:fly={{ duration: 400, x: 20 }}
 >
 	<div class="flex w-full gap-4">

@@ -24,8 +24,3 @@ export function tierIconStack(icon: IconName, tierIndex: number, tierValue?: num
 	const label = tierIndex >= MAX_STACK_COUNT && tierValue !== undefined ? formatNumber(tierValue, 0) : undefined;
 	return { color, count, icon, label };
 }
-
-/** Same as `tierIconStack` but resolves the tier index from the value's position in its series. */
-export function tieredIconStackFor(icon: IconName, tiers: readonly number[], tierValue: number, color?: string): IconStackSpec {
-	return tierIconStack(icon, tiers.indexOf(tierValue), tierValue, color);
-}

@@ -1,28 +1,27 @@
 <script lang="ts">
+	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
+	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
-	const mass = $derived(radiationManager.mass);
-	const instability = $derived(radiationManager.instability);
-
-	// Core nucleons (Protons/Neutrons only)
 	interface Nucleon {
-		id: number;
-		type: 'proton' | 'neutron';
+		alpha: number;
+		fading: boolean;
 		size: number;
+		speed: number;
+		type: 'proton' | 'neutron';
 		vx: number;
 		vy: number;
 		x: number;
 		y: number;
 	}
 
-	// Floating radiation particles
 	interface RadiationParticle {
 		alpha: number;
-		id: number;
 		life: number;
+		maxDist: number;
 		size: number;
 		vx: number;
 		vy: number;
@@ -30,42 +29,137 @@
 		y: number;
 	}
 
-	// Electron orbit
 	interface Electron {
 		angle: number;
-		id: number;
 		orbitRadius: number;
 		speed: number;
 	}
 
-	let nucleons = $state<Nucleon[]>([]);
-	let electrons = $state<Electron[]>([]);
-	let particles = $state<RadiationParticle[]>([]);
-	// Monotonic, because Date.now() based ids collide when two updateCounts() run in the same millisecond and break the keyed each blocks.
-	let nextEntityId = 0;
-	let coreGlow = $state(0.3);
+	/** Electrons flying in from the ring when fuel is added, absorbed once they reach the core. */
+	interface FuelParticle {
+		size: number;
+		vx: number;
+		vy: number;
+		x: number;
+		y: number;
+	}
 
-	const targetNucleonCount = $derived(Math.min(60, Math.max(0, Math.floor(mass / 3))));
+	const CORE_SPEED = 1.5;
+	const DEFAULT_ACCENT = '#39ff14';
+	/** Steps are tuned for 60 fps, the elapsed time is expressed in those frames so high refresh rate screens don't run faster. */
+	const FRAME_MS = 1000 / 60;
+	const LOW_POWER = 0.1;
+	const MAX_PIXEL_RATIO = 2;
+	const NUCLEON_FADE_RATE = 1 / 40;
+	const MAX_RADIATION_PARTICLES = 40;
+	const SPAWN_INTERVAL_MS = 200;
+	/** Everything is simulated in the SVG-era -50..50 unit space, the canvas transform maps it to pixels. */
+	const VIEW_UNITS = 100;
+
+	const mass = $derived(radiationManager.mass);
+	const instability = $derived(radiationManager.instability);
+	const power = $derived(radiationManager.controlRodLevel);
+	const accent = $derived.by(() => {
+		const themeId = quarksManager.equippedThemes[RealmTypes.RADIATION];
+		return (themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined) ?? DEFAULT_ACCENT;
+	});
+
+	/** Below LOW_POWER the core empties down to a fifth of its nucleons, so the frozen 0% core still shows a few. */
+	const targetNucleonCount = $derived(
+		Math.floor(Math.min(60, Math.max(0, mass / 3)) * (0.2 + 0.8 * Math.min(1, power / LOW_POWER))),
+	);
 	const targetElectronCount = $derived(Math.min(6, Math.max(0, Math.floor(mass / 15))));
-	const speedMultiplier = $derived(0.3 + instability * 1.5);
+	/** 0% power freezes the reactor completely, the sixth power keeps everything below ~80% calm and makes the core race at full power. */
+	const speedMultiplier = $derived(power <= 0 ? 0 : 0.2 + power * 0.9 + power ** 6 * 3.4 + instability * 0.5);
+	/** Orbiting electrons keep a linear ramp, the nucleons' full power spike made them a blur. */
+	const electronSpeedMultiplier = $derived(power <= 0 ? 0 : 0.2 + power * 1.2 + instability * 0.5);
+	const heat = $derived(mass > 0 ? power * power : 0);
+	const visible = $derived(realmManager.selectedRealmId === RealmTypes.RADIATION);
+
+	const nucleons: Nucleon[] = [];
+	const electrons: Electron[] = [];
+	const particles: RadiationParticle[] = [];
+	const fuelParticles: FuelParticle[] = [];
+	let coreGlow = 0.3;
+	let flash = 0;
+	let ringAngle = 0;
+
+	let container = $state<HTMLDivElement>();
+	let canvas = $state<HTMLCanvasElement>();
+	let ctx: CanvasRenderingContext2D | null = null;
+	let pixelSize = 0;
+	let ratio = 1;
+
+	/** Radial-gradient glow sprites replace the SVG blur filter: one drawImage per body instead of a per-element filter pass. */
+	type Sprite = HTMLCanvasElement;
+	let sprites: Record<'accent' | 'electron' | 'neutron' | 'proton' | 'white', Sprite> | null = null;
+	let coreGradient: CanvasGradient | null = null;
+	let accentRgb: [number, number, number] = [57, 255, 20];
+	const SPRITE_PX = 64;
+
+	function makeSprite(r: number, g: number, b: number): Sprite {
+		const sprite = document.createElement('canvas');
+		sprite.width = SPRITE_PX;
+		sprite.height = SPRITE_PX;
+		const sctx = sprite.getContext('2d');
+		if (!sctx) return sprite;
+		const half = SPRITE_PX / 2;
+		const gradient = sctx.createRadialGradient(half, half, 0, half, half, half);
+		gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`);
+		gradient.addColorStop(0.62, `rgba(${r}, ${g}, ${b}, 0.95)`);
+		gradient.addColorStop(0.75, `rgba(${r}, ${g}, ${b}, 0.3)`);
+		gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+		sctx.fillStyle = gradient;
+		sctx.fillRect(0, 0, SPRITE_PX, SPRITE_PX);
+		return sprite;
+	}
+
+	function hexToRgb(hex: string): [number, number, number] {
+		const value = parseInt(hex.slice(1), 16);
+		return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+	}
+
+	function buildSprites(accentHex: string) {
+		accentRgb = hexToRgb(accentHex);
+		const [r, g, b] = accentRgb;
+		sprites = {
+			accent: makeSprite(r, g, b),
+			electron: makeSprite(0, 200, 255),
+			neutron: makeSprite(100, 150, 255),
+			proton: makeSprite(255, 100, 100),
+			white: makeSprite(255, 255, 255),
+		};
+		if (!ctx) return;
+		coreGradient = ctx.createRadialGradient(-10, -10, 0, 0, 0, 35);
+		coreGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.35)`);
+		coreGradient.addColorStop(0.5, `rgba(${Math.round(r * 0.3)}, ${Math.round(g * 0.3)}, ${Math.round(b * 0.3)}, 0.25)`);
+		coreGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+	}
+
+	/** The sprite is solid up to the body radius and fades out to 1.5x of it, drawn at 3x the radius to keep the soft halo of the old blur filter. */
+	function drawBody(sprite: Sprite, x: number, y: number, radius: number, alpha = 1) {
+		if (!ctx) return;
+		const size = radius * 3;
+		ctx.globalAlpha = alpha;
+		ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size);
+	}
 
 	function randomInSphere(maxRadius: number): { x: number; y: number } {
 		const angle = Math.random() * Math.PI * 2;
 		const r = Math.sqrt(Math.random()) * maxRadius;
-		return {
-			x: Math.cos(angle) * r,
-			y: Math.sin(angle) * r,
-		};
+		return { x: Math.cos(angle) * r, y: Math.sin(angle) * r };
 	}
 
-	function createNucleon(id: number): Nucleon {
+	function createNucleon(): Nucleon {
 		const pos = randomInSphere(28);
 		const angle = Math.random() * Math.PI * 2;
-		const speed = (0.15 + Math.random() * 0.2) * speedMultiplier;
+		const speed = 0.15 + Math.random() * 0.2;
 		return {
-			id,
-			type: Math.random() > 0.5 ? 'proton' : 'neutron',
+			alpha: 0,
+			fading: false,
 			size: 3 + Math.random() * 2.5,
+			speed,
+			type: Math.random() > 0.5 ? 'proton' : 'neutron',
 			vx: Math.cos(angle) * speed,
 			vy: Math.sin(angle) * speed,
 			x: pos.x,
@@ -73,24 +167,24 @@
 		};
 	}
 
-	function createElectron(id: number): Electron {
+	function createElectron(index: number): Electron {
 		return {
 			angle: Math.random() * Math.PI * 2,
-			id,
-			orbitRadius: 34 + id * 2,
-			speed: (0.015 + Math.random() * 0.015) * (id % 2 === 0 ? 1 : -1),
+			orbitRadius: 34 + index * 2,
+			speed: (0.015 + Math.random() * 0.015) * (index % 2 === 0 ? 1 : -1),
 		};
 	}
 
 	function spawnRadiationParticle() {
+		if (particles.length >= MAX_RADIATION_PARTICLES) return;
 		const angle = Math.random() * Math.PI * 2;
-		const r = 10 + Math.random() * 20; // Start inside core
-		const speed = 0.5 + Math.random() * 1.5;
+		const r = 10 + Math.random() * 20;
+		const speed = 0.35 + Math.random() * 0.9;
 		particles.push({
-			alpha: 1,
-			id: nextEntityId++,
-			life: 1.0,
-			size: 0.8 + Math.random() * 1.5, // Smaller: 0.8-2.3
+			alpha: 0,
+			life: 1,
+			maxDist: 36 + Math.random() * 6,
+			size: 0.8 + Math.random() * 1.5,
 			vx: Math.cos(angle) * speed,
 			vy: Math.sin(angle) * speed,
 			x: Math.cos(angle) * r,
@@ -98,238 +192,268 @@
 		});
 	}
 
-	function updateCounts() {
-		// Nucleons
-		const currentN = nucleons.length;
-		if (currentN < targetNucleonCount) {
-			const toAdd = Math.min(4, targetNucleonCount - currentN);
-			for (let i = 0; i < toAdd; i++) {
-				nucleons.push(createNucleon(nextEntityId++));
-			}
-			nucleons = [...nucleons]; // Trigger reactivity
-		} else if (currentN > targetNucleonCount) {
-			nucleons = nucleons.slice(0, targetNucleonCount);
-		}
-
-		// Electrons
-		const currentE = electrons.length;
-		if (currentE < targetElectronCount) {
-			for (let i = currentE; i < targetElectronCount; i++) {
-				electrons.push(createElectron(i));
-			}
-			electrons = [...electrons];
-		} else if (currentE > targetElectronCount) {
-			electrons = electrons.slice(0, targetElectronCount);
-		}
-
-		// Spawn radiation particles based on mass/instability
-		// More frequent spawning
-		const intensity = 0.3 + instability * 0.7;
-		if (mass > 0 && Math.random() < intensity) {
-			spawnRadiationParticle();
-			// Chance for double spawn at high instability
-			if (instability > 0.5 && Math.random() < 0.5) {
-				spawnRadiationParticle();
-			}
+	function spawnFuelBurst(addedMass: number) {
+		const count = 8 + Math.min(24, Math.round(addedMass));
+		for (let i = 0; i < count; i++) {
+			const angle = Math.random() * Math.PI * 2;
+			const r = 46 + Math.random() * 4;
+			const speed = 0.9 + Math.random() * 0.9;
+			fuelParticles.push({
+				size: 1 + Math.random() * 1.2,
+				vx: -Math.cos(angle) * speed,
+				vy: -Math.sin(angle) * speed,
+				x: Math.cos(angle) * r,
+				y: Math.sin(angle) * r,
+			});
 		}
 	}
 
-	let animationFrame: number;
+	function updateCounts() {
+		let alive = 0;
+		for (const n of nucleons) if (!n.fading) alive++;
 
-	function animate() {
-		// Animate nucleons
-		nucleons = nucleons.map(n => {
-			let newX = n.x + n.vx * speedMultiplier;
-			let newY = n.y + n.vy * speedMultiplier;
+		if (alive < targetNucleonCount) {
+			let toAdd = Math.min(4, targetNucleonCount - alive);
+			for (const n of nucleons) {
+				if (toAdd === 0) break;
+				if (n.fading) {
+					n.fading = false;
+					toAdd--;
+				}
+			}
+			for (; toAdd > 0; toAdd--) nucleons.push(createNucleon());
+		} else if (alive > targetNucleonCount) {
+			let toFade = Math.min(2, alive - targetNucleonCount);
+			for (let i = nucleons.length - 1; i >= 0 && toFade > 0; i--) {
+				if (nucleons[i].fading) continue;
+				nucleons[i].fading = true;
+				toFade--;
+			}
+		}
+
+		if (electrons.length < targetElectronCount) {
+			for (let i = electrons.length; i < targetElectronCount; i++) electrons.push(createElectron(i));
+		} else if (electrons.length > targetElectronCount) {
+			electrons.length = targetElectronCount;
+		}
+
+		const intensity = power * 0.8 + instability * 0.4;
+		if (mass > 0 && Math.random() < intensity) {
+			spawnRadiationParticle();
+			if (instability > 0.5 && Math.random() < 0.5) spawnRadiationParticle();
+		}
+	}
+
+	function step(dt: number) {
+		const maxDist = 30;
+		const speed = speedMultiplier * CORE_SPEED * dt;
+
+		const fade = NUCLEON_FADE_RATE * dt;
+		for (let i = nucleons.length - 1; i >= 0; i--) {
+			const n = nucleons[i];
+			n.alpha = n.fading ? n.alpha - fade : Math.min(1, n.alpha + fade);
+			if (n.alpha <= 0) {
+				nucleons.splice(i, 1);
+				continue;
+			}
+
+			let newX = n.x + n.vx * speed;
+			let newY = n.y + n.vy * speed;
 			let newVx = n.vx;
 			let newVy = n.vy;
-
 			const dist = Math.sqrt(newX * newX + newY * newY);
-			const maxDist = 30;
 
 			if (dist > maxDist) {
 				const nx = newX / dist;
 				const ny = newY / dist;
 				const dot = newVx * nx + newVy * ny;
-				newVx = newVx - 2 * dot * nx;
-				newVy = newVy - 2 * dot * ny;
+				newVx -= 2 * dot * nx;
+				newVy -= 2 * dot * ny;
 				newX = nx * maxDist * 0.95;
 				newY = ny * maxDist * 0.95;
 			}
 
-			if (Math.random() < 0.08) {
-				newVx += (Math.random() - 0.5) * 0.08 * speedMultiplier;
-				newVy += (Math.random() - 0.5) * 0.08 * speedMultiplier;
+			/** Kicks only turn the nucleon: added straight to the velocity they random-walked the speed up the longer the core ran. */
+			if (speed > 0 && Math.random() < 0.08 * dt) {
+				newVx += (Math.random() - 0.5) * 0.08;
+				newVy += (Math.random() - 0.5) * 0.08;
+				const norm = n.speed / Math.hypot(newVx, newVy);
+				newVx *= norm;
+				newVy *= norm;
 			}
-			return { ...n, vx: newVx, vy: newVy, x: newX, y: newY };
-		});
 
-		// Animate electrons
-		electrons = electrons.map(e => ({
-			...e,
-			angle: e.angle + e.speed * speedMultiplier,
-		}));
+			n.vx = newVx;
+			n.vy = newVy;
+			n.x = newX;
+			n.y = newY;
+		}
 
-		// Animate particles
-		particles = particles
-			.map(p => ({
-				...p,
-				alpha: p.life,
-				life: p.life - 0.015,
-				x: p.x + p.vx,
-				y: p.y + p.vy,
-			}))
-			.filter(p => p.life > 0);
+		for (const e of electrons) e.angle += e.speed * electronSpeedMultiplier * CORE_SPEED * dt;
 
-		coreGlow = 0.25 + Math.sin(Date.now() / 600) * 0.08 + instability * 0.15;
+		const drag = 0.985 ** dt;
+		for (let i = particles.length - 1; i >= 0; i--) {
+			const p = particles[i];
+			p.life -= 0.012 * dt;
+			p.vx *= drag;
+			p.vy *= drag;
+			p.x += p.vx * dt;
+			p.y += p.vy * dt;
 
+			const dist = Math.hypot(p.x, p.y);
+			if (p.life <= 0 || dist >= p.maxDist) {
+				particles.splice(i, 1);
+				continue;
+			}
+
+			const edgeFade = Math.min(1, (p.maxDist - dist) / 9);
+			const spawnFade = Math.min(1, (1 - p.life) * 8);
+			p.alpha = Math.min(p.life, edgeFade, spawnFade);
+		}
+
+		for (let i = fuelParticles.length - 1; i >= 0; i--) {
+			const p = fuelParticles[i];
+			p.x += p.vx * dt;
+			p.y += p.vy * dt;
+			if (Math.hypot(p.x, p.y) < 8) {
+				fuelParticles.splice(i, 1);
+				flash = Math.min(1, flash + 0.15);
+			}
+		}
+
+		flash *= 0.94 ** dt;
+		ringAngle += (0.05 + power * 0.4 + power ** 6 * 1.6) * CORE_SPEED * dt * (Math.PI / 180);
+		coreGlow = 0.12 + power * 0.3 + Math.sin(performance.now() / 600) * 0.08 * power + instability * 0.15;
+	}
+
+	function draw() {
+		if (!ctx || !sprites || pixelSize === 0) return;
+		const scale = pixelSize / VIEW_UNITS;
+		const currentHeat = heat;
+		const [r, g, b] = accentRgb;
+
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, pixelSize, pixelSize);
+		ctx.setTransform(scale, 0, 0, scale, pixelSize / 2, pixelSize / 2);
+		ctx.globalAlpha = 1;
+
+		// Outer dashed ring
+		ctx.save();
+		ctx.rotate(ringAngle);
+		ctx.setLineDash([3, 3]);
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.1 + currentHeat * 0.3})`;
+		ctx.beginPath();
+		ctx.arc(0, 0, 44, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.restore();
+
+		// Core sphere
+		if (coreGradient) {
+			ctx.fillStyle = coreGradient;
+			ctx.beginPath();
+			ctx.arc(0, 0, 35, 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.lineWidth = 0.8 + currentHeat * 0.8;
+		ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(1, 0.15 + currentHeat * 0.5 + flash * 0.5)})`;
+		ctx.beginPath();
+		ctx.arc(0, 0, 35, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// Electron orbits
+		ctx.lineWidth = 0.4;
+		ctx.strokeStyle = 'rgba(0, 200, 255, 0.08)';
+		for (const e of electrons) {
+			ctx.beginPath();
+			ctx.arc(0, 0, e.orbitRadius, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+		const electronPulse = 0.8 + Math.sin(performance.now() / 100) * 0.2;
+		for (const e of electrons) {
+			drawBody(sprites.electron, Math.cos(e.angle) * e.orbitRadius, Math.sin(e.angle) * e.orbitRadius, 2, electronPulse);
+		}
+
+		for (const n of nucleons) {
+			const grow = n.alpha * (2 - n.alpha);
+			drawBody(n.type === 'proton' ? sprites.proton : sprites.neutron, n.x, n.y, n.size * grow, 0.85 * n.alpha);
+		}
+		for (const p of particles) drawBody(sprites.accent, p.x, p.y, p.size, p.alpha);
+		for (const p of fuelParticles) drawBody(sprites.electron, p.x, p.y, p.size, 0.9);
+
+		// Central glow, turns white-hot as the power rises and flashes when fuel lands
+		drawBody(sprites.accent, 0, 0, 8 + currentHeat * 4 + flash * 6, Math.min(1, coreGlow + flash * 0.4));
+		if (currentHeat > 0.05 || flash > 0.02) {
+			drawBody(sprites.white, 0, 0, 4 + currentHeat * 4 + flash * 4, Math.min(1, currentHeat * 0.6 + flash * 0.5));
+		}
+		ctx.globalAlpha = 1;
+	}
+
+	let animationFrame = 0;
+	let lastFrame = 0;
+	let lastSpawn = 0;
+
+	/** Spawning lives in the frame loop on purpose: a setInterval kept adding particles in background tabs where rAF is paused. */
+	function animate(now: number) {
+		if (now - lastSpawn >= SPAWN_INTERVAL_MS) {
+			lastSpawn = now;
+			updateCounts();
+		}
+		step(lastFrame ? Math.min(3, (now - lastFrame) / FRAME_MS) : 1);
+		lastFrame = now;
+		draw();
 		animationFrame = requestAnimationFrame(animate);
 	}
 
-	// The realm stays mounted while another one is on screen, animating it then costs a frame for nothing.
-	const visible = $derived(realmManager.selectedRealmId === RealmTypes.RADIATION);
+	function resizeCanvas() {
+		if (!canvas || !container || !ctx) return;
+		ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		const cssSize = Math.min(container.clientWidth, container.clientHeight);
+		pixelSize = Math.max(1, Math.round(cssSize * ratio));
+		canvas.width = pixelSize;
+		canvas.height = pixelSize;
+		canvas.style.width = `${cssSize}px`;
+		canvas.style.height = `${cssSize}px`;
+	}
 
-	$effect(() => {
-		if (!visible) return;
-
-		animationFrame = requestAnimationFrame(animate);
-		return () => cancelAnimationFrame(animationFrame);
+	onMount(() => {
+		if (!canvas || !container) return;
+		ctx = canvas.getContext('2d');
+		buildSprites(accent);
+		resizeCanvas();
+		const observer = new ResizeObserver(resizeCanvas);
+		observer.observe(container);
+		return () => observer.disconnect();
 	});
 
-	const syncInterval = setInterval(updateCounts, 200);
+	$effect(() => {
+		if (ctx) buildSprites(accent);
+	});
 
-	onDestroy(() => {
-		clearInterval(syncInterval);
-		cancelAnimationFrame(animationFrame);
+	// The realm stays mounted while another one is on screen, animating it then costs a frame for nothing.
+	$effect(() => {
+		if (!visible || !ctx) return;
+		lastFrame = 0;
+		lastSpawn = 0;
+		animationFrame = requestAnimationFrame(animate);
+		return () => {
+			cancelAnimationFrame(animationFrame);
+			particles.length = 0;
+			fuelParticles.length = 0;
+		};
+	});
+
+	let seenBombard = 0;
+	$effect(() => {
+		const { mass: added, seq } = radiationManager.lastBombard;
+		if (seq <= seenBombard) return;
+		seenBombard = seq;
+		if (visible) spawnFuelBurst(added);
 	});
 </script>
 
 <div class="relative w-full h-full flex flex-col items-center justify-center">
-	<div class="relative w-[90%] aspect-square">
-		<svg
-			viewBox="-50 -50 100 100"
-			class="w-full h-full"
-		>
-			<!-- Outer ring -->
-			<circle
-				cx="0"
-				cy="0"
-				r="44"
-				fill="none"
-				stroke="rgba(57, 255, 20, 0.1)"
-				stroke-width="1"
-				stroke-dasharray="3 3"
-			>
-				<animateTransform
-					attributeName="transform"
-					type="rotate"
-					from="0 0 0"
-					to="360 0 0"
-					dur="25s"
-					repeatCount="indefinite"
-				></animateTransform>
-			</circle>
-
-			<defs>
-				<radialGradient
-					id="coreGradient"
-					cx="30%"
-					cy="30%"
-				>
-					<stop
-						offset="0%"
-						stop-color="rgba(57, 255, 20, 0.35)"
-					></stop>
-					<stop
-						offset="50%"
-						stop-color="rgba(30, 70, 32, 0.25)"
-					></stop>
-					<stop
-						offset="100%"
-						stop-color="rgba(0, 0, 0, 0.15)"
-					></stop>
-				</radialGradient>
-				<filter id="nucleonGlow">
-					<feGaussianBlur
-						stdDeviation="0.8"
-						result="blur"
-					></feGaussianBlur>
-					<feMerge>
-						<feMergeNode in="blur"></feMergeNode>
-						<feMergeNode in="SourceGraphic"></feMergeNode>
-					</feMerge>
-				</filter>
-			</defs>
-
-			<!-- Core sphere -->
-			<circle
-				cx="0"
-				cy="0"
-				r="35"
-				fill="url(#coreGradient)"
-				stroke="rgba(57, 255, 20, 0.25)"
-				stroke-width="0.8"
-			></circle>
-
-			<!-- Electron orbits -->
-			{#each electrons as electron (electron.id)}
-				{@const ex = Math.cos(electron.angle) * electron.orbitRadius}
-				{@const ey = Math.sin(electron.angle) * electron.orbitRadius}
-				<circle
-					cx="0"
-					cy="0"
-					r={electron.orbitRadius}
-					fill="none"
-					stroke="rgba(0, 200, 255, 0.08)"
-					stroke-width="0.4"
-				></circle>
-				<circle
-					cx={ex}
-					cy={ey}
-					r="2"
-					fill="rgba(0, 200, 255, 0.85)"
-					filter="url(#nucleonGlow)"
-				>
-					<animate
-						attributeName="opacity"
-						values="0.6;1;0.6"
-						dur="0.6s"
-						repeatCount="indefinite"
-					></animate>
-				</circle>
-			{/each}
-
-			<!-- Nucleons (Protons/Neutrons) -->
-			{#each nucleons as nucleon (nucleon.id)}
-				<circle
-					cx={nucleon.x}
-					cy={nucleon.y}
-					r={nucleon.size}
-					fill={nucleon.type === 'proton' ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 150, 255, 0.8)'}
-					filter="url(#nucleonGlow)"
-				></circle>
-			{/each}
-
-			<!-- Floating Green Particles -->
-			{#each particles as p (p.id)}
-				<circle
-					cx={p.x}
-					cy={p.y}
-					r={p.size}
-					fill="rgba(57, 255, 20, {p.alpha})"
-					filter="url(#nucleonGlow)"
-				></circle>
-			{/each}
-
-			<!-- Central glow -->
-			<circle
-				cx="0"
-				cy="0"
-				r="8"
-				fill="rgba(57, 255, 20, {coreGlow})"
-				filter="url(#nucleonGlow)"
-			></circle>
-		</svg>
+	<div bind:this={container} class="relative w-[90%] aspect-square">
+		<canvas bind:this={canvas} class="absolute inset-0 m-auto"></canvas>
 
 		{#if mass <= 0}
 			<div class="absolute inset-0 flex items-center justify-center">
@@ -341,8 +465,10 @@
 		{/if}
 	</div>
 
-	<div class="text-center mt-2">
-		<div class="text-white/40 text-xs uppercase tracking-wider">Core Mass</div>
-		<div class="text-green-400 text-xl font-mono font-bold">{mass.toFixed(1)} u</div>
-	</div>
+	{#if mass > 0}
+		<div class="text-center mt-2">
+			<div class="text-white/40 text-xs uppercase tracking-wider">{power <= 0 ? 'Core idle' : 'Core Mass'}</div>
+			<div class="text-radiation text-xl font-mono font-bold">{mass.toFixed(1)} u</div>
+		</div>
+	{/if}
 </div>

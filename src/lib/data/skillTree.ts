@@ -1,6 +1,6 @@
 import { BUILDINGS, BUILDING_TYPES, type BuildingData, type BuildingType } from '$data/buildings';
 import { CurrenciesTypes } from '$data/currencies';
-import { type FeatureType, FeatureTypes, PERSISTENT_FEATURE_IDS } from '$data/features';
+import { FeatureTypes } from '$data/features';
 import type { SkillUpgrade } from '$lib/types';
 
 export const GRID_SIZE = {
@@ -568,8 +568,3 @@ if (import.meta.env.DEV) {
 		}
 	}
 }
-
-// Skills that unlock persistent features (kept after prestige)
-export const PERSISTENT_SKILL_IDS = Object.values(SKILL_UPGRADES)
-	.filter(skill => skill.feature && PERSISTENT_FEATURE_IDS.includes(skill.feature as FeatureType))
-	.map(skill => skill.id);

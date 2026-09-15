@@ -33,9 +33,9 @@
 	}
 </script>
 
-<div class="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-green-500/20">
+<div class="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-radiation/20">
 	<div class="flex items-center justify-between mb-2">
-		<h3 class="text-xs font-semibold text-green-400 flex items-center gap-2">
+		<h3 class="text-xs font-semibold text-radiation flex items-center gap-2">
 			<svg
 				class="w-3.5 h-3.5"
 				viewBox="0 0 24 24"
@@ -55,8 +55,8 @@
 			<HelpIcon position="top">
 				{#snippet content()}
 					<p class="text-white/70"><strong>Core Fuel (mass)</strong> powers the reactor.</p>
-					<p class="text-white/60 mt-1 text-xs">It burns over time (Burn) and is replenished by atom production (Regen).</p>
-					<p class="text-white/60 mt-1 text-xs">If Burn outpaces Regen the core will empty and stop producing radiation output.</p>
+					<p class="text-white/60 mt-1 text-xs">Raising the power burns it (Burn). Only the Breeder Reactor upgrade puts mass back (Regen).</p>
+					<p class="text-white/60 mt-1 text-xs">If Burn outpaces Regen the core empties and the bonus drops back to x1.</p>
 				{/snippet}
 			</HelpIcon>
 		</h3>
@@ -82,18 +82,18 @@
 	</div>
 
 	<!-- Mass bar with preview -->
-	<div class="relative h-6 bg-black/40 rounded-full overflow-hidden border border-green-500/20 mb-2">
+	<div class="relative h-6 bg-black/40 rounded-full overflow-hidden border border-radiation/20 mb-2">
 		<!-- Preview overlay (shows what will be added) -->
 		{#if previewMass > 0}
 			<div
-				class="absolute inset-y-0 left-0 bg-green-400/25 transition-all duration-150"
+				class="absolute inset-y-0 left-0 bg-radiation/25 transition-all duration-150"
 				style="width: {previewPercent}%"
 			></div>
 		{/if}
 		<!-- Current mass -->
 		<div
 			class="absolute inset-y-0 left-0 transition-all duration-300
-				{isStable ? 'bg-linear-to-r from-green-600 to-green-400'
+				{isStable ? 'bg-linear-to-r from-radiation/60 to-radiation'
 			: isCritical ? 'bg-linear-to-r from-red-600 to-red-400'
 			: 'bg-linear-to-r from-yellow-600 to-yellow-400'}"
 			style="width: {fillPercent}%"
@@ -103,7 +103,7 @@
 			<span class="text-sm font-mono font-bold text-white drop-shadow-lg">
 				{formatNumber(mass, 1)} u
 				{#if previewMass > 0}
-					<span class="text-green-300/80">+{previewMass.toFixed(1)}</span>
+					<span class="text-radiation/80">+{previewMass.toFixed(1)}</span>
 				{/if}
 			</span>
 		</div>

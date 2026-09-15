@@ -6,7 +6,7 @@ import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
 import { statsConfig } from '$helpers/statConstants';
 import { getItem } from '$lib/utils/safeLocalStorage';
 import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
-import { saveRecovery, type SaveErrorType } from '$stores/saveRecovery';
+import type { SaveErrorType } from '$stores/saveRecovery';
 
 export const SAVE_KEY = 'atomic-clicker-save';
 export const SAVE_VERSION = 24;
@@ -145,22 +145,6 @@ export function loadSavedState(): LoadSaveResult {
 			success: false,
 		};
 	}
-}
-
-// Attempt to load with error handling and recovery popup
-export function loadSavedStateWithRecovery(): GameState | null {
-	const result = loadSavedState();
-
-	if (result.success) {
-		return result.state;
-	}
-
-	// Set error in recovery store
-	if (result.errorType && result.errorDetails) {
-		saveRecovery.setError(result.errorType, result.errorDetails, result.rawData ?? null);
-	}
-
-	return null;
 }
 
 interface ValidationResult {

@@ -2,6 +2,7 @@
 	import ControlRods from '@components/radiation/ControlRods.svelte';
 	import MassSpectrometer from '@components/radiation/MassSpectrometer.svelte';
 	import RadiationUpgrades from '@components/radiation/RadiationUpgrades.svelte';
+	import ReactorFlow from '@components/radiation/ReactorFlow.svelte';
 	import UnstableNucleus from '@components/radiation/UnstableNucleus.svelte';
 	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
@@ -12,6 +13,7 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
+	import { formatNumber } from '$lib/utils';
 	import { Lock, Zap } from '@lucide/svelte';
 
 	let bombardAmount = $state(10);
@@ -23,11 +25,11 @@
 	const electronBalance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
 	const mass = $derived(radiationManager.mass);
 	const cpm = $derived(radiationManager.currentCpm);
-	const multiplier = $derived(radiationManager.radiationMultiplier);
 	const controlLevel = $derived(radiationManager.controlRodLevel);
 
 	// Mass that will be added (for preview)
 	const massToAdd = $derived(bombardAmount * 0.1);
+	const cpmToAdd = $derived(radiationManager.cpmFor(mass + massToAdd, controlLevel) - cpm);
 
 	// Progressive unlock stages
 	const hasBombarded = $derived(radiationManager.unlocked);
@@ -44,13 +46,13 @@
 	}
 </script>
 
-<div class="relative pt-20 lg:pt-12 min-h-screen">
+<div class="relative pt-20 lg:pt-12 min-h-screen" style={themeAccent ? `--color-radiation: ${themeAccent};` : ''}>
 	<!-- Ambient glow -->
 	{#if mass > 0}
 		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
 			<div
 				class="absolute h-100 -left-20 rounded-full top-[20%] w-100"
-				style="background: radial-gradient(circle, rgba(57, 255, 20, {0.05 + controlLevel * 0.1}) 0%, transparent 60%);"
+				style="background: radial-gradient(circle, color-mix(in srgb, var(--color-radiation) {5 + controlLevel * 10}%, transparent) 0%, transparent 60%);"
 			></div>
 		</div>
 	{/if}
@@ -64,20 +66,20 @@
 			</div>
 
 			<!-- Add Fuel Panel -->
-			<div class="w-full max-w-sm bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-green-500/20">
-				<h3 class="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
+			<div class="w-full max-w-sm bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-radiation/20">
+				<h3 class="text-sm font-semibold text-radiation mb-3 flex items-center gap-2">
 					<Zap class="w-4 h-4" />
 					Add Fuel
 					<HelpIcon position="top">
 						{#snippet content()}
 							<div class="text-left text-xs">
-								<p class="font-semibold text-green-400 mb-1">How it works:</p>
+								<p class="font-semibold text-radiation mb-1">How it works:</p>
 								<p class="text-white/70">
-									1. Add fuel (<CurrencyLabel name={CurrenciesTypes.ELECTRONS} size={12} /> = mass)
+									1. Turn <CurrencyLabel name={CurrenciesTypes.ELECTRONS} size={12} /> into fuel (10 = 1 u)
 								</p>
-								<p class="text-white/70">2. Raise power level</p>
-								<p class="text-white/70">3. Get production multiplier!</p>
-								<p class="text-white/50 mt-2">Higher power = more bonus but burns fuel faster</p>
+								<p class="text-white/70">2. Raise the power level</p>
+								<p class="text-white/70">3. Everything produces more!</p>
+								<p class="text-white/50 mt-2">More power means more bonus but fuel burns much faster.</p>
 							</div>
 						{/snippet}
 					</HelpIcon>
@@ -87,7 +89,7 @@
 					<div class="flex items-center justify-between text-xs">
 						<span class="text-white/50">Available:</span>
 						<Value
-							class="text-green-400"
+							class="text-radiation"
 							value={electronBalance}
 							currency={CurrenciesTypes.ELECTRONS}
 						/>
@@ -97,22 +99,22 @@
 						min="1"
 						max={Math.max(1, Math.floor(electronBalance))}
 						bind:value={bombardAmount}
-						class="w-full accent-green-500"
+						class="w-full accent-radiation"
 					/>
 					<div class="flex items-center justify-between text-xs">
 						<span class="text-white/50">Amount:</span>
-						<span class="text-green-400 font-mono"
-							>{bombardAmount} <span class="text-white/30">(+{massToAdd.toFixed(1)}u)</span></span
-						>
+						<span class="text-radiation font-mono">
+							{bombardAmount}
+							<span class="text-white/30">(+{massToAdd.toFixed(1)}u{cpmToAdd > 0 ? `, +${formatNumber(cpmToAdd, 0)} CPM` : ''})</span>
+						</span>
 					</div>
 					<button
 						onclick={handleBombard}
 						disabled={electronBalance < bombardAmount}
 						class="w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-all
 							{electronBalance >= bombardAmount ?
-							'text-white cursor-pointer hover:brightness-110'
+							'bg-radiation text-black cursor-pointer hover:brightness-110'
 						:	'bg-white/10 text-white/40 cursor-not-allowed'}"
-						style={electronBalance >= bombardAmount ? `background-color: ${themeAccent ?? '#16a34a'};` : ''}
 					>
 						Add Fuel
 					</button>
@@ -122,26 +124,8 @@
 
 		<!-- Right: Controls & Stats -->
 		<div class="lg:w-[58%] flex flex-col gap-3">
-			<!-- Multiplier (always visible after first use) -->
-			{#if hasBombarded}
-				<div class="bg-linear-to-r from-green-500/10 to-transparent backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
-					<div class="flex items-center justify-between">
-						<div>
-							<h3 class="text-sm font-semibold text-green-400">Production Bonus</h3>
-							<p class="text-xs text-white/40">From radiation</p>
-						</div>
-						<div class="text-right">
-							<div class="text-3xl font-mono font-bold text-green-400">x{multiplier.toFixed(2)}</div>
-							{#if cpm > 0}
-								<div class="text-xs text-white/50">{cpm.toFixed(0)} CPM</div>
-							{:else if mass > 0}
-								<div class="text-xs text-yellow-400/70">Raise power to generate CPM</div>
-							{:else}
-								<div class="text-xs text-white/30">Add fuel to start</div>
-							{/if}
-						</div>
-					</div>
-				</div>
+			{#if hasMass}
+				<ReactorFlow />
 			{/if}
 
 			<!-- Step 1: Fuel display with preview -->

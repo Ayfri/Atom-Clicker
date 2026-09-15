@@ -8,6 +8,13 @@ export class RemoteMessageStore {
 	dismissedIds = $state<string[]>([]);
 	isVisible = $state(true);
 
+	/** Banner height in rem, one 1.5rem row per 100 visible characters, so a long message does not overflow the bar. Zero when nothing is shown. */
+	bannerHeightRem = $derived.by(() => {
+		if (!this.message || !this.isVisible) return 0;
+		const visibleLength = this.message.message_html.replace(/<[^>]*>/g, '').length;
+		return 1.5 * Math.max(1, Math.ceil(visibleLength / 100));
+	});
+
 	private interval: ReturnType<typeof setInterval> | null = null;
 
 	constructor() {

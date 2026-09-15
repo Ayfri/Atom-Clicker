@@ -9,7 +9,7 @@ import {
 	pickDailyQuests,
 	QUEST_POOL,
 } from '$data/dailyQuests';
-import { getQuarkShopItem, QUARK_SHOP } from '$data/quarkShop';
+import { getQuarkShopItem } from '$data/quarkShop';
 import { RealmTypes, type RealmType } from '$data/realms';
 import type { Effect } from '$lib/types';
 import { obfuscateClientData } from '$lib/utils/obfuscation';
@@ -445,5 +445,3 @@ export class QuarksManager {
 }
 
 export const quarksManager = new QuarksManager();
-
-export const QUARK_SHOP_ITEMS = Object.values(QUARK_SHOP);

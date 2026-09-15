@@ -13,6 +13,9 @@ export interface Particle {
 // --- Constants ---
 
 const MAX_PARTICLES = 150;
+/** Reserved separately from icons: a click autoclicker firing hundreds of times a second floods icon slots and would otherwise starve the "+N" text. */
+const MAX_TEXT_PARTICLES = 40;
+const MAX_ICON_PARTICLES = MAX_PARTICLES - MAX_TEXT_PARTICLES;
 const ICON_LAYER = 0;
 const TEXT_LAYER = 1;
 /** Matches the previous PixiJS text: 26px bold Arial drawn at a 0.5 scale. */
@@ -35,6 +38,12 @@ interface ParticleSprite {
 }
 
 const sprites = new Map<string, ParticleSprite>();
+
+/** Cached instead of read live: `document.documentElement.scrollTop` forces a synchronous reflow when DOM state is dirty, which happens on every click. */
+let cachedScrollTop = typeof document === 'undefined' ? 0 : document.documentElement.scrollTop;
+if (typeof window !== 'undefined') {
+	window.addEventListener('scroll', () => { cachedScrollTop = document.documentElement.scrollTop; }, { passive: true });
+}
 
 function rasterize(image: HTMLImageElement): ParticleSprite {
 	const width = image.naturalWidth || image.width || FALLBACK_ICON_SIZE;
@@ -80,7 +89,7 @@ export const createClickParticleSync = (x: number, y: number, currency: Currency
 	let alpha = 0.8;
 	let scale = ICON_START_SCALE;
 	let px = x;
-	let py = y + document.documentElement.scrollTop;
+	let py = y + cachedScrollTop;
 	let sx = (1.5 + Math.random() * 0.5) * Math.cos(rotation);
 	let sy = (1.5 + Math.random() * 0.5) * Math.sin(rotation);
 
@@ -112,7 +121,7 @@ export const createClickParticleSync = (x: number, y: number, currency: Currency
 
 export const createClickTextParticleSync = (x: number, y: number, text: string): Particle | null => {
 	let alpha = 1;
-	let py = y + document.documentElement.scrollTop;
+	let py = y + cachedScrollTop;
 	let sy = -1.5;
 
 	return {
@@ -140,13 +149,21 @@ export const createClickTextParticleSync = (x: number, y: number, text: string):
 
 export class ParticleEngine {
 	private particles: Particle[] = [];
+	private iconCount = 0;
+	private textCount = 0;
 	private unsubscribe: () => void;
 
 	constructor(queue: Writable<Particle[]>) {
 		this.unsubscribe = queue.subscribe(newParticles => {
 			if (!newParticles.length) return;
 			for (const particle of newParticles) {
-				if (this.particles.length >= MAX_PARTICLES) break;
+				if (particle.layer === TEXT_LAYER) {
+					if (this.textCount >= MAX_TEXT_PARTICLES) continue;
+					this.textCount++;
+				} else {
+					if (this.iconCount >= MAX_ICON_PARTICLES) continue;
+					this.iconCount++;
+				}
 				this.particles.push(particle);
 			}
 			queue.set([]);
@@ -155,7 +172,11 @@ export class ParticleEngine {
 
 	update(dt: number) {
 		for (let i = this.particles.length - 1; i >= 0; i--) {
-			if (!this.particles[i].update(dt)) this.particles.splice(i, 1);
+			if (!this.particles[i].update(dt)) {
+				if (this.particles[i].layer === TEXT_LAYER) this.textCount--;
+				else this.iconCount--;
+				this.particles.splice(i, 1);
+			}
 		}
 	}
 

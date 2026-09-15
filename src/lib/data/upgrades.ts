@@ -167,12 +167,12 @@ function createGlobalUpgrades() {
 			effects: i => [
 				{
 					type: 'global',
+					group: 'global_achievements_mul',
 					description: `Add ${Math.ceil(i / 5)}% production per achievement`,
-					apply: (currentValue, manager) => {
+					apply: (_currentValue, manager) => {
 						const perAchievement = Math.ceil(i / 5);
 						const achievements = manager.achievements.length;
-						const boost = (achievements * perAchievement) / 100;
-						return currentValue * (1 + boost);
+						return (achievements * perAchievement) / 100;
 					},
 				},
 			],
@@ -270,10 +270,11 @@ function createLevelBoostUpgrades() {
 			effects: [
 				{
 					type: 'global',
+					group: 'level_boost',
 					description: `Add ${1 + Math.ceil(i / 2)}% production per level`,
-					apply: (currentValue, manager) => {
+					apply: (_currentValue, manager) => {
 						const level = manager.playerLevel ?? 1;
-						return currentValue * (1 + (level * (1 + Math.ceil(i / 2))) / 100);
+						return (level * (1 + Math.ceil(i / 2))) / 100;
 					},
 				},
 			],

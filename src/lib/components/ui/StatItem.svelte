@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Icon as IconType } from '@lucide/svelte';
+	import type { LucideIcon } from '@lucide/svelte';
 	import { CURRENCIES, type CurrencyName } from '$data/currencies';
 	import Currency from '@components/ui/Currency.svelte';
 
@@ -7,7 +7,7 @@
 		currency?: CurrencyName;
 		description?: string;
 		fullValue?: string;
-		icon?: typeof IconType;
+		icon?: LucideIcon;
 		label: string;
 		prefix?: string;
 		suffix?: string;
@@ -36,13 +36,11 @@
 >
 	<div class="flex items-center gap-2">
 		{#if Icon || currency}
-			<div
-				class="flex size-6 shrink-0 items-center justify-center rounded bg-accent/20 text-accent"
-			>
+			<div class="flex size-6 shrink-0 items-center justify-center text-accent-300">
 				{#if currency}
 					<Currency name={currency} />
 				{:else if Icon}
-					<Icon size={14} />
+					<Icon size={16} />
 				{/if}
 			</div>
 		{/if}

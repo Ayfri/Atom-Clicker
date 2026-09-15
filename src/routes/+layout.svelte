@@ -2,7 +2,7 @@
 	import '@/app.css';
 	import { browser } from '$app/environment';
 	import { beforeNavigate } from '$app/navigation';
-	import { updated } from '$app/state';
+	import { page, updated } from '$app/state';
 	import PrestigeAnimation from '@components/prestige/PrestigeAnimation.svelte';
 	import Analytics from '@components/system/Analytics.svelte';
 	import DevTools from '@components/system/devtools/DevTools.svelte';
@@ -19,6 +19,9 @@
 	}
 
 	let { children }: Props = $props();
+
+	// The benchmark route is a standalone analysis tool, none of the in-game overlays belong there.
+	const isBenchmark = $derived(page.url.pathname.startsWith('/benchmark'));
 
 	let updatePromptShown = false;
 
@@ -60,9 +63,11 @@
 		onComplete={() => prestigeStore.reset()}
 	/>
 	{@render children?.()}
-	<DevTools />
+	{#if !isBenchmark}
+		<DevTools />
+		<TutorialOverlay />
+	{/if}
 	<TooltipPortal />
-	<TutorialOverlay />
 {/if}
 
 <style>

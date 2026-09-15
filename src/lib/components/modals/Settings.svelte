@@ -12,20 +12,18 @@
 		onClose: () => void;
 	}
 
+	import { MediaQuery } from 'svelte/reactivity';
 	import { ui } from '$stores/ui.svelte';
 
 	let { onClose }: Props = $props();
 
-	let activeTab = $state(ui.activeTab || 'profile');
-	let mounted = $state(false);
+	/** The `home` tab is the phone-only tab picker, its grid is `md:hidden` so keeping it on desktop shows an empty pane. */
+	const narrow = new MediaQuery('(width < 48rem)', true);
+
+	let activeTab = $state(ui.activeTab || (narrow.current ? 'home' : 'profile'));
 
 	$effect(() => {
-		if (!mounted) {
-			if (window.innerWidth < 768 && !ui.activeTab) {
-				activeTab = 'home';
-			}
-			mounted = true;
-		}
+		if (!narrow.current && activeTab === 'home') activeTab = 'profile';
 	});
 
 	$effect(() => {
@@ -62,7 +60,7 @@
 				<button
 					class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap text-left group
 					{activeTab === tab.id
-						? 'bg-accent/20 text-accent border border-accent/30 shadow-[0_0_15px_rgba(var(--color-accent),0.1)]'
+						? 'bg-accent/20 text-accent border border-accent/30 shadow-[0_0_15px] shadow-accent/10'
 						: 'hover:bg-white/5 text-white/50 hover:text-white border border-transparent'}"
 					onclick={() => activeTab = tab.id}
 				>

@@ -22,8 +22,8 @@
 	const sortedUpgrades = Object.values(RADIATION_UPGRADES).sort((a, b) => a.name.localeCompare(b.name));
 </script>
 
-<div class="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-green-500/20">
-	<h3 class="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
+<div class="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-radiation/20">
+	<h3 class="text-sm font-semibold text-radiation mb-3 flex items-center gap-2">
 		<svg
 			class="w-4 h-4"
 			viewBox="0 0 24 24"
@@ -72,8 +72,8 @@
 				onclick={() => purchaseUpgrade(upgrade.id)}
 				disabled={!canAfford || isMaxed}
 				class="group flex flex-col p-3 rounded-lg transition-all duration-200 text-left border
-					{isMaxed ? 'bg-green-500/10 border-green-500/30 cursor-default'
-				: canAfford ? 'bg-white/5 border-green-500/20 hover:bg-green-500/10 hover:border-green-500/40 cursor-pointer'
+					{isMaxed ? 'bg-radiation/10 border-radiation/30 cursor-default'
+				: canAfford ? 'bg-white/5 border-radiation/20 hover:bg-radiation/10 hover:border-radiation/40 cursor-pointer'
 				: 'bg-white/5 border-white/10 cursor-not-allowed opacity-60'}"
 			>
 				<!-- Header -->
@@ -81,7 +81,7 @@
 					<span class="text-sm font-medium text-white">{upgrade.name}</span>
 					<span
 						class="text-xs font-mono px-1.5 py-0.5 rounded
-						{isMaxed ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/60'}"
+						{isMaxed ? 'bg-radiation/20 text-radiation' : 'bg-white/10 text-white/60'}"
 					>
 						{currentLevel}/{upgrade.maxLevel}
 					</span>
@@ -95,11 +95,11 @@
 				<!-- Cost -->
 				<div class="flex items-center justify-between mt-auto">
 					{#if isMaxed}
-						<span class="text-xs text-green-400">MAXED</span>
+						<span class="text-xs text-radiation">MAXED</span>
 					{:else}
 						<span class="text-xs text-white/40">Cost:</span>
 						<Value
-							class="text-xs font-mono {canAfford ? 'text-green-400' : 'text-red-400'}"
+							class="text-xs font-mono {canAfford ? 'text-radiation' : 'text-red-400'}"
 							value={cost}
 							currency={CurrenciesTypes.ELECTRONS}
 						/>
@@ -109,7 +109,7 @@
 				<!-- Progress bar -->
 				<div class="mt-2 h-1 bg-black/30 rounded-full overflow-hidden">
 					<div
-						class="h-full bg-linear-to-r from-green-600 to-green-400 transition-all duration-300"
+						class="h-full bg-linear-to-r from-radiation/60 to-radiation transition-all duration-300"
 						style="width: {(currentLevel / upgrade.maxLevel) * 100}%"
 					></div>
 				</div>

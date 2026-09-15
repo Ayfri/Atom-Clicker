@@ -4,7 +4,7 @@ import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 import type { LeaderboardEntry } from '$lib/types/leaderboard';
 import { obfuscateClientData } from '$lib/utils/obfuscation';
 
-const REFRESH_INTERVAL = 1 * 60_000; // 1 minute between leaderboard refreshes
+export const REFRESH_INTERVAL = 60_000; // 1 minute between leaderboard refreshes
 const MIN_UPDATE_INTERVAL = 30_000; // 30 seconds minimum between updates
 
 const MIN_ATOMS_CHANGE_PERCENT = 0.05; // 5% minimum change in atoms
@@ -23,7 +23,16 @@ export class LeaderboardStore {
 	stats = $state<LeaderboardStats>({ totalUsers: 0 });
 	isUpdating = $state(false);
 
+	private hasFetched = false;
+
+	/** Nothing on the main screen shows leaderboard data, so the list is only pulled once a panel asks for it. */
+	async ensureLoaded() {
+		if (this.hasFetched) return;
+		await this.fetchLeaderboard();
+	}
+
 	async fetchLeaderboard() {
+		this.hasFetched = true;
 		try {
 			const userId = supabaseAuth && supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : '';
 			const response = await fetch(`/api/leaderboard?userId=${userId}`);
@@ -96,9 +105,6 @@ export class LeaderboardStore {
 
 	constructor() {
 		if (browser) {
-			this.fetchLeaderboard();
-			setInterval(() => this.fetchLeaderboard(), REFRESH_INTERVAL);
-
 			let lastAtoms = 0;
 			let lastLevel = 0;
 			let lastUpdate = 0;

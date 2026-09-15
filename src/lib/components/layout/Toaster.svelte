@@ -37,7 +37,8 @@
 </script>
 
 <div
-	class="fixed bottom-0 right-0 z-100 flex flex-col gap-3 p-4 sm:bottom-8 sm:right-8 sm:p-0"
+	class="fixed bottom-0 right-0 z-100 flex flex-col gap-3 p-4 pointer-events-none sm:bottom-8 sm:right-8 sm:p-0"
+	id="toaster"
 >
 	{#each toastStore.list as toast (toast.id)}
 		<Toast
@@ -48,7 +49,7 @@
 
 	{#if toastStore.list.length > 1}
 		<button
-			class="flex w-fit items-center self-end gap-2 rounded-lg bg-red-900/70 p-2 text-white transition-all duration-300 hover:bg-red-800/70"
+			class="flex w-fit items-center self-end gap-2 rounded-lg bg-red-900/70 p-2 text-white transition-all duration-300 pointer-events-auto hover:bg-red-800/70"
 			onclick={toastStore.clearAll}
 			title="Clear All"
 			transition:fade={{ duration: 400 }}

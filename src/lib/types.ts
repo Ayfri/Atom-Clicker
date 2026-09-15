@@ -52,6 +52,8 @@ export type CurrencyStateMap = Record<CurrencyName, CurrencyState>;
 export interface Effect {
 	apply: (currentValue: number, manager: GameManager) => number;
 	description: string;
+	/** Effects sharing a group have their contributions summed, then applied once as a single multiplier, instead of stacking multiplicatively. */
+	group?: string;
 	target?: BuildingType;
 	type:
 		| 'auto_buy'

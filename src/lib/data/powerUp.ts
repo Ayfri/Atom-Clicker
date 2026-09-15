@@ -1,6 +1,7 @@
 import type { Range } from '$lib/types';
 
 export const POWER_UP_DEFAULT_INTERVAL = [180_000, 300_000] as Range;
+export const POWER_UP_MIN_INTERVAL = 20_000;
 
 export const POWER_UPS = [
 	{

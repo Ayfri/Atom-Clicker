@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient, type User, type Session, type Provider } from '@supabase/supabase-js';
+import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
 import { browser } from '$app/environment';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
 import type { GameState } from '$lib/types';
@@ -37,6 +37,8 @@ export class SupabaseAuth {
 		}
 
 		try {
+			// Kept out of the initial bundle: the client weighs ~60 kB gzipped and nothing renders through it.
+			const { createClient } = await import('@supabase/supabase-js');
 			this.supabase = createClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
 				auth: {
 					autoRefreshToken: true,
@@ -114,8 +116,8 @@ export class SupabaseAuth {
 					this.profile = profile;
 					console.log('Found profile:', profile.username);
 
-					// Update online status
-					await this.supabase!.from('profiles')
+					// Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence.
+					void this.supabase!.from('profiles')
 						.update({
 							is_online: true,
 							updated_at: new Date().toISOString(),
@@ -332,15 +334,31 @@ export class SupabaseAuth {
 		}
 	}
 
-	async getCloudSaveInfo() {
-		if (!browser || !this.supabase) return null;
+	/** Only the play time of the cloud save, so the "cloud save available" check never downloads the whole blob. */
+	async getCloudSaveTime(): Promise<number | null> {
+		if (!browser || !this.supabase || !this.user) return null;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) return null;
+			const { data, error } = await this.supabase
+				.from('profiles')
+				.select('inGameTime:save->inGameTime')
+				.eq('id', this.user.id)
+				.single()
+				.returns<{ inGameTime: number | null }>();
 
+			if (error) throw error;
+			return typeof data?.inGameTime === 'number' ? data.inGameTime : null;
+		} catch (err) {
+			console.error('Error getting cloud save time:', err);
+			return null;
+		}
+	}
+
+	async getCloudSaveInfo() {
+		if (!browser || !this.supabase || !this.user) return null;
+
+		try {
+			const user = this.user;
 			const { data: profile, error } = await this.supabase.from('profiles').select('save, last_updated').eq('id', user.id).single();
 
 			if (error) throw error;

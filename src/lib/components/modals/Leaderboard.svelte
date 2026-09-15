@@ -4,7 +4,7 @@
 	import LeaderboardRow from '@components/ui/LeaderboardRow.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import type { LeaderboardEntry } from '$lib/types/leaderboard';
-	import {leaderboard} from '$stores/leaderboard.svelte';
+	import {leaderboard, REFRESH_INTERVAL} from '$stores/leaderboard.svelte';
 	import {supabaseAuth} from '$stores/supabaseAuth.svelte';
 	import {Search, Users} from '@lucide/svelte';
 	import {onDestroy, onMount} from 'svelte';
@@ -23,7 +23,7 @@
 
 	onMount(() => {
 		leaderboard.fetchLeaderboard();
-		refreshInterval = setInterval(() => leaderboard.fetchLeaderboard(), 60_000);
+		refreshInterval = setInterval(() => leaderboard.fetchLeaderboard(), REFRESH_INTERVAL);
 	});
 
 	onDestroy(() => {

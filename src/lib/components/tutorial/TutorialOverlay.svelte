@@ -17,7 +17,7 @@
 	const stepReady = $derived.by(() => {
 		if (!step) return false;
 		if (step.condition && !step.condition()) return false;
-		if (step.requiresModalOpen && ui.activeModal !== step.requiresModalOpen) return false;
+		if (step.requiresModalOpen && ui.activeModalId !== step.requiresModalOpen) return false;
 		return true;
 	});
 

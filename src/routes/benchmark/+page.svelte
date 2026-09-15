@@ -5,13 +5,16 @@
 		configToPresets,
 		PLAYSTYLE_PRESETS,
 		type ActivityPresetId,
-		type BenchmarkConfig,
-		type MilestoneHit,
 		type PlaystylePresetId,
 		type PrestigePresetId,
-		type QuestBehavior,
-		type SimulationResult,
-		type SpikeEvent,
+	} from '$lib/simulation/presets';
+	import type {
+		BenchmarkConfig,
+		MilestoneHit,
+		QuestBehavior,
+		SimulationResult,
+		SimulationSnapshot,
+		SpikeEvent,
 	} from '$lib/simulation/types';
 	import { type SimulationProgress } from '$lib/simulation/engine';
 	import { ChartLine, GitCompare, History, Save } from '@lucide/svelte';
@@ -20,7 +23,7 @@
 	import BenchmarkTimeline from '$lib/components/benchmark/BenchmarkTimeline.svelte';
 	import BenchmarkResults from '$lib/components/benchmark/BenchmarkResults.svelte';
 	import BenchmarkCharts from '$lib/components/benchmark/BenchmarkCharts.svelte';
-	import BenchmarkJson from '$lib/components/benchmark/BenchmarkJson.svelte';
+	import BenchmarkExport from '$lib/components/benchmark/BenchmarkExport.svelte';
 	import HistoryPanel from '$lib/components/benchmark/HistoryPanel.svelte';
 
 	import { getReport, saveReport, type BenchmarkReport } from '$lib/stores/benchmarkHistory.svelte';
@@ -30,6 +33,8 @@
 	let isRunning = $state(false);
 	let liveMilestones = $state<MilestoneHit[]>([]);
 	let liveSpikes = $state<SpikeEvent[]>([]);
+	// The worker streams snapshots incrementally, so the running view accumulates them here.
+	let liveSnapshots = $state<SimulationSnapshot[]>([]);
 	let progress = $state<SimulationProgress | null>(null);
 	let result = $state<SimulationResult | null>(null);
 	let loadedReport = $state<BenchmarkReport | null>(null);
@@ -37,7 +42,8 @@
 	let playstyleId = $state<PlaystylePresetId>('balanced');
 	let prestigeId = $state<PrestigePresetId>('balanced');
 	let questBehavior = $state<QuestBehavior>(PLAYSTYLE_PRESETS.balanced.questBehavior);
-	let targetHours = $state(10);
+	// Daily quests roll once per in-game day and the layers past protons need several of them, so a meaningful run is measured in days.
+	let targetHours = $state(72);
 	let snapshotInterval = $state<number>(PLAYSTYLE_PRESETS.balanced.snapshotInterval);
 
 	$effect(() => {
@@ -122,7 +128,7 @@
 	);
 
 	const currentSnapshots = $derived(
-		loadedReport?.snapshots ?? result?.snapshots ?? progress?.snapshots ?? [],
+		loadedReport?.snapshots ?? result?.snapshots ?? liveSnapshots,
 	);
 	const simulationDurationHours = $derived.by(() => {
 		const snapshots = loadedReport?.snapshots ?? result?.snapshots;
@@ -149,6 +155,7 @@
 		result = null;
 		loadedReport = null;
 		liveMilestones = [];
+		liveSnapshots = [];
 		liveSpikes = [];
 		lastSavedId = null;
 		await tick();
@@ -160,6 +167,9 @@
 				const { type, payload } = e.data;
 				if (type === 'progress') {
 					progress = payload;
+					if (payload.newSnapshots.length > 0) {
+						liveSnapshots = [...liveSnapshots, ...payload.newSnapshots];
+					}
 					if (payload.recentMilestones.length > 0) {
 						liveMilestones = [...liveMilestones, ...payload.recentMilestones];
 					}
@@ -207,7 +217,7 @@
 			config: currentConfig,
 			durationMs,
 			milestones: liveMilestones,
-			snapshots: progress?.snapshots ?? [],
+			snapshots: liveSnapshots,
 			spikes: liveSpikes,
 		};
 		terminateWorker();
@@ -338,7 +348,7 @@
 			{/if}
 
 			{#if displayResult}
-				<BenchmarkJson result={displayResult} />
+				<BenchmarkExport result={displayResult} />
 			{/if}
 		</main>
 

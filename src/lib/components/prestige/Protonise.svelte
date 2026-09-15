@@ -120,7 +120,7 @@
 <Modal
 	{onClose}
 	title="Protonise"
-	containerClass="relative"
+	containerClass="flex flex-col gap-8"
 >
 	<div class="flex flex-col gap-8">
 		<div class="text-center">
@@ -278,7 +278,7 @@
 	</div>
 
 	{#if isStabilityUnlocked}
-		<div class="bg-yellow-500/5 rounded-lg p-3 absolute bottom-0 left-0 right-0 m-8 border border-yellow-200/20">
+		<div class="bg-yellow-500/5 rounded-lg p-3 mt-auto border border-yellow-200/20">
 			<div class="flex justify-between items-end mb-2">
 				<div class="flex flex-col">
 					<span class="text-yellow-100 font-bold text-sm uppercase tracking-wider">Stability Field</span>

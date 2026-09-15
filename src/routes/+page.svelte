@@ -10,7 +10,6 @@
 	import { isLocalStorageUnavailable } from '$lib/utils/safeLocalStorage';
 	import { autoBuyManager } from '$stores/autoBuy.svelte';
 	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import { remoteMessage } from '$stores/remoteMessage.svelte';
 	import { saveRecovery } from '$stores/saveRecovery';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
@@ -51,13 +50,15 @@
 	const CLOUD_PULL_WARNING_THRESHOLD_MS = 5_000;
 	// Long gaps (background tab, stalled frame) are clamped so production never jumps, offline progress handles those.
 	const MAX_FRAME_MS = 100;
-	// Production is summed outside the reactive state and committed at this rate, so displays stay smooth without invalidating every frame.
+	/**
+	 * Production is committed on a timer at this rate, not from a rAF loop: a pending rAF makes Chrome run a full main
+	 * frame at the display rate (179 per second on a 179 Hz screen), while the counters only change at 50 Hz.
+	 */
 	const COMMIT_INTERVAL_MS = 20;
 	let saveLoop: ReturnType<typeof setInterval>;
-	let gameUpdateFrame = 0;
+	let commitLoop: ReturnType<typeof setInterval>;
 	let hasCheckedCloudSaveOnLoad = false;
 	let authUnsubscribe: (() => void) | null = null;
-	let lastCommitTime = 0;
 	let lastUpdateTime = 0;
 	let pendingAtoms = 0;
 	let quarkUserId: string | null = null;
@@ -68,11 +69,11 @@
 		pendingAtoms = 0;
 	}
 
-	function update(deltaMs: number, now: number) {
-		pendingAtoms += (gameManager.atomsPerSecond * deltaMs) / 1000;
-		if (now - lastCommitTime < COMMIT_INTERVAL_MS) return;
+	function update() {
+		const now = performance.now();
+		pendingAtoms += (gameManager.atomsPerSecond * Math.min(now - lastUpdateTime, MAX_FRAME_MS)) / 1000;
+		lastUpdateTime = now;
 		commitPendingAtoms();
-		lastCommitTime = now;
 	}
 
 	async function checkCloudSaveOnLoad() {
@@ -80,11 +81,11 @@
 		hasCheckedCloudSaveOnLoad = true;
 
 		try {
-			const cloudSaveInfo = await supabaseAuth.getCloudSaveInfo();
-			if (typeof cloudSaveInfo?.inGameTime !== 'number') return;
+			const cloudGameTime = await supabaseAuth.getCloudSaveTime();
+			if (cloudGameTime === null) return;
 
 			const localGameTime = gameManager.inGameTime || 0;
-			if (cloudSaveInfo.inGameTime > localGameTime + CLOUD_PULL_WARNING_THRESHOLD_MS) {
+			if (cloudGameTime > localGameTime + CLOUD_PULL_WARNING_THRESHOLD_MS) {
 				toastStore.warning({
 					action: () => ui.openSettings('cloud'),
 					actionLabel: 'Open Cloud Save',
@@ -98,25 +99,12 @@
 		}
 	}
 
-	onMount(async () => {
-		gameManager.initialize();
+	/** Account bootstrap is network-bound, so it runs beside the game loop instead of delaying it. */
+	async function bootstrapAccount() {
+		await supabaseAuth.init();
 
-		if (isLocalStorageUnavailable()) {
-			toastStore.warning({
-				title: 'Progress Will Not Be Saved',
-				message: 'Your browser is blocking storage for this page, so the game cannot save locally. Sign in to save to the cloud, or allow site data.',
-				duration: 20_000,
-			});
-		}
-
-		const authInitialization = supabaseAuth.init();
-		while (supabaseAuth.loading && !supabaseAuth.isAuthenticated) {
-			await new Promise(resolve => setTimeout(resolve, 0));
-		}
 		quarkUserId = supabaseAuth.user?.id ?? null;
-		if (quarkUserId) await quarksManager.sync();
-		await authInitialization;
-		await checkCloudSaveOnLoad();
+		await Promise.all([quarkUserId ? quarksManager.sync() : Promise.resolve(), checkCloudSaveOnLoad()]);
 
 		authUnsubscribe = supabaseAuth.subscribe(() => {
 			const userId = supabaseAuth.user?.id ?? null;
@@ -130,6 +118,18 @@
 				checkCloudSaveOnLoad();
 			}
 		});
+	}
+
+	onMount(() => {
+		gameManager.initialize();
+
+		if (isLocalStorageUnavailable()) {
+			toastStore.warning({
+				title: 'Progress Will Not Be Saved',
+				message: 'Your browser is blocking storage for this page, so the game cannot save locally. Sign in to save to the cloud, or allow site data.',
+				duration: 20_000,
+			});
+		}
 
 		if (gameManager.offlineProgressSummary && !ui.activeModal) {
 			ui.openModal(OfflineProgress);
@@ -141,12 +141,7 @@
 		}
 
 		lastUpdateTime = performance.now();
-		lastCommitTime = lastUpdateTime;
-		gameUpdateFrame = requestAnimationFrame(function loop(now) {
-			gameUpdateFrame = requestAnimationFrame(loop);
-			update(Math.min(now - lastUpdateTime, MAX_FRAME_MS), now);
-			lastUpdateTime = now;
-		});
+		commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
 
 		setGlobals();
 
@@ -158,11 +153,13 @@
 				console.error('Failed to save game:', e);
 			}
 		}, SAVE_INTERVAL);
+
+		bootstrapAccount();
 	});
 
 	onDestroy(() => {
 		if (saveLoop) clearInterval(saveLoop);
-		cancelAnimationFrame(gameUpdateFrame);
+		clearInterval(commitLoop);
 		commitPendingAtoms();
 		if (authUnsubscribe) authUnsubscribe();
 		gameManager.cleanup();
@@ -180,7 +177,7 @@
 		     own padding would otherwise swallow taps meant for the button underneath. -->
 		<div
 			class="fixed right-4 z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
-			style="top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(1.5rem + 5rem)' : '5rem'}"
+			style="top: {mobile.current ? 'calc(var(--mobile-nav-bottom, 33vh) + 1rem)' : 'calc(var(--banner-height) + 5rem)'}"
 		>
 			<div class="flex flex-col gap-1">
 				{#each realmManager.availableRealms as realm (realm.id)}
@@ -206,7 +203,7 @@
 		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : (
 			'overflow-hidden'
 		)} lg:pb-4 transition-all duration-300"
-		style="padding-top: {remoteMessage.message && remoteMessage.isVisible ? 'calc(3rem + 1.5rem)' : '3rem'};"
+		style="padding-top: calc(3rem + var(--banner-height));"
 	>
 		{#if gameManager.features[FeatureTypes.LEVELS]}
 			<Levels />
@@ -217,13 +214,22 @@
 			{@const RealmComponent = realmComponents[realm.componentId]}
 			{@const background = getRealmBackground(realm)}
 
+			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
+			     animations. `transition-discrete` holds it visible until the slide out ends. -->
 			<div
-				class="absolute inset-0 transition-all duration-300 ease-in-out overflow-hidden"
+				class="absolute inset-x-0 bottom-0 transition-all transition-discrete duration-300 ease-in-out overflow-hidden {(
+					realmManager.selectedRealm.id !== realm.id
+				) ?
+					'[content-visibility:hidden]'
+				:	''}"
 				class:opacity-100={realmManager.selectedRealm.id === realm.id}
 				class:translate-x-0={realmManager.selectedRealm.id === realm.id}
 				class:opacity-0={realmManager.selectedRealm.id !== realm.id}
 				class:pointer-events-none={realmManager.selectedRealm.id !== realm.id}
-				style="transform: translateX({realmManager.selectedRealm.id === realm.id ? '0'
+				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; transform: translateX({(
+					realmManager.selectedRealm.id === realm.id
+				) ?
+					'0'
 				: i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%'
 				: '-100%'}); {background ? `background-image: ${background};` : ''}"
 			>

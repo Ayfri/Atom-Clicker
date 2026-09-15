@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
+	--color-accent: var(--color-accent-400);
 	--color-accent-50: #eef2f6;
 	--color-accent-100: #dbe5f0;
 	--color-accent-200: #aec8e4;
@@ -24,6 +25,8 @@
 	--color-realm-800: #582379;
 	--color-realm-900: #4a1e64;
 	--color-realm-950: #2d1142;
+
+	--color-radiation: #39ff14;
 }
 
 @utility grid-area-* {
@@ -32,7 +35,7 @@
 
 @layer base {
 	:root {
-		--accent-color: #4a90e2;
+		--banner-height: 0rem;
 		background-color: #1a1a1a;
 		color: rgba(255, 255, 255, 0.87);
 		color-scheme: light dark;

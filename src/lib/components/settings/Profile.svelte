@@ -33,7 +33,7 @@
 		X,
 		Zap,
 	} from '@lucide/svelte';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fade, scale, slide } from 'svelte/transition';
 
 	interface Props {
@@ -65,6 +65,10 @@
 		debounceTimer = setTimeout(() => {
 			debouncedPictureUrl = url;
 		}, 500);
+	});
+
+	onMount(() => {
+		leaderboard.ensureLoaded();
 	});
 
 	onDestroy(() => {

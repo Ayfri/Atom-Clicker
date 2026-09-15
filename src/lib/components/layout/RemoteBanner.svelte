@@ -10,13 +10,20 @@
 
 	onDestroy(() => {
 		remoteMessage.stopPolling();
+		document.documentElement.style.removeProperty('--banner-height');
+	});
+
+	// Single source of truth for the offset: everything sitting under the banner reads --banner-height in plain CSS.
+	$effect(() => {
+		document.documentElement.style.setProperty('--banner-height', `${remoteMessage.bannerHeightRem}rem`);
 	});
 </script>
 
 {#if remoteMessage.message}
 	{#if remoteMessage.isVisible}
 		<div
-			class="remote-message-banner fixed inset-x-0 top-0 z-60 flex h-6 items-center justify-center bg-black/60 px-4 text-center backdrop-blur-xs border-b border-white/5"
+			class="remote-message-banner fixed inset-x-0 top-0 z-60 flex items-center justify-center bg-black/60 px-4 text-center backdrop-blur-xs border-b border-white/5"
+			style="height: var(--banner-height)"
 			transition:slide={{ duration: 300 }}
 		>
 			<div class="text-[10px] leading-tight text-white/90 md:text-xs">

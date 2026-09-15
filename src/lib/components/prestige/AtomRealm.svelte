@@ -104,30 +104,21 @@
 		grid-template-columns: 300px 1fr 300px;
 	}
 
-	/* Tablet breakpoint - Custom styles for mid-range screens */
-	@media (min-width: 900px) and (max-width: 1536px) {
+	/* Leaves room for the fixed side nav (72px) plus the grid gaps, the narrowest width this layout survives is ~1008px. */
+	@media (64rem <= width < 96rem) {
 		.game-container {
 			grid-template-columns: 250px 300px 250px;
-			max-width: 64rem; /* 1000px */
-			padding-left: 4rem;
+			max-width: 64rem;
+			padding-left: 5rem;
 		}
 	}
 
-	/* Mobile breakpoint - Stack layout vertically */
-	@media (max-width: 900px) {
+	/* Must stay in sync with MOBILE_QUERY, the `mobile` rune decides which children are rendered into these areas. */
+	@media (width < 64rem) {
 		.game-container {
 			grid-template-areas: 'atom' 'upgrades' 'buildings';
 			grid-template-columns: minmax(0, 1fr);
 			max-width: 100%;
-			overflow-x: hidden;
-		}
-	}
-
-	/* Small mobile breakpoint - Maintain vertical layout */
-	@media (max-width: 700px) {
-		.game-container {
-			grid-template-areas: 'atom' 'upgrades' 'buildings';
-			grid-template-columns: 1fr;
 			overflow-x: hidden;
 		}
 	}

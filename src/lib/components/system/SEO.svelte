@@ -1,4 +1,5 @@
 <script>
+	import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 	import { VERSION } from "@sveltejs/kit";
 
 	const site = 'https://atom-clicker.ayfri.com';
@@ -32,6 +33,8 @@
 </script>
 
 <svelte:head>
+	<!-- Auth and quarks both hit Supabase right after mount, so the TLS handshake starts during HTML parse. -->
+	<link rel="preconnect" href={PUBLIC_SUPABASE_URL} crossorigin="anonymous" />
 	<meta lang="en" />
 	<meta name="description" content={description} />
 	<meta

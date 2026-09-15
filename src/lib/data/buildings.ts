@@ -108,6 +108,11 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 
 export const BUILDING_LEVEL_UP_COST = 100;
 
+/** Production multiplier granted by a building's level. Single source of truth for the game, the simulation and the charts. */
+export function getBuildingLevelMultiplier(count: number, level: number): number {
+	return Math.pow(2, count / BUILDING_LEVEL_UP_COST) * Math.pow(1.5, level);
+}
+
 export const BUILDING_COLORS = [
 	"#4a90e2", // Blue
 	"#e34b4b", // Red

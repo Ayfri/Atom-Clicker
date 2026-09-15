@@ -1,10 +1,10 @@
-import { ACHIEVEMENTS } from '$data/achievements';
-import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST } from '$data/buildings';
+import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '$data/achievements';
+import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST, getBuildingLevelMultiplier } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import type { DailyStats } from '$data/dailyQuests';
 import { FeatureTypes } from '$data/features';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
-import { POWER_UP_DEFAULT_INTERVAL } from '$data/powerUp';
+import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '$data/powerUp';
 import { REALMS, RealmTypes } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
@@ -25,7 +25,7 @@ import {
 } from '$lib/types';
 import { setItem } from '$lib/utils/safeLocalStorage';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
+import { foldEffects } from '$helpers/effects';
 import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
 import { applyOfflineProgress } from '$helpers/offlineProgress';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
@@ -33,9 +33,16 @@ import { realmManager } from '$helpers/RealmManager.svelte';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '$helpers/saves';
 import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
 import { TutorialManager } from '$helpers/TutorialManager.svelte';
+import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '$helpers/xp';
 import { leaderboard } from '$stores/leaderboard.svelte';
 import { saveRecovery } from '$stores/saveRecovery';
 import { toastStore } from '$stores/toasts.svelte';
+
+/** `tick` already drops expired power-ups on the simulated clock, so this timer is a precision helper and must never hold a headless runtime open. */
+function scheduleExpiry(callback: () => void, delay: number) {
+	const timer = setTimeout(callback, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
+	timer.unref?.();
+}
 
 export class GameManager {
 	// State
@@ -61,6 +68,12 @@ export class GameManager {
 	highestAPS = $state(0);
 	inGameTime = $state(0);
 	lastInteractionTime = $state(Date.now());
+	/**
+	 * Source of "now" for the interaction clock the stability field runs on. Real time in the game; the simulation
+	 * swaps it for its own clock, because a 24h benchmark run finishes in seconds of wall time and would otherwise
+	 * read the stability field off whatever the machine happened to be doing.
+	 */
+	clock: () => number = () => Date.now();
 	lastLoadedSave = $state(0);
 	lastSave = $state(Date.now());
 
@@ -151,85 +164,74 @@ export class GameManager {
 	});
 
 	atomsPerSecond = $derived.by(() => {
-		const baseProduction = Object.entries(this.buildings).reduce((total, [type, building]) => {
-			if (!building) return total;
-
-			const options = { target: type as BuildingType, type: 'building' as const };
-			const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-			const multiplier = calculateEffects(upgrades, this, building.rate, options);
-			const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;
-			const linearMultiplier = (building.level + 1) * 100;
-			const levelMultiplier = building.level > 0 ? Math.sqrt(oldMultiplier * linearMultiplier) : 1;
-			const production =
-				building.count * multiplier * levelMultiplier * this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
-
-			return total + production;
-		}, 0);
+		let baseProduction = 0;
+		for (const production of Object.values(this.buildingProductions)) baseProduction += production;
 		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
 
 	autoClicksPerSecond = $derived.by(() => {
 		if (!this.settings.automation.autoClick) return 0;
 		const options = { type: 'auto_click' as const };
-		const autoClickUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(autoClickUpgrades, this, 0, options);
+		return foldEffects(this.allEffectSources, this, 0, options);
 	});
 
 	photonAutoClicksPer5Seconds = $derived.by(() => {
 		if (!this.settings.automation.autoClickPhotons) return 0;
 		const options = { type: 'photon_auto_click' as const };
-		const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(upgrades, this, 0, options);
+		return foldEffects(this.allEffectSources, this, 0, options);
 	});
 
 	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
 
+	/** Achievement conditions read these every sweep, so the totals are folded once per buildings change. */
+	buildingTotals = $derived.by(() => {
+		let count = 0;
+		let levels = 0;
+		for (const building of Object.values(this.buildings)) {
+			if (!building) continue;
+			count += building.count;
+			levels += building.level;
+		}
+		return { count, levels };
+	});
+
 	// Currency Boost System (from building levels, 10% boost per point, max 20 per currency)
-	skillPointsTotal = $derived(Object.values(this.buildings).reduce((sum, building) => sum + (building?.level ?? 0), 0));
+	skillPointsTotal = $derived(this.buildingTotals.levels);
 	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
+	/** Summing a `$state` record walks the proxy for every key, and the milestone check reads this on every tick. */
+	photonUpgradeLevels = $derived(Object.values(this.photonUpgrades).reduce((sum, level) => sum + (level ?? 0), 0));
 	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillPointsUsed);
 
 	buildingProductions = $derived.by(() => {
-		return Object.entries(this.buildings).reduce(
-			(acc, [type, building]) => {
-				let production = 0;
-				if (building) {
-					const options = { target: type as BuildingType, type: 'building' as const };
-					const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-					const multiplier = calculateEffects(upgrades, this, building.rate, options);
-					const oldMultiplier = Math.pow(building.count / 2, building.level + 1) / 5;
-					const linearMultiplier = (building.level + 1) * 100;
-					const levelMultiplier = building.level > 0 ? Math.sqrt(oldMultiplier * linearMultiplier) : 1;
-					production =
-						building.count *
-						multiplier *
-						levelMultiplier *
-						this.globalMultiplier *
-						this.bonusMultiplier *
-						this.stabilityMultiplier;
-				}
-				return {
-					...acc,
-					[type]: production,
-				};
-			},
-			{} as Record<BuildingType, number>,
-		);
+		const productions = {} as Record<BuildingType, number>;
+		const commonMultiplier = this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
+
+		for (const [type, building] of Object.entries(this.buildings)) {
+			if (!building) {
+				productions[type as BuildingType] = 0;
+				continue;
+			}
+
+			const options = { target: type as BuildingType, type: 'building' as const };
+			const multiplier = foldEffects(this.allEffectSources, this, building.rate, options);
+			const levelMultiplier = getBuildingLevelMultiplier(building.count, building.level);
+			productions[type as BuildingType] = building.count * multiplier * levelMultiplier * commonMultiplier;
+		}
+
+		return productions;
 	});
 
 	canProtonise = $derived(this.atoms >= PROTONS_ATOMS_REQUIRED || this.protons > 0);
 
 	clickPower = $derived.by(() => {
 		const options = { type: 'click' as const };
-		const clickUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(clickUpgrades, this, 1, options) * this.bonusMultiplier;
+		return foldEffects(this.allEffectSources, this, 1, options) * this.bonusMultiplier;
 	});
 
 	currentLevelXP = $derived.by(() => {
 		const level = this.getLevelFromTotalXP(this.totalXP);
 		if (level === 0) return this.totalXP;
-		const previousLevelXP = Array.from({ length: level }, (_, i) => this.getXPForLevel(i + 1)).reduce((acc, val) => acc + val, 0);
-		return Math.max(0, this.totalXP - previousLevelXP);
+		return Math.max(0, this.totalXP - totalXPForLevel(level));
 	});
 
 	currentUpgradesBought = $derived.by(() => {
@@ -240,24 +242,21 @@ export class GameManager {
 	electronizeElectronsGain = $derived.by(() => {
 		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return 0;
 		const options = { type: 'electron_gain' as const };
-		const electronGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		const baseGain = calculateEffects(electronGainUpgrades, this, 1, options);
+		const baseGain = foldEffects(this.allEffectSources, this, 1, options);
 		return baseGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
 	});
 
 	excitedPhotonChance = $derived.by(() => {
 		const baseChance = 0.002; // 0.2%
 		const options = { type: 'excited_photon_chance' as const };
-		const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(upgrades, this, baseChance, options);
+		return foldEffects(this.allEffectSources, this, baseChance, options);
 	});
 
 	radiationMultiplier = $derived(radiationManager.radiationMultiplier);
 
 	globalMultiplier = $derived.by(() => {
 		const options = { type: 'global' as const };
-		const globalUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		const baseMultiplier = calculateEffects(globalUpgrades, this, 1, options);
+		const baseMultiplier = foldEffects(this.allEffectSources, this, 1, options);
 		// Radiation multiplier is applied multiplicatively
 		return baseMultiplier * this.radiationMultiplier;
 	});
@@ -284,31 +283,26 @@ export class GameManager {
 	photonSpawnInterval = $derived.by(() => {
 		const baseSpawnRate = 2000;
 		const options = { type: 'photon_spawn_interval' as const };
-		const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(upgrades, this, baseSpawnRate, options);
+		return foldEffects(this.allEffectSources, this, baseSpawnRate, options);
 	});
 
 	playerLevel = $derived(this.getLevelFromTotalXP(this.totalXP));
 
 	powerUpDurationMultiplier = $derived.by(() => {
 		const options = { type: 'power_up_duration' as const };
-		const powerUpDurationUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(powerUpDurationUpgrades, this, 1, options);
+		return foldEffects(this.allEffectSources, this, 1, options);
 	});
 
 	powerUpEffectMultiplier = $derived.by(() => {
 		const options = { type: 'power_up_multiplier' as const };
-		const powerUpMultiplierUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(powerUpMultiplierUpgrades, this, 1, options);
+		return foldEffects(this.allEffectSources, this, 1, options);
 	});
 
 	powerUpInterval = $derived.by(() => {
 		const options = { type: 'power_up_interval' as const };
-		const powerUpIntervalUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return POWER_UP_DEFAULT_INTERVAL.map(interval => calculateEffects(powerUpIntervalUpgrades, this, interval, options)) as [
-			number,
-			number,
-		];
+		return POWER_UP_DEFAULT_INTERVAL.map(interval =>
+			Math.max(POWER_UP_MIN_INTERVAL, foldEffects(this.allEffectSources, this, interval, options))
+		) as [number, number];
 	});
 
 	protoniseProtonsGain = $derived.by(() => {
@@ -316,21 +310,18 @@ export class GameManager {
 
 		const baseGain = Math.floor(Math.sqrt(this.atoms / PROTONS_ATOMS_REQUIRED));
 		const options = { type: 'proton_gain' as const };
-		const protonGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		const boostedGain = calculateEffects(protonGainUpgrades, this, baseGain, options);
+		const boostedGain = foldEffects(this.allEffectSources, this, baseGain, options);
 		return boostedGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
 	});
 
 	stabilityCapacity = $derived.by(() => {
 		const options = { type: 'stability_capacity' as const };
-		const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(upgrades, this, 1, options);
+		return foldEffects(this.allEffectSources, this, 1, options);
 	});
 
 	stabilityMaxBoost = $derived.by(() => {
 		const options = { type: 'stability_boost' as const };
-		const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(upgrades, this, 2, options);
+		return foldEffects(this.allEffectSources, this, 2, options);
 	});
 
 	stabilityMultiplier = $derived.by(() => {
@@ -347,7 +338,7 @@ export class GameManager {
 		// 3. Calculate Progress (0 to 1)
 		// Reactivity trigger: this.inGameTime changes every second
 		this.inGameTime;
-		const elapsed = Date.now() - this.lastInteractionTime;
+		const elapsed = this.clock() - this.lastInteractionTime;
 		const progress = Math.min(Math.max(elapsed / timeRequired, 0), 1);
 
 		if (progress <= 0) return 1;
@@ -369,14 +360,15 @@ export class GameManager {
 
 	stabilitySpeed = $derived.by(() => {
 		const options = { type: 'stability_speed' as const };
-		const upgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(upgrades, this, 1, options);
+		return foldEffects(this.allEffectSources, this, 1, options);
 	});
+
+	/** Membership lookups run over every achievement each tick, so the array is mirrored into a set once per change. */
+	unlockedAchievementIds = $derived(new Set(this.achievements));
 
 	xpGainMultiplier = $derived.by(() => {
 		const options = { type: 'xp_gain' as const };
-		const xpGainUpgrades = getUpgradesWithEffects(this.allEffectSources, options);
-		return calculateEffects(xpGainUpgrades, this, 1, options);
+		return foldEffects(this.allEffectSources, this, 1, options);
 	});
 
 	xpProgress = $derived((this.currentLevelXP / this.nextLevelXP) * 100);
@@ -580,8 +572,7 @@ export class GameManager {
 				return now < p.startTime + p.duration;
 			});
 			this.activePowerUps.forEach(p => {
-				const remaining = p.startTime + p.duration - now;
-				setTimeout(() => this.removePowerUp(p.id), remaining);
+				scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 			});
 		}
 	}
@@ -763,6 +754,7 @@ export class GameManager {
 
 	purchaseUpgrade(id: string) {
 		const upgrade = UPGRADES[id];
+		if (!upgrade) return false;
 		const purchased = this.upgrades.includes(id);
 
 		if (!purchased && this.spendCurrency(upgrade.cost)) {
@@ -781,16 +773,16 @@ export class GameManager {
 	}
 
 	checkRealmUnlocks() {
-		const state = this.getCurrentState();
-		Object.values(REALMS).forEach(realmDef => {
+		const features = this.features;
+		for (const realmDef of Object.values(REALMS)) {
 			if (!this.realms[realmDef.id]) {
 				this.realms[realmDef.id] = { unlocked: false };
 			}
 			const realmState = this.realms[realmDef.id];
-			if (!realmState.unlocked && realmDef.condition(state)) {
+			if (!realmState.unlocked && realmDef.condition(features)) {
 				realmState.unlocked = true;
 			}
-		});
+		}
 	}
 
 	unlockBuilding(type: BuildingType) {
@@ -839,7 +831,7 @@ export class GameManager {
 			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.ELECTRONS, electronGain);
 
-			this.lastInteractionTime = Date.now();
+			this.lastInteractionTime = this.clock();
 			this.save();
 			return true;
 		}
@@ -875,7 +867,7 @@ export class GameManager {
 			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
 
-			this.lastInteractionTime = Date.now();
+			this.lastInteractionTime = this.clock();
 			this.save();
 			return true;
 		}
@@ -897,14 +889,14 @@ export class GameManager {
 		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 1);
 		this.dailyStats = { ...this.dailyStats, higgsBosonsCollected: (this.dailyStats.higgsBosonsCollected ?? 0) + 1 };
 		if (!this.upgrades.includes('electron_bypass_bonus_click_stability')) {
-			this.lastInteractionTime = Date.now();
+			this.lastInteractionTime = this.clock();
 		}
 	}
 
 	incrementClicks(isAuto = false) {
 		this.totalClicksRun += 1;
 		this.totalClicksAllTime += 1;
-		this.dailyStats = { ...this.dailyStats, clicks: this.dailyStats.clicks + 1 };
+		this.dailyStats.clicks += 1;
 
 		const shouldUpdate =
 			isAuto ?
@@ -912,7 +904,7 @@ export class GameManager {
 			:	!this.upgrades.includes('electron_bypass_atom_click_stability');
 
 		if (shouldUpdate) {
-			this.lastInteractionTime = Date.now();
+			this.lastInteractionTime = this.clock();
 		}
 	}
 
@@ -943,17 +935,15 @@ export class GameManager {
 	// Power-Ups
 	addPowerUp(powerUp: PowerUp) {
 		const newPowerUp = { ...powerUp };
-		if (!newPowerUp.startTime) newPowerUp.startTime = Date.now();
+		if (!newPowerUp.startTime) newPowerUp.startTime = this.clock();
 		this.activePowerUps = [...this.activePowerUps, newPowerUp];
 		this.powerUpsCollected += 1;
 		this.dailyStats = { ...this.dailyStats, powerUpsCollected: this.dailyStats.powerUpsCollected + 1 };
 		if (!this.upgrades.includes('electron_bypass_bonus_click_stability')) {
-			this.lastInteractionTime = Date.now();
+			this.lastInteractionTime = this.clock();
 		}
 
-		setTimeout(() => {
-			this.removePowerUp(newPowerUp.id);
-		}, newPowerUp.duration);
+		scheduleExpiry(() => this.removePowerUp(newPowerUp.id), newPowerUp.duration);
 	}
 
 	removePowerUp(id: string) {
@@ -1013,28 +1003,22 @@ export class GameManager {
 	// XP Helpers
 	getLevelFromTotalXP(totalXP: number) {
 		if (!isFinite(totalXP) || totalXP <= 0) return 0;
-		let level = 0;
-		let remainingXP = totalXP;
-		while (remainingXP >= this.getXPForLevel(level + 1)) {
-			remainingXP -= this.getXPForLevel(level + 1);
-			level++;
-		}
-		return level;
+		return levelFromTotalXP(totalXP);
 	}
 
 	getXPForLevel(level: number) {
-		const base = 100; // Base XP cost for level 1
-		const poly = 1.1;
-		const rate = 1.55;
-		// XP(L) = base * L^poly * rate^(L-1): L^poly scales the base cost linearly so early levels stay gentle, rate^(L-1) compounds each step exponentially making late levels significantly harder
-		return Math.floor(base * Math.pow(level, poly) * Math.pow(rate, level - 1));
+		return xpForLevel(level);
 	}
 
-	tick(deltaTime: number = 1000, skipAchievements = false) {
+	/**
+	 * `skipProduction` is what the browser passes: there the atoms are summed per frame in `+page.svelte` for a smooth
+	 * counter, and crediting them here too would pay every building twice. The simulation has no frame loop and pays here.
+	 */
+	tick(deltaTime: number = 1000, skipAchievements = false, skipProduction = false) {
 		this.inGameTime += deltaTime;
 
 		// Production - atoms per second scaled by deltaTime
-		const production = this.atomsPerSecond * (deltaTime / 1000);
+		const production = skipProduction ? 0 : this.atomsPerSecond * (deltaTime / 1000);
 		if (production > 0) {
 			this.addAtoms(production);
 		}
@@ -1055,20 +1039,19 @@ export class GameManager {
 
 		// Check achievements
 		if (!skipAchievements) {
-			Object.entries(ACHIEVEMENTS).forEach(([id, achievement]) => {
-				if (!this.achievements.includes(id) && achievement.condition(this)) {
+			const unlocked = this.unlockedAchievementIds;
+			for (const [id, achievement] of ACHIEVEMENT_ENTRIES) {
+				if (!unlocked.has(id) && achievement.condition(this)) {
 					this.unlockAchievement(id);
 				}
-			});
+			}
 		}
 
-		// Clean expired power-ups
+		// Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live.
 		if (this.activePowerUps.length > 0) {
 			const expireTime = this.inGameTime;
-			this.activePowerUps = this.activePowerUps.filter(p => {
-				const elapsed = expireTime - (p.startTime ?? 0);
-				return elapsed < p.duration;
-			});
+			const remaining = this.activePowerUps.filter(p => expireTime - (p.startTime ?? 0) < p.duration);
+			if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
 		}
 	}
 
@@ -1077,7 +1060,7 @@ export class GameManager {
 		if (this.gameInterval) clearInterval(this.gameInterval);
 
 		this.gameInterval = setInterval(() => {
-			this.tick(1000);
+			this.tick(1000, false, true);
 		}, 1000);
 	}
 }

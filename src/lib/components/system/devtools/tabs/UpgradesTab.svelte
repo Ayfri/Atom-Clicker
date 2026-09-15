@@ -13,7 +13,7 @@
 		Sparkles,
 		Check,
 		X as XIcon,
-		type Icon as IconType,
+		type LucideIcon,
 		Atom,
 		Zap,
 		Shield,
@@ -56,7 +56,7 @@
 		const categories: Record<
 			string,
 			{
-				icon: typeof IconType;
+				icon: LucideIcon;
 				subcategories: Record<
 					string,
 					Array<{ id: string; name: string; description: string; isOwned: boolean; displayIndex: string }>
@@ -113,7 +113,7 @@
 				}
 			}
 
-			if (!categories[cat]) categories[cat] = { icon: icon as typeof IconType, subcategories: {} };
+			if (!categories[cat]) categories[cat] = { icon: icon as LucideIcon, subcategories: {} };
 			if (!categories[cat].subcategories[sub]) categories[cat].subcategories[sub] = [];
 
 			const idParts = id.split('_');

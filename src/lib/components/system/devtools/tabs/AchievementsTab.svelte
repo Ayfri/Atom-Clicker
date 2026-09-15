@@ -2,7 +2,7 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { ACHIEVEMENTS } from '$data/achievements';
 	import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
-	import { Atom as AtomIcon, Factory, Clock, Sparkles, Gift, Trophy, Check, X as XIcon, X, type Icon as IconType } from '@lucide/svelte';
+	import { Atom as AtomIcon, Factory, Clock, Sparkles, Gift, Trophy, Check, X as XIcon, X, type LucideIcon } from '@lucide/svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import { formatNumber } from '$lib/utils';
 	import type { Achievement } from '$lib/types';
@@ -11,7 +11,7 @@
 	let achievementFilter = $state<'all' | 'unlocked' | 'locked'>('all');
 
 	const categorizedAchievements = $derived.by(() => {
-		const categories: Record<string, { icon: typeof IconType; subcategories: Record<string, Array<[string, Achievement]>> }> = {
+		const categories: Record<string, { icon: LucideIcon; subcategories: Record<string, Array<[string, Achievement]>> }> = {
 			'Atom Milestones': { icon: AtomIcon, subcategories: {} },
 			'Building Goals': { icon: Factory, subcategories: {} },
 			'Time & Progress': { icon: Clock, subcategories: {} },

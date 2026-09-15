@@ -14,8 +14,8 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		name: 'Atomic Discoverer',
 		description: 'Found the hidden atom in the credits',
 		iconStack: { count: 1, icon: 'atom' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('hidden_atom_clicked'),
-		condition: (manager: GameManager) => manager.achievements.includes('hidden_atom_clicked'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('hidden_atom_clicked'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('hidden_atom_clicked'),
 	},
 	{
 		id: 'skill_tree_master',
@@ -33,8 +33,8 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		name: 'Curious Explorer',
 		description: 'Found the reset button... but decided not to press it',
 		iconStack: { count: 1, icon: 'trophy' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('reset_modal_opener'),
-		condition: (manager: GameManager) => manager.achievements.includes('reset_modal_opener'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('reset_modal_opener'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('reset_modal_opener'),
 	},
 	{
 		id: 'play_time_10min',
@@ -83,40 +83,40 @@ export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		name: 'Website Visitor',
 		description: "Visited the creator's website",
 		iconStack: { count: 1, icon: 'globe' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('website_click'),
-		condition: (manager: GameManager) => manager.achievements.includes('website_click'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('website_click'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('website_click'),
 	},
 	{
 		id: 'coffee_click',
 		name: 'Coffee Supporter',
 		description: 'Clicked on the Buy me a coffee link',
 		iconStack: { count: 1, icon: 'coffee' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('coffee_click'),
-		condition: (manager: GameManager) => manager.achievements.includes('coffee_click'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('coffee_click'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('coffee_click'),
 	},
 	{
 		id: 'discord_click',
 		name: 'Community Member',
 		description: 'Joined the Discord community',
 		iconStack: { count: 1, icon: 'discord' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('discord_click'),
-		condition: (manager: GameManager) => manager.achievements.includes('discord_click'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('discord_click'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('discord_click'),
 	},
 	{
 		id: 'github_click',
 		name: 'Open Source Contributor',
 		description: 'Visited the GitHub repository',
 		iconStack: { count: 1, icon: 'github' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('github_click'),
-		condition: (manager: GameManager) => manager.achievements.includes('github_click'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('github_click'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('github_click'),
 	},
 	{
 		id: 'changelog_modal_opener',
 		name: 'Changelog Reader',
 		description: "Checked what's new in the game",
 		iconStack: { count: 1, icon: 'changelog' },
-		hiddenCondition: (manager: GameManager) => !manager.achievements.includes('changelog_modal_opener'),
-		condition: (manager: GameManager) => manager.achievements.includes('changelog_modal_opener'),
+		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('changelog_modal_opener'),
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('changelog_modal_opener'),
 	},
 	{
 		id: 'higgs_no_atoms',
@@ -185,11 +185,8 @@ function createBuildingTotalAchievements(): Achievement[] {
 			name: `${count} Buildings`,
 			description: `Own a total of ${count} buildings`,
 			iconStack: tierIconStack('layers', tierIndex, count),
-			hiddenCondition: (manager: GameManager) => Object.values(manager.buildings).every(b => b.count === 0),
-			condition: (manager: GameManager) => {
-				const totalBuildings = Object.values(manager.buildings).reduce((sum, b) => sum + b.count, 0);
-				return totalBuildings >= count;
-			},
+			hiddenCondition: (manager: GameManager) => manager.buildingTotals.count === 0,
+			condition: (manager: GameManager) => manager.buildingTotals.count >= count,
 		};
 	}
 
@@ -203,11 +200,8 @@ function createBuildingLevelsAchievements(): Achievement[] {
 			name: `Levels ${level}`,
 			description: `Have a total of ${level} buildings levels`,
 			iconStack: tierIconStack('buildingLevel', tierIndex, level),
-			hiddenCondition: (manager: GameManager) => Object.values(manager.buildings).every(b => b.level === 0),
-			condition: (manager: GameManager) => {
-				const totalLevels = Object.values(manager.buildings).reduce((sum, b) => sum + b.level, 0);
-				return totalLevels >= level;
-			},
+			hiddenCondition: (manager: GameManager) => manager.buildingTotals.levels === 0,
+			condition: (manager: GameManager) => manager.buildingTotals.levels >= level,
 		};
 	}
 
@@ -448,3 +442,6 @@ const achievementsArray: Achievement[] = [
 ];
 
 export const ACHIEVEMENTS = Object.fromEntries(achievementsArray.map(achievement => [achievement.id, achievement]));
+
+/** Pre-built so the per-tick achievement sweep does not rebuild an entries array every second. */
+export const ACHIEVEMENT_ENTRIES = Object.entries(ACHIEVEMENTS);

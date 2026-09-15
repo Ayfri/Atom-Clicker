@@ -2,9 +2,6 @@ import { SKILL_UPGRADES } from '$data/skillTree';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { PROTONS_ATOMS_REQUIRED } from '$lib/constants';
 import type { TooltipPosition } from '$stores/tooltip.svelte';
-import Protonise from '@components/prestige/Protonise.svelte';
-import SkillTree from '@components/modals/SkillTree.svelte';
-import type { Component } from 'svelte';
 
 export interface TutorialStep {
 	/** Gates the step: it stays hidden (but the tutorial keeps waiting) until this returns true. */
@@ -12,8 +9,8 @@ export interface TutorialStep {
 	description: string;
 	id: string;
 	placement?: TooltipPosition;
-	/** Gates the step until this modal is the currently open one (e.g. the player opened Protonise themselves). */
-	requiresModalOpen?: Component<{ onClose: () => void }>;
+	/** Gates the step until this modal id is the currently open one (e.g. the player opened Protonise themselves). */
+	requiresModalOpen?: string;
 	targetSelector?: string;
 	title: string;
 }
@@ -51,7 +48,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
 		title: 'Prestige to Grow Faster',
 		description: 'Now that you have enough atoms, Protonise to reset your run in exchange for permanent Protons that boost future runs.',
 		condition: () => gameManager.atoms >= PROTONS_ATOMS_REQUIRED,
-		requiresModalOpen: Protonise,
+		requiresModalOpen: 'protonise',
 	},
 	{
 		id: 'skill-tree',
@@ -61,7 +58,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
 			const roots = Object.values(SKILL_UPGRADES).filter(s => !s.requires || s.requires.length === 0);
 			return roots.some(root => gameManager.canAfford(root.cost)) || gameManager.skillUpgrades.length > 0;
 		},
-		requiresModalOpen: SkillTree,
+		requiresModalOpen: 'skill-tree',
 	},
 	{
 		id: 'done',

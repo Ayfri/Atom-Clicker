@@ -1,3 +1,18 @@
+# What's new 15-09-2026
+
+- **Faster Loading**: The game downloads about half as much code and starts without waiting for your account to load.
+- **Smoother Gameplay**: The game does far less work every frame, about 20% less in the Atom Realm and 12% in the others.
+- **Lower Memory Use**: The reactor no longer piles up radiation particles while you are in another realm, so long sessions stay as fast as they started.
+- **Rebalancing**: Building level bonus is now a smooth doubling every 100 owned plus a 1.5x per level, replacing the old cliff at exactly 100 owned.
+- **Rebalancing**: Buildings now pay exactly the atoms per second shown in the counter, instead of twice that.
+- **Rebalancing**: Auto-clicks now pay once instead of twice.
+- **Rebalancing**: Level Boost and Atom Soup (achievement) upgrades now stack additively within their own family instead of multiplying each other into absurd numbers.
+- **Rebalancing**: Power-ups can no longer spawn closer together than 20 seconds apart.
+- **Radiation Realm**: A new reactor strip and clearer sliders and help texts show how fuel and power turn into your production bonus.
+- **Reactor Visuals**: The reactor core is redrawn, reacts to your power level and follows your Quark Shop theme.
+- **Stats Panel**: The panel now covers the Radiation Realm, skill tree, Quarks and a daily summary, with an icon for every stat.
+- **Mobile**: The realm switcher, toasts and hold buttons no longer get in the way of your taps.
+
 # What's new 12-08-2026
 
 - **Design**: Every achievement/upgrades now shows its own icon.
