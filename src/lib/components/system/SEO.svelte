@@ -47,12 +47,14 @@
 	<meta name="theme-color" content="#4a90e2" />
 
 	<link rel="icon" type="image/svg+xml" href={absoluteImageLink} />
+	<link rel="apple-touch-icon" href={absoluteImageLink} />
+	<link rel="manifest" href="/manifest.webmanifest" />
 
 	<meta property="og:title" content={name} />
 	<meta property="og:description" content={description} />
 	<meta property="og:image" content={absoluteOgImageLink} />
-	<meta property="og:image:width" content="1216" />
-	<meta property="og:image:height" content="860" />
+	<meta property="og:image:width" content="1404" />
+	<meta property="og:image:height" content="862" />
 	<meta property="og:image:alt" content={`${name} gameplay screenshot`} />
 	<meta property="og:url" content={site} />
 	<meta property="og:type" content="website" />
@@ -65,7 +67,7 @@
 	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={absoluteOgImageLink} />
 
-	<meta name="canonical" content={site} />
+	<link rel="canonical" href={site} />
 	<meta name="robots" content="index, follow" />
 	<meta name="language" content="en" />
 
