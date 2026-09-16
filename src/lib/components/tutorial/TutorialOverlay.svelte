@@ -4,6 +4,7 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
 	import { ui } from '$stores/ui.svelte';
+	import type { TooltipPosition } from '$stores/tooltip.svelte';
 	import { highlightCurrencies } from '$lib/utils/highlightCurrencies';
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 	import { fade } from 'svelte/transition';
@@ -107,29 +108,38 @@
 		const calloutRect = calloutElement.getBoundingClientRect();
 		const target = visibleTargetRect;
 
-		let left = target.left + target.width / 2 - calloutRect.width / 2;
-		let top = target.bottom + margin;
+		const { width, height } = calloutRect;
 
-		switch (placement) {
-			case 'top':
-				top = target.top - calloutRect.height - margin;
-				break;
-			case 'left':
-				left = target.left - calloutRect.width - margin;
-				top = target.top + target.height / 2 - calloutRect.height / 2;
-				break;
-			case 'right':
-				left = target.right + margin;
-				top = target.top + target.height / 2 - calloutRect.height / 2;
-				break;
+		const positionFor = (side: TooltipPosition) => {
+			let left = target.left + target.width / 2 - width / 2;
+			let top = target.bottom + margin;
+			if (side === 'top') top = target.top - height - margin;
+			if (side === 'left' || side === 'right') {
+				left = side === 'left' ? target.left - width - margin : target.right + margin;
+				top = target.top + target.height / 2 - height / 2;
+			}
+			// Always clamp fully inside the viewport so the callout can never render partially off-screen.
+			return {
+				left: Math.max(margin, Math.min(left, viewportWidth - width - margin)),
+				top: Math.max(margin, Math.min(top, viewportHeight - height - margin)),
+			};
+		};
+
+		const overlaps = (pos: { left: number; top: number }) =>
+			pos.left < target.right && pos.left + width > target.left && pos.top < target.bottom && pos.top + height > target.top;
+
+		// On a phone the preferred side rarely fits, and the clamp would then drop the callout onto the very
+		// button the step asks to press. Fall back to the first side that stays clear of the target.
+		const sides: TooltipPosition[] = [placement, 'bottom', 'top', 'right', 'left'];
+		for (const side of sides) {
+			const pos = positionFor(side);
+			if (!overlaps(pos)) return pos;
 		}
 
-		// Always clamp fully inside the viewport, regardless of the preferred placement,
-		// so the callout can never render partially or fully off-screen.
-		left = Math.max(margin, Math.min(left, viewportWidth - calloutRect.width - margin));
-		top = Math.max(margin, Math.min(top, viewportHeight - calloutRect.height - margin));
-
-		return { left, top };
+		// Nothing fits: pin to whichever screen edge is farther from the target.
+		const targetCenter = target.top + target.height / 2;
+		const top = targetCenter < viewportHeight / 2 ? viewportHeight - height - margin : margin;
+		return { left: positionFor(placement).left, top };
 	});
 </script>
 
