@@ -50,12 +50,17 @@
 <Analytics />
 
 {#if !browser}
-	<div class="flex h-screen w-screen items-center justify-center gap-4 flex-col">
-		<h1 class="text-2xl font-bold animate-pulse">Loading...</h1>
+	<div class="flex h-screen w-screen items-center justify-center gap-4 flex-col text-center px-6">
+		<h1 class="text-4xl font-bold">Atom Clicker</h1>
+		<p class="max-w-xl text-slate-300">
+			A free incremental game. Click atoms, buy buildings and upgrades, prestige through protons, electrons and photons, and climb the
+			leaderboard.
+		</p>
 		<LoaderCircle
 			size={64}
 			class="loading-action rotate-115"
 		/>
+		<noscript><p>Atom Clicker needs JavaScript enabled to run.</p></noscript>
 	</div>
 {:else}
 	<PrestigeAnimation
