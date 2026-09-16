@@ -7,6 +7,9 @@ import { isLocalStorageAvailable } from '$lib/utils/safeLocalStorage';
 import { multiTabDetector } from '$stores/multiTab.svelte';
 import { isValidGameState, SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
 
+/** postMessage type the /callback page sends to the window that opened it as a login popup. */
+export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
+
 export class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
@@ -191,8 +194,13 @@ export class SupabaseAuth {
 			if (!this.supabase) return;
 		}
 
+		// Google refuses to render inside a frame, so embeds (itch.io, galaxy.click) log in through a popup that posts the callback URL back.
+		const embedded = window.self !== window.top;
+		// Opened synchronously in the click handler, popup blockers reject a window.open that comes after an await.
+		const popup = embedded ? window.open('', 'atom-clicker-login', 'popup,width=520,height=700') : null;
+
 		try {
-			const { error } = await this.supabase.auth.signInWithOAuth({
+			const { data, error } = await this.supabase.auth.signInWithOAuth({
 				provider,
 				options: {
 					redirectTo: `${window.location.origin}/callback`,
@@ -200,17 +208,48 @@ export class SupabaseAuth {
 						access_type: 'offline',
 						prompt: 'consent',
 					},
+					skipBrowserRedirect: embedded,
 				},
 			});
 
 			if (error) {
+				popup?.close();
 				this.error = error;
 				throw error;
 			}
+			if (!embedded || !data.url) return;
+			if (!popup) throw new Error('Your browser blocked the login window, allow popups for this page and try again.');
+			popup.location.href = data.url;
+			this.listenForPopupCallback(popup);
 		} catch (err) {
 			console.error('Sign in error:', err);
 			throw err;
 		}
+	}
+
+	private popupListener: ((event: MessageEvent) => void) | null = null;
+
+	private listenForPopupCallback(popup: Window) {
+		if (this.popupListener) window.removeEventListener('message', this.popupListener);
+		this.popupListener = async (event: MessageEvent) => {
+			if (event.origin !== window.location.origin || event.data?.type !== AUTH_CALLBACK_MESSAGE) return;
+			window.removeEventListener('message', this.popupListener!);
+			this.popupListener = null;
+			popup.close();
+			const url = new URL(String(event.data.url));
+			const code = url.searchParams.get('code');
+			const hash = new URLSearchParams(url.hash.slice(1));
+			const accessToken = hash.get('access_token');
+			const refreshToken = hash.get('refresh_token');
+			try {
+				if (code) await this.supabase!.auth.exchangeCodeForSession(code);
+				else if (accessToken && refreshToken) await this.supabase!.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+			} catch (err) {
+				console.error('Popup sign in error:', err);
+				this.error = err as Error;
+			}
+		};
+		window.addEventListener('message', this.popupListener);
 	}
 
 	async signOut() {

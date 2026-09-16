@@ -1,12 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import { AUTH_CALLBACK_MESSAGE, supabaseAuth } from '$stores/supabaseAuth.svelte';
 
 	let isLoading = $state(true);
 	let error: string | null = $state(null);
 
 	onMount(async () => {
+		// Opened as a login popup by an embedded game: hand the callback URL to the opener, which holds the PKCE verifier, and close.
+		if (window.opener && window.name === 'atom-clicker-login') {
+			window.opener.postMessage({ type: AUTH_CALLBACK_MESSAGE, url: window.location.href }, window.location.origin);
+			window.close();
+			return;
+		}
+
 		try {
 			// Handle Supabase auth callback
 			await supabaseAuth.init();
