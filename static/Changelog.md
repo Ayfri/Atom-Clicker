@@ -1,3 +1,7 @@
+# What's new 16-09-2026
+
+- **Install as an App**: Your browser can now install Atom Clicker like a regular app, on desktop and mobile.
+
 # What's new 15-09-2026
 
 - **Faster Loading**: The game downloads about half as much code and starts without waiting for your account to load.
