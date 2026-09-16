@@ -75,13 +75,12 @@
 					Achievements
 				</button>
 			</div>
+			<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
 			<div class="mt-1">
-				{#if activeTab === 'upgrades'}
-					<Upgrades />
-				{:else if activeTab === 'achievements'}
-					<Achievements />
-				{:else if activeTab === 'buildings'}
-					<Buildings />
+				<div class:hidden={activeTab !== 'upgrades'}><Upgrades /></div>
+				<div class:hidden={activeTab !== 'achievements'}><Achievements /></div>
+				{#if mobile.current}
+					<div class:hidden={activeTab !== 'buildings'}><Buildings /></div>
 				{/if}
 			</div>
 		</div>
