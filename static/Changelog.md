@@ -1,3 +1,9 @@
+# Unreleased
+
+- **Mobile**: Tap the atom with several fingers at once, and the tutorial no longer covers the button it points at.
+- **Skill Tree**: Locked skills now tell you what they require before you can buy them.
+- **Embeds**: You can now log in to the leaderboard when playing on itch.io or galaxy.click.
+
 # What's new 16-09-2026
 
 - **Install as an App**: Your browser can now install Atom Clicker like a regular app, on desktop and mobile.
