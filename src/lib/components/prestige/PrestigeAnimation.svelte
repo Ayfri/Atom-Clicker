@@ -138,7 +138,6 @@
 							--dist: {40 + Math.random() * 30}vmax;
 							--delay: {Math.random() * 0.4}s;
 							--duration: {2.5 + Math.random() * 1.5}s;
-							--offset: {Math.random() * 20}px;
 							--spin: {Math.random() * 360}deg;
 						"
 					>
@@ -175,6 +174,7 @@
 <style>
 	.prestige-overlay {
 		align-items: center;
+		contain: layout paint style;
 		display: flex;
 		height: 100%;
 		justify-content: center;
@@ -215,10 +215,10 @@
 	}
 
 	.currency-particle {
-		position: absolute;
-		top: 0;
 		left: 0;
 		opacity: 0;
+		position: absolute;
+		top: 0;
 	}
 
 	/* Proton Motion: Heavy, explosive radial burst with rotation */
@@ -264,15 +264,16 @@
 		}
 	}
 
+	/** Rasterised at 100vmax and composited up to 3x: same visual as a 300vmax layer for a ninth of the blurred pixels. */
 	.core-flash {
 		animation: core-flash 0.8s ease-out forwards;
 		background: radial-gradient(circle, var(--accent) 0%, var(--primary) 30%, transparent 70%);
 		border-radius: 50%;
-		filter: blur(20px);
-		height: 300vmax;
+		filter: blur(7px);
+		height: 100vmax;
 		opacity: 0;
 		position: absolute;
-		width: 300vmax;
+		width: 100vmax;
 	}
 
 	@keyframes core-flash {
@@ -285,7 +286,7 @@
 		}
 		100% {
 			opacity: 0;
-			transform: scale(1);
+			transform: scale(3);
 		}
 	}
 
@@ -317,6 +318,7 @@
 		}
 	}
 
+	/** Grown with scaleX rather than width: the layer is rastered once instead of relaying out 12 full-viewport bars every frame. */
 	.beam {
 		animation: beam-flash 1s ease-out forwards;
 		animation-delay: var(--delay);
@@ -326,22 +328,22 @@
 		opacity: 0;
 		position: absolute;
 		top: 50%;
-		transform: rotate(var(--rotation)) translateX(0);
+		transform: rotate(var(--rotation)) scaleX(0);
 		transform-origin: left center;
-		width: 200vmax;
+		width: 80vmax;
 	}
 
 	@keyframes beam-flash {
 		0% {
 			opacity: 0;
-			width: 0;
+			transform: rotate(var(--rotation)) scaleX(0);
 		}
 		30% {
 			opacity: 1;
 		}
 		100% {
 			opacity: 0;
-			width: 200vmax;
+			transform: rotate(var(--rotation)) scaleX(1);
 		}
 	}
 
@@ -405,7 +407,9 @@
 		}
 	}
 
+	/** One filter pass over the whole SVG instead of two drop-shadow subtrees per bolt, which re-filtered 8 viewport-sized regions each frame. */
 	.lightning-container {
+		filter: drop-shadow(0 0 10px var(--primary));
 		height: 100%;
 		left: 0;
 		position: absolute;
@@ -417,7 +421,6 @@
 		animation: lightning-strike var(--duration) ease-out forwards;
 		animation-delay: var(--delay);
 		fill: none;
-		filter: drop-shadow(0 0 10px var(--primary)) drop-shadow(0 0 20px var(--glow));
 		opacity: 0;
 		stroke: var(--accent);
 		stroke-linecap: round;
