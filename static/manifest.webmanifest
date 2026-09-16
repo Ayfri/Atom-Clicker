@@ -9,7 +9,7 @@
 	"name": "Atom Clicker",
 	"screenshots": [
 		{ "form_factor": "wide", "sizes": "1920x911", "src": "/ingame-screenshot2.png", "type": "image/png" },
-		{ "form_factor": "wide", "sizes": "1404x862", "src": "/in-game-screenshot.png", "type": "image/png" }
+		{ "form_factor": "wide", "sizes": "1404x862", "src": "/ingame-screenshot.png", "type": "image/png" }
 	],
 	"short_name": "Atom Clicker",
 	"start_url": "/",

@@ -8,7 +8,7 @@ Welcome to Atom Clicker, an engaging incremental game where you'll build your ow
 
 🎮 [Play Now](https://atom-clicker.ayfri.com) | 💬 [Discord](https://discord.ayfri.com)
 
-![Atom Clicker Gameplay](static/in-game-screenshot.png)
+![Atom Clicker Gameplay](static/ingame-screenshot.png)
 ![Atom Clicker Gameplay](static/ingame-screenshot2.png)
 ![Atom Clicker Gameplay](static/ingame-screenshot3.png)
 
