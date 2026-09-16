@@ -290,9 +290,20 @@
 	let cachedRect: DOMRect | null = null;
 
 	function getContainerRect() {
-		if (!cachedRect && container) cachedRect = container.getBoundingClientRect();
+		if (!container) return null;
+		// Off-screen realms are translated sideways, a rect measured then would send every click past the photons.
+		if (!visible) return container.getBoundingClientRect();
+		if (!cachedRect) cachedRect = container.getBoundingClientRect();
 		return cachedRect;
 	}
+
+	// The slide-in transition lasts 300ms, so the rect is dropped again once the realm has settled.
+	$effect(() => {
+		visible;
+		cachedRect = null;
+		const timeout = setTimeout(() => (cachedRect = null), 350);
+		return () => clearTimeout(timeout);
+	});
 
 	$effect(() => {
 		const invalidate = () => (cachedRect = null);
@@ -308,7 +319,7 @@
 		if (!canvas || !container || !ctx) return;
 
 		const rect = container.getBoundingClientRect();
-		cachedRect = rect;
+		cachedRect = visible ? rect : null;
 		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
 
 		canvasWidth = rect.width;
