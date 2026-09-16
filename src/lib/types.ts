@@ -230,6 +230,8 @@ export interface SkillUpgrade {
 	id: string;
 	name: string;
 	position: { x: number; y: number };
+	/** Player-facing text for `condition`, shown on the node while the condition is not met. */
+	requirement?: string;
 	requires?: string[];
 }
 

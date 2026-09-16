@@ -134,6 +134,7 @@
 					data: {
 						...skill,
 						available: canUnlockSkill(skill),
+						conditionMet: skill.condition === undefined || skill.condition(gameManager),
 						currencyUnlocked,
 						effectBreakdown,
 						sourceHandles: Array.from(srcHandles.get(skill.id) ?? []),

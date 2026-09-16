@@ -66,6 +66,18 @@
 		if (newParticles.length > 0) addParticles(newParticles);
 	}
 
+	/** Every finger fires its own pointerdown, where a click only fires once per tap gesture. Keyboard activation still comes through click with detail 0. */
+	function handlePointerDown(event: PointerEvent) {
+		if (event.button !== 0) return;
+		click(event.clientX, event.clientY, false);
+	}
+
+	function handleClick(event: MouseEvent) {
+		if (event.detail !== 0) return;
+		const rect = getRect();
+		if (rect) click(rect.left + rect.width / 2, rect.top + rect.height / 2, false);
+	}
+
 	onDestroy(() => clearInterval(interval));
 </script>
 
@@ -73,7 +85,8 @@
 	class="atom relative mt-20 flex size-64 sm:size-75 md:size-90 lg:size-112.5 items-center justify-center cursor-pointer bg-transparent"
 	class:bonus={gameManager.hasBonus}
 	data-tutorial-target="atom-click"
-	onclick={e => click(e.clientX, e.clientY, false)}
+	onclick={handleClick}
+	onpointerdown={handlePointerDown}
 	bind:this={atomElement}
 >
 	{#each BUILDING_TYPES.filter(name => name in gameManager.buildings) as name, i}
@@ -98,6 +111,8 @@
 		--nucleus-size: 60px;
 		--speed: 1;
 		-webkit-tap-highlight-color: transparent;
+		touch-action: manipulation;
+		user-select: none;
 
 		&.bonus {
 			--speed: 2;

@@ -16,6 +16,7 @@
 
 	interface SkillNodeData extends SkillUpgrade {
 		available: boolean;
+		conditionMet: boolean;
 		currencyUnlocked: boolean;
 		effectBreakdown: EffectBreakdownItem[] | null;
 		onClick?: () => void;
@@ -132,6 +133,8 @@
 					/>
 					{#if skillData.unlocked}
 						<span class="text-[10px] uppercase text-white/70">(owned)</span>
+					{:else if !skillData.conditionMet && skillData.requirement}
+						<span class="text-[11px] text-amber-300">Requires: {skillData.requirement}</span>
 					{/if}
 				{:else}
 					<span class="text-white/40">Cost: ?????</span>

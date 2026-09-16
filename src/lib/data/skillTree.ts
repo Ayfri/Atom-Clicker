@@ -344,6 +344,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	stellarCore: {
 		condition: state => (state.buildings.star?.count ?? 0) >= 5,
 		cost: { amount: 25_000_000, currency: CurrenciesTypes.PROTONS },
+		requirement: 'Own 5 Stars',
 		description: '2x production for Star and higher buildings',
 		effects: [
 			{
@@ -435,6 +436,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	hoverCollection: {
 		condition: manager => Object.keys(manager.photonUpgrades || {}).length >= 1,
 		cost: { amount: 1_000, currency: CurrenciesTypes.PHOTONS },
+		requirement: 'Own 1 photon upgrade',
 		description: 'Collect photons by hovering over them',
 		effects: [],
 		feature: FeatureTypes.HOVER_COLLECTION,
@@ -447,6 +449,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	photonEfficiency: {
 		condition: state => Object.keys(state.photonUpgrades || {}).length >= 3,
 		cost: { amount: 5_000, currency: CurrenciesTypes.PHOTONS },
+		requirement: 'Own 3 photon upgrades',
 		description: '+1% all production per photon upgrade owned',
 		effects: [
 			{
@@ -505,6 +508,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		return {
 			condition: manager => (manager.buildings[buildingType]?.count ?? 0) >= 100,
 			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
+			requirement: `Own 100 ${building.name}`,
 			description: `2x ${building.name} production`,
 			effects: [
 				{
