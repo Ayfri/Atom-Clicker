@@ -1,51 +1,24 @@
-// Server-side counterpart of src/lib/utils/obfuscation.ts.
-// See src/lib/utils/signing.ts for why this is a tamper/replay guard, not a security boundary.
-
 import { generateSignature } from '$lib/utils/signing';
 
+const SIGNATURE_WINDOW_MS = 5000;
+
+/** Server side of src/lib/utils/obfuscation.ts: a tamper/replay guard, not a security boundary, see signing.ts. */
 export function verifyAndDecryptClientData(
 	encodedData: string,
 	signature: string,
 	timestamp: number,
-	maxAge: number = 5 * 60 * 1000 // 5 minutes by default
-): Record<string, any> | null {
+	maxAge: number = 5 * 60 * 1000
+): Record<string, unknown> | null {
 	try {
-		// Reject data that is too old, or timestamped in the future (clock skew aside)
 		const age = Date.now() - timestamp;
-		if (age > maxAge || age < -10_000) {
-			console.error('Data is too old or timestamped in the future:', { age, maxAge, timestamp, now: Date.now() });
-			return null;
-		}
+		if (age > maxAge || age < -10_000) return null;
 
-		// Verify signature with a 5-second window, checking ±1 window for edge cases
-		const expectedSignature = generateSignature(encodedData, timestamp);
-		const prevSignature = generateSignature(encodedData, timestamp - 5000);
-		const nextSignature = generateSignature(encodedData, timestamp + 5000);
+		const accepted = [timestamp - SIGNATURE_WINDOW_MS, timestamp, timestamp + SIGNATURE_WINDOW_MS]
+			.map(t => generateSignature(encodedData, t));
+		if (!accepted.includes(signature)) return null;
 
-		if (signature !== expectedSignature &&
-			signature !== prevSignature &&
-			signature !== nextSignature) {
-			console.error('Invalid signature:', {
-				provided: signature,
-				expected: expectedSignature,
-				prev: prevSignature,
-				next: nextSignature,
-				timestamp,
-				dataLength: encodedData.length
-			});
-			return null;
-		}
-
-		// Decode the base64 data
-		const decodedStr = decodeURIComponent(escape(atob(encodedData)));
-		return JSON.parse(decodedStr);
-	} catch (error) {
-		console.error('Error in verifyAndDecryptClientData:', {
-			error,
-			dataLength: encodedData?.length,
-			timestamp,
-			signature
-		});
+		return JSON.parse(Buffer.from(encodedData, 'base64').toString('utf-8'));
+	} catch {
 		return null;
 	}
 }

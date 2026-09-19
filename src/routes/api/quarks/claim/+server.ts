@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDailyCap, getDailyQuestCount, pickDailyQuests, QUEST_POOL } from '$data/dailyQuests';
-import { verifyAndDecryptClientData } from '$lib/server/obfuscation.server';
-import { quarksService, resolveUserFromRequest } from '$lib/server/supabase.server';
+import { quarksService } from '$lib/server/supabase.server';
+import { readVerifiedRequest } from '$lib/server/verifiedRequest.server';
 
 function todayUtcDayKey(): string {
 	return new Date().toISOString().slice(0, 10);
@@ -10,26 +10,17 @@ function todayUtcDayKey(): string {
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const userId = await resolveUserFromRequest(request);
-		if (!userId) {
-			return json({ error: 'No authorization header' }, { status: 401 });
-		}
+		const verified = await readVerifiedRequest(request);
+		if (verified instanceof Response) return verified;
 
-		const { data: encryptedData, signature, timestamp } = await request.json();
-		const data = verifyAndDecryptClientData(encryptedData, signature, timestamp);
-		if (!data) {
-			return json({ error: 'Invalid or expired data' }, { status: 400 });
-		}
-
-		const { questId } = data;
+		const { questId } = verified.data;
 		if (typeof questId !== 'string') {
 			return json({ error: 'Invalid questId' }, { status: 400 });
 		}
 
-		// Quest eligibility relies on the player's local save, so the server verifies the pool and derives
-		// the reward from its own definition rather than accepting a client-supplied amount.
+		// Quest eligibility lives in the local save, so the server only checks the pool and derives the reward itself.
 		const dayKey = todayUtcDayKey();
-		const entitlements = await quarksService.getEntitlements(userId);
+		const entitlements = await quarksService.getEntitlements(verified.userId);
 		const todaysQuests = pickDailyQuests(dayKey, getDailyQuestCount(entitlements));
 		const quest = QUEST_POOL.find(candidate => candidate.id === questId);
 		if (!quest) {
@@ -39,7 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: 'The Third Daily Quest upgrade is required' }, { status: 400 });
 		}
 
-		const result = await quarksService.grantQuarks(userId, quest.reward, 'quest', `quest:${dayKey}:${questId}`, getDailyCap(todaysQuests));
+		const result = await quarksService.grantQuarks(verified.userId, quest.reward, 'quest', `quest:${dayKey}:${questId}`, getDailyCap(todaysQuests));
 
 		return json(result);
 	} catch (error) {

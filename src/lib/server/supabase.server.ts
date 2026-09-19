@@ -3,7 +3,6 @@ import type { Database } from '$lib/types/supabase'
 import { PUBLIC_SUPABASE_URL } from '$env/static/public'
 import { SUPABASE_SECRET_KEY } from '$env/static/private'
 
-// Server-side client with service role key for admin operations
 export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
 	auth: {
 		autoRefreshToken: false,
@@ -11,8 +10,7 @@ export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABAS
 	}
 })
 
-// Resolves the caller's identity from a Supabase session token. Never trust a userId supplied
-// in a request payload - see "Leaderboard writes" in CLAUDE.md for why.
+/** The caller's identity comes from their session token only: user ids are public in the leaderboard, so a payload-supplied one is worthless. */
 export async function resolveUserFromRequest(request: Request): Promise<string | null> {
 	const authHeader = request.headers.get('Authorization');
 	if (!authHeader) return null;
@@ -24,7 +22,6 @@ export async function resolveUserFromRequest(request: Request): Promise<string |
 	return user.id;
 }
 
-// Helper functions for leaderboard operations
 export const leaderboardService = {
 	async getLeaderboard(limit: number = 1000) {
 		const { data, error } = await supabaseAdmin.rpc('get_leaderboard', {
@@ -79,24 +76,23 @@ export const leaderboardService = {
 	}
 }
 
-export interface QuarkGrantResult {
+interface QuarkGrantResult {
 	balance: number;
 	status: 'already_claimed' | 'cap_reached' | 'ok';
 }
 
-export interface QuarkPurchaseResult {
+interface QuarkPurchaseResult {
 	balance: number;
 	status: 'already_owned' | 'insufficient_balance' | 'ok';
 }
 
-export interface QuarkRefundResult {
+interface QuarkRefundResult {
 	balance: number;
 	refunded?: number;
 	status: 'no_purchase_record' | 'not_owned' | 'ok';
 }
 
-// Helper functions for Quarks operations. Every write goes through these RPCs so the daily
-// cap, idempotency and refund-at-paid-price rules stay enforced atomically in Postgres.
+/** Every write goes through these RPCs so the daily cap, idempotency and refund-at-paid-price rules stay atomic in Postgres. */
 export const quarksService = {
 	async grantAchievementQuarks(userId: string, achievementIds: string[], reward: number): Promise<{ balance: number; granted: number }> {
 		const { data, error } = await supabaseAdmin.rpc('grant_achievement_quarks', {

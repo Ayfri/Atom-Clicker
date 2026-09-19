@@ -1,26 +1,16 @@
-// Simple client-side obfuscation - this is not cryptographically secure
-// but makes it harder to tamper with data in transit
-
 import { generateSignature } from './signing';
 
-export function obfuscateClientData(data: Record<string, any>) {
-	try {
-		const timestamp = Date.now();
-		const dataStr = JSON.stringify(data);
+/** Base64 + a signature so a payload can't be casually edited in transit. Not encryption, see signing.ts. */
+export function obfuscateClientData(data: Record<string, unknown>) {
+	const timestamp = Date.now();
+	const bytes = new TextEncoder().encode(JSON.stringify(data));
+	let binary = '';
+	for (const byte of bytes) binary += String.fromCharCode(byte);
+	const encodedData = btoa(binary);
 
-		// Encode the data in base64
-		const encodedData = btoa(unescape(encodeURIComponent(dataStr)));
-
-		// Generate a signature to prevent tampering
-		const signature = generateSignature(encodedData, timestamp);
-
-		return {
-			data: encodedData,
-			signature,
-			timestamp
-		};
-	} catch (error) {
-		console.error('Error in obfuscateClientData:', error);
-		throw error;
-	}
+	return {
+		data: encodedData,
+		signature: generateSignature(encodedData, timestamp),
+		timestamp
+	};
 }
