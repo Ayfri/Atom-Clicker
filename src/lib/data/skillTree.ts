@@ -546,7 +546,8 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
 		const previousBuildingType = BUILDING_TYPES[i - 1];
-		const baseCost = 5_000_000 * Math.pow(10, i);
+		// 30x per node so the branch spans several protonise runs instead of being fully bought at 5e14 atoms in the first one.
+		const baseCost = 5_000_000 * Math.pow(30, i);
 
 		return {
 			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
