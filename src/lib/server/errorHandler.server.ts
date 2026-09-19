@@ -1,6 +1,7 @@
 import { dev } from '$app/environment';
 import { supabaseAdmin } from './supabase.server';
 import type { Json } from '$lib/types/supabase';
+import { isNoiseError } from '$lib/utils/errorNoise';
 
 export interface ServerErrorReport {
 	browserInfo?: Record<string, unknown> | null;
@@ -40,6 +41,9 @@ export async function logError(report: ServerErrorReport): Promise<{ id: string 
 	}
 
 	const { browserInfo, errorMessage, gameState, stackTrace, url, userId } = report;
+
+	// Filtered here as well so reports from builds that predate the client-side filter stay out of Discord
+	if (isNoiseError(errorMessage, stackTrace ?? null)) return null;
 
 	const isDuplicate = await isDuplicateError(errorMessage, stackTrace || null);
 	if (isDuplicate) {
