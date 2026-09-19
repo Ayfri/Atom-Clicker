@@ -5,7 +5,8 @@
 	import SkillNode from '@components/game/SkillNode.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import Modal from '@components/ui/Modal.svelte';
-	import { CurrenciesTypes } from '$data/currencies';
+	import Value from '@components/ui/Value.svelte';
+	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { RealmTypes } from '$data/realms';
 	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
@@ -23,6 +24,28 @@
 	let showHiddenSkills = $state(false);
 
 	const nodeTypes = { skill: SkillNode };
+
+	const SKILL_CURRENCIES: CurrencyName[] = [
+		CurrenciesTypes.ATOMS,
+		CurrenciesTypes.PROTONS,
+		CurrenciesTypes.ELECTRONS,
+		CurrenciesTypes.PHOTONS,
+	];
+
+	function isCurrencyUnlocked(currency: CurrencyName): boolean {
+		return (
+			currency === CurrenciesTypes.ATOMS ||
+			(currency === CurrenciesTypes.PROTONS && gameManager.canProtonise) ||
+			(currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0) ||
+			(currency === CurrenciesTypes.PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
+			(currency === CurrenciesTypes.EXCITED_PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
+			(currency === CurrenciesTypes.HIGGS_BOSON && gameManager.realms[RealmTypes.PHOTONS].unlocked)
+		);
+	}
+
+	const balances = $derived(
+		SKILL_CURRENCIES.filter(isCurrencyUnlocked).map(currency => ({ amount: currenciesManager.getAmount(currency), currency })),
+	);
 
 	let ready = $state(false);
 	let nodes = $state.raw<Node[]>([]);
@@ -104,15 +127,6 @@
 		nodes = skillList
 			.filter((skill) => visibleSkillIds.has(skill.id))
 			.map((skill) => {
-				const currency = skill.cost.currency;
-				const currencyUnlocked =
-					currency === CurrenciesTypes.ATOMS ||
-					(currency === CurrenciesTypes.PROTONS && gameManager.canProtonise) ||
-					(currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0) ||
-					(currency === CurrenciesTypes.PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
-					(currency === CurrenciesTypes.EXCITED_PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
-					(currency === CurrenciesTypes.HIGGS_BOSON && gameManager.realms[RealmTypes.PHOTONS].unlocked);
-
 				const unlocked = unlockedSkills.includes(skill.id);
 				const effectBreakdown = unlocked && skill.effects.length > 0
 					? skill.effects.map(effect => {
@@ -129,13 +143,14 @@
 					id: skill.id,
 					type: 'skill',
 					position: { ...skill.position },
-					width: 288,
-					height: 144,
+					width: 320,
+					height: 160,
 					data: {
 						...skill,
+						affordable: currenciesManager.getAmount(skill.cost.currency) >= skill.cost.amount,
 						available: canUnlockSkill(skill),
 						conditionMet: skill.condition === undefined || skill.condition(gameManager),
-						currencyUnlocked,
+						currencyUnlocked: isCurrencyUnlocked(skill.cost.currency),
 						effectBreakdown,
 						sourceHandles: Array.from(srcHandles.get(skill.id) ?? []),
 						targetHandles: Array.from(tgtHandles.get(skill.id) ?? []),
@@ -150,7 +165,7 @@
 
 <Modal {onClose} containerClass="m-2 !p-0 rounded-xl" width="lg">
 	{#snippet header()}
-		<div class="flex w-full items-center justify-between gap-4 pr-10">
+		<div class="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-10">
 			<div class="flex items-center gap-2">
 				<h2 class="text-2xl font-bold text-white">Skill Tree</h2>
 				<HelpIcon position="bottom">
@@ -162,6 +177,11 @@
 						</p>
 					{/snippet}
 				</HelpIcon>
+			</div>
+			<div class="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90">
+				{#each balances as { amount, currency } (currency)}
+					<Value value={amount} {currency} currencyClass="h-5 w-5" />
+				{/each}
 			</div>
 			{#if dev}
 				<button
