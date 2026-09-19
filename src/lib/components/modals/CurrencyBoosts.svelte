@@ -2,8 +2,11 @@
 	import Currency from '@components/ui/Currency.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
+	import { FeatureTypes } from '$data/features';
+	import { MAX_BOOST_POINTS } from '$lib/constants';
+	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { Minus, Plus, Zap } from '@lucide/svelte';
+	import { ChevronsRight, Minus, Plus, Scale, Zap } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -18,6 +21,10 @@
 		CurrenciesTypes.PHOTONS,
 		CurrenciesTypes.EXCITED_PHOTONS
 	];
+
+	const canAssignAll = $derived(gameManager.features[FeatureTypes.BOOST_ASSIGN_ALL]);
+	const canSplitEvenly = $derived(gameManager.features[FeatureTypes.BOOST_EVEN_SPLIT]);
+	const earnedCurrencies = $derived(boostableCurrencies.filter(currency => currenciesManager.getEarnedAllTime(currency) > 0));
 </script>
 
 <Modal {onClose} title="Currency Boost" width="sm">
@@ -34,11 +41,21 @@
 				</span>
 			</div>
 			<p class="mt-2 text-sm text-white/60">
-				Earn currency boosts by leveling up your buildings. Each point adds <span class="font-bold text-yellow-300">+10%</span> production to a currency (max 20 points per currency).
+				Earn currency boosts by leveling up your buildings. Each point adds <span class="font-bold text-yellow-300">+10%</span> production to a currency (max {MAX_BOOST_POINTS} points per currency).
 			</p>
 			<p class="mt-1 text-xs text-red-400/80">
 				Currency boost allocations reset on Protonise or Electronize.
 			</p>
+			{#if canSplitEvenly}
+				<button
+					class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400/15 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-30"
+					disabled={gameManager.skillPointsTotal <= 0}
+					onclick={() => gameManager.splitCurrencyBoostsEvenly(earnedCurrencies)}
+				>
+					<Scale size={16} />
+					Balance across {earnedCurrencies.length} currencies
+				</button>
+			{/if}
 		</div>
 
 		<!-- Currency list -->
@@ -65,11 +82,21 @@
 						<span class="w-8 text-center font-mono text-lg font-bold text-white">{points}</span>
 						<button
 							class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-							disabled={gameManager.skillPointsAvailable <= 0 || points >= 20}
+							disabled={gameManager.skillPointsAvailable <= 0 || points >= MAX_BOOST_POINTS}
 							onclick={() => gameManager.addCurrencyBoost(currencyName)}
 						>
 							<Plus size={16} />
 						</button>
+						{#if canAssignAll}
+							<button
+								class="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/15 text-yellow-300 transition hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-30"
+								disabled={gameManager.skillPointsAvailable <= 0 || points >= MAX_BOOST_POINTS}
+								onclick={() => gameManager.assignAllCurrencyBoosts(currencyName)}
+								title="Assign all free points"
+							>
+								<ChevronsRight size={16} />
+							</button>
+						{/if}
 					</div>
 				</div>
 			{/each}

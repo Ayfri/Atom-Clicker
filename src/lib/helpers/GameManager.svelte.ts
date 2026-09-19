@@ -8,7 +8,7 @@ import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '$data/powerUp'
 import { REALMS, RealmTypes } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
-import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
+import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
 import {
 	type Building,
 	type CurrencyBoosts,
@@ -195,7 +195,7 @@ export class GameManager {
 		return { count, levels };
 	});
 
-	// Currency Boost System (from building levels, 10% boost per point, max 20 per currency)
+	// Currency Boost System (from building levels, 10% boost per point, MAX_BOOST_POINTS per currency)
 	skillPointsTotal = $derived(this.buildingTotals.levels);
 	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
 	/** Summing a `$state` record walks the proxy for every key, and the milestone check reads this on every tick. */
@@ -454,13 +454,41 @@ export class GameManager {
 	addCurrencyBoost(currency: CurrencyName): boolean {
 		if (this.skillPointsAvailable <= 0) return false;
 		const currentPoints = this.skillPointBoosts[currency] ?? 0;
-		if (currentPoints >= 20) return false; // Max 20 per currency
+		if (currentPoints >= MAX_BOOST_POINTS) return false;
 
 		this.skillPointBoosts = {
 			...this.skillPointBoosts,
 			[currency]: currentPoints + 1,
 		};
 		return true;
+	}
+
+	assignAllCurrencyBoosts(currency: CurrencyName) {
+		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		const added = Math.min(this.skillPointsAvailable, MAX_BOOST_POINTS - currentPoints);
+		if (added <= 0) return;
+
+		this.skillPointBoosts = {
+			...this.skillPointBoosts,
+			[currency]: currentPoints + added,
+		};
+	}
+
+	/** Reassigns every point round-robin over the given currencies so they end up within one point of each other. */
+	splitCurrencyBoostsEvenly(currencies: CurrencyName[]) {
+		if (currencies.length === 0) return;
+		const boosts: CurrencyBoosts = {};
+		let remaining = this.skillPointsTotal;
+
+		for (let i = 0; remaining > 0 && i < currencies.length * MAX_BOOST_POINTS; i++) {
+			const currency = currencies[i % currencies.length];
+			const points = boosts[currency] ?? 0;
+			if (points >= MAX_BOOST_POINTS) continue;
+			boosts[currency] = points + 1;
+			remaining--;
+		}
+
+		this.skillPointBoosts = boosts;
 	}
 
 	removeCurrencyBoost(currency: CurrencyName): boolean {

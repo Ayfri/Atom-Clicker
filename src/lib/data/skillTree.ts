@@ -34,9 +34,7 @@ function createBuildingsSkillUpgrades(
 }
 
 export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 1 - FOUNDATION (Atoms, cheap)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	globalMultiplier: {
 		cost: { amount: 5_000, currency: CurrenciesTypes.ATOMS },
@@ -64,9 +62,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['globalMultiplier'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 2 - EARLY PROGRESSION (Atoms, medium)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	atomicStability: {
 		cost: { amount: 100_000, currency: CurrenciesTypes.ATOMS },
@@ -158,9 +154,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['atomicStability'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 3 - MID GAME (Atoms expensive / Protons cheap)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	nanoEnhancement: {
 		cost: { amount: 2_500_000, currency: CurrenciesTypes.ATOMS },
@@ -262,9 +256,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['powerUpMastery'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 4 - PROTON BRANCH (Protons) - Snakes UP on the left (negative y)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	stabilityField: {
 		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
@@ -275,6 +267,28 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		name: 'Stability Field',
 		position: gridPos(0, -1),
 		requires: ['globalMultiplier'],
+	},
+
+	boostAssignAll: {
+		cost: { amount: 100, currency: CurrenciesTypes.PROTONS },
+		description: 'Adds a Max button to each currency boost that assigns every free point at once',
+		effects: [],
+		feature: FeatureTypes.BOOST_ASSIGN_ALL,
+		id: 'boostAssignAll',
+		name: 'Boost Dump',
+		position: gridPos(0, -2),
+		requires: ['stabilityField'],
+	},
+
+	boostEvenSplit: {
+		cost: { amount: 500, currency: CurrenciesTypes.PROTONS },
+		description: 'Adds a Balance button that spreads your boost points evenly across every currency you have earned',
+		effects: [],
+		feature: FeatureTypes.BOOST_EVEN_SPLIT,
+		id: 'boostEvenSplit',
+		name: 'Boost Balancer',
+		position: gridPos(0, -3),
+		requires: ['boostAssignAll'],
 	},
 
 	electronHarvester: {
@@ -398,9 +412,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['stellarCore'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 5 - ELECTRON/PHOTON BRANCH (Snakes UP on the right)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	communityPower: {
 		cost: { amount: 1_000, currency: CurrenciesTypes.PROTONS },
@@ -504,9 +516,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['photonProtonBoost'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// BUILDING MULTIPLIER BRANCH (Left side, requires 100 of each building)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
 		const previousBuildingType = BUILDING_TYPES[i - 1];
@@ -532,9 +542,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		} satisfies SkillUpgrade;
 	}),
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// BUILDING LEVEL MASTERY BRANCH (Right side, building level-based bonuses)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
 		const previousBuildingType = BUILDING_TYPES[i - 1];
