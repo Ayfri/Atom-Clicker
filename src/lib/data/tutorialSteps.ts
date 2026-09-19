@@ -8,6 +8,8 @@ export interface TutorialStep {
 	condition?: () => boolean;
 	description: string;
 	id: string;
+	/** Overrides `placement` on phones, where the panel a tab opens sits right below it and a bottom callout would cover it. */
+	mobilePlacement?: TooltipPosition;
 	placement?: TooltipPosition;
 	/** Gates the step until this modal id is the currently open one (e.g. the player opened Protonise themselves). */
 	requiresModalOpen?: string;
@@ -33,13 +35,15 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
 		id: 'buildings-tab',
 		title: 'Buy Buildings',
 		description: 'Buildings produce atoms automatically over time. Buy your first one to start automating production.',
+		mobilePlacement: 'top',
 		placement: 'bottom',
-		targetSelector: '[data-tutorial-target="buildings-tab"]',
+		targetSelector: '[data-tutorial-target="buildings-tab"], [data-tutorial-target="buildings-panel"]',
 	},
 	{
 		id: 'upgrades-tab',
 		title: 'Purchase Upgrades',
 		description: 'Upgrades boost your production and click power. Check the Upgrades tab regularly for new ones to buy.',
+		mobilePlacement: 'top',
 		placement: 'bottom',
 		targetSelector: '[data-tutorial-target="upgrades-tab"]',
 	},
