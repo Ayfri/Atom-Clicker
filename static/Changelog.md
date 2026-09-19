@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Upgrades**: A Buy All button grabs every upgrade you can afford in one tap, cheapest first.
+
 # What's new 16-09-2026
 
 - **Install as an App**: Your browser can now install Atom Clicker like a regular app, on desktop and mobile.
