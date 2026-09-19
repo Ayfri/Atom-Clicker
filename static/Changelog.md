@@ -1,6 +1,7 @@
 # Unreleased
 
 - **Upgrades**: A Buy All button grabs every upgrade you can afford in one tap, cheapest first.
+- **Skill Tree**: The tree is regrouped into compact branches instead of long lines, the header shows your balances, and unaffordable costs turn red.
 
 # What's new 16-09-2026
 
