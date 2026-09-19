@@ -19,7 +19,6 @@ const DEDUP_WINDOW_MINUTES = 5;
 async function isDuplicateError(errorMessage: string, stackTrace: string | null): Promise<boolean> {
 	const windowStart = new Date(Date.now() - DEDUP_WINDOW_MINUTES * 60 * 1000).toISOString();
 
-	// Query for recent errors with same message and stack trace
 	const { data } = await supabaseAdmin
 		.from('error_logs')
 		.select('id')
@@ -42,14 +41,13 @@ export async function logError(report: ServerErrorReport): Promise<{ id: string 
 
 	const { browserInfo, errorMessage, gameState, stackTrace, url, userId } = report;
 
-	// Check for duplicate errors
 	const isDuplicate = await isDuplicateError(errorMessage, stackTrace || null);
 	if (isDuplicate) {
 		console.log('[ErrorHandler] Skipping duplicate error:', errorMessage.substring(0, 50));
 		return null;
 	}
 
-	// Insert into Supabase (Discord webhook handled by trigger)
+	// The Discord notification is a Postgres trigger on this insert
 	const { data, error: dbError } = await supabaseAdmin
 		.from('error_logs')
 		.insert({

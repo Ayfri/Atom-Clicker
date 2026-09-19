@@ -15,10 +15,8 @@
 		}
 
 		try {
-			// Handle Supabase auth callback
 			await supabaseAuth.init();
 
-			// Wait for auth state to settle (loading becomes false)
 			let retryCount = 0;
 			while (supabaseAuth.loading && retryCount < 50) {
 				await new Promise(resolve => setTimeout(resolve, 100));

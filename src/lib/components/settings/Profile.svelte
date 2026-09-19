@@ -136,8 +136,8 @@
 				await supabaseAuth.updateProfile(updates);
 			}
 			cancelEditing();
-		} catch (error: any) {
-			editError = error.message || 'Failed to update profile. Please try again.';
+		} catch (error) {
+			editError = error instanceof Error && error.message ? error.message : 'Failed to update profile. Please try again.';
 			isSaving = false;
 		}
 	}

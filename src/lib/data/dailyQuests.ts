@@ -52,7 +52,7 @@ export interface DailyQuest {
 }
 
 export const DAILY_QUEST_COUNT = 2;
-export const THIRD_DAILY_QUEST_ITEM_ID = 'convenience_third_daily_quest';
+const THIRD_DAILY_QUEST_ITEM_ID = 'convenience_third_daily_quest';
 
 export const QUEST_POOL: DailyQuest[] = [
 	{

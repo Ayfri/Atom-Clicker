@@ -3,7 +3,7 @@ import { CurrenciesTypes } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import type { SkillUpgrade } from '$lib/types';
 
-export const GRID_SIZE = {
+const GRID_SIZE = {
 	x: 400,
 	y: 200,
 };

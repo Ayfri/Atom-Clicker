@@ -11,9 +11,7 @@ export const FeatureTypes = {
 
 export type FeatureType = (typeof FeatureTypes)[keyof typeof FeatureTypes];
 
-export const DEFAULT_FEATURE_STATE = Object.fromEntries(Object.values(FeatureTypes).map(featureId => [featureId, false])) as FeatureState;
-
-export const createDefaultFeatureState = (): FeatureState => structuredClone(DEFAULT_FEATURE_STATE);
+export const createDefaultFeatureState = (): FeatureState => Object.fromEntries(Object.values(FeatureTypes).map(featureId => [featureId, false])) as FeatureState;
 
 export interface FeatureDefinition {
 	description: string;
@@ -57,7 +55,3 @@ export const FEATURES: Record<FeatureType, FeatureDefinition> = {
 		persistent: true,
 	},
 };
-
-export const PERSISTENT_FEATURE_IDS = Object.values(FEATURES)
-	.filter(feature => feature.persistent)
-	.map(feature => feature.id);

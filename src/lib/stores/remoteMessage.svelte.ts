@@ -21,7 +21,6 @@ export class RemoteMessageStore {
 		if (browser) {
 			this.dismissedIds = getJSON<string[]>('dismissed_messages', []);
 
-			// Reactively fetch message when supabase is available
 			$effect.root(() => {
 				$effect(() => {
 					if (supabaseAuth.supabase) {
@@ -96,16 +95,6 @@ export class RemoteMessageStore {
 
 	refresh() {
 		return this.fetchMessage();
-	}
-
-	// For compatibility with code using $remoteMessage
-	subscribe(fn: (value: RemoteMessageStore) => void) {
-		const unsubscribe = $effect.root(() => {
-			$effect(() => {
-				fn(this);
-			});
-		});
-		return unsubscribe;
 	}
 }
 

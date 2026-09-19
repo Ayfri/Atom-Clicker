@@ -13,7 +13,7 @@ interface WrappedSave {
 	v: number;
 }
 
-export function computeSaveChecksum(payload: string): string {
+function computeSaveChecksum(payload: string): string {
 	return simpleHash(payload).toString(36);
 }
 

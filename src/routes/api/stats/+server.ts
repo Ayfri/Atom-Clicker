@@ -14,7 +14,6 @@ export const GET: RequestHandler = async () => {
 			totalUsers: count || 0
 		}, {
 			headers: {
-				// Cache for 1 hour
 				'Cache-Control': 'public, max-age=3600'
 			}
 		});

@@ -2,7 +2,6 @@ import type { HandleClientError } from '@sveltejs/kit';
 import { initGlobalErrorHandlers, reportError } from '$lib/helpers/errorReporting';
 import { getItem, setItem } from '$lib/utils/safeLocalStorage';
 
-// Initialize global error handlers for uncaught errors
 initGlobalErrorHandlers();
 
 /** Cloudflare Workers serves only the current build, so a tab left open across a deploy asks for a chunk that is gone. */
@@ -30,7 +29,6 @@ function recoverFromStaleChunk(): boolean {
  * Catches unhandled errors and reports them to the server
  */
 export const handleError: HandleClientError = async ({ error, status, message }) => {
-	// Don't report 404 errors or other expected HTTP errors
 	if (status === 404) {
 		return { message: 'Page not found' };
 	}
@@ -42,14 +40,12 @@ export const handleError: HandleClientError = async ({ error, status, message })
 
 	console.error('[Client Error]', error);
 
-	// Report the error to our backend
 	if (error instanceof Error) {
 		await reportError(error);
 	} else {
 		await reportError(new Error(message || 'Unknown client error'));
 	}
 
-	// Return a user-friendly error message
 	return {
 		message: 'An unexpected error occurred. The error has been reported.'
 	};
