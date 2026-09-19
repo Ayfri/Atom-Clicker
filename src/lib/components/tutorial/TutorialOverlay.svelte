@@ -4,6 +4,7 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
 	import { ui } from '$stores/ui.svelte';
+	import { mobile } from '$stores/window.svelte';
 	import type { TooltipPosition } from '$stores/tooltip.svelte';
 	import { highlightCurrencies } from '$lib/utils/highlightCurrencies';
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
@@ -102,7 +103,7 @@
 	const calloutPosition = $derived.by(() => {
 		if (!visibleTargetRect || !calloutElement) return { left: margin, top: margin };
 
-		const placement = step?.placement ?? 'bottom';
+		const placement = (mobile.current ? step?.mobilePlacement : undefined) ?? step?.placement ?? 'bottom';
 		const viewportWidth = innerWidth.current ?? window.innerWidth;
 		const viewportHeight = innerHeight.current ?? window.innerHeight;
 		const calloutRect = calloutElement.getBoundingClientRect();

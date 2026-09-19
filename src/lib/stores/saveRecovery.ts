@@ -3,7 +3,7 @@ import { writable } from 'svelte/store';
 
 export type SaveErrorType = 'corrupted' | 'invalid_json' | 'migration_failed' | 'validation_failed' | 'unknown';
 
-export interface SaveRecoveryState {
+interface SaveRecoveryState {
 	hasError: boolean;
 	backupKey: string | null;
 	cloudSaveAvailable: boolean;

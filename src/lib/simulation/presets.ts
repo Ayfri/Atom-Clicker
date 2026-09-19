@@ -251,5 +251,3 @@ export const BOT_PROFILES = {
 		prestigeId: 'patient' as const,
 	},
 } as const;
-
-export type BotProfileName = keyof typeof BOT_PROFILES;

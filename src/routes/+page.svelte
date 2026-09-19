@@ -27,7 +27,7 @@
 	import RadiationRealm from '@components/prestige/RadiationRealm.svelte';
 	import AutoSaveIndicator from '@components/system/AutoSaveIndicator.svelte';
 	import Currency from '@components/ui/Currency.svelte';
-	import { onDestroy, onMount, type Component } from 'svelte';
+	import { onDestroy, onMount, untrack, type Component } from 'svelte';
 
 	// Realm component mapping
 	const realmComponents: Record<string, Component> = {
@@ -58,7 +58,7 @@
 	let saveLoop: ReturnType<typeof setInterval>;
 	let commitLoop: ReturnType<typeof setInterval>;
 	let hasCheckedCloudSaveOnLoad = false;
-	let authUnsubscribe: (() => void) | null = null;
+	let accountBootstrapped = $state(false);
 	let lastUpdateTime = 0;
 	let pendingAtoms = 0;
 	let quarkUserId: string | null = null;
@@ -105,20 +105,23 @@
 
 		quarkUserId = supabaseAuth.user?.id ?? null;
 		await Promise.all([quarkUserId ? quarksManager.sync() : Promise.resolve(), checkCloudSaveOnLoad()]);
+		accountBootstrapped = true;
+	}
 
-		authUnsubscribe = supabaseAuth.subscribe(() => {
-			const userId = supabaseAuth.user?.id ?? null;
+	$effect(() => {
+		const userId = supabaseAuth.user?.id ?? null;
+		const authenticated = supabaseAuth.isAuthenticated;
+		if (!accountBootstrapped) return;
+
+		untrack(() => {
 			if (userId !== quarkUserId) {
 				quarkUserId = userId;
 				if (userId) quarksManager.sync();
 				else quarksManager.clear();
 			}
-
-			if (supabaseAuth.isAuthenticated) {
-				checkCloudSaveOnLoad();
-			}
+			if (authenticated) checkCloudSaveOnLoad();
 		});
-	}
+	});
 
 	onMount(() => {
 		gameManager.initialize();
@@ -161,7 +164,6 @@
 		if (saveLoop) clearInterval(saveLoop);
 		clearInterval(commitLoop);
 		commitPendingAtoms();
-		if (authUnsubscribe) authUnsubscribe();
 		gameManager.cleanup();
 	});
 </script>

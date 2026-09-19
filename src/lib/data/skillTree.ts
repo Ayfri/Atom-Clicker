@@ -3,16 +3,23 @@ import { CurrenciesTypes } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import type { SkillUpgrade } from '$lib/types';
 
-export const GRID_SIZE = {
-	x: 400,
-	y: 200,
+export const SKILL_GRID = {
+	x: 440,
+	y: 240,
 };
 
 function gridPos(x: number, y: number) {
 	return {
-		x: x * GRID_SIZE.x,
-		y: y * GRID_SIZE.y,
+		x: x * SKILL_GRID.x,
+		y: y * SKILL_GRID.y,
 	};
+}
+
+/** Lays out the i-th node of a 3-tall block column by column, alternating direction so consecutive nodes stay adjacent, odd columns sit half a cell lower. */
+function snakePos(startX: number, startY: number, i: number, direction: 1 | -1) {
+	const column = Math.floor(i / 3);
+	const row = column % 2 === 0 ? i % 3 : 2.5 - (i % 3);
+	return gridPos(startX + column * direction, startY + row);
 }
 
 function createBuildingsSkillUpgrades(
@@ -27,9 +34,7 @@ function createBuildingsSkillUpgrades(
 }
 
 export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 1 - FOUNDATION (Atoms, cheap)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	globalMultiplier: {
 		cost: { amount: 5_000, currency: CurrenciesTypes.ATOMS },
@@ -57,9 +62,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['globalMultiplier'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 2 - EARLY PROGRESSION (Atoms, medium)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	atomicStability: {
 		cost: { amount: 100_000, currency: CurrenciesTypes.ATOMS },
@@ -86,7 +89,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'atomicStability',
 		name: 'Atomic Stability',
-		position: gridPos(-1, 1),
+		position: gridPos(-1, 0),
 		requires: ['globalMultiplier'],
 	},
 
@@ -147,13 +150,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'molecularBoost',
 		name: 'Molecular Boost',
-		position: gridPos(-2, 1),
+		position: gridPos(-2, 0),
 		requires: ['atomicStability'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// TIER 3 - MID GAME (Atoms expensive / Protons cheap)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	nanoEnhancement: {
 		cost: { amount: 2_500_000, currency: CurrenciesTypes.ATOMS },
@@ -168,7 +169,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'nanoEnhancement',
 		name: 'Nano Enhancement',
-		position: gridPos(-3, 2),
+		position: gridPos(-2, 1),
 		requires: ['molecularBoost'],
 	},
 
@@ -196,7 +197,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'biologicalAmplifier',
 		name: 'Biological Amplifier',
-		position: gridPos(-4, 2),
+		position: gridPos(-1, 1),
 		requires: ['nanoEnhancement'],
 	},
 
@@ -219,7 +220,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'geologicalForce',
 		name: 'Geological Force',
-		position: gridPos(-5, 3),
+		position: gridPos(-1, 2),
 		requires: ['biologicalAmplifier'],
 	},
 
@@ -251,13 +252,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.PURPLE_REALM,
 		id: 'purpleRealm',
 		name: 'Purple Realm',
-		position: gridPos(2, 3),
+		position: gridPos(1, 2.5),
 		requires: ['powerUpMastery'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// TIER 4 - PROTON BRANCH (Protons) - Goes UP (negative y)
-	// ═══════════════════════════════════════════════════════════════════════════
+	// TIER 4 - PROTON BRANCH (Protons) - Snakes UP on the left (negative y)
 
 	stabilityField: {
 		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
@@ -268,6 +267,28 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		name: 'Stability Field',
 		position: gridPos(0, -1),
 		requires: ['globalMultiplier'],
+	},
+
+	boostAssignAll: {
+		cost: { amount: 100, currency: CurrenciesTypes.PROTONS },
+		description: 'Adds a Max button to each currency boost that assigns every free point at once',
+		effects: [],
+		feature: FeatureTypes.BOOST_ASSIGN_ALL,
+		id: 'boostAssignAll',
+		name: 'Boost Dump',
+		position: gridPos(0, -2),
+		requires: ['stabilityField'],
+	},
+
+	boostEvenSplit: {
+		cost: { amount: 500, currency: CurrenciesTypes.PROTONS },
+		description: 'Adds a Balance button that spreads your boost points evenly across every currency you have earned',
+		effects: [],
+		feature: FeatureTypes.BOOST_EVEN_SPLIT,
+		id: 'boostEvenSplit',
+		name: 'Boost Balancer',
+		position: gridPos(0, -3),
+		requires: ['boostAssignAll'],
 	},
 
 	electronHarvester: {
@@ -282,7 +303,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'electronHarvester',
 		name: 'Electron Harvester',
-		position: gridPos(-1, -2),
+		position: gridPos(-1, -1),
 		requires: ['stabilityField'],
 	},
 
@@ -298,7 +319,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'protonCollector',
 		name: 'Proton Collector',
-		position: gridPos(-1, -3),
+		position: gridPos(-2, -1.5),
 		requires: ['electronHarvester'],
 	},
 
@@ -317,7 +338,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'prestigeBonus',
 		name: 'Prestige Bonus',
-		position: gridPos(-1, -4),
+		position: gridPos(-2, -2.5),
 		requires: ['protonCollector'],
 	},
 
@@ -337,7 +358,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'quantumResonance',
 		name: 'Quantum Resonance',
-		position: gridPos(-1, -5),
+		position: gridPos(-1, -2),
 		requires: ['prestigeBonus'],
 	},
 
@@ -368,7 +389,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'stellarCore',
 		name: 'Stellar Core',
-		position: gridPos(-1, -6),
+		position: gridPos(-1, -3),
 		requires: ['quantumResonance'],
 	},
 
@@ -387,13 +408,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'particleAccelerator',
 		name: 'Particle Accelerator',
-		position: gridPos(-1, -7),
+		position: gridPos(-2, -3.5),
 		requires: ['stellarCore'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// TIER 5 - ELECTRON/PHOTON BRANCH (Goes UP, right side)
-	// ═══════════════════════════════════════════════════════════════════════════
+	// TIER 5 - ELECTRON/PHOTON BRANCH (Snakes UP on the right)
 
 	communityPower: {
 		cost: { amount: 1_000, currency: CurrenciesTypes.PROTONS },
@@ -410,7 +429,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'communityPower',
 		name: 'Community Power',
-		position: gridPos(1, -2),
+		position: gridPos(1, -1),
 		requires: ['stabilityField'],
 	},
 
@@ -429,7 +448,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'cosmicSynergy',
 		name: 'Cosmic Synergy',
-		position: gridPos(1, -3),
+		position: gridPos(2, -1.5),
 		requires: ['communityPower'],
 	},
 
@@ -442,7 +461,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.HOVER_COLLECTION,
 		id: 'hoverCollection',
 		name: 'Quantum Magnetism',
-		position: gridPos(1, -4),
+		position: gridPos(2, -2.5),
 		requires: ['cosmicSynergy'],
 	},
 
@@ -463,7 +482,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'photonEfficiency',
 		name: 'Photon Efficiency',
-		position: gridPos(1, -5),
+		position: gridPos(1, -2),
 		requires: ['hoverCollection'],
 	},
 
@@ -482,7 +501,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		],
 		id: 'photonProtonBoost',
 		name: 'Photon Proton Boost',
-		position: gridPos(1, -6),
+		position: gridPos(1, -3),
 		requires: ['photonEfficiency'],
 	},
 
@@ -493,13 +512,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.RADIATION_REALM,
 		id: 'radiationRealm',
 		name: 'Radiation Realm',
-		position: gridPos(1, -7),
+		position: gridPos(2, -3.5),
 		requires: ['photonProtonBoost'],
 	},
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// BUILDING MULTIPLIER BRANCH (Left side, requires 100 of each building)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
 		const previousBuildingType = BUILDING_TYPES[i - 1];
@@ -520,18 +537,17 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 			],
 			id: `${buildingType}Multiplier`,
 			name: `${building.name} Multiplier`,
-			position: gridPos(-6 + Math.floor(i / 3), 4 + (i % 3)),
+			position: snakePos(-2, 2, i, -1),
 			requires: previousBuildingType ? [`${previousBuildingType}Multiplier`] : ['geologicalForce'],
 		} satisfies SkillUpgrade;
 	}),
 
-	// ═══════════════════════════════════════════════════════════════════════════
 	// BUILDING LEVEL MASTERY BRANCH (Right side, building level-based bonuses)
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	...createBuildingsSkillUpgrades((buildingType, building, i) => {
 		const previousBuildingType = BUILDING_TYPES[i - 1];
-		const baseCost = 5_000_000 * Math.pow(10, i);
+		// 30x per node so the branch spans several protonise runs instead of being fully bought at 5e14 atoms in the first one.
+		const baseCost = 5_000_000 * Math.pow(30, i);
 
 		return {
 			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
@@ -550,7 +566,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 			],
 			id: `${buildingType}LevelMastery`,
 			name: `${building.name} Level Mastery`,
-			position: gridPos(3 + Math.floor(i / 3), 1 + (i % 3)),
+			position: snakePos(3, 0, i, 1),
 			requires: previousBuildingType ? [`${previousBuildingType}LevelMastery`] : ['levelMastery'],
 		} satisfies SkillUpgrade;
 	}),

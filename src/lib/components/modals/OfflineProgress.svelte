@@ -58,6 +58,7 @@
 
 	function handleClose() {
 		gameManager.clearOfflineProgressSummary();
+		onClose();
 	}
 </script>
 

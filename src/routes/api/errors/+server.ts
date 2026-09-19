@@ -1,125 +1,73 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { logError } from '$lib/server/errorHandler.server';
+import { resolveUserFromRequest } from '$lib/server/supabase.server';
 
-// Allowed origins for CORS
-const ALLOWED_ORIGINS = [
-	'https://atom-clicker.ayfri.com', // Production domain
-	'https://dev-atom-clicker.ayfri.workers.dev', // Dev domain
-];
+const MAX_BODY_BYTES = 64 * 1024;
+const MAX_MESSAGE_LENGTH = 2_000;
+const MAX_STACK_LENGTH = 16_000;
+const MAX_URL_LENGTH = 2_048;
+const MAX_JSON_FIELD_BYTES = 8_000;
 
-function isValidOrigin(origin: string | null): boolean {
-	if (!origin) return false;
-	return ALLOWED_ORIGINS.includes(origin);
-}
-
-function createCorsResponse(data: unknown, options: { status?: number } = {}) {
-	return json(data, {
-		status: options.status || 200,
-		headers: {
-			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': 'POST, OPTIONS',
-			'Access-Control-Allow-Headers': 'Content-Type',
-			'Access-Control-Max-Age': '86400'
-		}
-	});
-}
-
-// Rate limiting to prevent spam - sliding window implementation
-const errorRateLimit = new Map<string, number[]>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_WINDOW = 60 * 1000;
 const MAX_ERRORS_PER_WINDOW = 10;
+const MAX_TRACKED_IPS = 10_000;
 
-// Periodic cleanup to prevent memory leaks
-function cleanupRateLimitMap() {
-	const now = Date.now();
-	for (const [ip, timestamps] of errorRateLimit) {
-		const validTimestamps = timestamps.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
-		if (validTimestamps.length === 0) {
-			errorRateLimit.delete(ip);
-		} else {
-			errorRateLimit.set(ip, validTimestamps);
-		}
-	}
-}
-
-// Run cleanup every 5 minutes
-if (typeof globalThis !== 'undefined') {
-	setInterval(cleanupRateLimitMap, 5 * 60 * 1000);
-}
+/** Per-isolate on Workers, so this is a best-effort throttle rather than a hard limit. */
+const errorRateLimit = new Map<string, number[]>();
 
 function isRateLimited(clientIp: string): boolean {
 	const now = Date.now();
-	const timestamps = errorRateLimit.get(clientIp) || [];
+	const timestamps = (errorRateLimit.get(clientIp) || []).filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
+	if (timestamps.length >= MAX_ERRORS_PER_WINDOW) return true;
 
-	// Remove timestamps outside the window
-	const validTimestamps = timestamps.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
-
-	// Update the map with cleaned timestamps
-	if (validTimestamps.length === 0) {
-		errorRateLimit.delete(clientIp);
-	} else {
-		errorRateLimit.set(clientIp, validTimestamps);
-	}
-
-	// Check if under limit
-	if (validTimestamps.length >= MAX_ERRORS_PER_WINDOW) {
-		return true; // Rate limited
-	}
-
-	// Add current timestamp
-	validTimestamps.push(now);
-	errorRateLimit.set(clientIp, validTimestamps);
-
-	return false; // Not rate limited
+	if (errorRateLimit.size >= MAX_TRACKED_IPS) errorRateLimit.clear();
+	timestamps.push(now);
+	errorRateLimit.set(clientIp, timestamps);
+	return false;
 }
 
-export const OPTIONS: RequestHandler = async ({ request }) => {
-	const origin = request.headers.get('origin');
+function clampString(value: unknown, maxLength: number): string | null {
+	return typeof value === 'string' ? value.slice(0, maxLength) : null;
+}
 
-	if (!isValidOrigin(origin)) {
-		return json({ error: 'Origin not allowed' }, { status: 403 });
-	}
-
-	return createCorsResponse({ success: true });
-};
+function clampJson(value: unknown): Record<string, unknown> | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	return JSON.stringify(value).length > MAX_JSON_FIELD_BYTES ? { truncated: true } : value as Record<string, unknown>;
+}
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	try {
-		const origin = request.headers.get('origin');
-
-		// Validate origin
-		if (!isValidOrigin(origin)) {
-			return createCorsResponse({ error: 'Origin not allowed' }, { status: 403 });
+		if (isRateLimited(getClientAddress())) {
+			return json({ error: 'Rate limit exceeded' }, { status: 429 });
 		}
 
-		const clientIp = getClientAddress();
-
-		// Check rate limiting
-		if (isRateLimited(clientIp)) {
-			return createCorsResponse({ error: 'Rate limit exceeded' }, { status: 429 });
+		const rawBody = await request.text();
+		if (rawBody.length > MAX_BODY_BYTES) {
+			return json({ error: 'Payload too large' }, { status: 413 });
 		}
 
-		const body = await request.json();
-
-		// Validate required fields
-		if (!body.errorMessage || typeof body.errorMessage !== 'string') {
-			return createCorsResponse({ error: 'Missing error message' }, { status: 400 });
+		const body: Record<string, unknown> = JSON.parse(rawBody);
+		const errorMessage = clampString(body.errorMessage, MAX_MESSAGE_LENGTH);
+		if (!errorMessage) {
+			return json({ error: 'Missing error message' }, { status: 400 });
 		}
 
-		// Log the error
+		// The reporter's identity comes from its session token, never from the payload.
+		const userId = await resolveUserFromRequest(request);
+
 		const result = await logError({
-			browserInfo: body.browserInfo || null,
-			errorMessage: body.errorMessage,
-			gameState: body.gameState || null,
-			stackTrace: body.stackTrace || null,
-			url: body.url || null,
-			userId: body.userId || null
+			browserInfo: clampJson(body.browserInfo),
+			errorMessage,
+			gameState: clampJson(body.gameState),
+			stackTrace: clampString(body.stackTrace, MAX_STACK_LENGTH),
+			url: clampString(body.url, MAX_URL_LENGTH),
+			userId
 		});
 
-		return createCorsResponse({ id: result?.id ?? null, success: true });
+		return json({ id: result?.id ?? null, success: true });
 	} catch (error) {
 		console.error('[ErrorAPI] Failed to process error report:', error);
-		return createCorsResponse({ error: 'Failed to log error' }, { status: 500 });
+		return json({ error: 'Failed to log error' }, { status: 500 });
 	}
 };

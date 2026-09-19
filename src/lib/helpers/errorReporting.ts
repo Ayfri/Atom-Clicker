@@ -1,6 +1,7 @@
 import { browser, dev, version } from '$app/environment';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { gameManager } from '$helpers/GameManager.svelte';
+import { isNoiseError } from '$lib/utils/errorNoise';
 import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 
 /** Client context, stored as `browser_info`, everything here identifies the runtime rather than the player. */
@@ -15,18 +16,16 @@ export interface BrowserInfo {
 	userAgent: string;
 }
 
-export interface ErrorReport {
+interface ErrorReport {
 	browserInfo: BrowserInfo | null;
 	errorMessage: string;
 	gameState: Record<string, unknown> | null;
 	stackTrace: string | null;
 	url: string | null;
-	userId: string | null;
 }
 
-// Deduplication cache - stores hashes of recent errors to avoid sending duplicates
 const recentErrorHashes = new Set<string>();
-const DEDUP_WINDOW = 5 * 60 * 1000; // 5 minutes
+const DEDUP_WINDOW = 5 * 60 * 1000;
 
 const SESSION_ID = createSessionId();
 
@@ -40,43 +39,12 @@ function createSessionId(): string {
 	}
 }
 
-/** Frames that belong to somebody else's code, an extension, an injected script or our analytics loader. */
-const THIRD_PARTY_FRAME_PATTERN = /chrome-extension:\/\/|moz-extension:\/\/|safari-web-extension:\/\/|ms-browser-extension:\/\/|\/cdn-cgi\/|\[native code\]/;
-
-/** Our own bundle, every chunk Vite emits is served under `/_app/`. */
-const APP_FRAME_PATTERN = /\/_app\//;
-
-/** Stackless errors surfaced by extensions or injected scripts, none of these strings exist in the codebase. */
-const THIRD_PARTY_MESSAGE_PATTERNS = [
-	/^Request timeout /,
-	/^The string did not match the expected pattern\.$/,
-	/WKWebView API client did not respond to this postMessage/,
-	/is not defined$/,
-	/el\.click is not a function/,
-	/Cannot read properties of undefined \(reading '_source'\)/,
-];
-
 const CRAWLER_UA_PATTERN = /bot|crawler|spider|crawling|bingpreview|slurp|headlesschrome/i;
 
-/**
- * Zaraz frames carry a `?z=<base64>` payload that encodes the player's referrer and inflates the field
- */
+/** Zaraz frames carry a `?z=<base64>` payload that encodes the player's referrer and inflates the field. */
 function sanitizeStackTrace(stackTrace: string | null): string | null {
 	if (!stackTrace) return null;
 	return stackTrace.replace(/\?z=[^\s):]*/g, '');
-}
-
-/**
- * Drops reports with no frame from our own bundle. Our errors thrown inside an extension-triggered
- * callback still carry app frames, so anchoring on "has at least one app frame" keeps real bugs.
- */
-export function isThirdPartyError(errorMessage: string, stackTrace: string | null): boolean {
-	if (stackTrace) {
-		if (APP_FRAME_PATTERN.test(stackTrace)) return false;
-		return THIRD_PARTY_FRAME_PATTERN.test(stackTrace) || THIRD_PARTY_MESSAGE_PATTERNS.some(pattern => pattern.test(errorMessage));
-	}
-
-	return THIRD_PARTY_MESSAGE_PATTERNS.some(pattern => pattern.test(errorMessage));
 }
 
 /** A bot hitting a dead chunk or a broken page is not actionable. */
@@ -84,36 +52,16 @@ function isCrawler(): boolean {
 	return browser && CRAWLER_UA_PATTERN.test(navigator.userAgent);
 }
 
-/**
- * Creates a hash for deduplication based on error message and stack trace
- */
-function getErrorHash(errorMessage: string, stackTrace: string | null): string {
-	// Use first 500 chars of stack trace for hash (to catch same errors)
-	const stackKey = stackTrace?.substring(0, 500) || '';
-	return `${errorMessage}::${stackKey}`;
-}
-
-/**
- * Checks if this error was recently reported (deduplication)
- */
 function isDuplicateError(errorMessage: string, stackTrace: string | null): boolean {
-	const hash = getErrorHash(errorMessage, stackTrace);
+	const hash = `${errorMessage}::${stackTrace?.substring(0, 500) || ''}`;
+	if (recentErrorHashes.has(hash)) return true;
 
-	if (recentErrorHashes.has(hash)) {
-		return true;
-	}
-
-	// Add to cache and schedule removal
 	recentErrorHashes.add(hash);
 	setTimeout(() => recentErrorHashes.delete(hash), DEDUP_WINDOW);
-
 	return false;
 }
 
-/**
- * Captures browser information for error reports
- */
-export function getBrowserInfo(): BrowserInfo | null {
+function getBrowserInfo(): BrowserInfo | null {
 	if (!browser) return null;
 
 	return {
@@ -126,11 +74,8 @@ export function getBrowserInfo(): BrowserInfo | null {
 	};
 }
 
-/**
- * Captures an explicit summary of the game state, an allow-list rather than the whole
- * state, so the payload stays small and a newly saved field never leaks in by accident
- */
-export function captureGameState(): Record<string, unknown> | null {
+/** An allow-list rather than the whole state, so the payload stays small and a newly saved field never leaks in by accident. */
+function captureGameState(): Record<string, unknown> | null {
 	if (!browser) return null;
 
 	try {
@@ -161,7 +106,7 @@ export function captureGameState(): Record<string, unknown> | null {
 			protons: amount(CurrenciesTypes.PROTONS),
 			radiationMass: state.radiation?.mass ?? 0,
 			radiationUnlocked: state.radiation?.unlocked ?? false,
-			// Which realm is on screen, every realm stays mounted so this is the visible one only
+			// Every realm stays mounted, so this is the visible one only
 			realm: state.selectedRealmId ?? null,
 			saveTampered: gameManager.saveIntegrityTampered,
 			saveWarnings: gameManager.saveIntegrityWarnings,
@@ -172,28 +117,11 @@ export function captureGameState(): Record<string, unknown> | null {
 			version: state.version
 		};
 	} catch {
-		// If we can't capture state, return null rather than crashing
 		return null;
 	}
 }
 
-/**
- * Gets the current user ID from the auth store
- */
-export function getCurrentUserId(): string | null {
-	if (!browser) return null;
-
-	try {
-		return supabaseAuth.user?.id ?? null;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Creates a full error report with all available context
- */
-export function createErrorReport(error: Error | string): ErrorReport {
+function createErrorReport(error: Error | string): ErrorReport {
 	const errorMessage = error instanceof Error ? error.message : String(error);
 	const stackTrace = error instanceof Error ? error.stack ?? null : null;
 
@@ -202,14 +130,10 @@ export function createErrorReport(error: Error | string): ErrorReport {
 		errorMessage,
 		gameState: captureGameState(),
 		stackTrace: sanitizeStackTrace(stackTrace),
-		url: browser ? window.location.href : null,
-		userId: getCurrentUserId()
+		url: browser ? window.location.href : null
 	};
 }
 
-/**
- * Sends an error report to the server
- */
 export async function reportError(error: Error | string): Promise<void> {
 	if (!browser) return;
 
@@ -222,49 +146,47 @@ export async function reportError(error: Error | string): Promise<void> {
 
 	try {
 		const report = createErrorReport(error);
+		if (isNoiseError(report.errorMessage, report.stackTrace)) return;
+		if (isDuplicateError(report.errorMessage, report.stackTrace)) return;
 
-		if (isThirdPartyError(report.errorMessage, report.stackTrace)) {
-			console.log('[ErrorReporting] Skipping third-party error');
-			return;
-		}
-
-		// Skip if this is a duplicate error
-		if (isDuplicateError(report.errorMessage, report.stackTrace)) {
-			console.log('[ErrorReporting] Skipping duplicate error');
-			return;
-		}
+		// The server attributes the report to the session behind this token, so an unauthenticated report stays anonymous.
+		const token = await supabaseAuth.getAccessToken().catch(() => null);
+		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+		if (token) headers.Authorization = `Bearer ${token}`;
 
 		await fetch('/api/errors', {
 			body: JSON.stringify(report),
-			headers: {
-				'Content-Type': 'application/json'
-			},
+			headers,
 			method: 'POST'
 		});
 	} catch {
-		// Silently fail - we don't want error reporting to cause more errors
 		console.error('[ErrorReporting] Failed to report error');
 	}
 }
 
 /**
- * Initializes global error handlers for uncaught errors
- * Call this once on app startup
+ * Errors thrown by extension content scripts fail `instanceof Error` (other realm), and `new Error(String(reason))`
+ * would stamp our own frame on them, so the original message and stack are carried over as-is.
  */
+function toReportable(reason: unknown): Error | string {
+	if (reason instanceof Error) return reason;
+	if (reason && typeof reason === 'object' && 'message' in reason && typeof reason.message === 'string') {
+		const error = new Error(reason.message);
+		error.stack = 'stack' in reason && typeof reason.stack === 'string' ? reason.stack : undefined;
+		return error;
+	}
+	return String(reason);
+}
+
 export function initGlobalErrorHandlers(): void {
 	if (!browser) return;
 
-	// Catch unhandled promise rejections
 	window.addEventListener('unhandledrejection', (event) => {
-		const error = event.reason instanceof Error
-			? event.reason
-			: new Error(String(event.reason));
-		reportError(error);
+		reportError(toReportable(event.reason));
 	});
 
-	// Catch global JS errors
 	window.addEventListener('error', (event) => {
-		// Skip if it's a script loading error (no stack trace)
+		// Script loading errors carry no error object and nothing actionable
 		if (!event.error) return;
 		reportError(event.error);
 	});

@@ -92,7 +92,7 @@ export const statsConfig: Record<string, StatConfig> = {
 	upgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1 },
 };
 
-export const STATS = {
+const STATS = {
 	ACHIEVEMENTS: 'achievements',
 	ACTIVE_POWER_UPS: 'activePowerUps',
 	BUILDINGS: 'buildings',
@@ -124,8 +124,6 @@ export const STATS = {
 	UPGRADES: 'upgrades',
 } as const;
 
-export type StatName = (typeof STATS)[keyof typeof STATS];
-
 export const NUMBER_STATS = [
 	STATS.HIGHEST_APS,
 	STATS.IN_GAME_TIME,
@@ -145,6 +143,3 @@ export const NUMBER_STATS = [
 ] as const;
 
 export const ARRAY_STATS = [STATS.ACHIEVEMENTS, STATS.ACTIVE_POWER_UPS, STATS.SKILL_UPGRADES, STATS.UPGRADES] as const;
-
-export type NumberStatName = (typeof NUMBER_STATS)[number];
-export type ArrayStatName = (typeof ARRAY_STATS)[number];

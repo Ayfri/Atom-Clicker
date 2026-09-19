@@ -90,7 +90,7 @@
 			<ActivePowerUps />
 		</div>
 		{#if !mobile.current}
-			<div class="grid-area-[buildings] pt-12" data-tutorial-target="buildings-tab">
+			<div class="grid-area-[buildings] pt-12" data-tutorial-target="buildings-panel">
 				<Buildings />
 			</div>
 		{/if}

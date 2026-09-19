@@ -1,26 +1,20 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { verifyAndDecryptClientData } from '$lib/server/obfuscation.server';
-import { quarksService, resolveUserFromRequest } from '$lib/server/supabase.server';
+import { quarksService } from '$lib/server/supabase.server';
+import { readVerifiedRequest } from '$lib/server/verifiedRequest.server';
+
+const HIGGS_DROP_CHANCE = 1 / 300;
+/** A legit player clicks a few dozen power-ups a day, so anything past this is a script hammering the route. */
+const HIGGS_DAILY_CAP = 5;
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const userId = await resolveUserFromRequest(request);
-		if (!userId) {
-			return json({ error: 'No authorization header' }, { status: 401 });
-		}
+		const verified = await readVerifiedRequest(request);
+		if (verified instanceof Response) return verified;
 
-		const { data: encryptedData, signature, timestamp } = await request.json();
-		const data = verifyAndDecryptClientData(encryptedData, signature, timestamp);
-		if (!data) {
-			return json({ error: 'Invalid or expired data' }, { status: 400 });
-		}
+		if (Math.random() >= HIGGS_DROP_CHANCE) return json({ granted: 0 });
 
-		if (Math.random() >= 1 / 300) {
-			return json({ granted: 0 });
-		}
-
-		const result = await quarksService.grantQuarks(userId, 1, 'higgs_boson', `higgs:${crypto.randomUUID()}`);
+		const result = await quarksService.grantQuarks(verified.userId, 1, 'higgs_boson', `higgs:${crypto.randomUUID()}`, HIGGS_DAILY_CAP);
 		return json({ balance: result.balance, granted: result.status === 'ok' ? 1 : 0 });
 	} catch (error) {
 		console.error('Failed to grant Higgs Boson Quark:', error);

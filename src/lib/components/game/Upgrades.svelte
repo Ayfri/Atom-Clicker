@@ -1,7 +1,7 @@
 <script lang="ts">
 	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '$data/currencies';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { UPGRADES } from '$data/upgrades';
+	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '$data/upgrades';
 	import { ICONS } from '$data/icons';
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -44,6 +44,15 @@
 	});
 
 	let hasAutomation = $derived(getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0);
+
+	const gatedBoostTiers = $derived(selectedCurrency === CurrenciesTypes.ATOMS ? boostTiersUnlockedByNextProtonise(gameManager) : 0);
+
+	const affordableCount = $derived(availableUpgrades.filter(upgrade => !boughtUpgrades.has(upgrade.id) && gameManager.canAfford(upgrade.cost)).length);
+
+	function buyAll() {
+		// availableUpgrades is sorted cheapest first, so this drains the balance into as many upgrades as possible.
+		for (const upgrade of availableUpgrades) gameManager.purchaseUpgrade(upgrade.id);
+	}
 </script>
 
 <div id="upgrades" class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100vh-180px)]">
@@ -129,6 +138,15 @@
 				<Currency name={CurrenciesTypes.ELECTRONS} />
 			</button>
 		{/if}
+		{#if affordableCount > 3}
+			<button
+				class="ml-auto rounded-lg border border-accent-500/30 bg-accent-500/15 px-2 py-1 text-xs font-semibold text-accent-400 transition-all duration-200 hover:bg-accent-500/25 cursor-pointer"
+				onclick={buyAll}
+				title="Buy every affordable upgrade, cheapest first"
+			>
+				Buy all ({affordableCount})
+			</button>
+		{/if}
 	</div>
 
 	<div id="upgrades-list" class="flex-1 overflow-y-auto px-1 custom-scrollbar">
@@ -175,6 +193,11 @@
 					</div>
 				</button>
 			{/each}
+			{#if gatedBoostTiers > 0}
+				<p class="rounded-lg border border-dashed border-white/10 p-2 text-center text-xs text-white/50">
+					{gatedBoostTiers} more Boost tiers unlock after your next Protonise
+				</p>
+			{/if}
 		</div>
 	</div>
 </div>

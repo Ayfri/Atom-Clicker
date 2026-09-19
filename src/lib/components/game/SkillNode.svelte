@@ -15,6 +15,7 @@
 	}
 
 	interface SkillNodeData extends SkillUpgrade {
+		affordable: boolean;
 		available: boolean;
 		conditionMet: boolean;
 		currencyUnlocked: boolean;
@@ -42,7 +43,7 @@
 
 <div
 	aria-label="Unlock {isContentVisible ? skillData.name : '?????'}"
-	class="skill-node relative flex h-36 w-72 flex-col justify-center rounded-lg p-5 shadow-md transition {isFeature ? 'border-2' : ''} {(
+	class="skill-node relative flex h-40 w-80 flex-col justify-center rounded-lg p-5 shadow-md transition {isFeature ? 'border-2' : ''} {(
 		isFeature && !skillData.unlocked
 	) ?
 		'border-purple-400/50'
@@ -110,8 +111,8 @@
 	{/if}
 
 	<div class="flex flex-col gap-1.5">
-		<h3 class="text-lg font-semibold leading-tight">{isContentVisible ? skillData.name : '?????'}</h3>
-		<p class="text-sm leading-snug opacity-90">
+		<h3 class="text-xl font-semibold leading-tight">{isContentVisible ? skillData.name : '?????'}</h3>
+		<p class="text-base leading-snug opacity-90">
 			{#if !isContentVisible}
 				????? ????? ????? ????? ?????
 			{:else if isFeature && featureInfo}
@@ -122,8 +123,9 @@
 		</p>
 		{#if skillData.cost}
 			<div
-				class="mt-1 inline-flex items-center gap-1.5 text-sm font-medium"
+				class="mt-1 inline-flex items-center gap-1.5 text-base font-medium"
 				class:opacity-60={skillData.unlocked}
+				class:text-red-300={isContentVisible && !skillData.unlocked && !skillData.affordable}
 			>
 				{#if isContentVisible}
 					<Value
@@ -134,7 +136,7 @@
 					{#if skillData.unlocked}
 						<span class="text-[10px] uppercase text-white/70">(owned)</span>
 					{:else if !skillData.conditionMet && skillData.requirement}
-						<span class="text-[11px] text-amber-300">Requires: {skillData.requirement}</span>
+						<span class="text-xs text-amber-300">Requires: {skillData.requirement}</span>
 					{/if}
 				{:else}
 					<span class="text-white/40">Cost: ?????</span>

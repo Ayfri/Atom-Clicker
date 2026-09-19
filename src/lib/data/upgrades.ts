@@ -40,10 +40,24 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 	return upgrades;
 }
 
+/** Boost tiers 6-10, 11-15 and 16-20 each need one more protonise, so a first run tops out near 1e15 atoms instead of 1e29. */
+export const BUILDING_BOOST_TIERS_PER_PROTONISE = 5;
+
+export function boostTierProtonises(tier: number): number {
+	return Math.floor((tier - 1) / BUILDING_BOOST_TIERS_PER_PROTONISE);
+}
+
+/** Boost tiers of unlocked buildings that the next protonise opens, so the panel can say why the atom list ran dry. */
+export function boostTiersUnlockedByNextProtonise(manager: GameManager): number {
+	const unlockedBuildings = BUILDING_TYPES.filter(type => manager.buildings[type]?.unlocked).length;
+	return manager.totalProtonisesAllTime < 3 ? unlockedBuildings * BUILDING_BOOST_TIERS_PER_PROTONISE : 0;
+}
+
 function createBuildingUpgrades(buildingType: BuildingType) {
 	const building = BUILDINGS[buildingType];
 	return createUpgrades({
-		condition: (_, state) => state.buildings[buildingType]?.unlocked === true,
+		condition: (i, state) =>
+			state.buildings[buildingType]?.unlocked === true && state.totalProtonisesAllTime >= boostTierProtonises(i),
 		count: 20,
 		icon: BUILDING_ICON_NAMES[buildingType],
 		id: buildingType.toLowerCase(),

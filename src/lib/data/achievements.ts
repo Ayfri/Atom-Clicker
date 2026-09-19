@@ -8,7 +8,7 @@ import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies
 import { BUILDING_ICON_NAMES, CURRENCY_ICON_NAMES } from '$data/icons';
 import { SKILL_UPGRADES } from '$data/skillTree';
 
-export const SPECIAL_ACHIEVEMENTS: Achievement[] = [
+const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{
 		id: 'hidden_atom_clicked',
 		name: 'Atomic Discoverer',

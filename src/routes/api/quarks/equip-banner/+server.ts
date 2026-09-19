@@ -1,40 +1,32 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getQuarkShopItem } from '$data/quarkShop';
-import { verifyAndDecryptClientData } from '$lib/server/obfuscation.server';
-import { quarksService, resolveUserFromRequest } from '$lib/server/supabase.server';
+import { quarksService } from '$lib/server/supabase.server';
+import { readVerifiedRequest } from '$lib/server/verifiedRequest.server';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const userId = await resolveUserFromRequest(request);
-		if (!userId) {
-			return json({ error: 'No authorization header' }, { status: 401 });
-		}
+		const verified = await readVerifiedRequest(request);
+		if (verified instanceof Response) return verified;
 
-		const { data: encryptedData, signature, timestamp } = await request.json();
-		const data = verifyAndDecryptClientData(encryptedData, signature, timestamp);
-		if (!data) {
-			return json({ error: 'Invalid or expired data' }, { status: 400 });
-		}
-
-		const { itemId } = data;
+		const { itemId } = verified.data;
 		if (itemId !== null && typeof itemId !== 'string') {
 			return json({ error: 'Invalid itemId' }, { status: 400 });
 		}
 
-		if (itemId !== null) {
+		if (typeof itemId === 'string') {
 			const item = getQuarkShopItem(itemId);
 			if (!item || item.type !== 'banner') {
 				return json({ error: 'Unknown banner' }, { status: 400 });
 			}
 
-			const owned = await quarksService.getEntitlements(userId);
+			const owned = await quarksService.getEntitlements(verified.userId);
 			if (!owned.includes(itemId)) {
 				return json({ error: 'Banner not owned' }, { status: 403 });
 			}
 		}
 
-		await quarksService.equipBanner(userId, itemId);
+		await quarksService.equipBanner(verified.userId, itemId);
 
 		return json({ equippedBanner: itemId });
 	} catch (error) {

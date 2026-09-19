@@ -1,6 +1,8 @@
 import type { FeatureState } from '$lib/types';
 
 export const FeatureTypes = {
+	BOOST_ASSIGN_ALL: 'boost_assign_all',
+	BOOST_EVEN_SPLIT: 'boost_even_split',
 	HOVER_COLLECTION: 'hover_collection',
 	LEVELS: 'levels',
 	OFFLINE_PROGRESS: 'offline_progress',
@@ -11,9 +13,7 @@ export const FeatureTypes = {
 
 export type FeatureType = (typeof FeatureTypes)[keyof typeof FeatureTypes];
 
-export const DEFAULT_FEATURE_STATE = Object.fromEntries(Object.values(FeatureTypes).map(featureId => [featureId, false])) as FeatureState;
-
-export const createDefaultFeatureState = (): FeatureState => structuredClone(DEFAULT_FEATURE_STATE);
+export const createDefaultFeatureState = (): FeatureState => Object.fromEntries(Object.values(FeatureTypes).map(featureId => [featureId, false])) as FeatureState;
 
 export interface FeatureDefinition {
 	description: string;
@@ -23,6 +23,16 @@ export interface FeatureDefinition {
 }
 
 export const FEATURES: Record<FeatureType, FeatureDefinition> = {
+	[FeatureTypes.BOOST_ASSIGN_ALL]: {
+		description: 'Assign every free boost point to a currency in one click.',
+		id: FeatureTypes.BOOST_ASSIGN_ALL,
+		name: 'Boost Dump',
+	},
+	[FeatureTypes.BOOST_EVEN_SPLIT]: {
+		description: 'Spread your boost points evenly across every currency you have earned.',
+		id: FeatureTypes.BOOST_EVEN_SPLIT,
+		name: 'Boost Balancer',
+	},
 	[FeatureTypes.HOVER_COLLECTION]: {
 		description: 'Collect photons by hovering over them or touching them.',
 		id: FeatureTypes.HOVER_COLLECTION,
@@ -57,7 +67,3 @@ export const FEATURES: Record<FeatureType, FeatureDefinition> = {
 		persistent: true,
 	},
 };
-
-export const PERSISTENT_FEATURE_IDS = Object.values(FEATURES)
-	.filter(feature => feature.persistent)
-	.map(feature => feature.id);

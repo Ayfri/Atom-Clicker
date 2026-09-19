@@ -2,7 +2,7 @@ import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase
 import { browser } from '$app/environment';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
 import type { GameState } from '$lib/types';
-import type { Database, Profile } from '$lib/types/supabase';
+import type { Database, Json, Profile } from '$lib/types/supabase';
 import { isLocalStorageAvailable } from '$lib/utils/safeLocalStorage';
 import { multiTabDetector } from '$stores/multiTab.svelte';
 import { isValidGameState, SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
@@ -54,21 +54,18 @@ export class SupabaseAuth {
 
 			this.initialized = true;
 
-			// Get initial session
 			const {
 				data: { session },
 			} = await this.supabase.auth.getSession();
 			this.currentSession = session;
 			await this.handleAuthStateChange(session?.user || null);
 
-			// Listen for auth changes
 			this.supabase.auth.onAuthStateChange(async (event, session) => {
 				console.log('Auth state changed:', event);
 				this.currentSession = session;
 				await this.handleAuthStateChange(session?.user || null);
 			});
 
-			// Update offline status on unload
 			window.addEventListener('beforeunload', () => {
 				if (this.currentSession?.access_token) {
 					fetch('/api/auth/status', {
@@ -103,7 +100,6 @@ export class SupabaseAuth {
 
 				console.log('Auth state change for user:', user.id);
 
-				// Fetch user profile
 				let { data: profile, error } = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
 
 				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
@@ -321,12 +317,12 @@ export class SupabaseAuth {
 				...currentState,
 				version: SAVE_VERSION,
 				lastSaveDate: Date.now(),
-			};
+			} as unknown as Json;
 
 			const { error } = await this.supabase
 				.from('profiles')
 				.update({
-					save: saveData as any,
+					save: saveData,
 					updated_at: new Date().toISOString(),
 				})
 				.eq('id', user.id);
@@ -336,7 +332,7 @@ export class SupabaseAuth {
 			if (this.profile) {
 				this.profile = {
 					...this.profile,
-					save: saveData as any,
+					save: saveData,
 					updated_at: new Date().toISOString(),
 				};
 			}
@@ -360,8 +356,7 @@ export class SupabaseAuth {
 			if (error) throw error;
 			if (!profile?.save) return null;
 
-			const savedState = profile.save as any;
-			const migratedState = migrateSavedState(savedState);
+			const migratedState = migrateSavedState(profile.save);
 
 			if (migratedState && isValidGameState(migratedState)) {
 				return migratedState as GameState;
@@ -403,15 +398,14 @@ export class SupabaseAuth {
 			if (error) throw error;
 			if (!profile?.save) return null;
 
-			const saveData = profile.save as any;
-			const migratedData = migrateSavedState(saveData);
+			const migratedData = migrateSavedState(profile.save);
 			if (!migratedData) return null;
 
 			const repairResult = validateAndRepairGameState(migratedData);
-			const finalData = repairResult.state || (migratedData as GameState);
+			const finalData = repairResult.state || migratedData;
 
 			return {
-				lastSaveDate: saveData.lastSaveDate || null,
+				lastSaveDate: (profile.save as { lastSaveDate?: number }).lastSaveDate || null,
 				...finalData,
 			};
 		} catch (err) {
@@ -420,15 +414,6 @@ export class SupabaseAuth {
 		}
 	}
 
-	// For compatibility with code using .subscribe()
-	subscribe(fn: (value: SupabaseAuth) => void) {
-		const unsubscribe = $effect.root(() => {
-			$effect(() => {
-				fn(this);
-			});
-		});
-		return unsubscribe;
-	}
 }
 
 export const supabaseAuth = new SupabaseAuth();

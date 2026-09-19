@@ -42,6 +42,9 @@
 
 	let { small = false }: Props = $props();
 
+	/** Snapshot at mount: a per-frame live counter changes width and reflows the whole profile card */
+	const atoms = gameManager.atoms;
+
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let debouncedPictureUrl = $state('');
 	let editError = $state<string | null>(null);
@@ -136,8 +139,8 @@
 				await supabaseAuth.updateProfile(updates);
 			}
 			cancelEditing();
-		} catch (error: any) {
-			editError = error.message || 'Failed to update profile. Please try again.';
+		} catch (error) {
+			editError = error instanceof Error && error.message ? error.message : 'Failed to update profile. Please try again.';
 			isSaving = false;
 		}
 	}
@@ -220,7 +223,7 @@
 								<Value
 									class="text-[13px] font-bold text-accent-400"
 									currency="Atoms"
-									value={gameManager.atoms}
+									value={atoms}
 								/>
 							</div>
 
@@ -343,7 +346,7 @@
 							</div>
 							<div class="flex flex-col gap-0.5">
 								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Atoms</span>
-								<Value value={gameManager.atoms} currency="Atoms" class="text-xl font-bold text-accent-400" />
+								<Value value={atoms} currency="Atoms" class="text-xl font-bold text-accent-400" />
 							</div>
 							<div class="flex flex-col gap-0.5">
 								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Achievements</span>

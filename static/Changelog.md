@@ -1,3 +1,9 @@
+# What's new 19-09-2026
+
+- **Upgrades**: A Buy All button grabs every upgrade you can afford in one tap, cheapest first, and higher building Boost tiers now unlock one band per Protonise, with the atom tab telling you what your next Protonise opens.
+- **Skill Tree**: The tree is regrouped into compact branches instead of long lines, the header shows your balances, and unaffordable costs turn red.
+- **Currency Boosts**: A free Reset button clears your points, and two cheap proton skills add a Max button on each currency and a Balance button that spreads your points evenly.
+
 # What's new 16-09-2026
 
 - **Install as an App**: Your browser can now install Atom Clicker like a regular app, on desktop and mobile.
