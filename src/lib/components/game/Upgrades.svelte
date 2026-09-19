@@ -1,7 +1,7 @@
 <script lang="ts">
 	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '$data/currencies';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { UPGRADES } from '$data/upgrades';
+	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '$data/upgrades';
 	import { ICONS } from '$data/icons';
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -44,6 +44,8 @@
 	});
 
 	let hasAutomation = $derived(getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0);
+
+	const gatedBoostTiers = $derived(selectedCurrency === CurrenciesTypes.ATOMS ? boostTiersUnlockedByNextProtonise(gameManager) : 0);
 
 	const affordableCount = $derived(availableUpgrades.filter(upgrade => !boughtUpgrades.has(upgrade.id) && gameManager.canAfford(upgrade.cost)).length);
 
@@ -191,6 +193,11 @@
 					</div>
 				</button>
 			{/each}
+			{#if gatedBoostTiers > 0}
+				<p class="rounded-lg border border-dashed border-white/10 p-2 text-center text-xs text-white/50">
+					{gatedBoostTiers} more Boost tiers unlock after your next Protonise
+				</p>
+			{/if}
 		</div>
 	</div>
 </div>
