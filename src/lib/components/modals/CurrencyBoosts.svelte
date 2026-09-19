@@ -6,7 +6,7 @@
 	import { MAX_BOOST_POINTS } from '$lib/constants';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { ChevronsRight, Minus, Plus, Scale, Zap } from '@lucide/svelte';
+	import { ChevronsRight, Minus, Plus, RotateCcw, Scale, Zap } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -46,16 +46,26 @@
 			<p class="mt-1 text-xs text-red-400/80">
 				Currency boost allocations reset on Protonise or Electronize.
 			</p>
-			{#if canSplitEvenly}
+			<div class="mt-3 flex gap-2">
 				<button
-					class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400/15 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-30"
-					disabled={gameManager.skillPointsTotal <= 0}
-					onclick={() => gameManager.splitCurrencyBoostsEvenly(earnedCurrencies)}
+					class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/10 py-2 text-sm font-medium text-white/70 transition hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+					disabled={gameManager.skillPointsUsed <= 0}
+					onclick={() => gameManager.resetCurrencyBoosts()}
 				>
-					<Scale size={16} />
-					Balance across {earnedCurrencies.length} currencies
+					<RotateCcw size={16} />
+					Reset
 				</button>
-			{/if}
+				{#if canSplitEvenly}
+					<button
+						class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400/15 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-30"
+						disabled={gameManager.skillPointsTotal <= 0}
+						onclick={() => gameManager.splitCurrencyBoostsEvenly(earnedCurrencies)}
+					>
+						<Scale size={16} />
+						Balance
+					</button>
+				{/if}
+			</div>
 		</div>
 
 		<!-- Currency list -->

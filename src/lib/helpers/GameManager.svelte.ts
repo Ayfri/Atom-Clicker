@@ -491,6 +491,10 @@ export class GameManager {
 		this.skillPointBoosts = boosts;
 	}
 
+	resetCurrencyBoosts() {
+		this.skillPointBoosts = {};
+	}
+
 	removeCurrencyBoost(currency: CurrencyName): boolean {
 		const currentPoints = this.skillPointBoosts[currency] ?? 0;
 		if (currentPoints <= 0) return false;
