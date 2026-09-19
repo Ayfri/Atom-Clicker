@@ -72,6 +72,10 @@
 	const MAX_SIZE = 80;
 	const MIN_PHOTONS = 1;
 	const MAX_PHOTONS = 10;
+	// The icon's outer ring is drawn at the very edge of `size`, so a bare radius makes a 30px photon a 28px target. Pad it to
+	// a comfortable thumb size on phones.
+	const HIT_PADDING = 6;
+	const MIN_HIT_RADIUS = 22;
 
 	// Mirrors the label styling of the previous DOM markup: `font-bold text-xs` on the app font.
 	const FONT_FAMILY = 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif';
@@ -372,7 +376,7 @@
 		// Later circles are drawn on top, so they take the pointer first.
 		for (let i = circles.length - 1; i >= 0; i--) {
 			const circle = circles[i];
-			const radius = (circle.size * scale(circle)) / 2;
+			const radius = Math.max(MIN_HIT_RADIUS, (circle.size * scale(circle)) / 2 + HIT_PADDING);
 			const dx = x - circle.x;
 			const dy = y - circle.y;
 			if (dx * dx + dy * dy <= radius * radius) return circle;
