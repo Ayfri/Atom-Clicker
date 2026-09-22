@@ -1,18 +1,12 @@
 <script lang="ts">
 	import {gameManager} from '$helpers/GameManager.svelte';
 	import {quarksManager} from '$helpers/QuarksManager.svelte';
-	import {ACHIEVEMENTS} from '$data/achievements';
+	import {ACHIEVEMENT_ENTRIES} from '$data/achievements';
 	import {isQuarkAchievement} from '$data/quarkAchievements';
 	import Quark from '@components/icons/Quark.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import IconStack from '@components/ui/IconStack.svelte';
 	import QuarkLabel from '@components/ui/QuarkLabel.svelte';
-
-	const unlockedAchievements = $derived(Object.entries(ACHIEVEMENTS).map(([name, achievement]) => ({
-		...achievement,
-		id: name,
-		unlocked: gameManager.achievements.includes(name)
-	})));
 
 	const claimableAchievementIds = $derived(
 		gameManager.achievements.filter(id => isQuarkAchievement(id) && !quarksManager.claimedAchievementIds.includes(id)),
@@ -75,7 +69,7 @@
 <div class="backdrop-blur-xs bg-black/10 p-3 rounded-lg h-150 lg:h-[calc(100vh-180px)] flex flex-col">
 	<div class="flex items-center gap-1.5">
 		<h2 class="font-semibold text-lg">
-		Achievements ({gameManager.achievements.length}/{Object.keys(ACHIEVEMENTS).length})
+		Achievements ({gameManager.achievements.length}/{ACHIEVEMENT_ENTRIES.length})
 		</h2>
 		{#if canClaimAchievements}
 			<div class="relative ml-auto">
@@ -103,15 +97,17 @@
 		</HelpIcon>
 	</div>
 	<div class="achievement-grid mt-2 grid gap-1.5 overflow-x-hidden overflow-y-auto flex-1 custom-scrollbar px-1">
-		{#each unlockedAchievements as achievement}
-			{@const hidden = achievement.hiddenCondition?.(gameManager) === true}
+		<!-- Static entries keyed by id: rebuilding one object per achievement on every unlock re-rendered all ~200 icon stacks. -->
+		{#each ACHIEVEMENT_ENTRIES as [id, achievement] (id)}
+			{@const unlocked = gameManager.unlockedAchievementIds.has(id)}
+			{@const hidden = !unlocked && achievement.hiddenCondition?.(gameManager) === true}
 			<div
-				class="duration-200 flex items-center gap-2 rounded-lg p-2 transition-all {achievement.unlocked
+				class="duration-200 flex items-center gap-2 rounded-lg p-2 transition-all {unlocked
 					? 'bg-[#486f9b]'
 					: 'cursor-not-allowed bg-white/5 opacity-50'}"
 			>
 				<!-- Hidden achievements fall back to a neutral icon, otherwise the stack would spoil what they are about. -->
-				{#if hidden && !achievement.unlocked}
+				{#if hidden}
 					<IconStack color="rgba(255, 255, 255, 0.35)" icon="award" label="?" size={34} />
 				{:else if achievement.iconStack}
 					<IconStack
@@ -124,26 +120,26 @@
 				{/if}
 				<div class="min-w-0">
 					<h3 class="m-0 font-semibold text-sm">
-						{hidden && !achievement.unlocked ? '???' : achievement.name}
+						{hidden ? '???' : achievement.name}
 					</h3>
 					<p class="m-0 mt-0.5 text-xs opacity-80">
-						{hidden && !achievement.unlocked ? '???' : achievement.description}
+						{hidden ? '???' : achievement.description}
 					</p>
 				</div>
 				<div class="relative ml-auto shrink-0">
-					{#if quarksManager.hasSynced && achievement.unlocked && !quarksManager.claimedAchievementIds.includes(achievement.id)}
+					{#if quarksManager.hasSynced && unlocked && !quarksManager.claimedAchievementIds.includes(id)}
 						<button
 							class="flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-1 text-xs font-bold text-white transition-colors hover:bg-white/20 cursor-pointer"
-							onclick={() => claimAchievement(achievement.id)}
+							onclick={() => claimAchievement(id)}
 							aria-label="Claim 1 Quark for {achievement.name}"
 							title="Claim 1 Quark"
 						>
 							+1 <Quark size={14} />
 						</button>
 					{/if}
-					{#if bursts[achievement.id]}
-						<span class="claim-burst pointer-events-none" style:--duration={`${bursts[achievement.id].duration}ms`}>
-							{#each bursts[achievement.id].particles as particle, index (index)}
+					{#if bursts[id]}
+						<span class="claim-burst pointer-events-none" style:--duration={`${bursts[id].duration}ms`}>
+							{#each bursts[id].particles as particle, index (index)}
 								<span class="claim-particle" style:--delay={`${index * 25}ms`} style:--size={`${particle.size}px`} style:--x={`${particle.x}px`} style:--y={`${particle.y}px`}></span>
 							{/each}
 						</span>
