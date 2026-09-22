@@ -28,6 +28,9 @@
 		// Get a random circle from our valid circles array
 		const randomCircle = validCircles[Math.floor(Math.random() * validCircles.length)];
 
+		// Hidden, the click spawns no particles, and measuring the translated realm forced a layout on every auto-click.
+		if (!visible) return clickCircle(randomCircle, 0, 0, true);
+
 		const rect = getContainerRect();
 		if (!rect) return;
 
@@ -434,15 +437,17 @@
 		lastHoveredId = null;
 	}
 
-	// Update circles logic
-	$effect(() => {
-		lastUpdateTime = Date.now();
-		const interval = setInterval(updateCircles, 16);
-		return () => clearInterval(interval);
-	});
-
 	// Every realm stays mounted, the hidden ones are only translated off screen, so the canvas has to know.
 	const visible = $derived(realmManager.selectedRealmId === RealmTypes.PHOTONS);
+
+	/** Visible circles age in the render loop. Hidden ones only need to expire, a 60 Hz timer there woke the phone for nothing. */
+	const HIDDEN_UPDATE_INTERVAL_MS = 250;
+
+	$effect(() => {
+		if (visible) return;
+		const interval = setInterval(updateCircles, HIDDEN_UPDATE_INTERVAL_MS);
+		return () => clearInterval(interval);
+	});
 
 	$effect(() => {
 		if (!canvas) return;
@@ -462,6 +467,7 @@
 
 		let frame = requestAnimationFrame(function loop() {
 			frame = requestAnimationFrame(loop);
+			updateCircles();
 			if (!document.hidden) render();
 		});
 
