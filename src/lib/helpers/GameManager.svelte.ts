@@ -926,10 +926,10 @@ export class GameManager {
 		}
 	}
 
-	incrementClicks(isAuto = false) {
-		this.totalClicksRun += 1;
-		this.totalClicksAllTime += 1;
-		this.dailyStats.clicks += 1;
+	incrementClicks(isAuto = false, count = 1) {
+		this.totalClicksRun += count;
+		this.totalClicksAllTime += count;
+		this.dailyStats.clicks += count;
 
 		const shouldUpdate =
 			isAuto ?

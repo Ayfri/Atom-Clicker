@@ -3,7 +3,6 @@
 	import {realmManager} from '$helpers/RealmManager.svelte';
 	import {RealmTypes} from '$data/realms';
 	import {BUILDING_TYPES, BUILDING_COLORS, BUILDING_LEVEL_UP_COST} from '$data/buildings';
-	import {onDestroy} from 'svelte';
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
 	import {formatNumber} from '$lib/utils';
 	import {shouldCreateParticles, addParticles} from '$stores/canvas';
@@ -29,33 +28,49 @@
 		};
 	});
 
-	function simulateClick() {
-		const rect = getRect();
-		if (!rect) return;
+	/**
+	 * Fast auto-clickers are batched: one timer, reactive flush and particle burst per click cost more than the rest of
+	 * the game at 70 clicks/s on a phone. Slow ones still tick once per click.
+	 */
+	const MIN_AUTO_CLICK_INTERVAL_MS = 50;
+	const MAX_BURSTS_PER_BATCH = 2;
 
-		click(rect.left + Math.random() * rect.width, rect.top + Math.random() * rect.height, true);
-	}
-
-	let interval: ReturnType<typeof setInterval>;
 	$effect(() => {
 		const value = gameManager.autoClicksPerSecond;
-		if (interval) clearInterval(interval);
-		if (value > 0) {
-			interval = setInterval(simulateClick, 1000 / value);
-		}
+		if (value <= 0) return;
+
+		const intervalMs = Math.max(1000 / value, MIN_AUTO_CLICK_INTERVAL_MS);
+		const clicksPerTick = (value * intervalMs) / 1000;
+		let pending = 0;
+		const interval = setInterval(() => {
+			pending += clicksPerTick;
+			const count = Math.floor(pending + 1e-9);
+			if (count < 1) return;
+			pending -= count;
+
+			// Auto-click atoms are credited once per second by GameManager.tick(), this interval only drives the counters and the visuals.
+			gameManager.incrementClicks(true, count);
+			const rect = getRect();
+			if (!rect) return;
+			for (let i = 0; i < Math.min(count, MAX_BURSTS_PER_BATCH); i++) {
+				spawnParticles(rect.left + Math.random() * rect.width, rect.top + Math.random() * rect.height);
+			}
+		}, intervalMs);
+		return () => clearInterval(interval);
 	});
 
-	function click(x: number, y: number, isAuto: boolean) {
-		const clickPower = gameManager.clickPower;
-		// Auto-click atoms are credited once per second by GameManager.tick(), this interval only drives the counters and the visuals.
-		if (!isAuto) gameManager.addAtoms(clickPower);
-		gameManager.incrementClicks(isAuto);
+	function click(x: number, y: number) {
+		gameManager.addAtoms(gameManager.clickPower);
+		gameManager.incrementClicks();
+		spawnParticles(x, y);
+	}
 
+	function spawnParticles(x: number, y: number) {
 		// The atom realm stays mounted while another one is on screen, so its auto-click particles would drift over that realm.
 		if (!shouldCreateParticles() || realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
 
 		const newParticles: Particle[] = [];
-		const textParticle = createClickTextParticleSync(x + Math.random() * 10, y + Math.random() * 10, `+${formatNumber(clickPower)}`);
+		const textParticle = createClickTextParticleSync(x + Math.random() * 10, y + Math.random() * 10, `+${formatNumber(gameManager.clickPower)}`);
 		if (textParticle) newParticles.push(textParticle);
 
 		for (let i = 0; i < 5; i++) {
@@ -69,16 +84,14 @@
 	/** Every finger fires its own pointerdown, where a click only fires once per tap gesture. Keyboard activation still comes through click with detail 0. */
 	function handlePointerDown(event: PointerEvent) {
 		if (event.button !== 0) return;
-		click(event.clientX, event.clientY, false);
+		click(event.clientX, event.clientY);
 	}
 
 	function handleClick(event: MouseEvent) {
 		if (event.detail !== 0) return;
 		const rect = getRect();
-		if (rect) click(rect.left + rect.width / 2, rect.top + rect.height / 2, false);
+		if (rect) click(rect.left + rect.width / 2, rect.top + rect.height / 2);
 	}
-
-	onDestroy(() => clearInterval(interval));
 </script>
 
 <button
