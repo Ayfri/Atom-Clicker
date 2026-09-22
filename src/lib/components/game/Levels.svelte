@@ -12,6 +12,7 @@
 		<span class="text-gray-300">{formatNumber(gameManager.currentLevelXP, 0)} / {formatNumber(gameManager.nextLevelXP, 0)} XP</span>
 	</div>
 	<div class="h-2 w-full overflow-hidden bg-gray-700 md:rounded-full">
-		<div class="h-full w-full transition-all duration-300 ease-out bg-linear-to-r from-accent-400 to-accent-500" style="clip-path: inset(0 {100 - gameManager.xpProgress}% 0 0);"></div>
+		<!-- XP moves on every 50 Hz production commit, which is already smooth. A transition here restarted 50 times a second, and each restart forced a style recalc. -->
+		<div class="h-full w-full origin-left bg-linear-to-r from-accent-400 to-accent-500" style:transform="scaleX({gameManager.xpProgress / 100})"></div>
 	</div>
 </div>

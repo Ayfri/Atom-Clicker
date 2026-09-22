@@ -1,20 +1,18 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { Zap } from '@lucide/svelte';
 
+	/** Matches the 0.1s precision of the countdown. */
+	const TICK_MS = 100;
+
 	let now = $state(Date.now());
-	let interval: ReturnType<typeof setInterval>;
 
-	onMount(() => {
-		interval = setInterval(() => {
-			now = Date.now();
-		}, 50);
-	});
-
-	onDestroy(() => {
-		if (interval) clearInterval(interval);
+	$effect(() => {
+		if (gameManager.activePowerUps.length === 0) return;
+		now = Date.now();
+		const interval = setInterval(() => (now = Date.now()), TICK_MS);
+		return () => clearInterval(interval);
 	});
 </script>
 
@@ -32,8 +30,8 @@
 			>
 				<!-- Progress Bar Background (Diminishing) -->
 				<div
-					class="absolute bottom-0 left-0 h-0.5 md:h-1 bg-accent-500 shadow-[0_0_10px_rgba(var(--accent-500),0.5)] transition-all duration-100 ease-linear"
-					style="width: {(1 - progress) * 100}%"
+					class="absolute bottom-0 left-0 h-0.5 w-full origin-left md:h-1 bg-accent-500 shadow-[0_0_10px_rgba(var(--accent-500),0.5)] transition-transform duration-100 ease-linear"
+					style:transform="scaleX({1 - progress})"
 				></div>
 
 				<div class="flex items-center gap-3 relative z-10">
