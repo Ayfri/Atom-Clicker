@@ -15,6 +15,7 @@
 	let engine: ParticleEngine | null = null;
 	let frame = 0;
 	let lastTime = 0;
+	let ratio = 1;
 	let unsubscribeQueue: (() => void) | null = null;
 
 	/** The loop only runs while particles are alive: an idle pending rAF still costs Chrome a full main frame per vsync. */
@@ -30,11 +31,9 @@
 		lastTime = now;
 		engine.update(deltaMs / FRAME_MS);
 
-		ctx.save();
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		ctx.restore();
-		engine.draw(ctx);
+		engine.draw(ctx, ratio);
 
 		frame = engine.count > 0 ? requestAnimationFrame(loop) : 0;
 	}
@@ -44,13 +43,12 @@
 
 		const width = innerWidth.current ?? window.innerWidth;
 		const height = innerHeight.current ?? window.innerHeight;
-		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
 
 		canvas.style.width = `${width}px`;
 		canvas.style.height = `${height}px`;
 		canvas.width = Math.max(1, Math.round(width * ratio));
 		canvas.height = Math.max(1, Math.round(height * ratio));
-		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 	}
 
 	// Responsive resize

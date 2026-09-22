@@ -6,7 +6,8 @@ import { type Writable } from 'svelte/store';
 export interface Particle {
 	/** Higher layers are drawn last. Text sits above icons. */
 	layer: number;
-	draw: (ctx: CanvasRenderingContext2D) => void;
+	/** Icons set their own transform, text particles draw under the pixel-ratio transform `ParticleEngine.draw` sets once. */
+	draw: (ctx: CanvasRenderingContext2D, ratio: number) => void;
 	update: (dt: number) => boolean;
 }
 
@@ -20,6 +21,9 @@ const ICON_LAYER = 0;
 const TEXT_LAYER = 1;
 /** Matches the previous PixiJS text: 26px bold Arial drawn at a 0.5 scale. */
 const TEXT_FONT = 'bold 13px Arial, sans-serif';
+/** Line box of `TEXT_FONT` with room for descenders. */
+const TEXT_HEIGHT = 18;
+const MAX_TEXT_SPRITES = 32;
 /** Icons start at this scale and only ever shrink, so it is the largest size ever drawn. */
 const ICON_START_SCALE = 0.1;
 /** Same cap as the canvas backing store, see Canvas.svelte. */
@@ -93,18 +97,18 @@ export const createClickParticleSync = (x: number, y: number, currency: Currency
 	let sx = (1.5 + Math.random() * 0.5) * Math.cos(rotation);
 	let sy = (1.5 + Math.random() * 0.5) * Math.sin(rotation);
 
+	const cos = Math.cos(rotation);
+	const sin = Math.sin(rotation);
+
 	return {
 		layer: ICON_LAYER,
-		draw: ctx => {
+		draw: (ctx, ratio) => {
 			const width = sprite.width * scale;
 			const height = sprite.height * scale;
 
-			ctx.save();
 			ctx.globalAlpha = alpha;
-			ctx.translate(px, py);
-			ctx.rotate(rotation);
+			ctx.setTransform(ratio * cos, ratio * sin, -ratio * sin, ratio * cos, ratio * px, ratio * py);
 			ctx.drawImage(sprite.source, -width / 2, -height / 2, width, height);
-			ctx.restore();
 		},
 		update: dt => {
 			const damp = Math.pow(0.995, dt);
@@ -119,7 +123,41 @@ export const createClickParticleSync = (x: number, y: number, currency: Currency
 	};
 };
 
+const textSprites = new Map<string, ParticleSprite>();
+
+/**
+ * Text on the on-page canvas forces a style recalc of the whole dirty document on every frame, a detached canvas has no
+ * document style to resolve. Click power only changes on purchases, so each label is rasterized once.
+ */
+function rasterizeText(text: string): ParticleSprite {
+	let sprite = textSprites.get(text);
+	if (sprite) return sprite;
+
+	const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+	const raster = document.createElement('canvas');
+	const ctx = raster.getContext('2d');
+	if (!ctx) return { height: 0, source: raster, width: 0 };
+
+	ctx.font = TEXT_FONT;
+	const width = Math.ceil(ctx.measureText(text).width) + 2;
+	const height = TEXT_HEIGHT;
+	raster.width = Math.round(width * ratio);
+	raster.height = Math.round(height * ratio);
+	ctx.scale(ratio, ratio);
+	ctx.fillStyle = 'white';
+	ctx.font = TEXT_FONT;
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
+	ctx.fillText(text, width / 2, height / 2);
+
+	if (textSprites.size >= MAX_TEXT_SPRITES) textSprites.clear();
+	sprite = { height, source: raster, width };
+	textSprites.set(text, sprite);
+	return sprite;
+}
+
 export const createClickTextParticleSync = (x: number, y: number, text: string): Particle | null => {
+	const sprite = rasterizeText(text);
 	let alpha = 1;
 	let py = y + cachedScrollTop;
 	let sy = -1.5;
@@ -127,14 +165,8 @@ export const createClickTextParticleSync = (x: number, y: number, text: string):
 	return {
 		layer: TEXT_LAYER,
 		draw: ctx => {
-			ctx.save();
 			ctx.globalAlpha = alpha;
-			ctx.fillStyle = 'white';
-			ctx.font = TEXT_FONT;
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle';
-			ctx.fillText(text, x, py);
-			ctx.restore();
+			ctx.drawImage(sprite.source, x - sprite.width / 2, py - sprite.height / 2, sprite.width, sprite.height);
 		},
 		update: dt => {
 			sy *= Math.pow(0.995, dt);
@@ -180,13 +212,16 @@ export class ParticleEngine {
 		}
 	}
 
-	draw(ctx: CanvasRenderingContext2D) {
+	draw(ctx: CanvasRenderingContext2D, ratio: number) {
 		for (const particle of this.particles) {
-			if (particle.layer === ICON_LAYER) particle.draw(ctx);
+			if (particle.layer === ICON_LAYER) particle.draw(ctx, ratio);
 		}
+
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 		for (const particle of this.particles) {
-			if (particle.layer === TEXT_LAYER) particle.draw(ctx);
+			if (particle.layer === TEXT_LAYER) particle.draw(ctx, ratio);
 		}
+		ctx.globalAlpha = 1;
 	}
 
 	get count() {
