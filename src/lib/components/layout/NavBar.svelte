@@ -88,7 +88,8 @@
 		notification: () => $changelog.hasUnread,
 	};
 
-	let visibleComponents: Link[] = $state([]);
+	/** Raw, since deep state would proxy the links and the identity check in `updateVisible` would never match. */
+	let visibleComponents: Link[] = $state.raw([]);
 
 	let interval: ReturnType<typeof setInterval> | null = null;
 
