@@ -29,11 +29,11 @@
 	});
 
 	/**
-	 * Fast auto-clickers are batched: one timer, reactive flush and particle burst per click cost more than the rest of
-	 * the game at 70 clicks/s on a phone. Slow ones still tick once per click.
+	 * Auto-clickers tick at up to 50 Hz, faster ones are batched: one timer, reactive flush and particle burst per click
+	 * cost more than the rest of the game at 70 clicks/s on a phone. One burst per tick already saturates the particle caps.
 	 */
-	const MIN_AUTO_CLICK_INTERVAL_MS = 50;
-	const MAX_BURSTS_PER_BATCH = 2;
+	const MIN_AUTO_CLICK_INTERVAL_MS = 20;
+	const MAX_BURSTS_PER_BATCH = 1;
 
 	$effect(() => {
 		const value = gameManager.autoClicksPerSecond;
