@@ -15,8 +15,8 @@ Welcome to Atom Clicker, an engaging incremental game where you'll build your ow
 ## 🎮 How to Play
 
 1. **Click the Atom:** Start by clicking the central atom to generate your first atoms.
-2. **Buy Buildings:** Use your atoms to purchase buildings that automatically generate more atoms for you.
-3. **Upgrade:** Enhance your buildings and clicking power through the upgrades menu.
+2. **Buy Generators:** Use your atoms to purchase generators that automatically produce more atoms for you.
+3. **Upgrade:** Enhance your generators and clicking power through the upgrades menu.
 4. **Unlock Skills:** Spend your earned points in the Skill Tree to gain massive permanent boosts.
 5. **Reset for Power:** When progress slows down, perform a reset to gain powerful currencies like Protons and Electrons to further boost your empire.
 
@@ -24,10 +24,10 @@ Welcome to Atom Clicker, an engaging incremental game where you'll build your ow
 
 ### Core Mechanics
 - 🖱️ Click to generate atoms
-- 🏗️ Build and manage various structures:
+- 🏭 Buy and grow generators:
   - From tiny molecules to massive cosmic entities
-  - Each structure with unique production rates
-  - Level up your buildings to increase their efficiency
+  - Each generator with its own production rate
+  - Every 100 of the same generator levels it up, boosting its output and earning a boost point
 
 ### Progression Systems
 - 🌳 Extensive Skill Tree
@@ -49,7 +49,7 @@ Welcome to Atom Clicker, an engaging incremental game where you'll build your ow
   - Upgrade their duration and effectiveness
 
 - 🤖 Automation
-  - Auto-buy buildings
+  - Auto-buy generators
   - Auto-upgrade systems
   - Optimize your production
 
