@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Tutorial**: No more popups, small tips now point right at what to do next and vanish once you do it, while the interface grows panel by panel as you unlock things (turn tips off or replay them in Settings).
+
 # What's new 19-09-2026
 
 - **Upgrades**: A Buy All button grabs every upgrade you can afford in one tap, cheapest first, and higher building Boost tiers now unlock one band per Protonise, with the atom tab telling you what your next Protonise opens.
