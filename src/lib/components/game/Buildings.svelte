@@ -145,7 +145,10 @@
 			{@const hidden = fullyHiddenBuildings.has(type)}
 			{@const level = saveData?.level ?? 0}
 			{@const color = BUILDING_COLORS[level]}
+			{@const levelProgress = (saveData?.count ?? 0) % BUILDING_LEVEL_UP_COST}
+			{@const nextColor = BUILDING_COLORS[Math.min(level + 1, BUILDING_COLORS.length - 1)]}
 			{@const purchaseAmount = purchaseAmounts[type]}
+			{@const previewProgress = unaffordable ? levelProgress : Math.min(BUILDING_LEVEL_UP_COST, levelProgress + purchaseAmount)}
 			{@const totalCost = gameManager.getBuildingCost(type, purchaseAmount || 1)}
 			{@const isAutomated = gameManager.settings.automation.buildings.includes(type)}
 			{@const hasAutomation = automatedByUpgrade.has(type)}
@@ -255,6 +258,18 @@
 						/>
 					{/if}
 				</div>
+				{#if saveData?.count && !obfuscated}
+					<div class="absolute bottom-0 inset-x-2 h-0.5 overflow-hidden rounded-full bg-white/5 pointer-events-none">
+						<div
+							class="absolute inset-0 origin-left opacity-30 transition-transform duration-300"
+							style="background: {nextColor}; transform: scaleX({previewProgress / BUILDING_LEVEL_UP_COST});"
+						></div>
+						<div
+							class="absolute inset-0 origin-left bg-(--color) opacity-70 transition-transform duration-300"
+							style="transform: scaleX({levelProgress / BUILDING_LEVEL_UP_COST});"
+						></div>
+					</div>
+				{/if}
 			</button>
 		{/each}
 	</div>
