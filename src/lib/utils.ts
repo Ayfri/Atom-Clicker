@@ -1,4 +1,4 @@
-const SUFFIXES = [
+export const SUFFIXES = [
 	'',
 	'K',
 	'M',
