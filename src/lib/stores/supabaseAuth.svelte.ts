@@ -14,6 +14,11 @@ export class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
 	profile = $state<Profile | null>(null);
+	/** The profile row wins over the OAuth provider metadata, which only seeds it. */
+	avatarUrl = $derived<string | null>(this.profile?.picture || this.user?.user_metadata?.avatar_url || this.user?.user_metadata?.picture || null);
+	displayName = $derived<string | null>(
+		this.profile?.username || this.user?.user_metadata?.username || this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || null,
+	);
 	loading = $state(true);
 	supabase = $state<SupabaseClient<Database> | null>(null);
 	error = $state<Error | null>(null);

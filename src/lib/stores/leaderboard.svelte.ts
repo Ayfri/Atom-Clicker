@@ -22,6 +22,9 @@ export class LeaderboardStore {
 	entries = $state<LeaderboardEntry[]>([]);
 	stats = $state<LeaderboardStats>({ totalUsers: 0 });
 	isUpdating = $state(false);
+	playerRank = $derived(this.entries.find(entry => entry.self)?.rank ?? null);
+	/** Rank 1 of 100 is the top 1%, never shown as 0%. */
+	playerPercentile = $derived(this.playerRank && this.stats.totalUsers ? Math.max(1, Math.ceil((this.playerRank / this.stats.totalUsers) * 100)) : null);
 
 	private hasFetched = false;
 
@@ -57,21 +60,11 @@ export class LeaderboardStore {
 			const accessToken = await supabaseAuth.getAccessToken();
 			if (!accessToken) return;
 
-			const username =
-				supabaseAuth.profile?.username ??
-				supabaseAuth.user.user_metadata?.username ??
-				supabaseAuth.user.user_metadata?.full_name ??
-				supabaseAuth.user.email?.split('@')[0] ??
-				'Anonymous';
-
 			const data = {
-				username,
+				username: supabaseAuth.displayName ?? 'Anonymous',
 				atoms,
 				level,
-				picture:
-					supabaseAuth.profile?.picture ??
-					supabaseAuth.user.user_metadata?.avatar_url ??
-					supabaseAuth.user.user_metadata?.picture,
+				picture: supabaseAuth.avatarUrl ?? undefined,
 			};
 
 			const obfuscatedData = obfuscateClientData(data);
