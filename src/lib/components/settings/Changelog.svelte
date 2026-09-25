@@ -4,16 +4,6 @@
 	import { changelog } from '$stores/changelog';
 	import { gameManager } from '$helpers/GameManager.svelte';
 
-	// Check if achievement is already unlocked
-	let isAlreadyUnlocked = $derived(gameManager.achievements.includes('changelog_modal_opener'));
-
-	// Unlock achievement when component mounts (since it replaces the modal opening)
-	$effect(() => {
-		if (!isAlreadyUnlocked) {
-			gameManager.unlockAchievement('changelog_modal_opener');
-		}
-	});
-
 	let changelogContent = $state('');
 
 	function parseChangelogDate(title: string): Date | null {
@@ -25,6 +15,7 @@
 	}
 
 	onMount(async () => {
+		gameManager.unlockAchievement('changelog_modal_opener');
 		try {
 			const response = await fetch('/Changelog.md');
 			changelogContent = await response.text();
@@ -46,7 +37,7 @@
 </script>
 
 {#if changelogContent}
-    <div class="prose prose-invert max-w-none h-full overflow-y-auto custom-scrollbar pr-4">
+    <div class="prose prose-invert mx-auto max-w-3xl">
         {@html marked(changelogContent)}
     </div>
 {/if}

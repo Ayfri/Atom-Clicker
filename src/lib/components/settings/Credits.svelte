@@ -7,40 +7,7 @@
 	import { SquareArrowOutUpRight } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 
-	// Check if achievements are already unlocked
-	let isWebsiteUnlocked = $derived(gameManager.achievements.includes('website_click'));
-	let isDiscordUnlocked = $derived(gameManager.achievements.includes('discord_click'));
-	let isGitHubUnlocked = $derived(gameManager.achievements.includes('github_click'));
-
-	function handleWebsiteClick() {
-		if (!isWebsiteUnlocked) {
-			gameManager.unlockAchievement('website_click');
-		}
-	}
-
-	function handleDiscordClick() {
-		if (!isDiscordUnlocked) {
-			gameManager.unlockAchievement('discord_click');
-		}
-	}
-
-	function handleGitHubClick() {
-		if (!isGitHubUnlocked) {
-			gameManager.unlockAchievement('github_click');
-		}
-	}
-
-	let hiddenAtomClicked = $state(false);
-
-	// Check if achievement is already unlocked
-	let isAlreadyUnlocked = $derived(gameManager.achievements.includes('hidden_atom_clicked'));
-
-	function handleHiddenAtomClick() {
-		if (!hiddenAtomClicked && !isAlreadyUnlocked) {
-			hiddenAtomClicked = true;
-			gameManager.unlockAchievement('hidden_atom_clicked');
-		}
-	}
+	let isHiddenAtomFound = $derived(gameManager.achievements.includes('hidden_atom_clicked'));
 
 	const creator = {
 		name: 'Ayfri',
@@ -50,16 +17,18 @@
 
 	const socials = [
 		{
-			name: 'GitHub',
-			url: 'https://github.com/Ayfri/Atom-Clicker',
+			achievement: 'github_click',
 			description: 'View source code',
 			icon: GitHub,
+			name: 'GitHub',
+			url: 'https://github.com/Ayfri/Atom-Clicker',
 		},
 		{
-			name: 'Discord',
-			url: 'https://discord.ayfri.com',
+			achievement: 'discord_click',
 			description: 'Join our community',
 			icon: Discord,
+			name: 'Discord',
+			url: 'https://discord.ayfri.com',
 		},
 	];
 
@@ -83,15 +52,15 @@
 	];
 </script>
 
-<div class="flex flex-col gap-6 h-full overflow-y-auto custom-scrollbar">
+<div class="flex flex-col gap-6">
 	<div class="flex flex-col gap-8 md:flex-row md:gap-12">
 		<div class="flex-1 flex flex-col gap-6">
 			<div class="border-b border-accent/50 pb-2 flex items-center gap-2">
 				<h3 class="text-lg font-bold text-accent">Created by</h3>
-				{#if !hiddenAtomClicked && !isAlreadyUnlocked}
+				{#if !isHiddenAtomFound}
 					<button
 						class="opacity-8 hover:opacity-50 transition-opacity duration-1000"
-						onclick={handleHiddenAtomClick}
+						onclick={() => gameManager.unlockAchievement('hidden_atom_clicked')}
 						transition:fade={{ duration: 1000 }}
 						aria-label="Hidden secret"
 						title="?"
@@ -106,7 +75,7 @@
                     target="_blank"
                     rel="noopener noreferrer"
                     class="group flex flex-row items-baseline gap-2 rounded-lg bg-black/20 p-4 transition-colors hover:bg-black/30 w-full"
-                    onclick={handleWebsiteClick}
+                    onclick={() => gameManager.unlockAchievement('website_click')}
                 >
                     <span class="text-lg font-semibold text-white group-hover:text-accent">{creator.name}</span>
                     <span class="text-sm text-white/60 flex-1">{creator.description}</span>
@@ -121,7 +90,7 @@
                             target="_blank"
                             rel="noopener noreferrer"
                             class="group flex items-baseline gap-2 rounded-lg bg-black/20 p-4 transition-colors hover:bg-black/30"
-                            onclick={() => social.name === 'Discord' ? handleDiscordClick() : social.name === 'GitHub' ? handleGitHubClick() : undefined}
+                            onclick={() => gameManager.unlockAchievement(social.achievement)}
                         >
                             <social.icon size={24} class="self-center mr-1" />
                             <span class="text-lg font-semibold text-white group-hover:text-accent">{social.name}</span>

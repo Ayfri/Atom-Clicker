@@ -22,9 +22,7 @@
 		['Achievements', gameManager.achievements.length.toString()],
 	]);
 
-	onMount(() => {
-		if (!gameManager.achievements.includes('reset_modal_opener')) gameManager.unlockAchievement('reset_modal_opener');
-	});
+	onMount(() => gameManager.unlockAchievement('reset_modal_opener'));
 
 	function handleReset() {
 		gameManager.reset();
