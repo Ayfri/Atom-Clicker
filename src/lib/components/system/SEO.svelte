@@ -8,7 +8,7 @@
 	const description =
 		'Atom Clicker is a free incremental game. Click atoms, buy upgrades and generators, prestige through protons, electrons and photons, and climb the leaderboard.';
 	const absoluteImageLink = `${site}/currencies/atom.svg`;
-	const absoluteOgImageLink = `${site}/ingame-screenshot.png`;
+	const absoluteOgImageLink = `${site}/og-image.png`;
 
 	const structuredData = {
 		'@context': 'https://schema.org',
@@ -53,9 +53,9 @@
 	<meta property="og:title" content={name} />
 	<meta property="og:description" content={description} />
 	<meta property="og:image" content={absoluteOgImageLink} />
-	<meta property="og:image:width" content="1404" />
-	<meta property="og:image:height" content="862" />
-	<meta property="og:image:alt" content={`${name} gameplay screenshot`} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={`${name}, a free incremental game with a glowing 3D atom`} />
 	<meta property="og:url" content={site} />
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content={name} />
