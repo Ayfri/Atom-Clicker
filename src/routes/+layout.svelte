@@ -7,7 +7,7 @@
 	import Analytics from '@components/system/Analytics.svelte';
 	import DevTools from '@components/system/devtools/DevTools.svelte';
 	import SEO from '@components/system/SEO.svelte';
-	import TutorialOverlay from '@components/tutorial/TutorialOverlay.svelte';
+	import Hints from '@components/tutorial/Hints.svelte';
 	import TooltipPortal from '@components/ui/TooltipPortal.svelte';
 	import { prestigeStore } from '$stores/prestige.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
@@ -70,7 +70,7 @@
 	{@render children?.()}
 	{#if !isBenchmark}
 		<DevTools />
-		<TutorialOverlay />
+		<Hints />
 	{/if}
 	<TooltipPortal />
 {/if}

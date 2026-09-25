@@ -116,11 +116,9 @@ export interface RadiationState {
 }
 
 export interface TutorialState {
-	active: boolean;
-	completed: boolean;
-	/** Composite `${realmId}:${stepId}` keys of realm-tutorial steps already dismissed. */
-	seenRealmSteps: string[];
-	step: number;
+	enabled: boolean;
+	/** `realm:name` ids of the hints already completed or dismissed. */
+	seen: string[];
 }
 
 export interface GameState {

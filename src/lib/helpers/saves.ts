@@ -9,7 +9,7 @@ import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
 import type { SaveErrorType } from '$stores/saveRecovery';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 24;
+export const SAVE_VERSION = 25;
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
 const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;
@@ -549,6 +549,15 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		if (state.version === 22) {
 			// Existing saves shouldn't see the first-time tutorial
 			state.tutorial = { active: false, completed: true, step: 0 };
+		}
+
+		if (state.version === 24) {
+			// The guided walkthrough became contextual hints, a finished walkthrough already taught the Atom realm ones
+			const completedHints = ['atoms:click', 'atoms:building', 'atoms:upgrade', 'atoms:protonise', 'atoms:skill-tree'];
+			state.tutorial = {
+				enabled: true,
+				seen: [...(state.tutorial?.seenRealmSteps ?? []), ...(state.tutorial?.completed ? completedHints : [])],
+			};
 		}
 
 		state.version = nextVersion;

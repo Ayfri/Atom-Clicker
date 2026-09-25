@@ -546,18 +546,30 @@
 							</div>
 							<div class="flex items-center justify-between">
 								<div class="flex flex-col">
-									<span class="text-sm font-semibold text-white">Tutorial</span>
-									<span class="text-xs text-white/50">Replay the first-time guided tour</span>
+									<span class="text-sm font-semibold text-white">Tips</span>
+									<span class="text-xs text-white/50">Show hints next to new mechanics</span>
 								</div>
-								<button
-									class="rounded-lg border border-white/10 bg-white/5 px-3.5 py-1.5 text-[11px] font-semibold text-white transition-all active:scale-95 hover:bg-white/10"
-									onclick={() => {
-										ui.closeModal();
-										gameManager.tutorialManager.start();
-									}}
-								>
-									Replay
-								</button>
+								<div class="flex items-center gap-2">
+									<button
+										class="rounded-lg border border-white/10 bg-white/5 px-3.5 py-1.5 text-[11px] font-semibold text-white transition-all active:scale-95 hover:bg-white/10"
+										onclick={() => {
+											ui.closeModal();
+											gameManager.tutorialManager.forget();
+										}}
+										title="Show every tip again"
+									>
+										Replay
+									</button>
+									<label class="relative inline-flex items-center cursor-pointer">
+										<input
+											type="checkbox"
+											checked={gameManager.tutorialManager.state.enabled}
+											class="sr-only peer"
+											onchange={e => gameManager.tutorialManager.setEnabled(e.currentTarget.checked)}
+										/>
+										<div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+									</label>
+								</div>
 							</div>
 						</div>
 					</div>

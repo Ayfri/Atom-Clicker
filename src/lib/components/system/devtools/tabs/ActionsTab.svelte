@@ -3,8 +3,8 @@
 	import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { FEATURES, type FeatureType } from '$data/features';
+	import { HINTS } from '$data/hints';
 	import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { REALM_TUTORIALS } from '$data/realmTutorials';
 	import { RealmTypes, type RealmType } from '$data/realms';
 	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { UPGRADES } from '$data/upgrades';
@@ -86,20 +86,13 @@
 			<span>Tutorial</span>
 		</h3>
 		<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-			<button
-				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold transition-all hover:bg-white/20"
-				onclick={() => gameManager.tutorialManager.start()}
-			>
-				<GraduationCap size={16} />
-				<span>Replay Main Tutorial</span>
-			</button>
-			{#each Object.entries(REALM_TUTORIALS) as [id, steps] (id)}
+			{#each Object.values(RealmTypes) as realm (realm)}
 				<button
 					class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold transition-all hover:bg-white/20"
-					onclick={() => gameManager.tutorialManager.forgetRealmSteps(id as RealmType)}
+					onclick={() => gameManager.tutorialManager.forget(`${realm}:`)}
 				>
 					<GraduationCap size={16} />
-					<span>Replay {steps[0]?.title ?? id} Tutorial ({steps.length} steps)</span>
+					<span>Replay {realm} hints ({HINTS.filter(hint => hint.realm === realm).length})</span>
 				</button>
 			{/each}
 		</div>
