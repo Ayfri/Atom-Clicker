@@ -1,100 +1,129 @@
 <script lang="ts">
-	import Modal from '@components/ui/Modal.svelte';
-	import Profile from '@components/settings/Profile.svelte';
-	import GlobalStats from '@components/settings/Stats.svelte';
-	import CloudSave from '@components/settings/CloudSave.svelte';
 	import Changelog from '@components/settings/Changelog.svelte';
+	import CloudSave from '@components/settings/CloudSave.svelte';
 	import Credits from '@components/settings/Credits.svelte';
 	import FeedbackForm from '@components/settings/Feedback.svelte';
-	import { User, Activity, Cloud, Info, MessageSquare, FileText, ChevronLeft } from '@lucide/svelte';
+	import Legal from '@components/settings/Legal.svelte';
+	import Profile from '@components/settings/Profile.svelte';
+	import GlobalStats from '@components/settings/Stats.svelte';
+	import Modal from '@components/ui/Modal.svelte';
+	import { ui } from '$stores/ui.svelte';
+	import { Activity, ChevronLeft, ChevronRight, Cloud, FileText, Info, MessageSquare, Scale, User } from '@lucide/svelte';
+	import type { Component } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	interface Props {
 		onClose: () => void;
 	}
 
-	import { MediaQuery } from 'svelte/reactivity';
-	import { ui } from '$stores/ui.svelte';
+	interface SettingsTab {
+		component: Component;
+		description: string;
+		icon: typeof User;
+		id: string;
+		label: string;
+	}
 
 	let { onClose }: Props = $props();
 
-	/** The `home` tab is the phone-only tab picker, its grid is `md:hidden` so keeping it on desktop shows an empty pane. */
+	const groups: { label: string; tabs: SettingsTab[] }[] = [
+		{
+			label: 'Account',
+			tabs: [
+				{ component: Profile, description: 'Account, username and gameplay options', icon: User, id: 'profile', label: 'Profile' },
+				{ component: CloudSave, description: 'Sync your progress or reset it', icon: Cloud, id: 'cloud', label: 'Cloud Save' },
+			],
+		},
+		{
+			label: 'Game',
+			tabs: [
+				{ component: GlobalStats, description: 'Your progress in numbers', icon: Activity, id: 'stats', label: 'Stats' },
+				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog' },
+			],
+		},
+		{
+			label: 'About',
+			tabs: [
+				{ component: FeedbackForm, description: 'Report a bug or share an idea', icon: MessageSquare, id: 'feedback', label: 'Feedback' },
+				{ component: Credits, description: 'Creator, links and thanks', icon: Info, id: 'credits', label: 'Credits' },
+				{ component: Legal, description: 'Legal notice, privacy and terms', icon: Scale, id: 'legal', label: 'Legal & Privacy' },
+			],
+		},
+	];
+	const tabs = groups.flatMap(group => group.tabs);
+
+	/** The `home` tab is the phone-only tab list, desktop always shows the sidebar next to a tab. */
 	const narrow = new MediaQuery('(width < 48rem)', true);
 
-	let activeTab = $state(ui.activeTab || (narrow.current ? 'home' : 'profile'));
+	let activeTab = $state(ui.activeTab ?? (narrow.current ? 'home' : 'profile'));
+	const shownTab = $derived(!narrow.current && activeTab === 'home' ? 'profile' : activeTab);
+	const current = $derived(tabs.find(tab => tab.id === shownTab));
 
 	$effect(() => {
-		if (!narrow.current && activeTab === 'home') activeTab = 'profile';
+		ui.activeTab = shownTab;
 	});
-
-	$effect(() => {
-		ui.activeTab = activeTab;
-	});
-
-	const tabs = [
-		{ id: 'profile', label: 'Profile', icon: User, component: Profile },
-		{ id: 'stats', label: 'Stats', icon: Activity, component: GlobalStats },
-		{ id: 'cloud', label: 'Cloud Save', icon: Cloud, component: CloudSave },
-		{ id: 'changelog', label: 'Changelog', icon: FileText, component: Changelog },
-		{ id: 'credits', label: 'Credits', icon: Info, component: Credits },
-		{ id: 'feedback', label: 'Feedback', icon: MessageSquare, component: FeedbackForm },
-	];
 </script>
 
-<Modal {onClose} title={activeTab === 'home' ? 'Settings' : tabs.find(t => t.id === activeTab)?.label || 'Settings'} width="xl" containerClass="!p-0 flex flex-col md:flex-row bg-transparent">
-	<div class="flex flex-col md:flex-row h-full w-full overflow-hidden">
-		<!-- Sidebar / Mobile Top Bar -->
-		<div
-			class="flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-white/10 bg-black/40 transition-all
-			{activeTab === 'home' ? 'hidden md:flex' : 'flex'}"
-		>
-			{#if activeTab !== 'home'}
-				<button
-					class="md:hidden flex items-center justify-center p-3 text-white/50 hover:text-white transition-colors border border-transparent"
-					onclick={() => activeTab = 'home'}
-				>
-					<ChevronLeft size={22} />
+<Modal {onClose} containerClass="!p-0" width="xl">
+	{#snippet header()}
+		<div class="flex min-w-0 flex-1 items-center gap-1">
+			{#if current && narrow.current}
+				<button aria-label="Back to settings" class="-ml-2 flex size-10 items-center justify-center rounded-lg text-white/60 transition-colors hover:text-white" onclick={() => (activeTab = 'home')}>
+					<ChevronLeft size={24} />
 				</button>
 			{/if}
-
-			{#each tabs as tab}
-				<button
-					class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap text-left group
-					{activeTab === tab.id
-						? 'bg-accent/20 text-accent border border-accent/30 shadow-[0_0_15px] shadow-accent/10'
-						: 'hover:bg-white/5 text-white/50 hover:text-white border border-transparent'}"
-					onclick={() => activeTab = tab.id}
-				>
-					<tab.icon size={20} class={activeTab === tab.id ? 'text-accent' : 'text-white/40 group-hover:text-white'} />
-					<span class="font-medium md:block hidden">{tab.label}</span>
-				</button>
-			{/each}
+			<h2 class="truncate text-xl font-bold text-white md:text-2xl">{narrow.current ? (current?.label ?? 'Settings') : 'Settings'}</h2>
 		</div>
+	{/snippet}
 
-		<!-- Content -->
-		<div class="flex-1 overflow-hidden relative bg-black/10">
-			 <div class="absolute inset-0 overflow-y-auto custom-scrollbar {activeTab === 'feedback' ? 'p-0' : 'p-4 md:p-8'}">
-				{#if activeTab === 'home'}
-					<div class="grid grid-cols-2 gap-3 md:hidden h-full content-start">
-						{#each tabs as tab}
-							<button
-								class="flex flex-col items-center justify-center gap-4 aspect-square rounded-2xl bg-linear-to-br from-white/10 to-transparent border border-white/10 active:scale-95 transition-all text-center group"
-								onclick={() => activeTab = tab.id}
-							>
-								<div class="p-4 rounded-xl bg-white/5 border border-white/10 group-hover:bg-accent/20 group-hover:border-accent/30 transition-all">
-									<tab.icon size={32} class="text-white/60 group-hover:text-accent transition-colors" />
+	<div class="flex h-full">
+		<nav class="custom-scrollbar hidden w-60 shrink-0 flex-col gap-5 overflow-y-auto border-r border-white/10 bg-black/40 p-3 md:flex">
+			{#each groups as group (group.label)}
+				<div class="flex flex-col gap-1">
+					<p class="px-3 pb-1 text-xs font-semibold tracking-wider text-white/40 uppercase">{group.label}</p>
+					{#each group.tabs as tab (tab.id)}
+						<button
+							aria-current={shownTab === tab.id ? 'page' : undefined}
+							class="group flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors
+							{shownTab === tab.id ? 'border-accent/30 bg-accent/20 text-accent' : 'border-transparent text-white/60 hover:bg-white/5 hover:text-white'}"
+							onclick={() => (activeTab = tab.id)}
+						>
+							<tab.icon class={shownTab === tab.id ? 'text-accent' : 'text-white/40 group-hover:text-white'} size={18} />
+							<span class="font-medium">{tab.label}</span>
+						</button>
+					{/each}
+				</div>
+			{/each}
+		</nav>
+
+		<div class="relative flex-1 bg-black/10">
+			<div class="custom-scrollbar absolute inset-0 overflow-y-auto {shownTab === 'feedback' ? '' : 'p-4 md:p-8'}">
+				{#if current}
+					<current.component />
+				{:else}
+					<div class="flex flex-col gap-6">
+						{#each groups as group (group.label)}
+							<section>
+								<p class="px-1 pb-2 text-xs font-semibold tracking-wider text-white/40 uppercase">{group.label}</p>
+								<div class="divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+									{#each group.tabs as tab (tab.id)}
+										<button class="flex w-full items-center gap-4 p-4 text-left transition-colors active:bg-white/10" onclick={() => (activeTab = tab.id)}>
+											<span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+												<tab.icon size={20} />
+											</span>
+											<span class="flex min-w-0 flex-1 flex-col">
+												<span class="font-semibold text-white">{tab.label}</span>
+												<span class="truncate text-sm text-white/50">{tab.description}</span>
+											</span>
+											<ChevronRight class="shrink-0 text-white/30" size={20} />
+										</button>
+									{/each}
 								</div>
-								<span class="font-semibold text-white/80 group-hover:text-white transition-colors">{tab.label}</span>
-							</button>
+							</section>
 						{/each}
 					</div>
 				{/if}
-
-				{#each tabs as tab}
-					{#if activeTab === tab.id}
-						 <tab.component />
-					{/if}
-				{/each}
-			 </div>
+			</div>
 		</div>
 	</div>
 </Modal>
