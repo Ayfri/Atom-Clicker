@@ -1,652 +1,312 @@
 <script lang="ts">
+	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '@components/modals/Login.svelte';
+	import AtomIcon from '@components/icons/Atom.svelte';
+	import ElectronIcon from '@components/icons/Electron.svelte';
+	import PhotonIcon from '@components/icons/Photon.svelte';
+	import ProtonIcon from '@components/icons/Proton.svelte';
+	import QuarkIcon from '@components/icons/Quark.svelte';
+	import Avatar from '@components/ui/Avatar.svelte';
+	import Currency from '@components/ui/Currency.svelte';
+	import { ACHIEVEMENTS } from '$data/achievements';
+	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { REALMS } from '$data/realms';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { CurrenciesTypes } from '$data/currencies';
+	import { quarksManager } from '$helpers/QuarksManager.svelte';
+	import { formatDuration, formatNumber } from '$lib/utils';
 	import { leaderboard } from '$stores/leaderboard.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
-	import { formatDuration, formatNumber } from '$lib/utils';
-	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '@components/modals/Login.svelte';
-	import Avatar from '@components/ui/Avatar.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import {
-		Activity,
-		Building2,
-		Calendar,
-		CircleUser,
-		Clock,
-		ExternalLink,
-		Flame,
-		Link as LinkIcon,
-		LogOut,
-		Mail,
-		MousePointerClick,
-		Package,
-		Save,
-		Settings2,
-		Shield,
-		Sparkles,
-		Star,
-		TrendingUp,
-		Trophy,
-		User,
-		X,
-		Zap,
-	} from '@lucide/svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { fade, scale, slide } from 'svelte/transition';
+	import { ChartLine, Clock, Cloud, Link as LinkIcon, Lock, LogOut, Medal, MousePointerClick, Pencil, Radiation, Trophy, User } from '@lucide/svelte';
+	import { onDestroy, onMount, type Component } from 'svelte';
+	import { slide } from 'svelte/transition';
 
-	interface Props {
-		small?: boolean;
+	interface Milestone {
+		color: string;
+		count: number | null;
+		icon: Component<{ color?: string; size?: number }>;
+		label: string;
+		reached: boolean;
 	}
 
-	let { small = false }: Props = $props();
+	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
+	const joined = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'long', year: 'numeric' }).format(gameManager.startDate);
 
-	/** Snapshot at mount: a per-frame live counter changes width and reflows the whole profile card */
-	const atoms = gameManager.atoms;
-
-	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-	let debouncedPictureUrl = $state('');
 	let editError = $state<string | null>(null);
-	let isEditMode = $state(false);
+	let isEditing = $state(false);
 	let isSaving = $state(false);
 	let newPictureUrl = $state('');
 	let newUsername = $state('');
+	let previewPicture = $state('');
+	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let showLoginModal = $state(false);
 
-	let pictureInput = $state<HTMLInputElement>();
-	let usernameInput = $state<HTMLInputElement>();
+	const connection = $derived(getAuthConnection(supabaseAuth.user?.identities?.find(identity => AUTH_CONNECTIONS.some(c => c.provider === identity.provider))?.provider));
+	const name = $derived(supabaseAuth.displayName ?? 'Anonymous');
+	const tiles = $derived([
+		{ icon: Trophy, label: 'Achievements', value: `${gameManager.achievements.length} / ${totalAchievements}` },
+		{ icon: Clock, label: 'Play time', value: formatDuration(gameManager.inGameTime) },
+		{ icon: AtomIcon, label: 'Atoms / s', value: formatNumber(gameManager.atomsPerSecond) },
+		{ icon: MousePointerClick, label: 'Click power', value: formatNumber(gameManager.clickPower) },
+		...(supabaseAuth.isAuthenticated
+			? [
+					{ icon: Medal, label: 'Leaderboard', value: leaderboard.playerRank ? `#${leaderboard.playerRank} · Top ${leaderboard.playerPercentile}%` : 'Unranked' },
+					{ icon: QuarkIcon, label: 'Quarks', value: formatNumber(quarksManager.balance, 0) },
+				]
+			: []),
+	]);
+	/** Locked milestones stay hidden behind `???` so the profile never spoils what comes next. */
+	const milestones: Milestone[] = $derived([
+		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: ProtonIcon, label: 'Protonised', reached: gameManager.totalProtonisesAllTime > 0 },
+		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: ElectronIcon, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
+		{ color: REALMS.photons.color, count: null, icon: PhotonIcon, label: 'Photon Realm', reached: REALMS.photons.condition(gameManager.features) },
+		{ color: REALMS.radiation.color, count: null, icon: Radiation, label: 'Radiation Realm', reached: REALMS.radiation.condition(gameManager.features) },
+	]);
+	const lifetime = $derived(Object.values(CurrenciesTypes).filter(type => gameManager.currencies[type]?.earnedAllTime > 0));
 
-	$effect(() => {
-		const url = newPictureUrl;
-		if (!isEditMode) {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			return;
-		}
+	onMount(() => leaderboard.ensureLoaded());
+	onDestroy(() => clearTimeout(previewTimer));
 
-		if (debounceTimer) clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			debouncedPictureUrl = url;
-		}, 500);
-	});
-
-	onMount(() => {
-		leaderboard.ensureLoaded();
-	});
-
-	onDestroy(() => {
-		if (debounceTimer) clearTimeout(debounceTimer);
-	});
-
-	let currentUserId = $derived(supabaseAuth.user?.id);
-	let stats = $derived(leaderboard.stats);
-	let username = $derived(
-		supabaseAuth.profile?.username ||
-			supabaseAuth.user?.user_metadata?.full_name ||
-			supabaseAuth.user?.user_metadata?.username ||
-			supabaseAuth.user?.email?.split('@')[0] ||
-			'Anonymous'
-	);
-	let userRank = $derived(leaderboard.entries.findIndex((entry) => entry.userId === currentUserId) + 1);
-
-	let userPercentile = $derived.by(() => {
-		if (userRank <= 0 || stats.totalUsers === 0) return null;
-		const percentile = ((stats.totalUsers - userRank) / stats.totalUsers) * 100;
-		return Math.round(percentile);
-	});
-
-	let totalBuildings = $derived(Object.values(gameManager.buildings).reduce((acc, b) => acc + (b?.count || 0), 0));
-
-	function cancelEditing() {
-		debouncedPictureUrl = '';
+	function startEditing() {
 		editError = null;
-		isEditMode = false;
-		isSaving = false;
-		newPictureUrl = '';
-		newUsername = '';
-		if (debounceTimer) clearTimeout(debounceTimer);
+		newUsername = name;
+		newPictureUrl = supabaseAuth.avatarUrl ?? '';
+		previewPicture = newPictureUrl;
+		isEditing = true;
 	}
 
-	function formatStartDate(timestamp: number) {
-		return new Intl.DateTimeFormat('en-US', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		}).format(timestamp);
+	/** Debounced so the avatar preview does not request an image for every keystroke of the URL. */
+	function onPictureInput() {
+		clearTimeout(previewTimer);
+		previewTimer = setTimeout(() => (previewPicture = newPictureUrl), 500);
 	}
 
-	async function handleSaveProfile(event: SubmitEvent) {
+	function restoreProviderData() {
+		const metadata = supabaseAuth.user?.user_metadata;
+		if (!metadata) return;
+		newUsername = metadata.full_name || metadata.username || metadata.name || name;
+		newPictureUrl = metadata.avatar_url || metadata.picture || '';
+		previewPicture = newPictureUrl;
+	}
+
+	async function handleSave(event: SubmitEvent) {
 		event.preventDefault();
-		if (isSaving || !supabaseAuth.supabase) return;
+		if (isSaving) return;
 
-		const trimmedUsername = newUsername.trim();
-		const trimmedPicture = newPictureUrl.trim();
-
-		if (!trimmedUsername) {
+		const username = newUsername.trim();
+		const picture = newPictureUrl.trim();
+		if (!username) {
 			editError = 'Username cannot be empty.';
 			return;
 		}
 
 		isSaving = true;
 		editError = null;
-
 		try {
-			const updates: { username?: string; picture?: string | null } = {};
-			if (trimmedUsername !== username) updates.username = trimmedUsername;
-			if (trimmedPicture !== (supabaseAuth.profile?.picture || '')) updates.picture = trimmedPicture || null;
-
-			if (Object.keys(updates).length > 0) {
-				await supabaseAuth.updateProfile(updates);
-			}
-			cancelEditing();
+			const updates: { picture?: string | null; username?: string } = {};
+			if (username !== name) updates.username = username;
+			if (picture !== (supabaseAuth.profile?.picture ?? '')) updates.picture = picture || null;
+			if (Object.keys(updates).length > 0) await supabaseAuth.updateProfile(updates);
+			isEditing = false;
 		} catch (error) {
 			editError = error instanceof Error && error.message ? error.message : 'Failed to update profile. Please try again.';
+		} finally {
 			isSaving = false;
-		}
-	}
-
-	function restoreProviderData() {
-		const metadata = supabaseAuth.user?.user_metadata;
-		if (!metadata) return;
-
-		newUsername = metadata.full_name || metadata.username || metadata.name || username;
-		newPictureUrl = metadata.avatar_url || metadata.picture || '';
-		debouncedPictureUrl = newPictureUrl;
-	}
-
-	function startEditing() {
-		isEditMode = true;
-		newUsername = username;
-		newPictureUrl =
-			supabaseAuth.profile?.picture ||
-			supabaseAuth.user?.user_metadata?.avatar_url ||
-			supabaseAuth.user?.user_metadata?.picture ||
-			'';
-		debouncedPictureUrl = newPictureUrl;
-	}
-
-	function toggleEditMode() {
-		if (isEditMode) {
-			cancelEditing();
-		} else {
-			startEditing();
 		}
 	}
 </script>
 
-<div class="custom-scrollbar h-full overflow-y-auto pr-1">
-	{#if small}
-		{#if supabaseAuth.isAuthenticated}
-			{@const providerAvatar = supabaseAuth.user?.user_metadata?.avatar_url || supabaseAuth.user?.user_metadata?.picture}
-			{@const currentAvatar = supabaseAuth.profile?.picture || providerAvatar}
+<div class="mx-auto flex max-w-3xl flex-col gap-4">
+	<section class="relative overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-accent-600/20 via-black/30 to-black/40 p-5">
+		<div class="pointer-events-none absolute -top-16 -right-16 size-48 rounded-full bg-accent-500/20 blur-3xl"></div>
 
-			<div class="relative rounded-xl bg-black/20 px-4 pb-2 pt-3" in:fade>
-				<button
-					class="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-lg border border-accent-400/20 bg-accent-400/10 px-2.5 py-1.5 text-accent-400 shadow-sm transition-all active:scale-95 hover:bg-accent-400/20"
-					onclick={() => ui.openSettings('profile')}
-					title="View Full Profile"
-				>
-					<ExternalLink size={14} />
-					<span class="text-[10px] font-bold uppercase">View Profile</span>
-				</button>
-
-				<div class="flex items-center gap-5">
-					<div class="flex shrink-0 flex-col items-center gap-1">
-						<div class="group relative">
-							<Avatar
-								alt={username}
-								class="size-14 text-xl transition-all shadow-xl ring-2 ring-accent-500 ring-offset-2 ring-offset-black md:size-16"
-								src={currentAvatar}
-							/>
-							{#if userRank > 0}
-								<div
-									class="pointer-events-none absolute -bottom-1 -right-1 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent-600 px-1.5 font-bold text-white shadow-lg ring-2 ring-black"
-								>
-									<span class="text-[10px]">#{userRank}</span>
-								</div>
-							{/if}
-						</div>
-						<div class="flex flex-col items-center gap-0">
-							<h2 class="max-w-25 text-center font-bold leading-tight text-white wrap-break-word md:max-w-35 text-sm md:text-base">
-								{username}
-							</h2>
-						</div>
-					</div>
-
-					<div class="flex-1 min-w-0 w-full flex flex-col items-start">
-						<div class="mt-0 flex w-full flex-col gap-2.5">
-							<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-								<div class="flex items-center gap-1.5">
-									<span class="text-[11px] text-white/40">Level</span>
-									<span class="text-sm font-bold text-white">{formatNumber(gameManager.playerLevel)}</span>
-								</div>
-								<Value
-									class="text-[13px] font-bold text-accent-400"
-									currency="Atoms"
-									value={atoms}
-								/>
-							</div>
-
-							<div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 pt-2">
-								<div class="flex items-center gap-1.5 text-white/50">
-									<Calendar class="text-white/20" size={14} />
-									<span class="text-[10px] font-semibold text-white/70">
-										{formatStartDate(gameManager.startDate)}
-									</span>
-								</div>
-								{#if userPercentile !== null}
-									<div class="flex items-center gap-1.5 text-white/70">
-										<Trophy class="text-accent-400/30" size={14} />
-										<span class="text-[10px] font-bold opacity-90">Top {userPercentile}%</span>
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		{:else}
-			<div
-				class="flex h-auto flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-black/20 p-4 text-center"
-				in:fade
-			>
+		<div class="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+			<div class="relative shrink-0">
 				<Avatar
-					alt="Guest"
-					class="size-12 text-lg ring-offset-black ring-offset-2 ring-2 ring-white/10"
-					src=""
+					alt={supabaseAuth.isAuthenticated ? name : 'Guest'}
+					class="size-20 text-2xl shadow-xl ring-2 ring-accent-500/60 ring-offset-2 ring-offset-black sm:size-24"
+					src={isEditing ? previewPicture : supabaseAuth.avatarUrl}
 				/>
-				<div class="flex flex-col gap-0.5">
-					<h3 class="text-base font-bold text-white">Guest Player</h3>
-					<p class="text-xs text-white/60">
-						Login to sync your progress.
-					</p>
-				</div>
-				<button
-					class="rounded-lg bg-accent-600 px-5 py-1.5 text-xs font-bold text-white transition-all hover:bg-accent-500 active:scale-95"
-					onclick={() => {
-						showLoginModal = true;
-					}}
-				>
-					Login or Sign Up
-				</button>
+				{#if leaderboard.playerRank && supabaseAuth.isAuthenticated}
+					<span class="absolute -right-1 -bottom-1 rounded-full bg-accent-600 px-2 py-0.5 text-xs font-bold text-white ring-2 ring-black">#{leaderboard.playerRank}</span>
+				{/if}
 			</div>
-			{#if showLoginModal}
-				<Login onClose={() => (showLoginModal = false)} />
+
+			<div class="flex min-w-0 flex-1 flex-col gap-1">
+				{#if supabaseAuth.isAuthenticated}
+					<h2 class="truncate text-2xl font-bold text-white">{name}</h2>
+					<p class="flex flex-wrap items-center justify-center gap-x-2 text-sm text-white/50 sm:justify-start">
+						{#if connection}
+							<img alt="" class="size-3.5" src={connection.icon} />
+						{/if}
+						<span class="truncate">{supabaseAuth.user?.email}</span>
+						<span>·</span>
+						<span>Joined {joined}</span>
+					</p>
+				{:else}
+					<h2 class="text-2xl font-bold text-white">Guest</h2>
+					<p class="text-sm text-white/60">Your progress only lives in this browser, sign in to keep it safe.</p>
+				{/if}
+			</div>
+
+			{#if supabaseAuth.isAuthenticated}
+				<div class="flex shrink-0 gap-2">
+					<button
+						class="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+						disabled={isEditing}
+						onclick={startEditing}
+					>
+						<Pencil size={16} />
+						Edit
+					</button>
+					<button
+						aria-label="Sign out"
+						class="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+						onclick={() => supabaseAuth.signOut()}
+						title="Sign out"
+					>
+						<LogOut size={16} />
+					</button>
+				</div>
+			{:else}
+				<button class="shrink-0 rounded-lg bg-accent-600 px-5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-500" onclick={() => (showLoginModal = true)}>
+					Sign in
+				</button>
 			{/if}
-		{/if}
-	{:else}
-		{#if supabaseAuth.isAuthenticated}
-			{@const connectedProvider = supabaseAuth.user?.identities?.find((identity) => AUTH_CONNECTIONS.some((conn) => conn.provider === identity.provider))?.provider}
-			{@const authConnection = getAuthConnection(connectedProvider)}
-			{@const providerAvatar = supabaseAuth.user?.user_metadata?.avatar_url || supabaseAuth.user?.user_metadata?.picture}
-			{@const currentAvatar = isEditMode ? debouncedPictureUrl : supabaseAuth.profile?.picture || providerAvatar}
+		</div>
 
-			<div class="flex flex-col gap-4" in:fade>
-				<!-- Profile Info Panel -->
-				<div class="relative overflow-hidden rounded-xl border border-white/10 bg-black/40 p-5 shadow-lg backdrop-blur-md">
-					<!-- Blurry color dots -->
-					<div class="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-accent-600/5 blur-3xl"></div>
-					<div class="pointer-events-none absolute -left-10 -bottom-10 size-40 rounded-full bg-primary-600/5 blur-3xl"></div>
-
-					<div class="relative flex flex-col gap-8 md:flex-row md:items-center">
-						<!-- Avatar Section -->
-						<div class="relative flex justify-center shrink-0">
-							<div class="absolute -inset-1 rounded-full bg-linear-to-tr from-accent-600 to-primary-600 opacity-10 blur-lg"></div>
-							<Avatar
-								alt={username}
-								class="size-20 text-2xl shadow-xl ring-2 ring-white/10 ring-offset-2 ring-offset-black md:size-24"
-								src={currentAvatar}
+		{#if isEditing}
+			<form class="relative mt-5 flex flex-col gap-3 border-t border-white/10 pt-5" onsubmit={handleSave} transition:slide>
+				<div class="grid gap-3 sm:grid-cols-2">
+					<label class="flex flex-col gap-1 text-xs font-semibold text-white/50">
+						Username
+						<span class="relative">
+							<User class="absolute top-1/2 left-3 -translate-y-1/2 text-white/30" size={14} />
+							<input
+								bind:value={newUsername}
+								class="w-full rounded-lg border border-white/10 bg-black/40 py-2 pr-3 pl-9 text-sm text-white outline-hidden focus:border-accent-500"
+								maxlength="30"
+								minlength="3"
+								placeholder="Your username"
 							/>
-							{#if userRank > 0}
-								<div class="absolute -bottom-1 -right-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-accent-600 px-1.5 font-bold text-white shadow-lg ring-2 ring-black" in:scale>
-									<span class="text-[12px]">#{userRank}</span>
-								</div>
-							{/if}
-						</div>
-
-						<!-- Details -->
-						<div class="flex flex-1 flex-col items-center gap-1.5 md:items-start md:text-left">
-							<h1 class="text-xl font-bold tracking-tight text-white drop-shadow-sm md:text-2xl">
-								{username}
-							</h1>
-
-							<div class="flex items-center gap-2 text-white/40">
-								<Clock class="text-white/20" size={13} />
-								<span class="text-[12px] font-medium">Joined {formatStartDate(gameManager.startDate)}</span>
-							</div>
-
-							<div class="mt-4 flex flex-wrap justify-center gap-2.5 md:justify-start">
-								<button
-									class="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/5 px-3.5 py-1.5 text-[11px] font-semibold text-white transition-all active:scale-95 hover:bg-white/10"
-									onclick={toggleEditMode}
-								>
-									{#if isEditMode}
-										<X size={14} />
-										Cancel
-									{:else}
-										<Settings2 size={14} />
-										Edit Profile
-									{/if}
-								</button>
-								<button
-									class="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3.5 py-1.5 text-[11px] font-semibold text-red-400 transition-all active:scale-95 hover:bg-red-500/20"
-									onclick={() => supabaseAuth.signOut()}
-								>
-									<LogOut size={14} />
-									Sign Out
-								</button>
-							</div>
-						</div>
-
-						<!-- Desktop Hub Overview -->
-						<div class="hidden border-l border-white/10 pl-6 lg:grid grid-cols-2 gap-x-10 gap-y-4">
-							<div class="flex flex-col gap-0.5">
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Level</span>
-								<span class="text-xl font-bold text-white">{formatNumber(gameManager.playerLevel)}</span>
-							</div>
-							<div class="flex flex-col gap-0.5">
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Atoms</span>
-								<Value value={atoms} currency="Atoms" class="text-xl font-bold text-accent-400" />
-							</div>
-							<div class="flex flex-col gap-0.5">
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Achievements</span>
-								<span class="text-xl font-bold text-white">{formatNumber(gameManager.achievements.length)}</span>
-							</div>
-							<div class="flex flex-col gap-0.5">
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Rank</span>
-								<span class="text-xl font-bold text-primary-400">Top {userPercentile}%</span>
-							</div>
-						</div>
-					</div>
+						</span>
+					</label>
+					<label class="flex flex-col gap-1 text-xs font-semibold text-white/50">
+						Avatar URL
+						<span class="relative">
+							<LinkIcon class="absolute top-1/2 left-3 -translate-y-1/2 text-white/30" size={14} />
+							<input
+								bind:value={newPictureUrl}
+								class="w-full rounded-lg border border-white/10 bg-black/40 py-2 pr-3 pl-9 text-sm text-white outline-hidden focus:border-accent-500"
+								oninput={onPictureInput}
+								placeholder="https://..."
+								type="url"
+							/>
+						</span>
+					</label>
 				</div>
 
-				<!-- Edit Profile Panel -->
-				{#if isEditMode}
-					<div class="rounded-xl border border-accent-600/20 bg-accent-600/5 p-5 shadow-xl backdrop-blur-md" in:slide>
-						<form class="flex flex-col gap-2" onsubmit={handleSaveProfile}>
-							<div class="flex items-center justify-between pb-1">
-								<div class="flex items-center gap-2 text-accent-400">
-									<Settings2 size={15} />
-									<h2 class="text-xs font-bold uppercase tracking-wider">Profile Settings</h2>
-								</div>
-								{#if authConnection}
-									<button
-										type="button"
-										onclick={restoreProviderData}
-										class="flex items-center gap-2 text-[11px] font-bold text-white/40 hover:text-accent-400 transition-colors bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 hover:bg-white/10"
-										title="Restore name and picture from {authConnection.name}"
-									>
-										<img src={authConnection.icon} alt="" class="size-3 opacity-60" />
-										Sync from {authConnection.name}
-									</button>
-								{/if}
-							</div>
-
-							<div class="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-								<div class="flex flex-col gap-1">
-									<label class="text-[10px] font-bold uppercase tracking-wider text-white/30" for="username">Username</label>
-									<div class="relative">
-										<div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/20"><User size={13} /></div>
-										<input
-											id="username"
-											bind:this={usernameInput}
-											bind:value={newUsername}
-											class="w-full rounded-lg border border-white/10 bg-black/40 py-2 pl-8 pr-3 text-xs text-white outline-hidden transition-all focus:border-accent-600 focus:ring-4 focus:ring-accent-600/5"
-											maxlength="30"
-											minlength="3"
-											placeholder="Your username..."
-										/>
-									</div>
-								</div>
-
-								<div class="flex flex-col gap-1">
-									<label class="text-[10px] font-bold uppercase tracking-wider text-white/30" for="picture">Avatar URL</label>
-									<div class="relative">
-										<div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/20"><LinkIcon size={13} /></div>
-										<input
-											id="picture"
-											bind:this={pictureInput}
-											bind:value={newPictureUrl}
-											class="w-full rounded-lg border border-white/10 bg-black/40 py-2 pl-8 pr-3 text-xs text-white outline-hidden transition-all focus:border-accent-600 focus:ring-4 focus:ring-accent-600/5"
-											placeholder="https://..."
-											type="url"
-										/>
-									</div>
-								</div>
-							</div>
-
-							{#if editError}
-								<div class="rounded-lg border border-red-500/20 bg-red-500/10 p-2.5 text-xs text-red-400" transition:fade>
-									{editError}
-								</div>
-							{/if}
-
-							<div class="flex justify-end gap-2.5 pt-3">
-								<button
-									class="rounded-lg px-4 py-1.5 text-xs font-semibold text-white/40 transition-colors hover:text-white"
-									onclick={cancelEditing}
-									type="button"
-								>
-									Cancel
-								</button>
-								<button
-									class="flex items-center gap-2 rounded-lg bg-accent-600 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-accent-600/20 transition-all disabled:opacity-50 active:scale-95 hover:bg-accent-500"
-									disabled={isSaving}
-									type="submit"
-								>
-									{#if isSaving}
-										<div class="size-3 animate-spin rounded-full border-2 border-white/20 border-t-white"></div>
-									{:else}
-										<Save size={14} />
-									{/if}
-									Save
-								</button>
-							</div>
-						</form>
-					</div>
+				{#if editError}
+					<p class="rounded-lg border border-red-500/20 bg-red-500/10 p-2.5 text-sm text-red-300">{editError}</p>
 				{/if}
 
-				<!-- Stats & Data clusters -->
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-					<!-- Progress Cluster -->
-					<div class="col-span-1 rounded-xl border border-white/5 bg-black/20 p-5 flex flex-col gap-5 md:col-span-2">
-						<h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
-							<Activity size={14} />
-							Game Progress
-						</h3>
-
-						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<MousePointerClick size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white truncate max-w-full">{formatNumber(gameManager.clickPower)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Click Power</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Currency name={CurrenciesTypes.ATOMS} size={16} />
-								<span class="text-lg font-bold text-accent-400">{formatNumber(gameManager.atomsPerSecond)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Atoms/s</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Activity size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white truncate max-w-full">{formatNumber(gameManager.totalClicksAllTime)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Clicks</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Building2 size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white">{formatNumber(totalBuildings)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Buildings</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Package size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white">{formatNumber(gameManager.upgrades.length)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Upgrades</span>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10">
-								<Clock size={16} class="text-white/20" />
-								<span class="text-lg font-bold text-white truncate max-w-full">{formatDuration(gameManager.inGameTime)}</span>
-								<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Playtime</span>
-							</div>
-						</div>
-					</div>
-
-					<!-- Account Info -->
-					<div class="rounded-xl border border-white/5 bg-black/20 p-5 flex flex-col gap-5">
-						<h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
-							<Shield size={14} />
-							Security
-						</h3>
-
-						<div class="flex flex-col gap-4">
-							<div class="flex flex-col gap-1.5">
-								<span class="text-[10px] font-bold uppercase tracking-widest text-white/20">Provider</span>
-								{#if authConnection}
-									<div class="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-2">
-										<img alt="" class="size-4" src={authConnection.icon} />
-										<span class="text-[11px] font-semibold text-white">{authConnection.name}</span>
-									</div>
-								{:else}
-									<div class="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-2 opacity-40">
-										<Mail size={14} />
-										<span class="text-[11px] font-semibold text-white">Direct</span>
-									</div>
-								{/if}
-							</div>
-
-							<div class="flex flex-col gap-1.5">
-								<span class="text-[10px] font-bold uppercase tracking-widest text-white/20">Email</span>
-								<div class="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-2">
-									<Mail size={14} />
-									<span class="text-[11px] font-semibold text-white truncate">{supabaseAuth.user?.email}</span>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Gameplay Settings -->
-					<div class="rounded-xl border border-white/5 bg-black/20 p-5 flex flex-col gap-5">
-						<h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
-							<Settings2 size={14} />
-							Gameplay
-						</h3>
-
-						<div class="flex flex-col gap-3">
-							<div class="flex items-center justify-between">
-								<div class="flex flex-col">
-									<span class="text-sm font-semibold text-white">Offline Progress</span>
-									<span class="text-xs text-white/50">Allow offline gains while away</span>
-								</div>
-								<label class="relative inline-flex items-center cursor-pointer">
-									<input
-										type="checkbox"
-										bind:checked={gameManager.settings.gameplay.offlineProgressEnabled}
-										class="sr-only peer"
-									/>
-									<div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-								</label>
-							</div>
-							<div class="flex items-center justify-between">
-								<div class="flex flex-col">
-									<span class="text-sm font-semibold text-white">Tips</span>
-									<span class="text-xs text-white/50">Show hints next to new mechanics</span>
-								</div>
-								<div class="flex items-center gap-2">
-									<button
-										class="rounded-lg border border-white/10 bg-white/5 px-3.5 py-1.5 text-[11px] font-semibold text-white transition-all active:scale-95 hover:bg-white/10"
-										onclick={() => {
-											ui.closeModal();
-											gameManager.tutorialManager.forget();
-										}}
-										title="Show every tip again"
-									>
-										Replay
-									</button>
-									<label class="relative inline-flex items-center cursor-pointer">
-										<input
-											type="checkbox"
-											checked={gameManager.tutorialManager.state.enabled}
-											class="sr-only peer"
-											onchange={e => gameManager.tutorialManager.setEnabled(e.currentTarget.checked)}
-										/>
-										<div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-									</label>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Quantum Mastery Cluster -->
-					<div class="col-span-1 md:col-span-3 rounded-xl border border-white/5 bg-black/20 p-5 flex flex-col gap-5">
-						<h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
-							<Zap size={14} />
-							Quantum Mastery
-						</h3>
-
-						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-							{#each [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS, CurrenciesTypes.HIGGS_BOSON] as currencyType}
-								{@const currency = gameManager.currencies[currencyType]}
-								{#if (currency?.earnedAllTime ?? 0) > 0}
-									<div class="flex flex-col items-center justify-center gap-1 rounded-lg bg-white/5 p-3.5 text-center transition-all hover:bg-white/10" in:scale>
-										<Currency name={currencyType} size={16} />
-										<span class="text-lg font-bold text-white truncate max-w-full">
-											{formatNumber(currency.earnedAllTime)}
-										</span>
-										<span class="text-[9px] font-bold uppercase tracking-widest text-white/20">Total {currencyType}</span>
-									</div>
-								{/if}
-							{/each}
-						</div>
-					</div>
+				<div class="flex flex-wrap items-center gap-2">
+					{#if connection}
+						<button class="mr-auto flex items-center gap-2 text-sm text-white/50 transition-colors hover:text-white" onclick={restoreProviderData} type="button">
+							<img alt="" class="size-3.5" src={connection.icon} />
+							Use my {connection.name} name and picture
+						</button>
+					{/if}
+					<button class="ml-auto rounded-lg px-4 py-2 text-sm font-semibold text-white/60 transition-colors hover:text-white" onclick={() => (isEditing = false)} type="button">
+						Cancel
+					</button>
+					<button class="rounded-lg bg-accent-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-500 disabled:opacity-50" disabled={isSaving} type="submit">
+						{isSaving ? 'Saving...' : 'Save'}
+					</button>
 				</div>
-			</div>
-		{:else}
-			<div class="relative flex h-115 flex-col items-center justify-center gap-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-10 text-center" in:fade>
-				<!-- Blurry color dots -->
-				<div class="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-accent-600/5 blur-[80px]"></div>
-				<div class="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-primary-600/5 blur-[80px]"></div>
-
-				<div class="relative">
-					<div class="absolute inset-0 animate-pulse rounded-full bg-accent-600/10 blur-[60px]"></div>
-					<Avatar alt="Guest" class="size-24 text-4xl shadow-2xl ring-4 ring-black" src="" />
-				</div>
-
-				<div class="relative flex max-w-sm flex-col gap-2">
-					<h2 class="text-2xl font-bold tracking-tight text-white uppercase">Guest</h2>
-					<p class="text-[13px] font-medium leading-relaxed text-white/40 px-6">
-						Login to preserve your progress across devices and climb the rankings.
-					</p>
-				</div>
-
-				<button
-					class="group relative overflow-hidden rounded-xl bg-accent-600 px-10 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-xl transition-all active:scale-95 hover:scale-105"
-					onclick={() => { showLoginModal = true; }}
-				>
-					<div class="absolute inset-0 translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0"></div>
-					<span class="relative flex items-center gap-2.5">
-						<CircleUser size={18} />
-						Login
-					</span>
-				</button>
-			</div>
-			{#if showLoginModal}
-				<Login onClose={() => (showLoginModal = false)} />
-			{/if}
+			</form>
 		{/if}
+	</section>
+
+	<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
+		<div class="mb-2 flex items-baseline justify-between gap-2">
+			<span class="text-sm font-semibold text-white/60">Level <b class="text-2xl text-white">{formatNumber(gameManager.playerLevel)}</b></span>
+			<span class="text-xs text-white/40">{formatNumber(gameManager.currentLevelXP)} / {formatNumber(gameManager.nextLevelXP)} XP</span>
+		</div>
+		<div class="h-2.5 overflow-hidden rounded-full bg-white/10">
+			<div class="h-full origin-left rounded-full bg-linear-to-r from-accent-400 to-accent-600" style:transform="scaleX({gameManager.xpProgress / 100})"></div>
+		</div>
+	</section>
+
+	<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+		{#each tiles as tile (tile.label)}
+			<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
+				<span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+					<tile.icon size={18} />
+				</span>
+				<span class="flex min-w-0 flex-col">
+					<span class="truncate font-bold text-white">{tile.value}</span>
+					<span class="text-xs text-white/50">{tile.label}</span>
+				</span>
+			</div>
+		{/each}
+	</div>
+
+	<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
+		<h3 class="mb-3 text-xs font-semibold tracking-wider text-white/40 uppercase">Journey</h3>
+		<ol class="grid grid-cols-2 gap-3 md:grid-cols-4">
+			{#each milestones as milestone (milestone.label)}
+				<li class="flex flex-col items-center gap-2 rounded-xl p-3 text-center {milestone.reached ? 'bg-white/5' : 'border border-dashed border-white/10 opacity-50'}">
+					<span class="flex size-11 items-center justify-center rounded-full bg-black/40">
+						{#if milestone.reached}
+							<milestone.icon color={milestone.color} size={24} />
+						{:else}
+							<Lock class="text-white/50" size={16} />
+						{/if}
+					</span>
+					<span class="text-sm font-semibold text-white">{milestone.reached ? milestone.label : '???'}</span>
+					{#if milestone.reached && milestone.count}
+						<span class="text-xs text-white/50">{formatNumber(milestone.count, 0)} times</span>
+					{/if}
+				</li>
+			{/each}
+		</ol>
+	</section>
+
+	<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
+		<h3 class="mb-3 text-xs font-semibold tracking-wider text-white/40 uppercase">Earned all time</h3>
+		<div class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+			{#each lifetime as type (type)}
+				<div class="flex items-center gap-2.5">
+					<Currency name={type} size={26} />
+					<span class="flex flex-col leading-tight">
+						<span class="text-lg font-bold tabular-nums" style:color={CURRENCIES[type].color}>{formatNumber(gameManager.currencies[type].earnedAllTime)}</span>
+						<span class="text-xs text-white/50">{type}</span>
+					</span>
+				</div>
+			{/each}
+		</div>
+	</section>
+
+	{#if !supabaseAuth.isAuthenticated}
+		<div class="grid gap-3 sm:grid-cols-3">
+			{#each [{ icon: Cloud, text: 'Back up your save and play on any device' }, { icon: Trophy, text: 'Climb the global leaderboard' }, { icon: QuarkIcon, text: 'Earn Quarks for themes and banners' }] as perk (perk.text)}
+				<div class="flex items-center gap-3 rounded-xl border border-dashed border-accent/30 bg-accent/5 p-4 text-sm text-white/70">
+					<perk.icon class="shrink-0 text-accent" size={20} />
+					{perk.text}
+				</div>
+			{/each}
+		</div>
 	{/if}
+
+	<button
+		class="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-semibold text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+		onclick={() => ui.openSettings('stats')}
+	>
+		<ChartLine size={16} />
+		See all your stats
+	</button>
 </div>
 
-<style>
-	.custom-scrollbar::-webkit-scrollbar {
-		display: none;
-	}
-
-	.custom-scrollbar {
-		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
-	}
-
-	.wrap-break-word {
-		overflow-wrap: break-word;
-		word-break: break-word;
-		word-wrap: break-word;
-	}
-</style>
+{#if showLoginModal}
+	<Login onClose={() => (showLoginModal = false)} />
+{/if}

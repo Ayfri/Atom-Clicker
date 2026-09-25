@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Login from '@components/modals/Login.svelte';
-	import Profile from '@components/settings/Profile.svelte';
 	import LeaderboardRow from '@components/ui/LeaderboardRow.svelte';
 	import Modal from '@components/ui/Modal.svelte';
+	import ProfileCard from '@components/ui/ProfileCard.svelte';
 	import type { LeaderboardEntry } from '$lib/types/leaderboard';
 	import {leaderboard, REFRESH_INTERVAL} from '$stores/leaderboard.svelte';
 	import {supabaseAuth} from '$stores/supabaseAuth.svelte';
@@ -75,7 +75,7 @@
 	{/snippet}
 
 	<div class="mb-4">
-		<Profile small={true} />
+		<ProfileCard />
 	</div>
 
 	<!-- Search and Filters -->
