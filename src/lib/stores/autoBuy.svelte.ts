@@ -1,26 +1,27 @@
 import { gameManager } from '$helpers/GameManager.svelte';
 import { getUpgradesWithEffects } from '$helpers/effects';
-import type { BuildingType } from '$data/buildings';
+import type { GeneratorType } from '$data/generators';
 import { browser } from '$app/environment';
+import { SvelteMap } from 'svelte/reactivity';
 
 class AutoBuyManager {
-	recentlyAutoPurchasedBuildings = $state(new Map<BuildingType, number>());
-	nextFireTimes = $state(new Map<BuildingType, number>());
+	recentlyAutoPurchasedGenerators = new SvelteMap<GeneratorType, number>();
+	nextFireTimes = new SvelteMap<GeneratorType, number>();
 	private timers: Record<string, ReturnType<typeof setInterval>> = {};
 
 	get autoBuyIntervals() {
 		const autoBuyUpgrades = getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_buy' });
-		const intervals: Partial<Record<BuildingType, number>> = {};
+		const intervals: Partial<Record<GeneratorType, number>> = {};
 
 		autoBuyUpgrades.forEach((upgrade) => {
 			if (!upgrade.effects) return;
 
 			upgrade.effects.forEach((effect) => {
 				if (effect.type === 'auto_buy' && effect.target) {
-					const buildingType = effect.target as BuildingType;
-					// Only set up interval if automation is enabled for this building
-					if (gameManager.settings.automation.buildings.includes(buildingType)) {
-						intervals[buildingType] = effect.apply(intervals[buildingType] || 30000, gameManager);
+					const generatorType = effect.target;
+					// Only set up interval if automation is enabled for this generator
+					if (gameManager.settings.automation.generators.includes(generatorType)) {
+						intervals[generatorType] = effect.apply(intervals[generatorType] || 30000, gameManager);
 					}
 				}
 			});
@@ -29,21 +30,21 @@ class AutoBuyManager {
 		return intervals;
 	}
 
-	purchaseBuilding(type: BuildingType) {
+	purchaseGenerator(type: GeneratorType) {
 		try {
-			const success = gameManager.purchaseBuilding(type, 1);
+			const success = gameManager.purchaseGenerator(type, 1);
 
 			if (success) {
 				// Add visual feedback
-				const current = this.recentlyAutoPurchasedBuildings.get(type) || 0;
-				this.recentlyAutoPurchasedBuildings.set(type, current + 1);
+				const current = this.recentlyAutoPurchasedGenerators.get(type) || 0;
+				this.recentlyAutoPurchasedGenerators.set(type, current + 1);
 
 				setTimeout(() => {
-					const current = this.recentlyAutoPurchasedBuildings.get(type) || 0;
+					const current = this.recentlyAutoPurchasedGenerators.get(type) || 0;
 					if (current <= 1) {
-						this.recentlyAutoPurchasedBuildings.delete(type);
+						this.recentlyAutoPurchasedGenerators.delete(type);
 					} else {
-						this.recentlyAutoPurchasedBuildings.set(type, current - 1);
+						this.recentlyAutoPurchasedGenerators.set(type, current - 1);
 					}
 				}, 2000);
 			}
@@ -63,11 +64,11 @@ class AutoBuyManager {
 				this.timers = {};
 				this.nextFireTimes.clear();
 
-				Object.entries(intervals).forEach(([buildingType, interval]) => {
-					const type = buildingType as BuildingType;
+				Object.entries(intervals).forEach(([generatorType, interval]) => {
+					const type = generatorType as GeneratorType;
 					this.nextFireTimes.set(type, Date.now() + interval);
-					this.timers[buildingType] = setInterval(() => {
-						this.purchaseBuilding(type);
+					this.timers[generatorType] = setInterval(() => {
+						this.purchaseGenerator(type);
 						this.nextFireTimes.set(type, Date.now() + interval);
 					}, interval);
 				});

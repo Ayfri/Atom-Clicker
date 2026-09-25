@@ -100,7 +100,7 @@ function normalize(v: Vector): Vector {
 }
 
 /**
- * Draws the clickable atom on a Canvas2D: a spinning ball of nucleons wrapped in one tilted orbit per building,
+ * Draws the clickable atom on a Canvas2D: a spinning ball of nucleons wrapped in one tilted orbit per generator,
  * spread over every inclination so the shells outline a sphere. Electrons are filled as one path per shell and depth band:
  * a drawImage per electron cost ~5µs, 4.5ms a frame with every shell full. Nucleons are pre-rendered sprites.
  */

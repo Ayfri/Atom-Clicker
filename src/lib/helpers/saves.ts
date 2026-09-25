@@ -1,7 +1,7 @@
-import { BUILDING_LEVEL_UP_COST, type BuildingType } from '$data/buildings';
 import { CurrenciesTypes } from '$data/currencies';
+import { GENERATOR_LEVEL_UP_COST, type GeneratorType } from '$data/generators';
 import { RealmTypes } from '$data/realms';
-import type { Building, GameState } from '$lib/types';
+import type { GameState, Generator } from '$lib/types';
 import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
 import { statsConfig } from '$helpers/statConstants';
 import { getItem } from '$lib/utils/safeLocalStorage';
@@ -9,7 +9,7 @@ import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
 import type { SaveErrorType } from '$stores/saveRecovery';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 25;
+export const SAVE_VERSION = 26;
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
 const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;
@@ -179,7 +179,7 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 				typeof val === 'object' &&
 				val !== null &&
 				typeof val.automation === 'object' &&
-				Array.isArray(val.automation?.buildings) &&
+				Array.isArray(val.automation?.generators) &&
 				typeof val.automation?.autoClick === 'boolean' &&
 				typeof val.automation?.autoClickPhotons === 'boolean' &&
 				typeof val.automation?.upgrades === 'boolean' &&
@@ -277,19 +277,20 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 	if (!savedState || typeof savedState !== 'object') return undefined;
 	const state = savedState as any;
 
-	if (!('buildings' in state)) return state;
+	// Generators were stored under `buildings` until v26.
+	if (!('buildings' in state) && !('generators' in state)) return state;
 
 	if (!('version' in state)) {
 		// Migrate from old format
-		state.buildings = Object.entries(state.buildings as Partial<GameState['buildings']>).reduce(
+		state.buildings = Object.entries(state.buildings as Partial<GameState['generators']>).reduce(
 			(acc, [key, value]) => {
-				acc[key as BuildingType] = {
+				acc[key as GeneratorType] = {
 					...value,
 					unlocked: true,
 				};
 				return acc;
 			},
-			{} as GameState['buildings'],
+			{} as GameState['generators'],
 		);
 	}
 
@@ -317,14 +318,14 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 		// Specific Migrations
 		if (state.version === 2) {
-			Object.entries<Partial<Building>>(state.buildings)?.forEach(([key, building]) => {
-				building.level = Math.floor((building.count ?? 0) / BUILDING_LEVEL_UP_COST);
+			Object.entries<Partial<Generator>>(state.buildings)?.forEach(([key, building]) => {
+				building.level = Math.floor((building.count ?? 0) / GENERATOR_LEVEL_UP_COST);
 				state[key] = building;
 			});
 		}
 
 		if (state.version === 4) {
-			Object.entries<Partial<Building>>(state.buildings)?.forEach(([key, building]) => {
+			Object.entries<Partial<Generator>>(state.buildings)?.forEach(([key, building]) => {
 				state[key].cost = {
 					amount: typeof building.cost === 'number' ? building.cost : building.cost?.amount,
 					currency: CurrenciesTypes.ATOMS,
@@ -558,6 +559,25 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				enabled: true,
 				seen: [...(state.tutorial?.seenRealmSteps ?? []), ...(state.tutorial?.completed ? completedHints : [])],
 			};
+		}
+
+		if (state.version === 25) {
+			// Buildings were renamed to generators, achievement and daily quest ids stay as they are since the quark claims server keys on them
+			state.generators = state.buildings ?? {};
+			state.totalGeneratorsPurchasedAllTime = state.totalBuildingsPurchasedAllTime ?? 0;
+			delete state.buildings;
+			delete state.totalBuildingsPurchasedAllTime;
+			if (state.dailyStats) {
+				state.dailyStats.generatorsPurchased = state.dailyStats.buildingsPurchased ?? 0;
+				delete state.dailyStats.buildingsPurchased;
+			}
+			if (state.settings?.automation) {
+				state.settings.automation.generators = state.settings.automation.buildings ?? [];
+				delete state.settings.automation.buildings;
+			}
+			if (Array.isArray(state.tutorial?.seen)) {
+				state.tutorial.seen = state.tutorial.seen.map((id: string) => (id === 'atoms:building' ? 'atoms:generator' : id));
+			}
 		}
 
 		state.version = nextVersion;

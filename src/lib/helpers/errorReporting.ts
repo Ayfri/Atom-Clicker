@@ -86,10 +86,10 @@ function captureGameState(): Record<string, unknown> | null {
 			achievements: state.achievements?.length ?? 0,
 			activePowerUps: state.activePowerUps?.length ?? 0,
 			atoms: amount(CurrenciesTypes.ATOMS),
-			buildings: Object.entries(state.buildings || {}).reduce(
-				(acc, [key, building]) => {
-					if (building) {
-						acc[key] = { count: building.count, level: building.level };
+			generators: Object.entries(state.generators || {}).reduce(
+				(acc, [key, generator]) => {
+					if (generator) {
+						acc[key] = { count: generator.count, level: generator.level };
 					}
 					return acc;
 				},

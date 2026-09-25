@@ -1,34 +1,13 @@
 <script lang="ts">
-	import { BUILDINGS, BuildingTypes, type BuildingType } from '$data/buildings';
 	import type { CurrencyName } from '$data/currencies';
+	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
+	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { formatDuration, formatNumber } from '$lib/utils';
-	import BlackHoleIcon from '@components/icons/buildings/BlackHole.svelte';
-	import CrystalIcon from '@components/icons/buildings/Crystal.svelte';
-	import MicroorganismIcon from '@components/icons/buildings/Microorganism.svelte';
-	import MoleculeIcon from '@components/icons/buildings/Molecule.svelte';
-	import NanostructureIcon from '@components/icons/buildings/Nanostructure.svelte';
-	import NeutronStarIcon from '@components/icons/buildings/NeutronStar.svelte';
-	import PlanetIcon from '@components/icons/buildings/Planet.svelte';
-	import RockIcon from '@components/icons/buildings/Rock.svelte';
-	import StarIcon from '@components/icons/buildings/Star.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import Value from '@components/ui/Value.svelte';
-	import type { Component } from 'svelte';
 	import { Clock, Settings2, Star, TrendingUp, Zap, Activity, Battery } from '@lucide/svelte';
-
-	const BUILDING_ICONS: Record<BuildingType, Component<{ color?: string; size?: number }>> = {
-		[BuildingTypes.BLACK_HOLE]: BlackHoleIcon,
-		[BuildingTypes.CRYSTAL]: CrystalIcon,
-		[BuildingTypes.MICROORGANISM]: MicroorganismIcon,
-		[BuildingTypes.MOLECULE]: MoleculeIcon,
-		[BuildingTypes.NANOSTRUCTURE]: NanostructureIcon,
-		[BuildingTypes.NEUTRON_STAR]: NeutronStarIcon,
-		[BuildingTypes.PLANET]: PlanetIcon,
-		[BuildingTypes.ROCK]: RockIcon,
-		[BuildingTypes.STAR]: StarIcon,
-	};
 
 	interface Props {
 		onClose: () => void;
@@ -37,16 +16,10 @@
 	let { onClose }: Props = $props();
 
 	const summary = $derived(gameManager.offlineProgressSummary);
-	const autoBuyEntries = $derived.by(() => {
-		if (!summary) return [] as [BuildingType, number][];
-		return Object.entries(summary.autoBuyCounts)
-			.filter(([, count]) => (count ?? 0) > 0)
-			.map(([type, count]) => [type as BuildingType, count ?? 0] as [BuildingType, number])
-			.sort(([a], [b]) => BUILDINGS[a].name.localeCompare(BUILDINGS[b].name));
-	});
-	const autoBuyTotal = $derived.by(() => autoBuyEntries.reduce((total, [, count]) => total + count, 0));
-	const autoPurchaseEnabled = $derived.by(() => !!summary && (summary.autoBuyEnabled || summary.autoUpgradeEnabled));
-	const autoPurchaseTotal = $derived.by(() => (summary ? autoBuyTotal + summary.autoUpgradePurchases : 0));
+	const autoBuyEntries = $derived(
+		summary ? GENERATOR_TYPES.flatMap(type => ((summary.autoBuyCounts[type] ?? 0) > 0 ? [[type, summary.autoBuyCounts[type] ?? 0] as const] : [])) : [],
+	);
+	const autoBuyTotal = $derived(autoBuyEntries.reduce((total, [, count]) => total + count, 0));
 	const currencyEntries = $derived.by(() => {
 		if (!summary) return [] as [CurrencyName, number][];
 		return Object.entries(summary.currencyGains)
@@ -135,13 +108,13 @@
 					<div class="flex flex-col gap-2 text-sm text-white/80">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
-								<span>Buildings</span>
-								<span class={autoPurchaseEnabled ? 'text-green-400' : 'text-white/40'}>
-									{autoPurchaseEnabled ? `(1/${summary.autoBuyFactor})` : 'Disabled'}
+								<span>Generators</span>
+								<span class={summary.autoBuyEnabled ? 'text-green-400' : 'text-white/40'}>
+									{summary.autoBuyEnabled ? `(1/${summary.autoBuyFactor})` : 'Disabled'}
 								</span>
 							</div>
 							<div class="flex items-center gap-2">
-								<span>{formatNumber(autoPurchaseTotal)}</span>
+								<span>{formatNumber(autoBuyTotal)}</span>
 								<Tooltip
 									position="left"
 									size="sm"
@@ -156,18 +129,18 @@
 									{#snippet content()}
 										<div class="flex flex-col gap-1">
 											<div class="mt-2 text-[10px] font-bold uppercase tracking-widest text-white/40">
-												Buildings purchased
+												Generators purchased
 											</div>
 											{#if autoBuyEntries.length > 0}
-												{#each autoBuyEntries as [type, count]}
-													{@const IconComponent = BUILDING_ICONS[type]}
+												{#each autoBuyEntries as [type, count] (type)}
+													{@const IconComponent = ICONS[GENERATOR_ICON_NAMES[type]]}
 													<div class="flex items-center justify-between gap-4">
 														<span class="text-white/60 flex items-center gap-1.5">
 															<IconComponent
 																size={14}
 																color="currentColor"
 															/>
-															{BUILDINGS[type].name}
+															{GENERATORS[type].name}
 														</span>
 														<span class="font-semibold text-white">{formatNumber(count)}</span>
 													</div>

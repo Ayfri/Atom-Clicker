@@ -1,7 +1,7 @@
-import { BUILDING_TYPES, BUILDINGS, type BuildingType } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
-import { BUILDING_ICON_NAMES, type IconName } from '$data/icons';
+import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '$data/generators';
+import { GENERATOR_ICON_NAMES, type IconName } from '$data/icons';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import type { Effect, Upgrade } from '$lib/types';
 import { capitalize, formatNumber, shortNumberText } from '$lib/utils';
@@ -41,34 +41,34 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 }
 
 /** Boost tiers 6-10, 11-15 and 16-20 each need one more protonise, so a first run tops out near 1e15 atoms instead of 1e29. */
-export const BUILDING_BOOST_TIERS_PER_PROTONISE = 5;
+export const GENERATOR_BOOST_TIERS_PER_PROTONISE = 5;
 
 export function boostTierProtonises(tier: number): number {
-	return Math.floor((tier - 1) / BUILDING_BOOST_TIERS_PER_PROTONISE);
+	return Math.floor((tier - 1) / GENERATOR_BOOST_TIERS_PER_PROTONISE);
 }
 
-/** Boost tiers of unlocked buildings that the next protonise opens, so the panel can say why the atom list ran dry. */
+/** Boost tiers of unlocked generators that the next protonise opens, so the panel can say why the atom list ran dry. */
 export function boostTiersUnlockedByNextProtonise(manager: GameManager): number {
-	const unlockedBuildings = BUILDING_TYPES.filter(type => manager.buildings[type]?.unlocked).length;
-	return manager.totalProtonisesAllTime < 3 ? unlockedBuildings * BUILDING_BOOST_TIERS_PER_PROTONISE : 0;
+	const unlockedGenerators = GENERATOR_TYPES.filter(type => manager.generators[type]?.unlocked).length;
+	return manager.totalProtonisesAllTime < 3 ? unlockedGenerators * GENERATOR_BOOST_TIERS_PER_PROTONISE : 0;
 }
 
-function createBuildingUpgrades(buildingType: BuildingType) {
-	const building = BUILDINGS[buildingType];
+function createGeneratorUpgrades(generatorType: GeneratorType) {
+	const generator = GENERATORS[generatorType];
 	return createUpgrades({
 		condition: (i, state) =>
-			state.buildings[buildingType]?.unlocked === true && state.totalProtonisesAllTime >= boostTierProtonises(i),
+			state.generators[generatorType]?.unlocked === true && state.totalProtonisesAllTime >= boostTierProtonises(i),
 		count: 20,
-		icon: BUILDING_ICON_NAMES[buildingType],
-		id: buildingType.toLowerCase(),
-		name: i => `${building.name} Boost ${i}`,
-		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${building.name} production`,
-		cost: i => building.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
+		icon: GENERATOR_ICON_NAMES[generatorType],
+		id: generatorType.toLowerCase(),
+		name: i => `${generator.name} Boost ${i}`,
+		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${generator.name} production`,
+		cost: i => generator.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
 		effects: i => [
 			{
-				type: 'building',
-				target: buildingType,
-				description: `Multiply ${building.name} production by ${1 + Math.ceil(i / 5)}`,
+				type: 'generator',
+				target: generatorType,
+				description: `Multiply ${generator.name} production by ${1 + Math.ceil(i / 5)}`,
 				apply: currentValue => currentValue * (1 + Math.ceil(i / 5)),
 			},
 		],
@@ -574,24 +574,24 @@ function createProtonUpgrades() {
 function createElectronUpgrades() {
 	const upgrades: Upgrade[] = [];
 
-	// Auto-buy upgrades for each building
+	// Auto-buy upgrades for each generator
 	upgrades.push(
-		...BUILDING_TYPES.map((buildingType, index) => {
-			const building = BUILDINGS[buildingType];
+		...GENERATOR_TYPES.map((generatorType, index) => {
+			const generator = GENERATORS[generatorType];
 			return {
-				id: `electron_auto_buy_${buildingType}`,
-				name: `Auto ${building.name}`,
-				description: `Automatically buys 1 ${building.name} every 30 seconds`,
+				id: `electron_auto_buy_${generatorType}`,
+				name: `Auto ${generator.name}`,
+				description: `Automatically buys 1 ${generator.name} every 30 seconds`,
 				cost: {
 					amount: 2 + index,
 					currency: CurrenciesTypes.ELECTRONS,
 				},
-				icon: BUILDING_ICON_NAMES[buildingType],
+				icon: GENERATOR_ICON_NAMES[generatorType],
 				effects: [
 					{
 						type: 'auto_buy',
-						target: buildingType,
-						description: `Auto-buy 1 ${building.name} every 30 seconds`,
+						target: generatorType,
+						description: `Auto-buy 1 ${generator.name} every 30 seconds`,
 						apply: currentValue => 30000, // 30 seconds in milliseconds
 					},
 				],
@@ -599,24 +599,24 @@ function createElectronUpgrades() {
 		}),
 	);
 
-	// Auto-buy speed upgrades for each building
+	// Auto-buy speed upgrades for each generator
 	upgrades.push(
-		...BUILDING_TYPES.map((buildingType, index) => {
-			const building = BUILDINGS[buildingType];
+		...GENERATOR_TYPES.map((generatorType, index) => {
+			const generator = GENERATORS[generatorType];
 			return {
-				id: `electron_auto_buy_speed_${buildingType}`,
-				name: `Faster Auto ${building.name}`,
-				description: `Reduces ${building.name} auto-buy interval by 5 seconds`,
-				condition: state => state.upgrades.includes(`electron_auto_buy_${buildingType}`),
+				id: `electron_auto_buy_speed_${generatorType}`,
+				name: `Faster Auto ${generator.name}`,
+				description: `Reduces ${generator.name} auto-buy interval by 5 seconds`,
+				condition: state => state.upgrades.includes(`electron_auto_buy_${generatorType}`),
 				cost: {
 					amount: 3 + index,
 					currency: CurrenciesTypes.ELECTRONS,
 				},
-				icon: BUILDING_ICON_NAMES[buildingType],
+				icon: GENERATOR_ICON_NAMES[generatorType],
 				effects: [
 					{
 						type: 'auto_buy',
-						target: buildingType,
+						target: generatorType,
 						description: `Reduce auto-buy interval by 5 seconds`,
 						apply: currentValue => Math.max(1000, currentValue - 5000), // Minimum 1 second
 					},
@@ -733,7 +733,7 @@ function createElectronUpgrades() {
 }
 
 const upgrades = [
-	...BUILDING_TYPES.map(createBuildingUpgrades).flat(),
+	...GENERATOR_TYPES.map(createGeneratorUpgrades).flat(),
 	...createClickPowerUpgrades(),
 	...createGlobalUpgrades(),
 	...createOfflineCapUpgrades(),

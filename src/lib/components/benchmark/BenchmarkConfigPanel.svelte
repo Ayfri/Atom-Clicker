@@ -189,7 +189,7 @@
 							{#snippet content()}
 								<div class="prose prose-invert prose-sm max-w-xs">
 									<h4 class="mb-2 text-sm font-semibold">Strategy</h4>
-									<p class="mb-2">How the bot chooses which building or upgrade to buy next.</p>
+									<p class="mb-2">How the bot chooses which generator or upgrade to buy next.</p>
 									<ul class="list-inside list-disc space-y-1 text-xs">
 										<li><strong>cheapest</strong> - buy the cheapest affordable</li>
 										<li><strong>balanced</strong> - prefer new types, then best rate</li>
@@ -209,7 +209,7 @@
 							{#snippet content()}
 								<div class="prose prose-invert prose-sm max-w-xs">
 									<h4 class="mb-2 text-sm font-semibold">Knowledge</h4>
-									<p class="mb-2">How well the bot ranks buildings.</p>
+									<p class="mb-2">How well the bot ranks generators.</p>
 									<ul class="list-inside list-disc space-y-1 text-xs">
 										<li>0% = base rate per atom only, ignores upgrades and levels</li>
 										<li>100% = real production gained per atom spent</li>
@@ -251,7 +251,7 @@
 							{#snippet content()}
 								<div class="prose prose-invert prose-sm max-w-xs">
 									<h4 class="mb-2 text-sm font-semibold">Decision Flow</h4>
-									<p><strong>Reactive</strong> - bot auto-buys buildings, upgrades, skills, etc. every simulation tick. <strong>Manual</strong> - no auto-buy, only clicks and prestige.</p>
+									<p><strong>Reactive</strong> - bot auto-buys generators, upgrades, skills, etc. every simulation tick. <strong>Manual</strong> - no auto-buy, only clicks and prestige.</p>
 								</div>
 							{/snippet}
 						</Tooltip>

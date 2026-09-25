@@ -1,4 +1,4 @@
-import type { BuildingType } from '$data/buildings';
+import type { GeneratorType } from '$data/generators';
 
 export interface BenchmarkConfig {
 	botBehavior: BotBehavior;
@@ -20,13 +20,13 @@ export interface ActivityPattern {
 export interface BotBehavior {
 	activityPattern?: ActivityPattern;
 	autoBuy: boolean;
-	autoBuyBuildings: boolean;
+	autoBuyGenerators: boolean;
 	autoBuyPhotonUpgrades: boolean;
 	autoBuySkills: boolean;
 	autoBuyUpgrades: boolean;
 	buyStrategy: 'balanced' | 'cheapest' | 'mostEfficient';
 	clicksPerSecond: number;
-	/** Bot game knowledge 0-1. Blends the naive base-rate building ranking (0) with the real marginal gain per atom spent (1). */
+	/** Bot game knowledge 0-1. Blends the naive base-rate generator ranking (0) with the real marginal gain per atom spent (1). */
 	gameKnowledge: number;
 	/** Max buy+prestige actions per tick. undefined = no limit (Automated). */
 	maxActionsPerTick?: number;
@@ -59,13 +59,13 @@ export interface SimulationSnapshot {
 	/** APS with the power-up bonus divided back out: a live power-up otherwise reads as a 5x jump in the growth curve. */
 	atomsPerSecondRaw: number;
 	bonusMultiplier: number;
-	buildingLevels: number;
-	buildingLevelFactors: Partial<Record<BuildingType, number>>;
-	buildingProductions: Partial<Record<BuildingType, number>>;
-	buildingUpgradeFactors: Partial<Record<BuildingType, number>>;
-	buildings: Record<BuildingType, number>;
-	buildingsEverPurchased: string[];
-	buildingsPurchased: number;
+	generatorLevels: number;
+	generatorLevelFactors: Partial<Record<GeneratorType, number>>;
+	generatorProductions: Partial<Record<GeneratorType, number>>;
+	generatorUpgradeFactors: Partial<Record<GeneratorType, number>>;
+	generators: Record<GeneratorType, number>;
+	generatorsEverPurchased: string[];
+	generatorsPurchased: number;
 	clicks: number;
 	dayNumber: number;
 	electrons: number;
@@ -102,11 +102,11 @@ export interface SimulationSnapshot {
 	questsCompletedTotal: number;
 	questsOfferedTotal: number;
 	radiationMultiplier: number;
-	skillPointsUsed: number;
+	boostPointsUsed: number;
 	skills: number;
 	stabilityMultiplier: number;
 	timestamp: number;
-	totalBuildings: number;
+	totalGenerators: number;
 	totalUpgrades: number;
 	totalXP: number;
 	upgrades: number;
@@ -114,7 +114,7 @@ export interface SimulationSnapshot {
 
 export type SimulationActionType =
 	| 'achievement'
-	| 'building'
+	| 'generator'
 	| 'electronize'
 	| 'photon_upgrade'
 	| 'power_up'
@@ -176,13 +176,13 @@ export interface SimulationResult {
 
 /**
  * Fields a milestone predicate may read. Checked on every tick, so this is a mutable scratch object the engine reuses
- * and `buildingsEverPurchased` is the engine's own set rather than a copy.
+ * and `generatorsEverPurchased` is the engine's own set rather than a copy.
  */
 export interface MilestoneCheckData {
 	achievements: number;
 	atoms: number;
 	atomsPerSecond: number;
-	buildingsEverPurchased: ReadonlySet<string>;
+	generatorsEverPurchased: ReadonlySet<string>;
 	dayNumber: number;
 	electronizes: number;
 	electrons: number;
@@ -192,9 +192,9 @@ export interface MilestoneCheckData {
 	protonises: number;
 	protons: number;
 	quarks: number;
-	skillPointsUsed: number;
+	boostPointsUsed: number;
 	skills: number;
 	timestamp: number;
-	totalBuildings: number;
+	totalGenerators: number;
 	upgrades: number;
 }

@@ -6,7 +6,7 @@
 	const name = 'Atom Clicker';
 	const author = 'Ayfri';
 	const description =
-		'Atom Clicker is a free incremental game. Click atoms, buy upgrades and buildings, prestige through protons, electrons and photons, and climb the leaderboard.';
+		'Atom Clicker is a free incremental game. Click atoms, buy upgrades and generators, prestige through protons, electrons and photons, and climb the leaderboard.';
 	const absoluteImageLink = `${site}/currencies/atom.svg`;
 	const absoluteOgImageLink = `${site}/ingame-screenshot.png`;
 

@@ -1,7 +1,7 @@
 import {CurrenciesTypes} from '$data/currencies';
 import type {Price} from '$lib/types';
 
-export const BuildingTypes = {
+export const GeneratorTypes = {
 	MOLECULE: 'molecule',
 	CRYSTAL: 'crystal',
 	NANOSTRUCTURE: 'nanostructure',
@@ -13,17 +13,17 @@ export const BuildingTypes = {
 	BLACK_HOLE: 'blackHole'
 } as const;
 
-export type BuildingType = typeof BuildingTypes[keyof typeof BuildingTypes];
+export type GeneratorType = typeof GeneratorTypes[keyof typeof GeneratorTypes];
 
-export interface BuildingData {
+export interface GeneratorData {
 	name: string;
 	description: string;
 	cost: Price;
 	rate: number;
 }
 
-export const BUILDINGS: Record<BuildingType, BuildingData> = {
-	[BuildingTypes.MOLECULE]: {
+export const GENERATORS: Record<GeneratorType, GeneratorData> = {
+	[GeneratorTypes.MOLECULE]: {
 		name: 'Molecule',
 		description: 'Basic building block of matter',
 		cost: {
@@ -32,7 +32,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 0.1,
 	},
-	[BuildingTypes.CRYSTAL]: {
+	[GeneratorTypes.CRYSTAL]: {
 		name: 'Crystal',
 		description: 'Organized structure of molecules',
 		cost: {
@@ -41,7 +41,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 1.5,
 	},
-	[BuildingTypes.NANOSTRUCTURE]: {
+	[GeneratorTypes.NANOSTRUCTURE]: {
 		name: 'Nanostructure',
 		description: 'Engineered atomic arrangements',
 		cost: {
@@ -50,7 +50,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 16,
 	},
-	[BuildingTypes.MICROORGANISM]: {
+	[GeneratorTypes.MICROORGANISM]: {
 		name: 'Micro-organism',
 		description: 'Living atomic factories',
 		cost: {
@@ -59,7 +59,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 100,
 	},
-	[BuildingTypes.ROCK]: {
+	[GeneratorTypes.ROCK]: {
 		name: 'Rock',
 		description: 'Solid mass of atoms',
 		cost: {
@@ -68,7 +68,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 4000,
 	},
-	[BuildingTypes.PLANET]: {
+	[GeneratorTypes.PLANET]: {
 		name: 'Planet',
 		description: 'Celestial body of atoms',
 		cost: {
@@ -77,7 +77,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 35_000,
 	},
-	[BuildingTypes.STAR]: {
+	[GeneratorTypes.STAR]: {
 		name: 'Star',
 		description: 'Cosmic atom forge',
 		cost: {
@@ -86,7 +86,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 245_000,
 	},
-	[BuildingTypes.NEUTRON_STAR]: {
+	[GeneratorTypes.NEUTRON_STAR]: {
 		name: 'Neutron Star',
 		description: 'Ultra-dense atomic core',
 		cost: {
@@ -95,7 +95,7 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 		},
 		rate: 1_700_000,
 	},
-	[BuildingTypes.BLACK_HOLE]: {
+	[GeneratorTypes.BLACK_HOLE]: {
 		name: 'Black Hole',
 		description: 'Cosmic atom collector',
 		cost: {
@@ -106,14 +106,17 @@ export const BUILDINGS: Record<BuildingType, BuildingData> = {
 	}
 };
 
-export const BUILDING_LEVEL_UP_COST = 100;
+export const GENERATOR_LEVEL_UP_COST = 100;
 
-/** Production multiplier granted by a building's level. Single source of truth for the game, the simulation and the charts. */
-export function getBuildingLevelMultiplier(count: number, level: number): number {
-	return Math.pow(2, count / BUILDING_LEVEL_UP_COST) * Math.pow(1.5, level);
+/** Production multiplier of each generator level, also shown in the generators panel. */
+export const GENERATOR_LEVEL_MULTIPLIER = 1.5;
+
+/** Production multiplier granted by a generator's level. Single source of truth for the game, the simulation and the charts. */
+export function getGeneratorLevelMultiplier(count: number, level: number): number {
+	return Math.pow(2, count / GENERATOR_LEVEL_UP_COST) * Math.pow(GENERATOR_LEVEL_MULTIPLIER, level);
 }
 
-export const BUILDING_COLORS = [
+export const GENERATOR_COLORS = [
 	"#4a90e2", // Blue
 	"#e34b4b", // Red
 	"#f9c80e", // Yellow
@@ -137,4 +140,9 @@ export const BUILDING_COLORS = [
 	"#34495e", // Dark Gray Blue
 ] as const;
 
-export const BUILDING_TYPES = Object.keys(BUILDINGS) as BuildingType[];
+/** Levels past the palette keep its last color instead of reading `undefined`. */
+export function getGeneratorColor(level: number): string {
+	return GENERATOR_COLORS[Math.min(level, GENERATOR_COLORS.length - 1)];
+}
+
+export const GENERATOR_TYPES = Object.keys(GENERATORS) as GeneratorType[];

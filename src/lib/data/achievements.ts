@@ -3,9 +3,9 @@ import type { GameManager } from '$helpers/GameManager.svelte';
 import { tierIconStack } from '$helpers/iconStacks';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { formatNumber } from '$lib/utils';
-import { BUILDING_TYPES, BUILDINGS, type BuildingType } from '$data/buildings';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { BUILDING_ICON_NAMES, CURRENCY_ICON_NAMES } from '$data/icons';
+import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '$data/generators';
+import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '$data/icons';
 import { SKILL_UPGRADES } from '$data/skillTree';
 
 const SPECIAL_ACHIEVEMENTS: Achievement[] = [
@@ -142,29 +142,27 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	},
 ];
 
-function createBuildingAchievements(buildingId: BuildingType): Achievement[] {
-	const name = BUILDINGS[buildingId].name;
+function createGeneratorAchievements(generatorId: GeneratorType): Achievement[] {
+	const name = GENERATORS[generatorId].name;
 
-	function createBuildingCountAchievement(
+	function createGeneratorCountAchievement(
 		countName: string,
 		number: number,
 		tierIndex: number,
-		description = `Own ${number} ${name} buildings`,
+		description = `Own ${number} ${name} generators`,
 	): Achievement {
 		return {
-			id: `${number}_${buildingId}`,
+			id: `${number}_${generatorId}`,
 			name: `${countName} ${name}`,
 			description,
-			iconStack: tierIconStack(BUILDING_ICON_NAMES[buildingId], tierIndex, number),
-			hiddenCondition: (manager: GameManager) =>
-				manager.buildings[buildingId] === undefined || manager.buildings[buildingId].count === 0,
-			condition: (manager: GameManager) =>
-				manager.buildings[buildingId] !== undefined && manager.buildings[buildingId].count >= number,
+			iconStack: tierIconStack(GENERATOR_ICON_NAMES[generatorId], tierIndex, number),
+			hiddenCondition: (manager: GameManager) => !manager.generators[generatorId]?.count,
+			condition: (manager: GameManager) => (manager.generators[generatorId]?.count ?? 0) >= number,
 		};
 	}
 
 	const tiers: { count: number; description?: string; name: string }[] = [
-		{ count: 1, description: `Buy your first ${name} building`, name: 'One' },
+		{ count: 1, description: `Buy your first ${name}`, name: 'One' },
 		{ count: 10, name: 'Ten' },
 		{ count: 50, name: 'Fifty' },
 		{ count: 100, name: 'Hundred' },
@@ -175,37 +173,38 @@ function createBuildingAchievements(buildingId: BuildingType): Achievement[] {
 		{ count: 2000, name: 'Two thousand' },
 	];
 
-	return tiers.map((tier, index) => createBuildingCountAchievement(tier.name, tier.count, index, tier.description));
+	return tiers.map((tier, index) => createGeneratorCountAchievement(tier.name, tier.count, index, tier.description));
 }
 
-function createBuildingTotalAchievements(): Achievement[] {
-	function createBuildingTotalAchievement(count: number, tierIndex: number): Achievement {
+function createGeneratorTotalAchievements(): Achievement[] {
+	function createGeneratorTotalAchievement(count: number, tierIndex: number): Achievement {
 		return {
 			id: `total_${count}`,
-			name: `${count} Buildings`,
-			description: `Own a total of ${count} buildings`,
+			name: `${count} Generators`,
+			description: `Own a total of ${count} generators`,
 			iconStack: tierIconStack('layers', tierIndex, count),
-			hiddenCondition: (manager: GameManager) => manager.buildingTotals.count === 0,
-			condition: (manager: GameManager) => manager.buildingTotals.count >= count,
+			hiddenCondition: (manager: GameManager) => manager.generatorTotals.count === 0,
+			condition: (manager: GameManager) => manager.generatorTotals.count >= count,
 		};
 	}
 
-	return [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1500, 2000, 2500, 3000].map(createBuildingTotalAchievement);
+	return [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1500, 2000, 2500, 3000].map(createGeneratorTotalAchievement);
 }
 
-function createBuildingLevelsAchievements(): Achievement[] {
-	function createBuildingLevelAchievement(level: number, tierIndex: number): Achievement {
+function createGeneratorLevelsAchievements(): Achievement[] {
+	function createGeneratorLevelAchievement(level: number, tierIndex: number): Achievement {
 		return {
+			/** The id predates the generators rename, quark claims are stored server side under it. */
 			id: `buildings_levels_${level}`,
 			name: `Levels ${level}`,
-			description: `Have a total of ${level} buildings levels`,
-			iconStack: tierIconStack('buildingLevel', tierIndex, level),
-			hiddenCondition: (manager: GameManager) => manager.buildingTotals.levels === 0,
-			condition: (manager: GameManager) => manager.buildingTotals.levels >= level,
+			description: `Have a total of ${level} generator levels`,
+			iconStack: tierIconStack('generatorLevel', tierIndex, level),
+			hiddenCondition: (manager: GameManager) => manager.generatorTotals.levels === 0,
+			condition: (manager: GameManager) => manager.generatorTotals.levels >= level,
 		};
 	}
 
-	return [1, 2, 3, 5, 7, 10, 15, 20, 30, 50].map(createBuildingLevelAchievement);
+	return [1, 2, 3, 5, 7, 10, 15, 20, 30, 50].map(createGeneratorLevelAchievement);
 }
 
 function createAtomsPerSecondAchievements(): Achievement[] {
@@ -366,7 +365,7 @@ function createCurrencyBoostAchievements(): Achievement[] {
 			description: 'Allocate your first skill point to a currency boost',
 			iconStack: { count: 1, icon: 'upgrade' },
 			condition: (manager: GameManager) => {
-				const totalBoosts = Object.values(manager.skillPointBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
+				const totalBoosts = Object.values(manager.currencyBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
 				return totalBoosts >= 1;
 			},
 			hiddenCondition: (manager: GameManager) => manager.totalProtonisesAllTime < 1,
@@ -377,10 +376,10 @@ function createCurrencyBoostAchievements(): Achievement[] {
 			description: 'Maximize a single currency boost (20 points)',
 			iconStack: { count: 3, icon: 'upgrade', label: '20' },
 			condition: (manager: GameManager) => {
-				const boosts = Object.values(manager.skillPointBoosts || {});
+				const boosts = Object.values(manager.currencyBoosts || {});
 				return boosts.some(points => (points ?? 0) >= 20);
 			},
-			hiddenCondition: (manager: GameManager) => manager.skillPointsTotal < 5,
+			hiddenCondition: (manager: GameManager) => manager.boostPointsTotal < 5,
 		},
 	];
 }
@@ -426,9 +425,9 @@ function createRadiationAchievements(): Achievement[] {
 }
 
 const achievementsArray: Achievement[] = [
-	...BUILDING_TYPES.map(createBuildingAchievements).flat(),
-	...createBuildingTotalAchievements(),
-	...createBuildingLevelsAchievements(),
+	...GENERATOR_TYPES.map(createGeneratorAchievements).flat(),
+	...createGeneratorTotalAchievements(),
+	...createGeneratorLevelsAchievements(),
 	...createAtomsPerSecondAchievements(),
 	...createTotalClicksAchievements(),
 	...createTotalLevelsAchievements(),

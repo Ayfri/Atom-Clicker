@@ -3,9 +3,9 @@
 	import ActivePowerUps from '@components/hud/ActivePowerUps.svelte';
 	import Atom from '@components/game/Atom.svelte';
 	import Bonus from '@components/game/Bonus.svelte';
-	import Buildings from '@components/game/Buildings.svelte';
 	import Canvas from '@components/game/Canvas.svelte';
 	import Counter from '@components/game/Counter.svelte';
+	import Generators from '@components/game/Generators.svelte';
 	import Upgrades from '@components/game/Upgrades.svelte';
 	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
@@ -17,14 +17,14 @@
 
 	type Tab = keyof typeof TAB_LABELS;
 
-	const TAB_LABELS = { achievements: 'Achievements', buildings: 'Buildings', upgrades: 'Upgrades' } as const;
+	const TAB_LABELS = { achievements: 'Achievements', generators: 'Generators', upgrades: 'Upgrades' } as const;
 
 	let activeTab: Tab = $state('upgrades');
 
-	/** Buildings only get a tab on phones, desktop gives them their own column. */
+	/** Generators only get a tab on phones, desktop gives them their own column. */
 	const tabs = $derived(
-		(['upgrades', 'buildings', 'achievements'] as const).filter(tab =>
-			tab === 'buildings' ? mobile.current && reveals.buildings : reveals[tab],
+		(['upgrades', 'generators', 'achievements'] as const).filter(tab =>
+			tab === 'generators' ? mobile.current && reveals.generators : reveals[tab],
 		),
 	);
 	const shownTab = $derived(tabs.includes(activeTab) ? activeTab : tabs[0]);
@@ -79,8 +79,8 @@
 					{#if reveals.achievements}
 						<div class="rounded-lg" class:hidden={shownTab !== 'achievements'} in:reveal><Achievements /></div>
 					{/if}
-					{#if mobile.current && reveals.buildings}
-						<div class="rounded-lg" class:hidden={shownTab !== 'buildings'} in:reveal><Buildings /></div>
+					{#if mobile.current && reveals.generators}
+						<div class="rounded-lg" class:hidden={shownTab !== 'generators'} in:reveal><Generators /></div>
 					{/if}
 				</div>
 			</div>
@@ -90,9 +90,9 @@
 			<Atom />
 			<ActivePowerUps />
 		</div>
-		{#if !mobile.current && reveals.buildings}
-			<div class="grid-area-[buildings] pt-12">
-				<div class="rounded-lg" in:reveal><Buildings /></div>
+		{#if !mobile.current && reveals.generators}
+			<div class="grid-area-[generators] pt-12">
+				<div class="rounded-lg" in:reveal><Generators /></div>
 			</div>
 		{/if}
 	</div>
@@ -100,7 +100,7 @@
 
 <style>
 	.game-container {
-		grid-template-areas: 'upgrades atom buildings';
+		grid-template-areas: 'upgrades atom generators';
 		grid-template-columns: 300px 1fr 300px;
 	}
 
@@ -116,7 +116,7 @@
 	/* Must stay in sync with MOBILE_QUERY, the `mobile` rune decides which children are rendered into these areas. */
 	@media (width < 64rem) {
 		.game-container {
-			grid-template-areas: 'atom' 'upgrades' 'buildings';
+			grid-template-areas: 'atom' 'upgrades' 'generators';
 			grid-template-columns: minmax(0, 1fr);
 			max-width: 100%;
 			overflow-x: hidden;

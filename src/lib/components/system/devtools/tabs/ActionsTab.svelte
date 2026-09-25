@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { ACHIEVEMENTS } from '$data/achievements';
-	import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { FEATURES, type FeatureType } from '$data/features';
+	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 	import { HINTS } from '$data/hints';
 	import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
 	import { RealmTypes, type RealmType } from '$data/realms';
@@ -204,27 +204,27 @@
 			<button
 				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-green-600/80 px-4 py-2 text-sm font-semibold shadow-lg transition-all hover:bg-green-600"
 				onclick={() => {
-					BUILDING_TYPES.forEach(id => {
-						if (!gameManager.buildings[id]) {
-							gameManager.buildings[id] = {
+					GENERATOR_TYPES.forEach(id => {
+						if (!gameManager.generators[id]) {
+							gameManager.generators[id] = {
 								count: 100,
 								level: 10,
 								unlocked: true,
-								cost: { ...BUILDINGS[id].cost },
-								rate: BUILDINGS[id].rate,
+								cost: { ...GENERATORS[id].cost },
+								rate: GENERATORS[id].rate,
 							};
 						} else {
-							const b = gameManager.buildings[id]!;
+							const b = gameManager.generators[id]!;
 							b.count += 100;
 							b.level += 10;
 						}
 					});
-					gameManager.buildings = { ...gameManager.buildings };
-					alert('Buildings maxed!');
+					gameManager.generators = { ...gameManager.generators };
+					alert('Generators maxed!');
 				}}
 			>
 				<Factory size={16} />
-				<span>Max Buildings</span>
+				<span>Max Generators</span>
 			</button>
 			<button
 				class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-yellow-600/80 px-4 py-2 text-sm font-semibold shadow-lg transition-all hover:bg-yellow-600"

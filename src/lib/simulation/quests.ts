@@ -44,7 +44,7 @@ export class QuestTracker {
 		const anchors = {
 			achievementsUnlocked: 0,
 			atomsEarned: gameManager.highestAPS,
-			buildingsPurchased: 0,
+			generatorsPurchased: 0,
 			clicks: 0,
 			electronizes: 0,
 			higgsBosonsCollected: 0,
@@ -59,7 +59,7 @@ export class QuestTracker {
 		gameManager.dailyStats = {
 			achievementsUnlocked: 0,
 			atomsEarned: 0,
-			buildingsPurchased: 0,
+			generatorsPurchased: 0,
 			clicks: 0,
 			dayKey: `sim-${dayIndex}`,
 			electronizes: 0,

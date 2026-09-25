@@ -14,7 +14,7 @@
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatDuration, formatNumber, formatNumberFull } from '$lib/utils';
-	import { Building2, CalendarDays, Flame, Hourglass, MousePointerClick, Package, Radiation, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
+	import { CalendarDays, Factory, Flame, Hourglass, MousePointerClick, Package, Radiation, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 
 	type TitleIcon = Component<{ class?: string; color?: string; size?: number }>;
@@ -29,7 +29,6 @@
 		return () => clearInterval(clock);
 	});
 
-	const totalBuildings = $derived(Object.values(gameManager.buildings).reduce((acc, b) => acc + (b?.count || 0), 0));
 	const radiationUnlocked = $derived(gameManager.features[FeatureTypes.RADIATION_REALM] || radiationManager.unlocked);
 	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
 
@@ -59,7 +58,7 @@
 	const today = $derived([
 		{ icon: AtomIcon, label: 'Atoms earned', value: formatNumber(gameManager.dailyStats.atomsEarned) },
 		{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(gameManager.dailyStats.clicks, 0) },
-		{ icon: Building2, label: 'Buildings bought', value: formatNumber(gameManager.dailyStats.buildingsPurchased, 0) },
+		{ icon: Factory, label: 'Generators bought', value: formatNumber(gameManager.dailyStats.generatorsPurchased, 0) },
 		{ icon: Package, label: 'Upgrades bought', value: formatNumber(gameManager.dailyStats.upgradesPurchased, 0) },
 		{ icon: Zap, label: 'Power-ups', value: formatNumber(gameManager.dailyStats.powerUpsCollected, 0) },
 		{ icon: HiggsBosonIcon, label: 'Higgs bosons', value: formatNumber(gameManager.dailyStats.higgsBosonsCollected, 0) },
@@ -143,7 +142,7 @@
 				{@render row('Played', formatDuration(gameManager.inGameTime))}
 				{@render row('Level', formatNumber(gameManager.playerLevel), formatNumberFull(gameManager.playerLevel))}
 				{@render row('Total XP', formatNumber(gameManager.totalXP), formatNumberFull(gameManager.totalXP))}
-				{@render row('Building levels', formatNumber(gameManager.skillPointsTotal, 0))}
+				{@render row('Generator levels', formatNumber(gameManager.generatorTotals.levels, 0))}
 				{@render row('Power-ups collected', formatNumber(gameManager.powerUpsCollected, 0))}
 			</div>
 			<div class="flex justify-around gap-4">
@@ -174,10 +173,10 @@
 			{@render bar('Higgs bosons', gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedRun, gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedAllTime, CURRENCIES['Higgs Boson'].color)}
 		</div>
 		<div class="flex flex-col gap-3">
-			{@render title(Building2, 'Owned out of ever bought')}
-			{@render bar('Buildings', totalBuildings, gameManager.totalBuildingsPurchasedAllTime)}
+			{@render title(Factory, 'Owned out of ever bought')}
+			{@render bar('Generators', gameManager.generatorTotals.count, gameManager.totalGeneratorsPurchasedAllTime)}
 			{@render bar('Upgrades', gameManager.upgrades.length, gameManager.totalUpgradesPurchasedAllTime)}
-			{@render bar('Skill points left', gameManager.skillPointsAvailable, gameManager.skillPointsTotal)}
+			{@render bar('Boost points left', gameManager.boostPointsAvailable, gameManager.boostPointsTotal)}
 		</div>
 	</section>
 

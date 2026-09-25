@@ -171,9 +171,8 @@
 				<HelpIcon position="bottom">
 					{#snippet content()}
 						<p class="text-xs text-white/80">
-							Skill points are earned by leveling up buildings. Spend them here to unlock nodes that grant permanent passive
-							bonuses or new features. Nodes require their prerequisites to be unlocked first, and the currency shown on each node
-							is the cost to unlock it.
+							Spend your currencies here to unlock nodes that grant passive bonuses or new features. Nodes require their
+							prerequisites to be unlocked first, and the currency shown on each node is the cost to unlock it.
 						</p>
 					{/snippet}
 				</HelpIcon>

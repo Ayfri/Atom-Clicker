@@ -42,7 +42,7 @@
 		gameManager.dailyStats = {
 			achievementsUnlocked: 0,
 			atomsEarned: 0,
-			buildingsPurchased: 0,
+			generatorsPurchased: 0,
 			clicks: 0,
 			dayKey: gameManager.dailyStats.dayKey,
 			electronizes: 0,
@@ -269,7 +269,7 @@
 		<input type="date" bind:value={inspectorDate} class="bg-white/5 rounded-lg px-3 py-1 text-xs text-white" />
 		<div class="space-y-1">
 			{#each inspectorQuests as quest (quest.id)}
-				{@const anchors = { achievementsUnlocked: 0, atomsEarned: gameManager.highestAPS, buildingsPurchased: 0, clicks: 0, electronizes: 0, higgsBosonsCollected: 0, otherDailyQuestsCompleted: 0, powerUpsCollected: 0, protonises: 0, upgradesPurchased: 0 }}
+				{@const anchors = { achievementsUnlocked: 0, atomsEarned: gameManager.highestAPS, generatorsPurchased: 0, clicks: 0, electronizes: 0, higgsBosonsCollected: 0, otherDailyQuestsCompleted: 0, powerUpsCollected: 0, protonises: 0, upgradesPurchased: 0 }}
 				<div class="bg-white/5 rounded-lg px-3 py-2 text-xs text-white/70">
 					{quest.id} - target {formatNumber(getQuestTarget(quest, anchors))}
 				</div>

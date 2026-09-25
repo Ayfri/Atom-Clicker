@@ -120,9 +120,9 @@ export class QuarksManager {
 		return getQuestTarget(quest, {
 			achievementsUnlocked: 0,
 			atomsEarned: gameManager.highestAPS,
-			buildingsPurchased: 0,
 			clicks: 0,
 			electronizes: 0,
+			generatorsPurchased: 0,
 			higgsBosonsCollected: 0,
 			otherDailyQuestsCompleted: 0,
 			powerUpsCollected: 0,
@@ -174,10 +174,10 @@ export class QuarksManager {
 		gameManager.dailyStats = {
 			achievementsUnlocked: 0,
 			atomsEarned: 0,
-			buildingsPurchased: 0,
 			clicks: 0,
 			dayKey: serverDayKey,
 			electronizes: 0,
+			generatorsPurchased: 0,
 			higgsBosonsCollected: 0,
 			otherDailyQuestsCompleted: 0,
 			powerUpsCollected: 0,

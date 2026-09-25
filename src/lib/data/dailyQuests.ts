@@ -4,9 +4,9 @@ import { simpleHash } from '$lib/utils/signing';
 export type DailyStatMetric =
 	| 'achievementsUnlocked'
 	| 'atomsEarned'
-	| 'buildingsPurchased'
 	| 'clicks'
 	| 'electronizes'
+	| 'generatorsPurchased'
 	| 'higgsBosonsCollected'
 	| 'otherDailyQuestsCompleted'
 	| 'powerUpsCollected'
@@ -16,10 +16,10 @@ export type DailyStatMetric =
 export interface DailyStats {
 	achievementsUnlocked: number;
 	atomsEarned: number;
-	buildingsPurchased: number;
 	clicks: number;
 	dayKey: string;
 	electronizes: number;
+	generatorsPurchased: number;
 	higgsBosonsCollected: number;
 	otherDailyQuestsCompleted: number;
 	powerUpsCollected: number;
@@ -64,10 +64,11 @@ export const QUEST_POOL: DailyQuest[] = [
 		scale: 10_800, // roughly one hours of production at the player's best-ever rate
 	},
 	{
-		description: target => `Purchase ${target} buildings today.`,
+		description: target => `Purchase ${target} generators today.`,
 		floor: 15,
+		/** The id predates the generators rename, the server picks and stores daily claims under it. */
 		id: 'buildings_purchased',
-		metric: 'buildingsPurchased',
+		metric: 'generatorsPurchased',
 		reward: 1,
 		scale: 2.5,
 	},

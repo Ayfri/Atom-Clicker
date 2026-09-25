@@ -1,20 +1,20 @@
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '$data/achievements';
-import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST, getBuildingLevelMultiplier } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import type { DailyStats } from '$data/dailyQuests';
 import { FeatureTypes } from '$data/features';
+import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '$data/generators';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
 import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '$data/powerUp';
 import { REALMS, RealmTypes } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
-import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
+import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
 import {
-	type Building,
 	type CurrencyBoosts,
 	type Effect,
 	type FeatureState,
 	type GameState,
+	type Generator,
 	type OfflineProgressSummary,
 	type PowerUp,
 	type Price,
@@ -48,14 +48,14 @@ export class GameManager {
 	// State
 	achievements = $state<string[]>([]);
 	activePowerUps = $state<PowerUp[]>([]);
-	buildings = $state<Partial<Record<BuildingType, Building>>>({});
+	currencyBoosts = $state<CurrencyBoosts>({});
 	dailyStats = $state<DailyStats>({
 		achievementsUnlocked: 0,
 		atomsEarned: 0,
-		buildingsPurchased: 0,
 		clicks: 0,
 		dayKey: '',
 		electronizes: 0,
+		generatorsPurchased: 0,
 		higgsBosonsCollected: 0,
 		otherDailyQuestsCompleted: 0,
 		powerUpsCollected: 0,
@@ -65,6 +65,7 @@ export class GameManager {
 		upgradesPurchased: 0,
 	});
 	featuresManager = new FeaturesManager();
+	generators = $state<Partial<Record<GeneratorType, Generator>>>({});
 	highestAPS = $state(0);
 	inGameTime = $state(0);
 	lastInteractionTime = $state(Date.now());
@@ -106,7 +107,7 @@ export class GameManager {
 		automation: {
 			autoClick: false,
 			autoClickPhotons: false,
-			buildings: [],
+			generators: [],
 			upgrades: false,
 		},
 		gameplay: {
@@ -117,13 +118,12 @@ export class GameManager {
 		},
 	});
 	skillUpgrades = $state<string[]>([]);
-	skillPointBoosts = $state<CurrencyBoosts>({});
 	startDate = $state(Date.now());
-	totalBuildingsPurchasedAllTime = $state(0);
 	totalClicksAllTime = $state(0);
 	totalClicksRun = $state(0);
 	totalElectronizesAllTime = $state(0);
 	totalElectronizesRun = $state(0);
+	totalGeneratorsPurchasedAllTime = $state(0);
 	totalProtonisesAllTime = $state(0);
 	totalProtonisesRun = $state(0);
 	totalUpgradesPurchasedAllTime = $state(0);
@@ -135,7 +135,7 @@ export class GameManager {
 	// Configuration
 	private statsConfig = statsConfig;
 	private gameInterval: ReturnType<typeof setInterval> | null = null;
-	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseBuilding/purchaseUpgrade directly. */
+	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseGenerator/purchaseUpgrade directly. */
 	applyingOfflineProgress = false;
 
 	initialize() {
@@ -165,7 +165,7 @@ export class GameManager {
 
 	atomsPerSecond = $derived.by(() => {
 		let baseProduction = 0;
-		for (const production of Object.values(this.buildingProductions)) baseProduction += production;
+		for (const production of Object.values(this.generatorProductions)) baseProduction += production;
 		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
 
@@ -183,41 +183,42 @@ export class GameManager {
 
 	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
 
-	/** Achievement conditions read these every sweep, so the totals are folded once per buildings change. */
-	buildingTotals = $derived.by(() => {
+	/** Achievement conditions read these every sweep, so the totals are folded once per generators change. */
+	generatorTotals = $derived.by(() => {
 		let count = 0;
 		let levels = 0;
-		for (const building of Object.values(this.buildings)) {
-			if (!building) continue;
-			count += building.count;
-			levels += building.level;
+		for (const generator of Object.values(this.generators)) {
+			if (!generator) continue;
+			count += generator.count;
+			levels += generator.level;
 		}
 		return { count, levels };
 	});
 
-	// Currency Boost System (from building levels, 10% boost per point, MAX_BOOST_POINTS per currency)
-	skillPointsTotal = $derived(this.buildingTotals.levels);
-	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
+	// Currency Boost System (from generator levels, 10% boost per point, MAX_BOOST_POINTS per currency)
+	boostPointsTotal = $derived(this.generatorTotals.levels);
+	boostPointsUsed = $derived(Object.values(this.currencyBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
 	/** Summing a `$state` record walks the proxy for every key, and the milestone check reads this on every tick. */
 	photonUpgradeLevels = $derived(Object.values(this.photonUpgrades).reduce((sum, level) => sum + (level ?? 0), 0));
-	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillPointsUsed);
+	boostPointsAvailable = $derived(this.boostPointsTotal - this.boostPointsUsed);
 
-	buildingProductions = $derived.by(() => {
-		const productions = {} as Record<BuildingType, number>;
+	/** Atoms per second of one generator of each type at its current count and level, owned or not, so the panel can preview a first purchase. */
+	generatorUnitProductions = $derived.by(() => {
+		const productions = {} as Record<GeneratorType, number>;
 		const commonMultiplier = this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
 
-		for (const [type, building] of Object.entries(this.buildings)) {
-			if (!building) {
-				productions[type as BuildingType] = 0;
-				continue;
-			}
-
-			const options = { target: type as BuildingType, type: 'building' as const };
-			const multiplier = foldEffects(this.allEffectSources, this, building.rate, options);
-			const levelMultiplier = getBuildingLevelMultiplier(building.count, building.level);
-			productions[type as BuildingType] = building.count * multiplier * levelMultiplier * commonMultiplier;
+		for (const type of GENERATOR_TYPES) {
+			const generator = this.generators[type];
+			const rate = foldEffects(this.allEffectSources, this, generator?.rate ?? GENERATORS[type].rate, { target: type, type: 'generator' });
+			productions[type] = rate * getGeneratorLevelMultiplier(generator?.count ?? 0, generator?.level ?? 0) * commonMultiplier;
 		}
 
+		return productions;
+	});
+
+	generatorProductions = $derived.by(() => {
+		const productions = {} as Record<GeneratorType, number>;
+		for (const type of GENERATOR_TYPES) productions[type] = (this.generators[type]?.count ?? 0) * this.generatorUnitProductions[type];
 		return productions;
 	});
 
@@ -411,11 +412,11 @@ export class GameManager {
 		return {
 			achievements: this.achievements,
 			activePowerUps: this.activePowerUps,
-			buildings: this.buildings,
 			currencies: this.currencies,
-			currencyBoosts: this.skillPointBoosts,
+			currencyBoosts: this.currencyBoosts,
 			dailyStats: this.dailyStats,
 			features: this.features,
+			generators: this.generators,
 			highestAPS: this.highestAPS,
 			inGameTime: this.inGameTime,
 			lastInteractionTime: this.lastInteractionTime,
@@ -429,11 +430,11 @@ export class GameManager {
 			settings: this.settings,
 			skillUpgrades: this.skillUpgrades,
 			startDate: this.startDate,
-			totalBuildingsPurchasedAllTime: this.totalBuildingsPurchasedAllTime,
 			totalClicksAllTime: this.totalClicksAllTime,
 			totalClicksRun: this.totalClicksRun,
 			totalElectronizesAllTime: this.totalElectronizesAllTime,
 			totalElectronizesRun: this.totalElectronizesRun,
+			totalGeneratorsPurchasedAllTime: this.totalGeneratorsPurchasedAllTime,
 			totalProtonisesAllTime: this.totalProtonisesAllTime,
 			totalProtonisesRun: this.totalProtonisesRun,
 			totalUpgradesPurchasedAllTime: this.totalUpgradesPurchasedAllTime,
@@ -447,29 +448,29 @@ export class GameManager {
 
 	// Skill Point Boost Methods
 	getCurrencyBoostMultiplier(currency: CurrencyName): number {
-		const points = this.skillPointBoosts[currency] ?? 0;
+		const points = this.currencyBoosts[currency] ?? 0;
 		return 1 + points * 0.1; // 10% per point
 	}
 
 	addCurrencyBoost(currency: CurrencyName): boolean {
-		if (this.skillPointsAvailable <= 0) return false;
-		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		if (this.boostPointsAvailable <= 0) return false;
+		const currentPoints = this.currencyBoosts[currency] ?? 0;
 		if (currentPoints >= MAX_BOOST_POINTS) return false;
 
-		this.skillPointBoosts = {
-			...this.skillPointBoosts,
+		this.currencyBoosts = {
+			...this.currencyBoosts,
 			[currency]: currentPoints + 1,
 		};
 		return true;
 	}
 
 	assignAllCurrencyBoosts(currency: CurrencyName) {
-		const currentPoints = this.skillPointBoosts[currency] ?? 0;
-		const added = Math.min(this.skillPointsAvailable, MAX_BOOST_POINTS - currentPoints);
+		const currentPoints = this.currencyBoosts[currency] ?? 0;
+		const added = Math.min(this.boostPointsAvailable, MAX_BOOST_POINTS - currentPoints);
 		if (added <= 0) return;
 
-		this.skillPointBoosts = {
-			...this.skillPointBoosts,
+		this.currencyBoosts = {
+			...this.currencyBoosts,
 			[currency]: currentPoints + added,
 		};
 	}
@@ -478,7 +479,7 @@ export class GameManager {
 	splitCurrencyBoostsEvenly(currencies: CurrencyName[]) {
 		if (currencies.length === 0) return;
 		const boosts: CurrencyBoosts = {};
-		let remaining = this.skillPointsTotal;
+		let remaining = this.boostPointsTotal;
 
 		for (let i = 0; remaining > 0 && i < currencies.length * MAX_BOOST_POINTS; i++) {
 			const currency = currencies[i % currencies.length];
@@ -488,19 +489,19 @@ export class GameManager {
 			remaining--;
 		}
 
-		this.skillPointBoosts = boosts;
+		this.currencyBoosts = boosts;
 	}
 
 	resetCurrencyBoosts() {
-		this.skillPointBoosts = {};
+		this.currencyBoosts = {};
 	}
 
 	removeCurrencyBoost(currency: CurrencyName): boolean {
-		const currentPoints = this.skillPointBoosts[currency] ?? 0;
+		const currentPoints = this.currencyBoosts[currency] ?? 0;
 		if (currentPoints <= 0) return false;
 
-		this.skillPointBoosts = {
-			...this.skillPointBoosts,
+		this.currencyBoosts = {
+			...this.currencyBoosts,
 			[currency]: currentPoints - 1,
 		};
 		return true;
@@ -572,7 +573,7 @@ export class GameManager {
 						},
 					};
 				} else if (key === 'currencyBoosts') {
-					this.skillPointBoosts = data.currencyBoosts ?? {};
+					this.currencyBoosts = data.currencyBoosts ?? {};
 				} else if (key === 'radiation') {
 					// Radiation state is handled by RadiationManager
 					if (data.radiation) {
@@ -629,7 +630,7 @@ export class GameManager {
 			} else if (key === 'features') {
 				this.featuresManager.reset();
 			} else if (key === 'currencyBoosts') {
-				this.skillPointBoosts = {};
+				this.currencyBoosts = {};
 			} else if (key === 'tutorial') {
 				this.tutorialManager.reset();
 			} else {
@@ -645,7 +646,7 @@ export class GameManager {
 					this.featuresManager.reset();
 				} else if (key === 'currencyBoosts') {
 					if (!this.quarkEntitlements.includes('convenience_keep_currency_boosts')) {
-						this.skillPointBoosts = {};
+						this.currencyBoosts = {};
 					}
 				} else if (key === 'tutorial') {
 					this.tutorialManager.reset();
@@ -672,23 +673,23 @@ export class GameManager {
 		return true;
 	}
 
-	// Building Helpers
-	getBuildingCost(type: BuildingType, amount: number): number {
-		const building = BUILDINGS[type];
-		const currentCount = this.buildings[type]?.count ?? 0;
-		const baseCost = building.cost.amount;
-		const r = BUILDING_COST_MULTIPLIER;
+	// Generator Helpers
+	getGeneratorCost(type: GeneratorType, amount: number): number {
+		const generator = GENERATORS[type];
+		const currentCount = this.generators[type]?.count ?? 0;
+		const baseCost = generator.cost.amount;
+		const r = GENERATOR_COST_MULTIPLIER;
 		const a = baseCost * r ** currentCount;
 		const cost = (a * (Math.pow(r, amount) - 1)) / (r - 1);
 		return Math.round(cost);
 	}
 
-	getMaxAffordableBuilding(type: BuildingType): number {
-		const building = BUILDINGS[type];
-		const currency = this.getCurrency(building.cost);
-		const currentCount = this.buildings[type]?.count ?? 0;
-		const baseCost = building.cost.amount;
-		const r = BUILDING_COST_MULTIPLIER;
+	getMaxAffordableGenerator(type: GeneratorType): number {
+		const generator = GENERATORS[type];
+		const currency = this.getCurrency(generator.cost);
+		const currentCount = this.generators[type]?.count ?? 0;
+		const baseCost = generator.cost.amount;
+		const r = GENERATOR_COST_MULTIPLIER;
 		const a = baseCost * r ** currentCount;
 
 		if (currency < a) return 0;
@@ -698,46 +699,46 @@ export class GameManager {
 	}
 
 	// Purchasing
-	purchaseBuilding(type: BuildingType, amount: number = 1) {
-		const building = BUILDINGS[type];
-		const currentBuilding =
-			this.buildings[type] ??
+	purchaseGenerator(type: GeneratorType, amount: number = 1) {
+		const generator = GENERATORS[type];
+		const currentGenerator =
+			this.generators[type] ??
 			({
-				cost: building.cost,
-				rate: building.rate,
+				cost: generator.cost,
+				rate: generator.rate,
 				level: 0,
 				count: 0,
 				unlocked: true,
-			} as Building);
+			} as Generator);
 
-		const totalCost = this.getBuildingCost(type, amount);
+		const totalCost = this.getGeneratorCost(type, amount);
 
 		const cost = {
 			amount: totalCost,
-			currency: currentBuilding.cost.currency,
+			currency: currentGenerator.cost.currency,
 		};
 
 		if (!this.spendCurrency(cost)) return false;
 
-		const newCount = currentBuilding.count + amount;
-		const newBuilding = {
-			...currentBuilding,
+		const newCount = currentGenerator.count + amount;
+		const newGenerator = {
+			...currentGenerator,
 			cost: {
-				amount: this.getBuildingCost(type, 1),
+				amount: this.getGeneratorCost(type, 1),
 				currency: cost.currency,
 			},
 			count: newCount,
-			level: Math.floor(newCount / BUILDING_LEVEL_UP_COST),
+			level: Math.floor(newCount / GENERATOR_LEVEL_UP_COST),
 		};
 
-		this.buildings = {
-			...this.buildings,
-			[type]: newBuilding,
+		this.generators = {
+			...this.generators,
+			[type]: newGenerator,
 		};
 
-		this.totalBuildingsPurchasedAllTime += amount;
+		this.totalGeneratorsPurchasedAllTime += amount;
 		if (!this.applyingOfflineProgress) {
-			this.dailyStats = { ...this.dailyStats, buildingsPurchased: this.dailyStats.buildingsPurchased + amount };
+			this.dailyStats = { ...this.dailyStats, generatorsPurchased: this.dailyStats.generatorsPurchased + amount };
 		}
 		return true;
 	}
@@ -818,14 +819,14 @@ export class GameManager {
 		}
 	}
 
-	unlockBuilding(type: BuildingType) {
-		if (type in this.buildings) return;
+	unlockGenerator(type: GeneratorType) {
+		if (type in this.generators) return;
 
-		this.buildings = {
-			...this.buildings,
+		this.generators = {
+			...this.generators,
 			[type]: {
-				cost: BUILDINGS[type].cost,
-				rate: BUILDINGS[type].rate,
+				cost: GENERATORS[type].cost,
+				rate: GENERATORS[type].rate,
 				level: 0,
 				count: 0,
 				unlocked: true,
@@ -984,21 +985,21 @@ export class GameManager {
 	}
 
 	// Automation
-	toggleAutomation(buildingType: BuildingType) {
-		const buildings = [...this.settings.automation.buildings];
-		const index = buildings.indexOf(buildingType);
+	toggleAutomation(generatorType: GeneratorType) {
+		const generators = [...this.settings.automation.generators];
+		const index = generators.indexOf(generatorType);
 
 		if (index === -1) {
-			buildings.push(buildingType);
+			generators.push(generatorType);
 		} else {
-			buildings.splice(index, 1);
+			generators.splice(index, 1);
 		}
 
 		this.settings = {
 			...this.settings,
 			automation: {
 				...this.settings.automation,
-				buildings,
+				generators,
 			},
 		};
 	}
@@ -1045,7 +1046,7 @@ export class GameManager {
 
 	/**
 	 * `skipProduction` is what the browser passes: there the atoms are summed per frame in `+page.svelte` for a smooth
-	 * counter, and crediting them here too would pay every building twice. The simulation has no frame loop and pays here.
+	 * counter, and crediting them here too would pay every generator twice. The simulation has no frame loop and pays here.
 	 */
 	tick(deltaTime: number = 1000, skipAchievements = false, skipProduction = false) {
 		this.inGameTime += deltaTime;

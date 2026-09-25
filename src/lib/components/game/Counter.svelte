@@ -1,47 +1,22 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { formatNumber } from '$lib/utils';
-	import { BUILDINGS, BuildingTypes, type BuildingType } from '$data/buildings';
-	import BlackHoleIcon from '@components/icons/buildings/BlackHole.svelte';
-	import CrystalIcon from '@components/icons/buildings/Crystal.svelte';
-	import MicroorganismIcon from '@components/icons/buildings/Microorganism.svelte';
-	import MoleculeIcon from '@components/icons/buildings/Molecule.svelte';
-	import NanostructureIcon from '@components/icons/buildings/Nanostructure.svelte';
-	import NeutronStarIcon from '@components/icons/buildings/NeutronStar.svelte';
-	import PlanetIcon from '@components/icons/buildings/Planet.svelte';
-	import RockIcon from '@components/icons/buildings/Rock.svelte';
-	import StarIcon from '@components/icons/buildings/Star.svelte';
+	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
+	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
 	import { Info } from '@lucide/svelte';
 	import { getUpgradesWithEffects } from '$helpers/effects';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import { mobile } from '$stores/window.svelte';
-	import type { Component } from 'svelte';
 
-	const BUILDING_ICONS: Record<BuildingType, Component<{ color?: string; size?: number }>> = {
-		[BuildingTypes.BLACK_HOLE]: BlackHoleIcon,
-		[BuildingTypes.CRYSTAL]: CrystalIcon,
-		[BuildingTypes.MICROORGANISM]: MicroorganismIcon,
-		[BuildingTypes.MOLECULE]: MoleculeIcon,
-		[BuildingTypes.NANOSTRUCTURE]: NanostructureIcon,
-		[BuildingTypes.NEUTRON_STAR]: NeutronStarIcon,
-		[BuildingTypes.PLANET]: PlanetIcon,
-		[BuildingTypes.ROCK]: RockIcon,
-		[BuildingTypes.STAR]: StarIcon,
-	};
-
-	// Get buildings with their production sorted by production value (highest first)
-	const buildingsWithProduction = $derived(
-		Object.entries(gameManager.buildingProductions)
-			.filter(([type, production]) => production > 0)
-			.map(([type, production]) => ({
-				type: type as BuildingType,
-				name: BUILDINGS[type as BuildingType].name,
-				production: production,
-				count: gameManager.buildings[type as BuildingType]?.count ?? 0,
-			}))
-			.sort((a, b) => Object.values(BuildingTypes).indexOf(a.type) - Object.values(BuildingTypes).indexOf(b.type)),
+	const generatorsWithProduction = $derived(
+		GENERATOR_TYPES.filter(type => gameManager.generatorProductions[type] > 0).map(type => ({
+			count: gameManager.generators[type]?.count ?? 0,
+			name: GENERATORS[type].name,
+			production: gameManager.generatorProductions[type],
+			type,
+		})),
 	);
 
 	const hasAutoClick = $derived(getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_click' }).length > 0);
@@ -102,7 +77,7 @@
 			</span> atoms per second
 		</div>
 
-		{#if buildingsWithProduction.length > 0}
+		{#if generatorsWithProduction.length > 0}
 			<Tooltip
 				position="bottom"
 				size="md"
@@ -113,21 +88,21 @@
 				/>
 
 				{#snippet content()}
-					<div class="text-xs font-semibold mb-2">Buildings Production:</div>
+					<div class="text-xs font-semibold mb-2">Generators production</div>
 					<div class="space-y-1">
-						{#each buildingsWithProduction as building}
-							{@const IconComponent = BUILDING_ICONS[building.type]}
+						{#each generatorsWithProduction as generator (generator.type)}
+							{@const IconComponent = ICONS[GENERATOR_ICON_NAMES[generator.type]]}
 							<div class="flex justify-between items-center text-xs">
 								<span class="text-white/80 flex items-center gap-1.5">
 									<IconComponent
 										size={14}
 										color="currentColor"
 									/>
-									{building.name} (×{building.count})
+									{generator.name} (×{generator.count})
 								</span>
 								<span class="text-accent-300 font-medium"
-									>{formatNumber(building.production)}/s ({Math.round(
-										(building.production / gameManager.atomsPerSecond) * 100,
+									>{formatNumber(generator.production)}/s ({Math.round(
+										(generator.production / gameManager.atomsPerSecond) * 100,
 									)}%)</span
 								>
 							</div>

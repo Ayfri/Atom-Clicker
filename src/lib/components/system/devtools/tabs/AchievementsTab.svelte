@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { ACHIEVEMENTS } from '$data/achievements';
-	import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
+	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 	import { Atom as AtomIcon, Factory, Clock, Sparkles, Gift, Trophy, Check, X as XIcon, X, type LucideIcon } from '@lucide/svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import { formatNumber } from '$lib/utils';
@@ -13,7 +13,7 @@
 	const categorizedAchievements = $derived.by(() => {
 		const categories: Record<string, { icon: LucideIcon; subcategories: Record<string, Array<[string, Achievement]>> }> = {
 			'Atom Milestones': { icon: AtomIcon, subcategories: {} },
-			'Building Goals': { icon: Factory, subcategories: {} },
+			'Generator Goals': { icon: Factory, subcategories: {} },
 			'Time & Progress': { icon: Clock, subcategories: {} },
 			'Prestige': { icon: Sparkles, subcategories: {} },
 			'Special & Hidden': { icon: Gift, subcategories: { 'General': [] } }
@@ -55,10 +55,10 @@
 				category = 'Time & Progress';
 				subcategory = 'Time';
 			} else if (id.startsWith('total_')) {
-				category = 'Building Goals';
+				category = 'Generator Goals';
 				subcategory = 'Total Count';
-			} else if (id.startsWith('buildings_levels_')) {
-				category = 'Building Goals';
+			} else if (id.startsWith('generators_levels_')) {
+				category = 'Generator Goals';
 				subcategory = 'Total Levels';
 			} else if (id.startsWith('protonises_')) {
 				category = 'Prestige';
@@ -79,14 +79,14 @@
 				category = 'Prestige';
 				subcategory = 'Upgrades';
 			} else {
-				// Try building subcategory
+				// Try generator subcategory
 				// Sort by length descending to match "neutronstar" before "star"
-				const buildingId = [...BUILDING_TYPES]
+				const generatorId = [...GENERATOR_TYPES]
 					.sort((a, b) => b.length - a.length)
 					.find(b => id.toLowerCase().includes(b.toLowerCase()));
-				if (buildingId) {
-					category = 'Building Goals';
-					subcategory = BUILDINGS[buildingId].name;
+				if (generatorId) {
+					category = 'Generator Goals';
+					subcategory = GENERATORS[generatorId].name;
 				}
 			}
 
@@ -133,7 +133,7 @@
 		// Try to find a part that is a number or a formatted number
 		// Improved regex to handle decimals and suffixes (like 1.00k)
 		const milestoneValue = parts.find(p => {
-			if (['aps', 'total', 'buildings', 'levels', 'clicks', 'protonises', 'electronizes', 'photons', 'bonus'].includes(p)) return false;
+			if (['aps', 'total', 'generators', 'levels', 'clicks', 'protonises', 'electronizes', 'photons', 'bonus'].includes(p)) return false;
 			return !isNaN(Number(p)) || /^[\d.]+[a-z]+$/i.test(p);
 		});
 

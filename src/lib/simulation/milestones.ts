@@ -1,4 +1,4 @@
-import { BUILDINGS, BUILDING_TYPES } from '$data/buildings';
+import { GENERATORS, GENERATOR_TYPES } from '$data/generators';
 import type { MilestoneCheckData, MilestoneDefinition } from './types';
 
 type NumericField = {
@@ -20,12 +20,12 @@ const at = (field: NumericField, value: number, id: string, name: string, descri
 	milestone: { description, id, name },
 });
 
-const firstPurchase = (type: (typeof BUILDING_TYPES)[number]): MilestoneEntry => ({
-	check: snapshot => snapshot.buildingsEverPurchased.has(type),
+const firstPurchase = (type: (typeof GENERATOR_TYPES)[number]): MilestoneEntry => ({
+	check: snapshot => snapshot.generatorsEverPurchased.has(type),
 	milestone: {
-		description: `Purchased first ${BUILDINGS[type].name}`,
-		id: `first_building_${type}`,
-		name: `First ${BUILDINGS[type].name}`,
+		description: `Purchased first ${GENERATORS[type].name}`,
+		id: `first_generator_${type}`,
+		name: `First ${GENERATORS[type].name}`,
 	},
 });
 
@@ -41,10 +41,10 @@ export const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('atomsPerSecond', 1e15, 'aps_1qa', '1Qa APS', 'Producing 1Qa atoms/s'),
 	at('atomsPerSecond', 1e21, 'aps_1sx', '1Sx APS', 'Producing 1Sx atoms/s'),
 
-	at('totalBuildings', 25, 'buildings_25', '25 Buildings', 'Owns 25 buildings'),
-	at('totalBuildings', 100, 'buildings_100', '100 Buildings', 'Owns 100 buildings'),
-	at('totalBuildings', 500, 'buildings_500', '500 Buildings', 'Owns 500 buildings'),
-	at('totalBuildings', 1000, 'buildings_1k', '1K Buildings', 'Owns 1000 buildings'),
+	at('totalGenerators', 25, 'generators_25', '25 Generators', 'Owns 25 generators'),
+	at('totalGenerators', 100, 'generators_100', '100 Generators', 'Owns 100 generators'),
+	at('totalGenerators', 500, 'generators_500', '500 Generators', 'Owns 500 generators'),
+	at('totalGenerators', 1000, 'generators_1k', '1K Generators', 'Owns 1000 generators'),
 
 	at('protonises', 1, 'first_protonise', '1st Protonise', 'First Protonise'),
 	at('protonises', 10, 'protonises_10', '10 Protonises', '10 Protonises'),
@@ -71,16 +71,16 @@ export const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('achievements', 50, 'achievements_50', '50 Achievements', 'Earned 50 achievements'),
 	at('achievements', 100, 'achievements_100', '100 Achievements', 'Earned 100 achievements'),
 
-	at('skillPointsUsed', 1, 'currency_boost_1', '1st Currency Boost', 'First currency boost upgrade'),
-	at('skillPointsUsed', 10, 'currency_boost_10', '10 Currency Boosts', '10 total currency boost upgrades'),
-	at('skillPointsUsed', 50, 'currency_boost_50', '50 Currency Boosts', '50 total currency boost upgrades'),
+	at('boostPointsUsed', 1, 'currency_boost_1', '1st Currency Boost', 'First currency boost upgrade'),
+	at('boostPointsUsed', 10, 'currency_boost_10', '10 Currency Boosts', '10 total currency boost upgrades'),
+	at('boostPointsUsed', 50, 'currency_boost_50', '50 Currency Boosts', '50 total currency boost upgrades'),
 
 	at('playerLevel', 1, 'player_level_1', 'Level 1', 'Reached player level 1'),
 	at('playerLevel', 10, 'player_level_10', 'Level 10', 'Reached player level 10'),
 	at('playerLevel', 50, 'player_level_50', 'Level 50', 'Reached player level 50'),
 	at('playerLevel', 200, 'player_level_200', 'Level 200', 'Reached player level 200'),
 
-	...BUILDING_TYPES.map(firstPurchase),
+	...GENERATOR_TYPES.map(firstPurchase),
 
 	at('quarks', 10, 'quarks_10', '10 Quark', 'Earned 10 Quark'),
 	at('quarks', 50, 'quarks_50', '50 Quarks', 'Earned 100 Quarks'),

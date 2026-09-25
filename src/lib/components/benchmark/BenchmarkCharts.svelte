@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Chart from '$lib/components/benchmark/Chart.svelte';
 	import type { ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
-	import { BUILDINGS, BUILDING_COLORS, BUILDING_LEVEL_UP_COST, BUILDING_TYPES } from '$data/buildings';
+	import { GENERATORS, GENERATOR_COLORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '$data/generators';
 	import { totalActionCount, type SimulationSnapshot } from '$lib/simulation/types';
 
 	interface SeriesDef {
@@ -28,17 +28,17 @@
 		title: string;
 	}
 
-	function buildingSeries(
+	function generatorSeries(
 		pick: (s: SimulationSnapshot) => Partial<Record<string, number>>,
 		fillOpacity: number,
 		keepAbove: number,
 	) {
 		return (snapshots: SimulationSnapshot[]): ChartSeries[] =>
-			BUILDING_TYPES.map((type, i) => ({
-				color: BUILDING_COLORS[i],
+			GENERATOR_TYPES.map((type, i) => ({
+				color: GENERATOR_COLORS[i],
 				data: snapshots.map(s => pick(s)[type] ?? 0),
 				fillOpacity,
-				label: BUILDINGS[type].name,
+				label: GENERATORS[type].name,
 			})).filter(s => s.data.some(v => v > keepAbove));
 	}
 
@@ -153,40 +153,40 @@
 			],
 		},
 		{
-			description: 'Per-building counts and output, then the two multipliers that lift a building above its base rate.',
-			title: 'Buildings',
+			description: 'Per-generator counts and output, then the two multipliers that lift a generator above its base rate.',
+			title: 'Generators',
 			charts: [
 				{
-					buildCustomSeries: buildingSeries(s => s.buildings, 0.05, 0),
+					buildCustomSeries: generatorSeries(s => s.generators, 0.05, 0),
 					height: 360,
 					series: [],
-					title: 'Building Counts (Log Scale)',
+					title: 'Generator Counts (Log Scale)',
 					useLog: true,
 				},
 				{
-					buildCustomSeries: buildingSeries(s => s.buildingProductions, 0.05, 0),
-					description: 'Final APS contributed by each building, all multipliers applied. A building that never overtakes the previous tier is mispriced.',
+					buildCustomSeries: generatorSeries(s => s.generatorProductions, 0.05, 0),
+					description: 'Final APS contributed by each generator, all multipliers applied. A generator that never overtakes the previous tier is mispriced.',
 					height: 360,
 					series: [],
-					title: 'APS by Building (Log Scale)',
+					title: 'APS by Generator (Log Scale)',
 					useLog: true,
 				},
 				{
-					buildCustomSeries: buildingSeries(s => s.buildingUpgradeFactors, 0, 0),
-					description: 'Every building the run ever owned. A line flat at 1× means no building upgrade for that tier was ever bought.',
+					buildCustomSeries: generatorSeries(s => s.generatorUpgradeFactors, 0, 0),
+					description: 'Every generator the run ever owned. A line flat at 1× means no generator upgrade for that tier was ever bought.',
 					half: true,
 					height: 300,
 					series: [],
-					title: 'Upgrade Multiplier per Building ×',
+					title: 'Upgrade Multiplier per Generator ×',
 					useLog: true,
 				},
 				{
-					buildCustomSeries: buildingSeries(s => s.buildingLevelFactors, 0, 0),
-					description: `Levels come from owning ${BUILDING_LEVEL_UP_COST} of a building. A line flat at 1× means that tier never reached level 1.`,
+					buildCustomSeries: generatorSeries(s => s.generatorLevelFactors, 0, 0),
+					description: `Levels come from owning ${GENERATOR_LEVEL_UP_COST} of a generator. A line flat at 1× means that tier never reached level 1.`,
 					half: true,
 					height: 300,
 					series: [],
-					title: 'Level Multiplier per Building ×',
+					title: 'Level Multiplier per Generator ×',
 					useLog: true,
 				},
 			],
@@ -202,8 +202,8 @@
 						{ color: '#a78bfa', fillOpacity: 0, getValue: s => s.upgrades, label: 'Upgrades Owned' },
 						{ color: '#6366f1', fillOpacity: 0, getValue: s => s.totalUpgrades, label: 'Upgrades All-Time' },
 						{ color: '#818cf8', fillOpacity: 0, getValue: s => s.skills, label: 'Skills' },
-						{ color: '#34d399', fillOpacity: 0, getValue: s => s.skillPointsUsed, label: 'Boost Points Spent' },
-						{ color: '#10b981', fillOpacity: 0, getValue: s => s.buildingLevels, label: 'Building Levels' },
+						{ color: '#34d399', fillOpacity: 0, getValue: s => s.boostPointsUsed, label: 'Boost Points Spent' },
+						{ color: '#10b981', fillOpacity: 0, getValue: s => s.generatorLevels, label: 'Generator Levels' },
 						{ color: '#f59e0b', fillOpacity: 0.1, getValue: s => s.playerLevel, label: 'Player Level' },
 						{ color: '#f472b6', fillOpacity: 0, getValue: s => s.photonUpgradeLevels, label: 'Photon Upgrade Levels' },
 					],
@@ -214,7 +214,7 @@
 					series: [
 						{ color: '#f59e0b', fillOpacity: 0.15, getValue: s => s.totalXP, label: 'Total XP' },
 						{ color: '#60a5fa', fillOpacity: 0.1, getValue: s => s.clicks, label: 'Total Clicks' },
-						{ color: '#c084fc', fillOpacity: 0.1, getValue: s => s.buildingsPurchased, label: 'Buildings All-Time' },
+						{ color: '#c084fc', fillOpacity: 0.1, getValue: s => s.generatorsPurchased, label: 'Generators All-Time' },
 					],
 					title: 'Activity (Log Scale)',
 					useLog: true,

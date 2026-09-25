@@ -2,32 +2,32 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { autoBuyManager } from '$stores/autoBuy.svelte';
 	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import { BUILDING_TYPES, BUILDINGS, BuildingTypes, type BuildingType } from '$data/buildings';
+	import { GENERATOR_TYPES, GENERATORS, GeneratorTypes, type GeneratorType } from '$data/generators';
 	import { UPGRADES } from '$data/upgrades';
-	import BlackHoleIcon from '@components/icons/buildings/BlackHole.svelte';
-	import CrystalIcon from '@components/icons/buildings/Crystal.svelte';
-	import MicroorganismIcon from '@components/icons/buildings/Microorganism.svelte';
-	import MoleculeIcon from '@components/icons/buildings/Molecule.svelte';
-	import NanostructureIcon from '@components/icons/buildings/Nanostructure.svelte';
-	import NeutronStarIcon from '@components/icons/buildings/NeutronStar.svelte';
-	import PlanetIcon from '@components/icons/buildings/Planet.svelte';
-	import RockIcon from '@components/icons/buildings/Rock.svelte';
-	import StarIcon from '@components/icons/buildings/Star.svelte';
+	import BlackHoleIcon from '@components/icons/generators/BlackHole.svelte';
+	import CrystalIcon from '@components/icons/generators/Crystal.svelte';
+	import MicroorganismIcon from '@components/icons/generators/Microorganism.svelte';
+	import MoleculeIcon from '@components/icons/generators/Molecule.svelte';
+	import NanostructureIcon from '@components/icons/generators/Nanostructure.svelte';
+	import NeutronStarIcon from '@components/icons/generators/NeutronStar.svelte';
+	import PlanetIcon from '@components/icons/generators/Planet.svelte';
+	import RockIcon from '@components/icons/generators/Rock.svelte';
+	import StarIcon from '@components/icons/generators/Star.svelte';
 	import { Zap, Factory, TrendingUp, Clock, CheckCircle2, XCircle, MousePointer2, Play, Lock } from '@lucide/svelte';
 	import { formatNumber } from '$lib/utils';
 	import { getUpgradesWithEffects } from '$helpers/effects';
 	import type { Component } from 'svelte';
 
-	const BUILDING_ICONS: Record<BuildingType, Component<{ color?: string; size?: number }>> = {
-		[BuildingTypes.BLACK_HOLE]: BlackHoleIcon,
-		[BuildingTypes.CRYSTAL]: CrystalIcon,
-		[BuildingTypes.MICROORGANISM]: MicroorganismIcon,
-		[BuildingTypes.MOLECULE]: MoleculeIcon,
-		[BuildingTypes.NANOSTRUCTURE]: NanostructureIcon,
-		[BuildingTypes.NEUTRON_STAR]: NeutronStarIcon,
-		[BuildingTypes.PLANET]: PlanetIcon,
-		[BuildingTypes.ROCK]: RockIcon,
-		[BuildingTypes.STAR]: StarIcon,
+	const GENERATOR_ICONS: Record<GeneratorType, Component<{ color?: string; size?: number }>> = {
+		[GeneratorTypes.BLACK_HOLE]: BlackHoleIcon,
+		[GeneratorTypes.CRYSTAL]: CrystalIcon,
+		[GeneratorTypes.MICROORGANISM]: MicroorganismIcon,
+		[GeneratorTypes.MOLECULE]: MoleculeIcon,
+		[GeneratorTypes.NANOSTRUCTURE]: NanostructureIcon,
+		[GeneratorTypes.NEUTRON_STAR]: NeutronStarIcon,
+		[GeneratorTypes.PLANET]: PlanetIcon,
+		[GeneratorTypes.ROCK]: RockIcon,
+		[GeneratorTypes.STAR]: StarIcon,
 	};
 
 	const intervals = $derived(autoBuyManager.autoBuyIntervals);
@@ -39,33 +39,33 @@
 		return getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0;
 	});
 
-	const unlockedBuildingAutomations = $derived.by(() => {
-		const unlocked = new Set<BuildingType>();
+	const unlockedGeneratorAutomations = $derived.by(() => {
+		const unlocked = new Set<GeneratorType>();
 		const autoBuyUpgrades = getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_buy' });
 
 		autoBuyUpgrades.forEach(upgrade => {
 			upgrade.effects?.forEach(effect => {
 				if (effect.type === 'auto_buy' && effect.target) {
-					unlocked.add(effect.target as BuildingType);
+					unlocked.add(effect.target as GeneratorType);
 				}
 			});
 		});
 		return unlocked;
 	});
 
-	function toggleBuildingAutomation(type: BuildingType) {
-		if (gameManager.settings.automation.buildings.includes(type)) {
-			gameManager.settings.automation.buildings = gameManager.settings.automation.buildings.filter(b => b !== type);
+	function toggleGeneratorAutomation(type: GeneratorType) {
+		if (gameManager.settings.automation.generators.includes(type)) {
+			gameManager.settings.automation.generators = gameManager.settings.automation.generators.filter(b => b !== type);
 		} else {
-			gameManager.settings.automation.buildings = [...gameManager.settings.automation.buildings, type];
+			gameManager.settings.automation.generators = [...gameManager.settings.automation.generators, type];
 		}
 	}
 
-	function toggleAllBuildings(enable: boolean) {
+	function toggleAllGenerators(enable: boolean) {
 		if (enable) {
-			gameManager.settings.automation.buildings = [...BUILDING_TYPES];
+			gameManager.settings.automation.generators = [...GENERATOR_TYPES];
 		} else {
-			gameManager.settings.automation.buildings = [];
+			gameManager.settings.automation.generators = [];
 		}
 	}
 
@@ -73,8 +73,8 @@
 		autoUpgradeManager.purchaseAvailableUpgrades();
 	}
 
-	function forceAutoBuy(type: BuildingType) {
-		autoBuyManager.purchaseBuilding(type);
+	function forceAutoBuy(type: GeneratorType) {
+		autoBuyManager.purchaseGenerator(type);
 	}
 </script>
 
@@ -216,24 +216,24 @@
 		</div>
 	</div>
 
-	<!-- Auto Buildings Section -->
+	<!-- Auto Generators Section -->
 	<div class="bg-white/5 rounded-xl p-4 border border-white/10">
 		<div class="flex items-center justify-between mb-4">
 			<h3 class="text-lg font-bold flex items-center gap-2 text-accent-300">
 				<Factory size={20} />
-				<span>Auto Buildings</span>
+				<span>Auto Generators</span>
 			</h3>
 			<div class="flex gap-2">
 				<button
 					class="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 text-xs font-bold rounded transition-colors cursor-pointer border border-green-500/20"
-					onclick={() => toggleAllBuildings(true)}
+					onclick={() => toggleAllGenerators(true)}
 				>
 					<CheckCircle2 size={12} />
 					<span>Enable All</span>
 				</button>
 				<button
 					class="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-bold rounded transition-colors cursor-pointer border border-red-500/20"
-					onclick={() => toggleAllBuildings(false)}
+					onclick={() => toggleAllGenerators(false)}
 				>
 					<XCircle size={12} />
 					<span>Disable All</span>
@@ -242,12 +242,12 @@
 		</div>
 
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-			{#each BUILDING_TYPES as type}
-				{@const isUnlocked = unlockedBuildingAutomations.has(type)}
-				{@const isEnabled = gameManager.settings.automation.buildings.includes(type)}
+			{#each GENERATOR_TYPES as type}
+				{@const isUnlocked = unlockedGeneratorAutomations.has(type)}
+				{@const isEnabled = gameManager.settings.automation.generators.includes(type)}
 				{@const interval = intervals[type]}
-				{@const recentlyPurchased = autoBuyManager.recentlyAutoPurchasedBuildings.get(type) || 0}
-				{@const IconComponent = BUILDING_ICONS[type]}
+				{@const recentlyPurchased = autoBuyManager.recentlyAutoPurchasedGenerators.get(type) || 0}
+				{@const IconComponent = GENERATOR_ICONS[type]}
 				<div
 					class="flex flex-col gap-2 p-3 rounded-xl border transition-all {isUnlocked ?
 						isEnabled ? 'bg-accent-500/10 border-accent-500/30'
@@ -259,13 +259,13 @@
 							class="font-bold text-sm transition-colors flex items-center gap-2 {isUnlocked ?
 								'cursor-pointer hover:text-accent-300'
 							:	'text-white/20 cursor-default'}"
-							onclick={() => isUnlocked && toggleBuildingAutomation(type)}
+							onclick={() => isUnlocked && toggleGeneratorAutomation(type)}
 						>
 							<IconComponent
 								size={18}
 								color="currentColor"
 							/>
-							{BUILDINGS[type].name}
+							{GENERATORS[type].name}
 						</button>
 						<div class="flex items-center gap-2">
 							{#if isUnlocked}
@@ -282,7 +282,7 @@
 									) ?
 										'bg-accent-500/20 border-accent-500/30 text-accent-400'
 									:	'bg-white/5 border-white/10 text-white/20 hover:text-white/40'}"
-									onclick={() => toggleBuildingAutomation(type)}
+									onclick={() => toggleGeneratorAutomation(type)}
 									title={isEnabled ? 'Disable Auto Buy' : 'Enable Auto Buy'}
 								>
 									{#if isEnabled}

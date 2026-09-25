@@ -2,14 +2,14 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { UPGRADES } from '$data/upgrades';
 	import { PHOTON_UPGRADES, EXCITED_PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
+	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 	import { RADIATION_UPGRADES } from '$data/radiationUpgrades';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import {
 		Target,
 		MousePointer,
 		Globe,
-		Building2,
+		Factory,
 		Sparkles,
 		Check,
 		X as XIcon,
@@ -36,11 +36,11 @@
 		stability: (id: string) => id.startsWith('stability'),
 	};
 
-	const sortedBuildings = [...BUILDING_TYPES].sort((a, b) => b.length - a.length);
-	const buildingDataForUpgrades = sortedBuildings.map(bId => ({
+	const sortedGenerators = [...GENERATOR_TYPES].sort((a, b) => b.length - a.length);
+	const generatorDataForUpgrades = sortedGenerators.map(bId => ({
 		id: bId,
 		lowId: bId.toLowerCase(),
-		name: BUILDINGS[bId].name,
+		name: GENERATORS[bId].name,
 	}));
 
 	function formatSubName(name: string) {
@@ -100,10 +100,10 @@
 				icon = Shield;
 			} else {
 				const lowId = id.toLowerCase();
-				for (const building of buildingDataForUpgrades) {
-					if (lowId.startsWith(building.lowId + '_') || lowId.endsWith(building.lowId)) {
-						cat = `${building.name} Upgrades`;
-						icon = Building2;
+				for (const generator of generatorDataForUpgrades) {
+					if (lowId.startsWith(generator.lowId + '_') || lowId.endsWith(generator.lowId)) {
+						cat = `${generator.name} Upgrades`;
+						icon = Factory;
 						sub =
 							id.includes('auto_buy_speed') ? 'auto_speed'
 							: id.includes('auto_buy') ? 'auto_unlock'

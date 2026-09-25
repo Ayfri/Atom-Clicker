@@ -95,15 +95,15 @@
 		</div>
 		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
 			<span class="text-gray-500 flex gap-1 items-center"><Layers size={14} /> Boosts</span>
-			<span class="font-mono text-purple-400">{result.snapshots.at(-1)?.skillPointsUsed ?? 0}</span>
+			<span class="font-mono text-purple-400">{result.snapshots.at(-1)?.boostPointsUsed ?? 0}</span>
 		</div>
 		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
 			<span class="text-gray-500">Total XP</span>
 			<span class="font-mono text-orange-400">{formatNumber(result.snapshots.at(-1)?.totalXP ?? 0)}</span>
 		</div>
 		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
-			<span class="text-gray-500">Buildings</span>
-			<span class="font-mono text-green-400">{formatNumber(result.snapshots.at(-1)?.totalBuildings ?? 0)}</span>
+			<span class="text-gray-500">Generators</span>
+			<span class="font-mono text-green-400">{formatNumber(result.snapshots.at(-1)?.totalGenerators ?? 0)}</span>
 		</div>
 	</div>
 

@@ -17,9 +17,9 @@
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import {
 		ArrowUpCircle,
-		Building2,
 		Check,
 		Clock,
+		Factory,
 		Flag,
 		Lock,
 		MousePointerClick,
@@ -67,7 +67,7 @@
 
 	const QUEST_ICONS: Record<string, typeof Target> = {
 		atoms_earned: Zap,
-		buildings_purchased: Building2,
+		buildings_purchased: Factory,
 		clicks_100: MousePointerClick,
 		clicks_250: MousePointerClick,
 		electronize_three_times: Orbit,
@@ -101,9 +101,9 @@
 		:	getQuestTarget(quest, {
 				achievementsUnlocked: 0,
 				atomsEarned: gameManager.highestAPS,
-				buildingsPurchased: 0,
 				clicks: 0,
 				electronizes: 0,
+				generatorsPurchased: 0,
 				higgsBosonsCollected: 0,
 				otherDailyQuestsCompleted: 0,
 				powerUpsCollected: 0,

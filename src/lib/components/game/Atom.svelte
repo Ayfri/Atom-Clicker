@@ -2,7 +2,7 @@
 	import {gameManager} from '$helpers/GameManager.svelte';
 	import {realmManager} from '$helpers/RealmManager.svelte';
 	import {REALMS, RealmTypes} from '$data/realms';
-	import {BUILDING_TYPES, BUILDING_COLORS, BUILDING_LEVEL_UP_COST} from '$data/buildings';
+	import {GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor} from '$data/generators';
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
 	import {formatNumber} from '$lib/utils';
 	import {shouldCreateParticles, addParticles} from '$stores/canvas';
@@ -16,7 +16,7 @@
 		...(gameManager.totalElectronizesAllTime > 0 ? [CURRENCIES[CurrenciesTypes.ELECTRONS].color] : []),
 	]);
 
-	/** The nucleus starts as a lone nucleon and gains one each time the building count, then the protonise count, doubles. */
+	/** The nucleus starts as a lone nucleon and gains one each time the generator count, then the protonise count, doubles. */
 	const scene: AtomScene = $derived({
 		auras: prestigeColors,
 		bonus: gameManager.hasBonus,
@@ -28,12 +28,12 @@
 		nucleons: Math.min(
 			NUCLEON_RANGE.max,
 			NUCLEON_RANGE.min +
-				Math.floor(Math.log2(1 + gameManager.buildingTotals.count)) +
+				Math.floor(Math.log2(1 + gameManager.generatorTotals.count)) +
 				Math.floor(Math.log2(1 + gameManager.totalProtonisesAllTime)),
 		),
-		shells: BUILDING_TYPES.flatMap(name => gameManager.buildings[name] ?? []).map((data, line) => ({
-			color: BUILDING_COLORS[data.level],
-			count: data.count % BUILDING_LEVEL_UP_COST,
+		shells: GENERATOR_TYPES.flatMap(name => gameManager.generators[name] ?? []).map((data, line) => ({
+			color: getGeneratorColor(data.level),
+			count: data.count % GENERATOR_LEVEL_UP_COST,
 			line,
 		})),
 	});
@@ -42,7 +42,7 @@
 	let renderer = $state.raw<AtomRenderer>();
 
 	function mountRenderer(canvas: HTMLCanvasElement) {
-		const instance = new AtomRenderer(canvas, untrack(() => scene), BUILDING_TYPES.length);
+		const instance = new AtomRenderer(canvas, untrack(() => scene), GENERATOR_TYPES.length);
 		renderer = instance;
 		return () => {
 			instance.destroy();

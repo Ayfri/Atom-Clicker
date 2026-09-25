@@ -1,6 +1,6 @@
-import type { BuildingType } from '$data/buildings';
 import type { CurrencyName } from '$data/currencies';
 import type { DailyStats } from '$data/dailyQuests';
+import type { GeneratorType } from '$data/generators';
 import type { IconName } from '$data/icons';
 import type { RealmType } from '$data/realms';
 import type { GameManager } from '$helpers/GameManager.svelte';
@@ -20,14 +20,6 @@ export interface Achievement {
 	name: string;
 }
 
-export interface Building {
-	cost: Price;
-	count: number;
-	level: number;
-	rate: number;
-	unlocked: boolean;
-}
-
 export interface Currency {
 	achievementTiers?: number[];
 	color: string;
@@ -43,8 +35,6 @@ export interface CurrencyState {
 	earnedRun: number;
 }
 
-export type BuildingCountMap = Partial<Record<BuildingType, number>>;
-
 export type CurrencyAmountMap = Partial<Record<CurrencyName, number>>;
 
 export type CurrencyStateMap = Record<CurrencyName, CurrencyState>;
@@ -54,13 +44,12 @@ export interface Effect {
 	description: string;
 	/** Effects sharing a group have their contributions summed, then applied once as a single multiplier, instead of stacking multiplicatively. */
 	group?: string;
-	target?: BuildingType;
+	target?: GeneratorType;
 	type:
 		| 'auto_buy'
 		| 'auto_click'
 		| 'auto_speed'
 		| 'auto_upgrade'
-		| 'building'
 		| 'click'
 		| 'electron_gain'
 		| 'excited_auto_click'
@@ -69,6 +58,7 @@ export interface Effect {
 		| 'excited_photon_duration'
 		| 'excited_photon_from_max'
 		| 'excited_photon_stability'
+		| 'generator'
 		| 'global'
 		| 'photon_auto_click'
 		| 'photon_double_chance'
@@ -93,6 +83,16 @@ export interface Effect {
 }
 
 export type FeatureState = Record<string, boolean>;
+
+export interface Generator {
+	cost: Price;
+	count: number;
+	level: number;
+	rate: number;
+	unlocked: boolean;
+}
+
+export type GeneratorCountMap = Partial<Record<GeneratorType, number>>;
 
 export interface PhotonUpgrade {
 	baseCost: number;
@@ -124,11 +124,11 @@ export interface TutorialState {
 export interface GameState {
 	achievements: string[];
 	activePowerUps: PowerUp[];
-	buildings: Partial<Record<BuildingType, Building>>;
 	currencies: CurrencyStateMap;
 	currencyBoosts: CurrencyBoosts;
 	dailyStats: DailyStats;
 	features: FeatureState;
+	generators: Partial<Record<GeneratorType, Generator>>;
 	highestAPS: number;
 	inGameTime: number;
 	lastInteractionTime: number;
@@ -142,11 +142,11 @@ export interface GameState {
 	settings: Settings;
 	skillUpgrades: string[];
 	startDate: number;
-	totalBuildingsPurchasedAllTime: number;
 	totalClicksAllTime: number;
 	totalClicksRun: number;
 	totalElectronizesAllTime: number;
 	totalElectronizesRun: number;
+	totalGeneratorsPurchasedAllTime: number;
 	totalProtonisesAllTime: number;
 	totalProtonisesRun: number;
 	totalUpgradesPurchasedAllTime: number;
@@ -161,7 +161,7 @@ export interface OfflineProgressSummary {
 	appliedMs: number;
 	atomAutoClickEnabled: boolean;
 	atomAutoClicks: number;
-	autoBuyCounts: BuildingCountMap;
+	autoBuyCounts: GeneratorCountMap;
 	autoBuyEnabled: boolean;
 	autoBuyFactor: number;
 	autoUpgradeEnabled: boolean;
@@ -208,7 +208,7 @@ export interface Settings {
 	automation: {
 		autoClick: boolean;
 		autoClickPhotons: boolean;
-		buildings: BuildingType[];
+		generators: GeneratorType[];
 		upgrades: boolean;
 	};
 	gameplay: {

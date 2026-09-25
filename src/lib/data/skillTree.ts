@@ -1,6 +1,6 @@
-import { BUILDINGS, BUILDING_TYPES, type BuildingData, type BuildingType } from '$data/buildings';
 import { CurrenciesTypes } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
+import { GENERATORS, GENERATOR_TYPES, type GeneratorData, type GeneratorType } from '$data/generators';
 import type { SkillUpgrade } from '$lib/types';
 
 export const SKILL_GRID = {
@@ -22,12 +22,12 @@ function snakePos(startX: number, startY: number, i: number, direction: 1 | -1) 
 	return gridPos(startX + column * direction, startY + row);
 }
 
-function createBuildingsSkillUpgrades(
-	skillData: (buildingType: BuildingType, building: BuildingData, i: number) => SkillUpgrade,
+function createGeneratorsSkillUpgrades(
+	skillData: (generatorType: GeneratorType, generator: GeneratorData, i: number) => SkillUpgrade,
 ): Record<string, SkillUpgrade> {
 	return Object.fromEntries(
-		Object.entries(BUILDINGS).map(([buildingType, building], i) => {
-			const builtSkillData = skillData?.(buildingType as BuildingType, building, i);
+		Object.entries(GENERATORS).map(([generatorType, generator], i) => {
+			const builtSkillData = skillData?.(generatorType as GeneratorType, generator, i);
 			return [builtSkillData.id, builtSkillData];
 		}),
 	);
@@ -66,25 +66,25 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 
 	atomicStability: {
 		cost: { amount: 100_000, currency: CurrenciesTypes.ATOMS },
-		description: '1.5x production for first 3 building types',
+		description: '1.5x production for first 3 generator types',
 		effects: [
 			{
 				apply: currentValue => currentValue * 1.5,
 				description: 'Multiply Molecule production by 1.5',
 				target: 'molecule',
-				type: 'building',
+				type: 'generator',
 			},
 			{
 				apply: currentValue => currentValue * 1.5,
 				description: 'Multiply Crystal production by 1.5',
 				target: 'crystal',
-				type: 'building',
+				type: 'generator',
 			},
 			{
 				apply: currentValue => currentValue * 1.5,
 				description: 'Multiply Nanostructure production by 1.5',
 				target: 'nanostructure',
-				type: 'building',
+				type: 'generator',
 			},
 		],
 		id: 'atomicStability',
@@ -139,13 +139,13 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 				apply: currentValue => currentValue * 3,
 				description: 'Multiply Molecule production by 3',
 				target: 'molecule',
-				type: 'building',
+				type: 'generator',
 			},
 			{
 				apply: currentValue => currentValue * 3,
 				description: 'Multiply Crystal production by 3',
 				target: 'crystal',
-				type: 'building',
+				type: 'generator',
 			},
 		],
 		id: 'molecularBoost',
@@ -164,7 +164,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 				apply: currentValue => currentValue * 2.5,
 				description: 'Multiply Nanostructure production by 2.5',
 				target: 'nanostructure',
-				type: 'building',
+				type: 'generator',
 			},
 		],
 		id: 'nanoEnhancement',
@@ -192,7 +192,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 				apply: currentValue => currentValue * 2.5,
 				description: 'Multiply Micro-organism production by 2.5',
 				target: 'microorganism',
-				type: 'building',
+				type: 'generator',
 			},
 		],
 		id: 'biologicalAmplifier',
@@ -209,13 +209,13 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 				apply: currentValue => currentValue * 2,
 				description: 'Multiply Rock production by 2',
 				target: 'rock',
-				type: 'building',
+				type: 'generator',
 			},
 			{
 				apply: currentValue => currentValue * 2,
 				description: 'Multiply Planet production by 2',
 				target: 'planet',
-				type: 'building',
+				type: 'generator',
 			},
 		],
 		id: 'geologicalForce',
@@ -344,15 +344,15 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 
 	quantumResonance: {
 		cost: { amount: 2_500_000, currency: CurrenciesTypes.PROTONS },
-		description: '+20% production per 100 buildings owned',
+		description: '+20% production per 100 generators owned',
 		effects: [
 			{
 				apply: (currentValue, state) => {
-					const totalBuildings = Object.values(state.buildings || {}).reduce((sum, building) => sum + (building?.count || 0), 0);
-					const bonus = Math.floor(totalBuildings / 100) * 0.2;
+					const totalGenerators = Object.values(state.generators || {}).reduce((sum, generator) => sum + (generator?.count || 0), 0);
+					const bonus = Math.floor(totalGenerators / 100) * 0.2;
 					return currentValue * (1 + bonus);
 				},
-				description: 'Add 20% production per 100 buildings owned',
+				description: 'Add 20% production per 100 generators owned',
 				type: 'global',
 			},
 		],
@@ -363,28 +363,28 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stellarCore: {
-		condition: state => (state.buildings.star?.count ?? 0) >= 5,
+		condition: state => (state.generators.star?.count ?? 0) >= 5,
 		cost: { amount: 25_000_000, currency: CurrenciesTypes.PROTONS },
 		requirement: 'Own 5 Stars',
-		description: '2x production for Star and higher buildings',
+		description: '2x production for Star and higher generators',
 		effects: [
 			{
 				apply: currentValue => currentValue * 2,
 				description: 'Multiply Star production by 2',
 				target: 'star',
-				type: 'building',
+				type: 'generator',
 			},
 			{
 				apply: currentValue => currentValue * 2,
 				description: 'Multiply Neutron Star production by 2',
 				target: 'neutronStar',
-				type: 'building',
+				type: 'generator',
 			},
 			{
 				apply: currentValue => currentValue * 2,
 				description: 'Multiply Black Hole production by 2',
 				target: 'blackHole',
-				type: 'building',
+				type: 'generator',
 			},
 		],
 		id: 'stellarCore',
@@ -435,14 +435,14 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 
 	cosmicSynergy: {
 		cost: { amount: 10, currency: CurrenciesTypes.ELECTRONS },
-		description: '+5% production per building type owned',
+		description: '+5% production per generator type owned',
 		effects: [
 			{
 				apply: (currentValue, state) => {
-					const ownedBuildings = Object.values(state.buildings || {}).filter(b => b && b.count > 0).length;
-					return currentValue * (1 + ownedBuildings * 0.05);
+					const ownedGenerators = Object.values(state.generators || {}).filter(b => b && b.count > 0).length;
+					return currentValue * (1 + ownedGenerators * 0.05);
 				},
-				description: 'Add 5% production per building type owned',
+				description: 'Add 5% production per generator type owned',
 				type: 'global',
 			},
 		],
@@ -516,58 +516,58 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['photonProtonBoost'],
 	},
 
-	// BUILDING MULTIPLIER BRANCH (Left side, requires 100 of each building)
+	// GENERATOR MULTIPLIER BRANCH (Left side, requires 100 of each generator)
 
-	...createBuildingsSkillUpgrades((buildingType, building, i) => {
-		const previousBuildingType = BUILDING_TYPES[i - 1];
+	...createGeneratorsSkillUpgrades((generatorType, generator, i) => {
+		const previousGeneratorType = GENERATOR_TYPES[i - 1];
 		const baseCost = 1_000_000 * Math.pow(10, i);
 
 		return {
-			condition: manager => (manager.buildings[buildingType]?.count ?? 0) >= 100,
+			condition: manager => (manager.generators[generatorType]?.count ?? 0) >= 100,
 			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
-			requirement: `Own 100 ${building.name}`,
-			description: `2x ${building.name} production`,
+			requirement: `Own 100 ${generator.name}`,
+			description: `2x ${generator.name} production`,
 			effects: [
 				{
 					apply: currentValue => currentValue * 2,
-					description: `Multiply ${building.name} production by 2`,
-					target: buildingType,
-					type: 'building',
+					description: `Multiply ${generator.name} production by 2`,
+					target: generatorType,
+					type: 'generator',
 				},
 			],
-			id: `${buildingType}Multiplier`,
-			name: `${building.name} Multiplier`,
+			id: `${generatorType}Multiplier`,
+			name: `${generator.name} Multiplier`,
 			position: snakePos(-2, 2, i, -1),
-			requires: previousBuildingType ? [`${previousBuildingType}Multiplier`] : ['geologicalForce'],
+			requires: previousGeneratorType ? [`${previousGeneratorType}Multiplier`] : ['geologicalForce'],
 		} satisfies SkillUpgrade;
 	}),
 
-	// BUILDING LEVEL MASTERY BRANCH (Right side, building level-based bonuses)
+	// GENERATOR LEVEL MASTERY BRANCH (Right side, generator level-based bonuses)
 
-	...createBuildingsSkillUpgrades((buildingType, building, i) => {
-		const previousBuildingType = BUILDING_TYPES[i - 1];
+	...createGeneratorsSkillUpgrades((generatorType, generator, i) => {
+		const previousGeneratorType = GENERATOR_TYPES[i - 1];
 		// 30x per node so the branch spans several protonise runs instead of being fully bought at 5e14 atoms in the first one.
 		const baseCost = 5_000_000 * Math.pow(30, i);
 
 		return {
 			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
-			description: `+10% ${building.name} production per 25 ${building.name} levels`,
+			description: `+10% ${generator.name} production per 25 ${generator.name} levels`,
 			effects: [
 				{
 					apply: (currentValue, state) => {
-						const buildingLevel = state.buildings[buildingType]?.level || 0;
-						const levelBonus = Math.floor(buildingLevel / 25) * 0.1;
+						const generatorLevel = state.generators[generatorType]?.level || 0;
+						const levelBonus = Math.floor(generatorLevel / 25) * 0.1;
 						return currentValue * (1 + levelBonus);
 					},
-					description: `Add 10% ${building.name} production per 25 ${building.name} levels`,
-					target: buildingType,
-					type: 'building',
+					description: `Add 10% ${generator.name} production per 25 ${generator.name} levels`,
+					target: generatorType,
+					type: 'generator',
 				},
 			],
-			id: `${buildingType}LevelMastery`,
-			name: `${building.name} Level Mastery`,
+			id: `${generatorType}LevelMastery`,
+			name: `${generator.name} Level Mastery`,
 			position: snakePos(3, 0, i, 1),
-			requires: previousBuildingType ? [`${previousBuildingType}LevelMastery`] : ['levelMastery'],
+			requires: previousGeneratorType ? [`${previousGeneratorType}LevelMastery`] : ['levelMastery'],
 		} satisfies SkillUpgrade;
 	}),
 };

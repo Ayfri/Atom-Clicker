@@ -85,7 +85,7 @@ export class SimulationEngine {
 	private actions: SimulationAction[] = [];
 	private activeNow = false;
 	private config: BenchmarkConfig;
-	private everPurchasedBuildings = new Set<string>();
+	private everPurchasedGenerators = new Set<string>();
 	private ownedAchievements = new Set<string>();
 	private pendingMilestones: MilestoneEntry[] = MILESTONE_ENTRIES;
 	private lastElectronizeGain = 0;
@@ -137,7 +137,7 @@ export class SimulationEngine {
 		const state = this.runStateCache;
 		state.actionCounts = this.actionCounts;
 		state.actions = this.actions;
-		state.everPurchasedBuildings = this.everPurchasedBuildings;
+		state.everPurchasedGenerators = this.everPurchasedGenerators;
 		state.peakAtomsPerSecond = this.peakAtomsPerSecond;
 		state.photonsExpired = this.photonsExpired;
 		state.quarksFromAchievements = this.quarksFromAchievements;
@@ -174,7 +174,7 @@ export class SimulationEngine {
 		this.planner.reset();
 		this.quests.reset(this.config.botBehavior.questBehavior);
 		this.random = createRandom(this.config.seed ?? DEFAULT_SEED);
-		this.everPurchasedBuildings.clear();
+		this.everPurchasedGenerators.clear();
 		this.ownedAchievements = new Set(gameManager.achievements);
 		this.pendingMilestones = MILESTONE_ENTRIES;
 		this.lastElectronizeGain = 0;
@@ -349,7 +349,7 @@ export class SimulationEngine {
 
 	private pushAction(action: SimulationAction) {
 		this.actionCounts[action.type] = (this.actionCounts[action.type] ?? 0) + 1;
-		// Buildings and power-ups run into the millions over a multi-day run and nothing reads them back by id.
+		// Generators and power-ups run into the millions over a multi-day run and nothing reads them back by id.
 		if (DETAILED_ACTION_TYPES.has(action.type)) this.actions.push(action);
 		this.spikeWindowActions.push(action);
 	}
@@ -450,21 +450,21 @@ export class SimulationEngine {
 
 		if (!botBehavior.autoBuy) return;
 
-		if (canDoAction() && botBehavior.autoBuyBuildings) {
-			const building = this.planner.selectBuilding(botBehavior);
-			if (building) {
-				const maxAffordable = gameManager.getMaxAffordableBuilding(building);
+		if (canDoAction() && botBehavior.autoBuyGenerators) {
+			const generator = this.planner.selectGenerator(botBehavior);
+			if (generator) {
+				const maxAffordable = gameManager.getMaxAffordableGenerator(generator);
 				if (maxAffordable > 0) {
-					const isFirstPurchase = !this.everPurchasedBuildings.has(building);
+					const isFirstPurchase = !this.everPurchasedGenerators.has(generator);
 					const apsBeforeBuy = gameManager.atomsPerSecond;
-					gameManager.purchaseBuilding(building, maxAffordable);
-					this.everPurchasedBuildings.add(building);
+					gameManager.purchaseGenerator(generator, maxAffordable);
+					this.everPurchasedGenerators.add(generator);
 					this.pushAction({
 						apsDelta: gameManager.atomsPerSecond - apsBeforeBuy,
-						details: `${building} x${maxAffordable}`,
+						details: `${generator} x${maxAffordable}`,
 						isFirstPurchase,
 						timestamp: gameManager.inGameTime,
-						type: 'building',
+						type: 'generator',
 					});
 					actionsThisTick++;
 				}
@@ -506,8 +506,8 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
-		let availableSkillPoints = gameManager.skillPointsAvailable;
-		if (canDoAction() && availableSkillPoints > 0) {
+		let availableBoostPoints = gameManager.boostPointsAvailable;
+		if (canDoAction() && availableBoostPoints > 0) {
 			const boostPriority: CurrencyName[] = [
 				CurrenciesTypes.ATOMS,
 				CurrenciesTypes.PROTONS,
@@ -516,9 +516,9 @@ export class SimulationEngine {
 			];
 
 			for (const currency of boostPriority) {
-				if (availableSkillPoints <= 0 || !canDoAction()) break;
+				if (availableBoostPoints <= 0 || !canDoAction()) break;
 				if (gameManager.addCurrencyBoost(currency)) {
-					availableSkillPoints--;
+					availableBoostPoints--;
 					actionsThisTick++;
 				}
 			}

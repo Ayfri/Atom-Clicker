@@ -1,5 +1,5 @@
-import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
 import { CurrenciesTypes } from '$data/currencies';
+import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 import { RealmTypes, type RealmType } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { gameManager } from '$helpers/GameManager.svelte';
@@ -45,7 +45,7 @@ const realmHint = (realm: RealmType, title: string): Hint => ({
 /** Shown one at a time in this order, the first pending one stays until it completes. */
 export const HINTS: Hint[] = [
 	{
-		done: () => gameManager.totalClicksAllTime >= 10 || gameManager.totalBuildingsPurchasedAllTime > 0,
+		done: () => gameManager.totalClicksAllTime >= 10 || gameManager.totalGeneratorsPurchasedAllTime > 0,
 		id: 'atoms:click',
 		placement: 'bottom',
 		realm: RealmTypes.ATOMS,
@@ -55,13 +55,13 @@ export const HINTS: Hint[] = [
 		title: 'Welcome to Atom Clicker!',
 	},
 	{
-		done: () => gameManager.totalBuildingsPurchasedAllTime > 0,
-		id: 'atoms:building',
+		done: () => gameManager.totalGeneratorsPurchasedAllTime > 0,
+		id: 'atoms:generator',
 		placement: 'left',
 		realm: RealmTypes.ATOMS,
-		show: () => gameManager.canAfford(BUILDINGS[BUILDING_TYPES[0]].cost),
-		targets: ['#buildings-list > button:not([hidden])', '[data-hint="buildings-tab"]'],
-		text: 'Buildings create Atoms on their own, every second. Buy your first one!',
+		show: () => gameManager.canAfford(GENERATORS[GENERATOR_TYPES[0]].cost),
+		targets: ['#generators-list > button:not([hidden])', '[data-hint="generators-tab"]'],
+		text: 'Generators create Atoms on their own, every second. Buy your first one!',
 		title: 'Automate it',
 	},
 	{
@@ -71,7 +71,7 @@ export const HINTS: Hint[] = [
 		realm: RealmTypes.ATOMS,
 		show: () => reveals.upgrades,
 		targets: ['#upgrades-list button', '[data-hint="upgrades-tab"]'],
-		text: 'Upgrades boost your clicks and buildings. Grab one whenever you can afford it.',
+		text: 'Upgrades boost your clicks and generators. Grab one whenever you can afford it.',
 		title: 'Upgrades',
 	},
 	{
@@ -99,9 +99,9 @@ export const HINTS: Hint[] = [
 		id: 'atoms:boosts',
 		placement: 'right',
 		realm: RealmTypes.ATOMS,
-		show: () => gameManager.skillPointsAvailable > 0,
+		show: () => gameManager.boostPointsAvailable > 0,
 		targets: ['#nav-boosts'],
-		text: 'Protonising earned you skill points, spend them here on permanent currency boosts.',
+		text: 'Every generator level earns a boost point, spend them here to boost a currency until your next reset.',
 		title: 'Boosts',
 	},
 	{

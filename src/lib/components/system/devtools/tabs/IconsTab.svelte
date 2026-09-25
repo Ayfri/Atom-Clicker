@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ACHIEVEMENTS } from '$data/achievements';
-	import { BUILDING_COLORS, BUILDINGS, BuildingTypes, type BuildingType } from '$data/buildings';
-	import { BUILDING_ICON_NAMES, ICONS, type IconName } from '$data/icons';
+	import { GENERATOR_COLORS, GENERATORS, GeneratorTypes, type GeneratorType } from '$data/generators';
+	import { GENERATOR_ICON_NAMES, ICONS, type IconName } from '$data/icons';
 	import { tierIconStack } from '$helpers/iconStacks';
 	import IconStack from '@components/ui/IconStack.svelte';
 
@@ -21,11 +21,11 @@
 		{ component: ICONS.github, name: 'GitHub' },
 	];
 
-	const buildingIconEntries = Object.entries(BUILDINGS).map(([type, building]) => ({
-		component: ICONS[BUILDING_ICON_NAMES[type as BuildingType]],
-		color: BUILDING_COLORS[0],
-		name: building.name,
-		type: type as BuildingType,
+	const generatorIconEntries = Object.entries(GENERATORS).map(([type, generator]) => ({
+		component: ICONS[GENERATOR_ICON_NAMES[type as GeneratorType]],
+		color: GENERATOR_COLORS[0],
+		name: generator.name,
+		type: type as GeneratorType,
 	}));
 
 	let iconSize = $state(48);
@@ -155,9 +155,9 @@
 	</section>
 
 	<section>
-		<h3 class="text-lg font-bold text-white/80 mb-4 border-b border-white/10 pb-2">Building Icons</h3>
+		<h3 class="text-lg font-bold text-white/80 mb-4 border-b border-white/10 pb-2">Generator Icons</h3>
 		<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-			{#each buildingIconEntries as { component: Icon, color, name }}
+			{#each generatorIconEntries as { component: Icon, color, name }}
 				<div class="flex flex-col items-center gap-2 rounded-xl bg-white/5 p-4 hover:bg-white/10 transition-colors">
 					<div
 						class="flex items-center justify-center"

@@ -23,7 +23,7 @@ export type ActivityPresetId = keyof typeof ACTIVITY_PRESETS;
 export const PLAYSTYLE_PRESETS = {
 	afk: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: false,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -40,7 +40,7 @@ export const PLAYSTYLE_PRESETS = {
 	},
 	automated: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: true,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -57,7 +57,7 @@ export const PLAYSTYLE_PRESETS = {
 	},
 	balanced: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: true,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -74,7 +74,7 @@ export const PLAYSTYLE_PRESETS = {
 	},
 	tryhard: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: true,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -203,7 +203,7 @@ export function buildBenchmarkConfig(
 		botBehavior: {
 			...(activityPattern && { activityPattern }),
 			autoBuy: playstyle.autoBuy,
-			autoBuyBuildings: playstyle.autoBuyBuildings,
+			autoBuyGenerators: playstyle.autoBuyGenerators,
 			autoBuyPhotonUpgrades: playstyle.autoBuyPhotonUpgrades,
 			autoBuySkills: playstyle.autoBuySkills,
 			autoBuyUpgrades: playstyle.autoBuyUpgrades,

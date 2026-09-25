@@ -67,7 +67,7 @@
 		</div>
 
 		<h2 class="text-2xl font-bold text-white" id="hard-reset-title">Wipe everything?</h2>
-		<p class="mt-1 text-sm text-white/60">Every atom, building, upgrade and prestige on this device is gone for good.</p>
+		<p class="mt-1 text-sm text-white/60">Every atom, generator, upgrade and prestige on this device is gone for good.</p>
 
 		<div class="my-5 grid grid-cols-3 gap-2">
 			{#each losses as [label, value] (label)}

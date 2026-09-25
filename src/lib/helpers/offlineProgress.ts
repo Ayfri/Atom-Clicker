@@ -1,13 +1,13 @@
-import type { BuildingType } from '$data/buildings';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
+import type { GeneratorType } from '$data/generators';
 import { UPGRADES } from '$data/upgrades';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { XP_PER_ATOM } from '$lib/constants';
-import type { BuildingCountMap, CurrencyAmountMap, OfflineProgressSummary } from '$lib/types';
+import type { GeneratorCountMap, CurrencyAmountMap, OfflineProgressSummary } from '$lib/types';
 
 const OFFLINE_AUTO_FACTOR = 120;
 const OFFLINE_BASE_MS = 6 * 60 * 60 * 1000;
@@ -51,7 +51,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const autoUpgradeEnabled = manager.upgrades.includes('proton_offline_autobuy') && manager.settings.automation.upgrades;
 	const photonAutoClickEnabled = photonOfflineUnlocked && manager.settings.automation.autoClickPhotons;
 
-	const autoBuyCounts: BuildingCountMap = {};
+	const autoBuyCounts: GeneratorCountMap = {};
 	const currencyGains: CurrencyAmountMap = {};
 	const addCurrency = (currency: CurrencyName, amount: number) => {
 		if (amount <= 0) return;
@@ -88,14 +88,14 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	};
 
 	const autoBuyIntervals = autoBuyEnabled ? getOfflineAutoBuyIntervals(manager) : {};
-	const offlineAutoBuyIntervals: Partial<Record<BuildingType, number>> = {};
-	const nextAutoBuyTimes: Partial<Record<BuildingType, number>> = {};
+	const offlineAutoBuyIntervals: Partial<Record<GeneratorType, number>> = {};
+	const nextAutoBuyTimes: Partial<Record<GeneratorType, number>> = {};
 
 	Object.entries(autoBuyIntervals).forEach(([type, interval]) => {
 		if (!interval || !Number.isFinite(interval) || interval <= 0) return;
-		const buildingType = type as BuildingType;
-		offlineAutoBuyIntervals[buildingType] = interval * OFFLINE_AUTO_FACTOR;
-		nextAutoBuyTimes[buildingType] = interval * OFFLINE_AUTO_FACTOR;
+		const generatorType = type as GeneratorType;
+		offlineAutoBuyIntervals[generatorType] = interval * OFFLINE_AUTO_FACTOR;
+		nextAutoBuyTimes[generatorType] = interval * OFFLINE_AUTO_FACTOR;
 	});
 
 	const baseAutoUpgradeInterval = autoUpgradeEnabled ? getOfflineAutoUpgradeInterval(manager) : 0;
@@ -107,15 +107,15 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 	while (elapsed < appliedMs) {
 		let nextEvent = appliedMs;
-		let nextAutoBuyTypes: BuildingType[] = [];
+		let nextAutoBuyTypes: GeneratorType[] = [];
 
 		Object.entries(nextAutoBuyTimes).forEach(([type, time]) => {
 			if (!time || time <= 0) return;
 			if (time < nextEvent - epsilon) {
 				nextEvent = time;
-				nextAutoBuyTypes = [type as BuildingType];
+				nextAutoBuyTypes = [type as GeneratorType];
 			} else if (Math.abs(time - nextEvent) <= epsilon) {
-				nextAutoBuyTypes.push(type as BuildingType);
+				nextAutoBuyTypes.push(type as GeneratorType);
 			}
 		});
 
@@ -139,13 +139,13 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 			nextAutoUpgradeAt += offlineAutoUpgradeInterval;
 		}
 
-		nextAutoBuyTypes.forEach(buildingType => {
-			const interval = offlineAutoBuyIntervals[buildingType];
+		nextAutoBuyTypes.forEach(generatorType => {
+			const interval = offlineAutoBuyIntervals[generatorType];
 			if (!interval || interval <= 0) return;
-			if (manager.purchaseBuilding(buildingType, 1)) {
-				autoBuyCounts[buildingType] = (autoBuyCounts[buildingType] || 0) + 1;
+			if (manager.purchaseGenerator(generatorType, 1)) {
+				autoBuyCounts[generatorType] = (autoBuyCounts[generatorType] || 0) + 1;
 			}
-			nextAutoBuyTimes[buildingType] = (nextAutoBuyTimes[buildingType] || interval) + interval;
+			nextAutoBuyTimes[generatorType] = (nextAutoBuyTimes[generatorType] || interval) + interval;
 		});
 	}
 
@@ -250,16 +250,16 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 function getOfflineAutoBuyIntervals(manager: GameManager) {
 	const autoBuyUpgrades = getUpgradesWithEffects(manager.currentUpgradesBought, { type: 'auto_buy' });
-	const intervals: Partial<Record<BuildingType, number>> = {};
+	const intervals: Partial<Record<GeneratorType, number>> = {};
 
 	autoBuyUpgrades.forEach(upgrade => {
 		if (!upgrade.effects) return;
 
 		upgrade.effects.forEach(effect => {
 			if (effect.type === 'auto_buy' && effect.target) {
-				const buildingType = effect.target as BuildingType;
-				if (manager.settings.automation.buildings.includes(buildingType)) {
-					intervals[buildingType] = effect.apply(intervals[buildingType] || 30000, manager);
+				const generatorType = effect.target as GeneratorType;
+				if (manager.settings.automation.generators.includes(generatorType)) {
+					intervals[generatorType] = effect.apply(intervals[generatorType] || 30000, manager);
 				}
 			}
 		});

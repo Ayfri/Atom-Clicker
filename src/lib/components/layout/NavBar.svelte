@@ -53,7 +53,7 @@
 			label: 'Boosts',
 			load: () => import('@components/modals/CurrencyBoosts.svelte'),
 			condition: () => gameManager.totalProtonisesAllTime > 0,
-			notification: () => gameManager.skillPointsAvailable > 0,
+			notification: () => gameManager.boostPointsAvailable > 0,
 		},
 		{
 			icon: QuarkIcon,

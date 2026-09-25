@@ -1,9 +1,9 @@
-import { BUILDING_TYPES, BUILDINGS } from '$data/buildings';
+import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { cubicOut } from 'svelte/easing';
 import type { TransitionConfig } from 'svelte/transition';
 
-const FIRST_BUILDING_COST = BUILDINGS[BUILDING_TYPES[0]].cost.amount;
+const FIRST_GENERATOR_COST = GENERATORS[GENERATOR_TYPES[0]].cost.amount;
 
 /**
  * Interface pieces that appear as the player progresses. Each one is derived from all-time stats, so it never hides
@@ -11,12 +11,12 @@ const FIRST_BUILDING_COST = BUILDINGS[BUILDING_TYPES[0]].cost.amount;
  */
 class Reveals {
 	boughtUpgradesToggle = $derived(gameManager.totalUpgradesPurchasedAllTime > 0);
-	buildings = $derived(gameManager.totalBuildingsPurchasedAllTime > 0 || gameManager.atoms >= FIRST_BUILDING_COST / 2);
-	leaderboard = $derived(gameManager.totalBuildingsPurchasedAllTime >= 25 || gameManager.totalProtonisesAllTime > 0);
-	production = $derived(gameManager.totalBuildingsPurchasedAllTime > 0);
-	purchaseModes = $derived(gameManager.totalBuildingsPurchasedAllTime >= 10);
-	upgrades = $derived(gameManager.totalBuildingsPurchasedAllTime > 0 || gameManager.totalUpgradesPurchasedAllTime > 0);
-	/** The first click already unlocks one, a wall of locked entries next to a bare atom would bury the Buildings panel. */
+	generators = $derived(gameManager.totalGeneratorsPurchasedAllTime > 0 || gameManager.atoms >= FIRST_GENERATOR_COST / 2);
+	leaderboard = $derived(gameManager.totalGeneratorsPurchasedAllTime >= 25 || gameManager.totalProtonisesAllTime > 0);
+	production = $derived(gameManager.totalGeneratorsPurchasedAllTime > 0);
+	purchaseModes = $derived(gameManager.totalGeneratorsPurchasedAllTime >= 10);
+	upgrades = $derived(gameManager.totalGeneratorsPurchasedAllTime > 0 || gameManager.totalUpgradesPurchasedAllTime > 0);
+	/** The first click already unlocks one, a wall of locked entries next to a bare atom would bury the Generators panel. */
 	achievements = $derived(this.upgrades && gameManager.achievements.length > 0);
 
 	/** Loading a save flips every reveal at once, animations only play for what appears after this moment. */
