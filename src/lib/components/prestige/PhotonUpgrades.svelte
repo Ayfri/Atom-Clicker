@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { PHOTON_UPGRADES, EXCITED_PHOTON_UPGRADES } from '$data/photonUpgrades';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { reveal } from '$helpers/reveals.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { photonUpgradesTab } from '$stores/photonUpgradesTab.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -70,6 +71,8 @@
 			<button
 				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
 				class:active={selectedCurrency === CurrenciesTypes.EXCITED_PHOTONS}
+				data-hint="excited-photons-tab"
+				in:reveal={{ y: 0 }}
 				onclick={() => photonUpgradesTab.selected = CurrenciesTypes.EXCITED_PHOTONS}
 				title={CURRENCIES[CurrenciesTypes.EXCITED_PHOTONS].name}
 			>

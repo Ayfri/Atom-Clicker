@@ -2,6 +2,7 @@
 	import { BUILDING_COLORS, BUILDING_LEVEL_UP_COST, BUILDINGS, BuildingTypes, type BuildingData, type BuildingType } from '$data/buildings';
 	import { getUpgradesWithEffects } from '$lib/helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { autoBuyManager } from '$stores/autoBuy.svelte';
 	import { clock } from '$stores/clock.svelte';
 	import BlackHoleIcon from '@components/icons/buildings/BlackHole.svelte';
@@ -119,20 +120,22 @@
 			{/snippet}
 		</HelpIcon>
 	</div>
-	<div class="flex items-center gap-1 my-1">
-		{#each purchaseModes as mode}
-			<button
-				class="bg-white/5 hover:bg-white/10 rounded-sm px-2 py-0.5 text-xs text-white transition-all duration-200 cursor-pointer {(
-					selectedPurchaseMode === mode
-				) ?
-					'bg-white/20!'
-				:	''}"
-				onclick={() => (selectedPurchaseMode = mode)}
-			>
-				{mode === 'max' ? 'Max' : mode}
-			</button>
-		{/each}
-	</div>
+	{#if reveals.purchaseModes}
+		<div class="flex items-center gap-1 my-1 rounded-sm self-start" in:reveal>
+			{#each purchaseModes as mode}
+				<button
+					class="bg-white/5 hover:bg-white/10 rounded-sm px-2 py-0.5 text-xs text-white transition-all duration-200 cursor-pointer {(
+						selectedPurchaseMode === mode
+					) ?
+						'bg-white/20!'
+					:	''}"
+					onclick={() => (selectedPurchaseMode = mode)}
+				>
+					{mode === 'max' ? 'Max' : mode}
+				</button>
+			{/each}
+		</div>
+	{/if}
 
 	<div id="buildings-list" class="flex flex-col gap-1.5 overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each buildingsEntries as [type, building], i}

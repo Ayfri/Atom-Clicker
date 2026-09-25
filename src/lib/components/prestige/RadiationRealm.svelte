@@ -13,6 +13,7 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
+	import { reveal } from '$helpers/reveals.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { Lock, Zap } from '@lucide/svelte';
 
@@ -66,7 +67,7 @@
 			</div>
 
 			<!-- Add Fuel Panel -->
-			<div class="w-full max-w-sm bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-radiation/20">
+			<div class="w-full max-w-sm bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-radiation/20" data-hint="radiation-fuel">
 				<h3 class="text-sm font-semibold text-radiation mb-3 flex items-center gap-2">
 					<Zap class="w-4 h-4" />
 					Add Fuel
@@ -125,17 +126,17 @@
 		<!-- Right: Controls & Stats -->
 		<div class="lg:w-[58%] flex flex-col gap-3">
 			{#if hasMass}
-				<ReactorFlow />
+				<div class="rounded-xl" in:reveal><ReactorFlow /></div>
 			{/if}
 
 			<!-- Step 1: Fuel display with preview -->
 			{#if hasMass || hasBombarded}
-				<MassSpectrometer previewMass={massToAdd} />
+				<div class="rounded-xl" data-hint="radiation-mass" in:reveal><MassSpectrometer previewMass={massToAdd} /></div>
 			{/if}
 
 			<!-- Step 2: Power control -->
 			{#if hasMass}
-				<ControlRods />
+				<div class="rounded-xl" in:reveal><ControlRods /></div>
 				{#if !hasRaisedPower}
 					<div class="bg-yellow-500/10 rounded-lg p-2 border border-yellow-500/30 text-center">
 						<p class="text-yellow-400 text-xs">Raise the power level above 0% to start generating CPM</p>
@@ -150,7 +151,7 @@
 
 			<!-- Step 3: Upgrades -->
 			{#if hasGoodCpm}
-				<RadiationUpgrades />
+				<div class="rounded-xl" data-hint="radiation-upgrades" in:reveal><RadiationUpgrades /></div>
 			{:else if hasCpm}
 				<div class="flex items-center justify-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
 					<Lock class="w-4 h-4 text-white/30" />

@@ -13,6 +13,7 @@
 	import StarIcon from '@components/icons/buildings/Star.svelte';
 	import { Info } from '@lucide/svelte';
 	import { getUpgradesWithEffects } from '$helpers/effects';
+	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
 	import { mobile } from '$stores/window.svelte';
@@ -86,7 +87,8 @@
 			{/if}
 		</div>
 	</div>
-	<div class="text-lg relative flex justify-center items-center">
+	{#if reveals.production}
+	<div class="text-lg relative flex justify-center items-center rounded-lg" in:reveal>
 		<div class="mr-2">
 			<span
 				id="atoms-per-second-value"
@@ -135,6 +137,7 @@
 			</Tooltip>
 		{/if}
 	</div>
+	{/if}
 
 	{#if mobile.current && hasAutoClick}
 		<AutoButton

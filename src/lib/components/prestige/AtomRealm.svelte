@@ -12,9 +12,22 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
+	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { mobile } from '$stores/window.svelte';
 
-	let activeTab: 'achievements' | 'buildings' | 'upgrades' = $state('upgrades');
+	type Tab = keyof typeof TAB_LABELS;
+
+	const TAB_LABELS = { achievements: 'Achievements', buildings: 'Buildings', upgrades: 'Upgrades' } as const;
+
+	let activeTab: Tab = $state('upgrades');
+
+	/** Buildings only get a tab on phones, desktop gives them their own column. */
+	const tabs = $derived(
+		(['upgrades', 'buildings', 'achievements'] as const).filter(tab =>
+			tab === 'buildings' ? mobile.current && reveals.buildings : reveals[tab],
+		),
+	);
+	const shownTab = $derived(tabs.includes(activeTab) ? activeTab : tabs[0]);
 
 	const themeAccent = $derived.by(() => {
 		const themeId = quarksManager.equippedThemes[RealmTypes.ATOMS];
@@ -38,60 +51,48 @@
 	<Bonus />
 
 	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 lg:p-8 text-sm xl:max-w-360">
-		<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
-			<div class="grid grid-flow-col gap-2 auto-cols-fr">
-				<button
-					class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-						activeTab === 'upgrades'
-					) ?
-						'text-white'
-					:	'bg-white/5 hover:bg-white/10'}"
-					style={activeTab === 'upgrades' ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-					data-tutorial-target="upgrades-tab"
-					onclick={() => (activeTab = 'upgrades')}>Upgrades</button
-				>
-				{#if mobile.current}
-					<button
-						class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-							activeTab === 'buildings'
-						) ?
-							'text-white'
-						:	'bg-white/5 hover:bg-white/10'}"
-						style={activeTab === 'buildings' ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-						data-tutorial-target="buildings-tab"
-						onclick={() => (activeTab = 'buildings')}>Buildings</button
-					>
+		{#if tabs.length > 0}
+			<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
+				{#if tabs.length > 1}
+					<div class="grid grid-flow-col gap-2 auto-cols-fr rounded-lg" in:reveal>
+						{#each tabs as tab (tab)}
+							<button
+								class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
+									shownTab === tab
+								) ?
+									'text-white'
+								:	'bg-white/5 hover:bg-white/10'}"
+								data-hint="{tab}-tab"
+								id="tab-{tab}"
+								style={shownTab === tab ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
+								in:reveal
+								onclick={() => (activeTab = tab)}>{TAB_LABELS[tab]}</button
+							>
+						{/each}
+					</div>
 				{/if}
-				<button
-					class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-						activeTab === 'achievements'
-					) ?
-						'text-white'
-					:	'bg-white/5 hover:bg-white/10'}"
-					id="tab-achievements"
-					style={activeTab === 'achievements' ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-					onclick={() => (activeTab = 'achievements')}
-				>
-					Achievements
-				</button>
+				<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
+				<div class="mt-1">
+					{#if reveals.upgrades}
+						<div class="rounded-lg" class:hidden={shownTab !== 'upgrades'} in:reveal><Upgrades /></div>
+					{/if}
+					{#if reveals.achievements}
+						<div class="rounded-lg" class:hidden={shownTab !== 'achievements'} in:reveal><Achievements /></div>
+					{/if}
+					{#if mobile.current && reveals.buildings}
+						<div class="rounded-lg" class:hidden={shownTab !== 'buildings'} in:reveal><Buildings /></div>
+					{/if}
+				</div>
 			</div>
-			<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
-			<div class="mt-1">
-				<div class:hidden={activeTab !== 'upgrades'}><Upgrades /></div>
-				<div class:hidden={activeTab !== 'achievements'}><Achievements /></div>
-				{#if mobile.current}
-					<div class:hidden={activeTab !== 'buildings'}><Buildings /></div>
-				{/if}
-			</div>
-		</div>
+		{/if}
 		<div class="grid-area-[atom] relative z-0 flex flex-col items-center justify-start">
 			<Counter />
 			<Atom />
 			<ActivePowerUps />
 		</div>
-		{#if !mobile.current}
-			<div class="grid-area-[buildings] pt-12" data-tutorial-target="buildings-panel">
-				<Buildings />
+		{#if !mobile.current && reveals.buildings}
+			<div class="grid-area-[buildings] pt-12">
+				<div class="rounded-lg" in:reveal><Buildings /></div>
 			</div>
 		{/if}
 	</div>

@@ -97,7 +97,6 @@
 <button
 	class="atom relative mt-20 flex size-64 sm:size-75 md:size-90 lg:size-112.5 items-center justify-center cursor-pointer bg-transparent"
 	class:bonus={gameManager.hasBonus}
-	data-tutorial-target="atom-click"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
 	bind:this={atomElement}
@@ -114,7 +113,7 @@
 			</svg>
 		{/if}
 	{/each}
-	<div class="nucleus h-15 w-15 rounded-full md:h-12.5 md:w-12.5"></div>
+	<div class="nucleus h-15 w-15 rounded-full md:h-12.5 md:w-12.5" data-hint="atom"></div>
 </button>
 
 <style>

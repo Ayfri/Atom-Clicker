@@ -7,6 +7,7 @@
 	import Currency from '@components/ui/Currency.svelte';
 	import Value from '@components/ui/Value.svelte';
 	import { getUpgradesWithEffects } from '$helpers/effects';
+	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
 	import { clock } from '$stores/clock.svelte';
 	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
@@ -71,17 +72,20 @@
 				</HelpIcon>
 			</div>
 			<div class="flex items-center gap-1">
-				<button
-					class="flex items-center justify-center p-1 rounded-md transition-all duration-200 border {gameManager.settings.upgrades.displayAlreadyBought ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25' : 'bg-transparent text-gray-400 border-white/10 hover:bg-white/5'}"
-					onclick={() => gameManager.settings.upgrades.displayAlreadyBought = !gameManager.settings.upgrades.displayAlreadyBought}
-					title={gameManager.settings.upgrades.displayAlreadyBought ? 'Hide bought upgrades' : 'Show bought upgrades'}
-				>
-					{#if gameManager.settings.upgrades.displayAlreadyBought}
-						<Eye size={18} />
-					{:else}
-						<EyeOff size={18} />
-					{/if}
-				</button>
+				{#if reveals.boughtUpgradesToggle}
+					<button
+						class="flex items-center justify-center p-1 rounded-md transition-all duration-200 border {gameManager.settings.upgrades.displayAlreadyBought ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25' : 'bg-transparent text-gray-400 border-white/10 hover:bg-white/5'}"
+						in:reveal={{ y: 0 }}
+						onclick={() => gameManager.settings.upgrades.displayAlreadyBought = !gameManager.settings.upgrades.displayAlreadyBought}
+						title={gameManager.settings.upgrades.displayAlreadyBought ? 'Hide bought upgrades' : 'Show bought upgrades'}
+					>
+						{#if gameManager.settings.upgrades.displayAlreadyBought}
+							<Eye size={18} />
+						{:else}
+							<EyeOff size={18} />
+						{/if}
+					</button>
+				{/if}
 				{#if hasAutomation}
 					{#snippet autoUpgradeTooltip()}
 						<div class="flex flex-col gap-1">
@@ -122,6 +126,7 @@
 			<button
 				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
 				class:active={selectedCurrency === CurrenciesTypes.PROTONS}
+				in:reveal={{ y: 0 }}
 				onclick={() => selectedCurrency = CurrenciesTypes.PROTONS}
 				title={CURRENCIES[CurrenciesTypes.PROTONS].name}
 			>
@@ -132,6 +137,7 @@
 			<button
 				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
 				class:active={selectedCurrency === CurrenciesTypes.ELECTRONS}
+				in:reveal={{ y: 0 }}
 				onclick={() => selectedCurrency = CurrenciesTypes.ELECTRONS}
 				title={CURRENCIES[CurrenciesTypes.ELECTRONS].name}
 			>

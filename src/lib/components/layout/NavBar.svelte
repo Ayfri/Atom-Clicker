@@ -6,6 +6,7 @@
 	import { changelog } from '$stores/changelog';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
+	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
@@ -36,6 +37,7 @@
 			id: 'leaderboard',
 			label: 'Leaderboard',
 			load: () => import('@components/modals/Leaderboard.svelte'),
+			condition: () => reveals.leaderboard,
 		},
 		{
 			icon: Network,
@@ -138,12 +140,13 @@
 		style:grid-template-columns={visibleComponents.length + 1 >= 5 ? 'auto auto' : 'auto'}
 		bind:clientHeight={mobileNavHeight}
 	>
-		{#each visibleComponents as link}
+		{#each visibleComponents as link (link.id)}
 			<NotificationDot hasNotification={link.notification ? link.notification() : false}>
 				<button
 					aria-label={link.label}
 					class="flex items-center justify-center rounded-lg p-2 text-white/85 transition-all hover:text-white pointer-events-auto"
 					id="nav-{link.label.toLowerCase().replace(/\s+/g, '-')}"
+					in:reveal|global={{ y: 0 }}
 					onclick={() => ui.openModalLazy(link.id, link.load)}
 				>
 					<link.icon size={30} {...link.iconProps} />
@@ -169,11 +172,12 @@
 		class="fixed left-0 z-50 flex h-full flex-col items-center gap-5 bg-black/20 px-3 py-6 backdrop-blur-xs transition-all duration-300"
 		style="top: var(--banner-height)"
 	>
-		{#each visibleComponents as link}
+		{#each visibleComponents as link (link.id)}
 			<NotificationDot hasNotification={link.notification ? link.notification() : false}>
 				<button
 					class="group relative flex h-12 w-12 items-center justify-center rounded-lg text-white/85 transition-all hover:text-white"
 					id="nav-{link.label.toLowerCase().replace(/\s+/g, '-')}"
+					in:reveal|global={{ y: 0 }}
 					onclick={() => ui.openModalLazy(link.id, link.load)}
 				>
 					<link.icon size={32} {...link.iconProps} />

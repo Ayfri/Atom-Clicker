@@ -5,6 +5,7 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
+	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { setGlobals } from '$lib/globals';
 	import { formatNumber } from '$lib/utils';
 	import { isLocalStorageUnavailable } from '$lib/utils/safeLocalStorage';
@@ -138,10 +139,7 @@
 			ui.openModal(OfflineProgress);
 		}
 
-		const tutorial = gameManager.tutorialManager.state;
-		if (!tutorial.completed && !tutorial.active) {
-			gameManager.tutorialManager.start();
-		}
+		reveals.arm();
 
 		lastUpdateTime = performance.now();
 		commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
@@ -180,6 +178,7 @@
 		<div
 			class="fixed right-4 z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
 			style="top: {mobile.current ? 'calc(var(--mobile-nav-bottom, 33vh) + 1rem)' : 'calc(var(--banner-height) + 5rem)'}"
+			in:reveal
 		>
 			<div class="flex flex-col gap-1">
 				{#each realmManager.availableRealms as realm (realm.id)}
@@ -190,6 +189,7 @@
 							'bg-accent-500/60 border-accent-400/50'
 						:	'bg-white/5 hover:bg-white/10'}"
 						id="realm-{realm.id}"
+						in:reveal
 						onclick={() => realmManager.selectRealm(realm.id)}
 						title="{realm.title} - {formatNumber(realmManager.realmValues[realm.id] ?? 0)} {realm.currency.name.toLowerCase()}"
 					>
