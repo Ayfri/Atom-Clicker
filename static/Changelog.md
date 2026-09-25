@@ -2,6 +2,7 @@
 
 - **Tutorial**: No more popups, small tips now point right at what to do next and vanish once you do it, while the interface grows panel by panel as you unlock things (turn tips off or replay them in Settings).
 - **Buildings**: A thin line under each building fills up toward its next level and previews how far your next purchase takes it.
+- **The Atom**: The atom is now in 3D, with your buildings' electrons orbiting a nucleus that grows as you progress and picks up the color of each prestige and realm you unlock.
 
 # What's new 19-09-2026
 
