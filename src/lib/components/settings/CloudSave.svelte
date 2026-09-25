@@ -1,6 +1,8 @@
 <script lang="ts">
 	import HardReset from '@components/modals/HardReset.svelte';
 	import Login from '@components/modals/Login.svelte';
+	import SettingRow from '@components/ui/SettingRow.svelte';
+	import Switch from '@components/ui/Switch.svelte';
 	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
@@ -194,17 +196,12 @@
 			{/if}
 		</section>
 
-		<label class="relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-4">
-			<div class="flex-1">
-				<p class="font-semibold text-white">Auto-save to cloud</p>
-				<p class="text-sm text-white/60">Uploads your progress every 30 seconds while you play.</p>
-			</div>
-			<input bind:checked={autoSave.enabled} class="peer sr-only" type="checkbox" />
-			<span class="relative h-7 w-12 shrink-0 rounded-full bg-white/15 transition-colors peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent-300 after:absolute after:top-1 after:left-1 after:size-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5"></span>
+		<SettingRow description="Uploads your progress every 30 seconds while you play." title="Auto-save to cloud">
+			<Switch bind:checked={autoSave.enabled} label="Auto-save to cloud" />
 			{#if autoSave.shouldAutoSave}
 				<span class="absolute bottom-0 left-0 h-0.5 bg-accent-500 transition-[width] duration-100 ease-linear" style:width="{autoSaveProgress * 100}%"></span>
 			{/if}
-		</label>
+		</SettingRow>
 	{:else}
 		<div class="grid gap-3 md:grid-cols-2">
 			{@render card('This device', HardDrive, local, false)}

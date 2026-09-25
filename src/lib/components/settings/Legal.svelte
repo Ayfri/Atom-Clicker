@@ -1,4 +1,6 @@
 <script lang="ts">
+	import SettingRow from '@components/ui/SettingRow.svelte';
+	import Switch from '@components/ui/Switch.svelte';
 	import { privacy } from '$stores/privacy.svelte';
 	import { ChevronDown, ShieldCheck } from '@lucide/svelte';
 
@@ -56,22 +58,9 @@
 </script>
 
 <div class="mx-auto flex max-w-3xl flex-col gap-4">
-	<div class="flex items-center gap-4 rounded-xl border border-white/10 bg-black/20 p-4">
-		<ShieldCheck class="shrink-0 text-accent" size={28} />
-		<div class="flex-1">
-			<p class="font-semibold text-white">Usage analytics</p>
-			<p class="text-sm text-white/60">Share anonymous usage data through Google Analytics to help improve the game.</p>
-		</div>
-		<button
-			aria-checked={privacy.analytics}
-			aria-label="Usage analytics"
-			class="relative h-7 w-12 shrink-0 rounded-full transition-colors {privacy.analytics ? 'bg-accent' : 'bg-white/15'}"
-			onclick={() => (privacy.analytics = !privacy.analytics)}
-			role="switch"
-		>
-			<span class="absolute top-1 left-1 size-5 rounded-full bg-white shadow transition-transform {privacy.analytics ? 'translate-x-5' : ''}"></span>
-		</button>
-	</div>
+	<SettingRow description="Share anonymous usage data through Google Analytics to help improve the game." icon={ShieldCheck} title="Usage analytics">
+		<Switch bind:checked={privacy.analytics} label="Usage analytics" />
+	</SettingRow>
 
 	{#each sections as section, i (section.id)}
 		<details class="group overflow-hidden rounded-xl border border-white/10 bg-black/20" name="legal" open={i === 0}>
