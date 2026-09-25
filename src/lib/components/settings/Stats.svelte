@@ -1,622 +1,257 @@
 <script lang="ts">
+	import AtomIcon from '@components/icons/Atom.svelte';
+	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
+	import PhotonIcon from '@components/icons/Photon.svelte';
+	import ProtonIcon from '@components/icons/Proton.svelte';
+	import QuarkIcon from '@components/icons/Quark.svelte';
+	import Currency from '@components/ui/Currency.svelte';
+	import { ACHIEVEMENTS } from '$data/achievements';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
+	import { FeatureTypes } from '$data/features';
+	import { REALMS } from '$data/realms';
+	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { ACHIEVEMENTS } from '$data/achievements';
-	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { FeatureTypes } from '$data/features';
-	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { formatDuration, formatNumber, formatNumberFull } from '$lib/utils';
-	import StatItem from '@components/ui/StatItem.svelte';
-	import {
-		Activity,
-		Atom,
-		Award,
-		Building2,
-		CalendarClock,
-		CalendarDays,
-		ChartLine,
-		ClockPlus,
-		Diamond,
-		Factory,
-		Flame,
-		Gauge,
-		Gem,
-		Hourglass,
-		Layers,
-		Medal,
-		Mouse,
-		MousePointerClick,
-		Network,
-		Package,
-		PackageCheck,
-		Radiation,
-		Repeat,
-		RotateCcw,
-		RotateCw,
-		ShieldCheck,
-		ShoppingBag,
-		SlidersVertical,
-		Sparkles,
-		Sun,
-		Target,
-		Timer,
-		TrendingDown,
-		TrendingUp,
-		Trophy,
-		Weight,
-		Zap,
-	} from '@lucide/svelte';
+	import { Building2, CalendarDays, Flame, Hourglass, MousePointerClick, Package, Radiation, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
+	import { onMount, type Component } from 'svelte';
+
+	type TitleIcon = Component<{ class?: string; color?: string; size?: number }>;
 
 	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
 	const totalSkillUpgrades = Object.keys(SKILL_UPGRADES).length;
+	const hasEarned = (...types: CurrencyName[]) => types.some(type => gameManager.currencies[type].earnedAllTime > 0);
 
-	let totalBuildings = $derived(Object.values(gameManager.buildings).reduce((acc, b) => acc + (b?.count || 0), 0));
-	let radiationUnlocked = $derived(gameManager.features[FeatureTypes.RADIATION_REALM] || radiationManager.unlocked);
-	let dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
-
-	// Update time since start every second
-	let timeSinceStart = $state(formatDuration(Date.now() - gameManager.startDate));
-	$effect(() => {
-		const interval = setInterval(() => {
-			timeSinceStart = formatDuration(Date.now() - gameManager.startDate);
-		}, 1000);
-		return () => clearInterval(interval);
+	let now = $state(Date.now());
+	onMount(() => {
+		const clock = setInterval(() => (now = Date.now()), 1000);
+		return () => clearInterval(clock);
 	});
+
+	const totalBuildings = $derived(Object.values(gameManager.buildings).reduce((acc, b) => acc + (b?.count || 0), 0));
+	const radiationUnlocked = $derived(gameManager.features[FeatureTypes.RADIATION_REALM] || radiationManager.unlocked);
+	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
+
+	const highlights = $derived([
+		{ icon: AtomIcon, label: 'Atoms / s', value: gameManager.atomsPerSecond },
+		{ icon: Flame, label: 'Best atoms / s', value: gameManager.highestAPS },
+		{ icon: MousePointerClick, label: 'Click power', value: gameManager.clickPower },
+		{ icon: Repeat, label: 'Auto clicks / s', value: gameManager.autoClicksPerSecond },
+	]);
+
+	/** The stability field drops back to ×1 on every click, so it stays pinned once unlocked instead of blinking with auto-clicks. */
+	const multipliers = $derived(
+		[
+			{ label: 'Global', value: gameManager.globalMultiplier },
+			{ label: 'Active bonus', value: gameManager.bonusMultiplier },
+			{ label: 'XP', value: gameManager.xpGainMultiplier },
+			{ label: 'Stability field', pinned: gameManager.features[FeatureTypes.STABILITY_FIELD], value: gameManager.stabilityMultiplier },
+			{ label: 'Power-up duration', value: gameManager.powerUpDurationMultiplier },
+			{ label: 'Power-up effect', value: gameManager.powerUpEffectMultiplier },
+			...[CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS].map(type => ({
+				label: `${type} boost`,
+				value: gameManager.getCurrencyBoostMultiplier(type),
+			})),
+		].filter(multiplier => ('pinned' in multiplier && multiplier.pinned) || multiplier.value > 1),
+	);
+
+	const today = $derived([
+		{ icon: AtomIcon, label: 'Atoms earned', value: formatNumber(gameManager.dailyStats.atomsEarned) },
+		{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(gameManager.dailyStats.clicks, 0) },
+		{ icon: Building2, label: 'Buildings bought', value: formatNumber(gameManager.dailyStats.buildingsPurchased, 0) },
+		{ icon: Package, label: 'Upgrades bought', value: formatNumber(gameManager.dailyStats.upgradesPurchased, 0) },
+		{ icon: Zap, label: 'Power-ups', value: formatNumber(gameManager.dailyStats.powerUpsCollected, 0) },
+		{ icon: HiggsBosonIcon, label: 'Higgs bosons', value: formatNumber(gameManager.dailyStats.higgsBosonsCollected, 0) },
+		{ icon: Trophy, label: 'Achievements', value: gameManager.dailyStats.achievementsUnlocked.toString() },
+		{ icon: RotateCcw, label: 'Prestiges', value: (gameManager.dailyStats.protonises + gameManager.dailyStats.electronizes).toString() },
+	]);
 </script>
 
-<div class="flex flex-col gap-4 overflow-y-auto pr-1 h-full custom-scrollbar">
-    <!-- General & Production -->
-    <section>
-        <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-            <Activity size={18} />
-            General
-        </h3>
-        <div class="grid gap-1.5 sm:grid-cols-2">
-            <StatItem
-                fullValue={timeSinceStart}
-                icon={CalendarClock}
-                label="Time Since Start"
-                value={timeSinceStart}
-            />
-            <StatItem
-                fullValue={formatDuration(gameManager.inGameTime)}
-                icon={Hourglass}
-                label="In-Game Time"
-                value={formatDuration(gameManager.inGameTime)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.playerLevel)}
-                icon={Award}
-                label="Player Level"
-                value={formatNumber(gameManager.playerLevel)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.totalXP)}
-                icon={ChartLine}
-                label="Total XP"
-                value={formatNumber(gameManager.totalXP)}
-            />
-            <StatItem
-                fullValue={`${gameManager.achievements.length} / ${totalAchievements}`}
-                icon={Trophy}
-                label="Achievements"
-                suffix={` / ${totalAchievements}`}
-                value={gameManager.achievements.length}
-            />
-        </div>
-    </section>
+{#snippet title(Icon: TitleIcon, text: string, color?: string)}
+	<h3 class="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wider text-white/40 uppercase">
+		<Icon class="text-accent-300" {color} size={16} />
+		{text}
+	</h3>
+{/snippet}
 
-    <!-- Production -->
-    <section>
-        <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-            <TrendingUp size={18} />
-            Production
-        </h3>
-        <div class="grid gap-1.5 sm:grid-cols-2">
-            <StatItem
-                fullValue={formatNumberFull(gameManager.atomsPerSecond)}
-                icon={Atom}
-                label="Atoms/sec"
-                value={formatNumber(gameManager.atomsPerSecond)}
-            />
-            <StatItem
-                description="Best achieved"
-                fullValue={formatNumberFull(gameManager.highestAPS)}
-                icon={Flame}
-                label="Highest APS"
-                value={formatNumber(gameManager.highestAPS)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.clickPower)}
-                icon={MousePointerClick}
-                label="Click Power"
-                value={formatNumber(gameManager.clickPower)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.autoClicksPerSecond)}
-                icon={Repeat}
-                label="Auto Clicks/sec"
-                value={formatNumber(gameManager.autoClicksPerSecond, 0)}
-            />
-            <StatItem
-                fullValue={`${gameManager.globalMultiplier.toFixed(2)}×`}
-                icon={TrendingUp}
-                label="Global Multiplier"
-                prefix="×"
-                value={formatNumber(gameManager.globalMultiplier)}
-            />
-            {#if gameManager.bonusMultiplier > 1}
-                <StatItem
-                    fullValue={`${gameManager.bonusMultiplier.toFixed(2)}×`}
-                    icon={Zap}
-                    label="Active Bonus"
-                    prefix="×"
-                    value={formatNumber(gameManager.bonusMultiplier)}
-                />
-            {/if}
-            <StatItem
-                fullValue={`${gameManager.xpGainMultiplier.toFixed(2)}×`}
-                icon={Sparkles}
-                label="XP Multiplier"
-                prefix="×"
-                value={formatNumber(gameManager.xpGainMultiplier)}
-            />
-            {#if gameManager.features[FeatureTypes.STABILITY_FIELD]}
-                <StatItem
-                    description="Idle bonus, up to ×{formatNumber(1 + (gameManager.stabilityMaxBoost - 1) * gameManager.stabilityCapacity)}"
-                    fullValue={`${gameManager.stabilityMultiplier.toFixed(2)}×`}
-                    icon={ShieldCheck}
-                    label="Stability Field"
-                    prefix="×"
-                    value={formatNumber(gameManager.stabilityMultiplier)}
-                />
-            {/if}
-            {#each [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS] as currencyType}
-                {@const boost = gameManager.getCurrencyBoostMultiplier(currencyType)}
-                {#if boost > 1}
-                    <StatItem
-                        currency={currencyType}
-                        fullValue={`${boost.toFixed(2)}×`}
-                        label={`${currencyType} Boost`}
-                        prefix="×"
-                        value={formatNumber(boost)}
-                    />
-                {/if}
-            {/each}
-        </div>
-    </section>
+{#snippet ring(value: number, max: number, label: string, color = 'var(--color-accent)')}
+	{@const ratio = max > 0 ? Math.min(1, value / max) : 0}
+	<div class="flex flex-col items-center gap-1.5 text-center">
+		<div class="relative size-20">
+			<svg class="size-full -rotate-90" viewBox="0 0 36 36">
+				<circle class="stroke-white/10" cx="18" cy="18" fill="none" r="15.9" stroke-width="3" />
+				<circle cx="18" cy="18" fill="none" pathLength="100" r="15.9" stroke={color} stroke-dasharray="{ratio * 100} 100" stroke-linecap="round" stroke-width="3" />
+			</svg>
+			<span class="absolute inset-0 flex items-center justify-center text-sm font-bold text-white tabular-nums">{value}<span class="text-white/40">/{max}</span></span>
+		</div>
+		<span class="text-xs text-white/60">{label}</span>
+	</div>
+{/snippet}
 
-    <!-- Clicks & Resources -->
-    <section>
-        <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-            <MousePointerClick size={18} />
-            Clicks & Resources
-        </h3>
-        <div class="grid gap-1.5 sm:grid-cols-2">
-            <StatItem
-                description="This run"
-                fullValue={formatNumberFull(gameManager.totalClicksRun)}
-                icon={MousePointerClick}
-                label="Clicks"
-                value={formatNumber(gameManager.totalClicksRun, 0)}
-            />
-            <StatItem
-                description="All time"
-                fullValue={formatNumberFull(gameManager.totalClicksAllTime)}
-                icon={Mouse}
-                label="Clicks (Total)"
-                value={formatNumber(gameManager.totalClicksAllTime, 0)}
-            />
-            {#each [CurrenciesTypes.ATOMS] as currencyType}
-                {@const currency = gameManager.currencies[currencyType]}
-                <StatItem
-                    currency={currencyType}
-                    description="This run"
-                    fullValue={formatNumberFull(currency.earnedRun)}
-                    label="Atoms Earned"
-                    value={formatNumber(currency.earnedRun)}
-                />
-                <StatItem
-                    currency={currencyType}
-                    description="All time"
-                    fullValue={formatNumberFull(currency.earnedAllTime)}
-                    label="Atoms (Total)"
-                    value={formatNumber(currency.earnedAllTime)}
-                />
-                <StatItem
-                    currency={currencyType}
-                    fullValue={formatNumberFull(currency.amount)}
-                    label="Current Atoms"
-                    value={formatNumber(currency.amount)}
-                />
-            {/each}
-        </div>
-    </section>
+{#snippet bar(label: string, value: number, max: number, color = 'var(--color-accent)', text = `${formatNumber(value)} / ${formatNumber(max)}`)}
+	<div class="flex flex-col gap-1.5" title="{formatNumberFull(value)} / {formatNumberFull(max)}">
+		<div class="flex items-baseline justify-between gap-2 text-sm">
+			<span class="text-white/60">{label}</span>
+			<span class="text-white tabular-nums">{text}</span>
+		</div>
+		<div class="h-1.5 overflow-hidden rounded-full bg-white/10">
+			<div class="h-full origin-left rounded-full" style:background-color={color} style:transform="scaleX({max > 0 ? Math.min(1, value / max) : 0})"></div>
+		</div>
+	</div>
+{/snippet}
 
-    <!-- Buildings & Upgrades -->
-    <section>
-        <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-            <Building2 size={18} />
-            Buildings & Upgrades
-        </h3>
-        <div class="grid gap-1.5 sm:grid-cols-2">
-            <StatItem
-                description="Currently owned"
-                fullValue={formatNumberFull(totalBuildings)}
-                icon={Building2}
-                label="Buildings Owned"
-                value={formatNumber(totalBuildings, 0)}
-            />
-            <StatItem
-                description="All time"
-                fullValue={formatNumberFull(gameManager.totalBuildingsPurchasedAllTime)}
-                icon={Factory}
-                label="Buildings Purchased"
-                value={formatNumber(gameManager.totalBuildingsPurchasedAllTime, 0)}
-            />
-            <StatItem
-                description="Currently owned"
-                fullValue={gameManager.upgrades.length.toString()}
-                icon={Package}
-                label="Upgrades Owned"
-                value={gameManager.upgrades.length}
-            />
-            <StatItem
-                description="All time"
-                fullValue={formatNumberFull(gameManager.totalUpgradesPurchasedAllTime)}
-                icon={PackageCheck}
-                label="Upgrades Purchased"
-                value={formatNumber(gameManager.totalUpgradesPurchasedAllTime, 0)}
-            />
-            <StatItem
-                description="Across every building"
-                fullValue={formatNumberFull(gameManager.skillPointsTotal)}
-                icon={Layers}
-                label="Building Levels"
-                value={formatNumber(gameManager.skillPointsTotal, 0)}
-            />
-            <StatItem
-                description="Available / earned"
-                fullValue={`${gameManager.skillPointsAvailable} / ${gameManager.skillPointsTotal}`}
-                icon={Diamond}
-                label="Skill Points"
-                suffix={` / ${gameManager.skillPointsTotal}`}
-                value={gameManager.skillPointsAvailable}
-            />
-            <StatItem
-                fullValue={`${gameManager.skillUpgrades.length} / ${totalSkillUpgrades}`}
-                icon={Network}
-                label="Skill Tree Nodes"
-                suffix={` / ${totalSkillUpgrades}`}
-                value={gameManager.skillUpgrades.length}
-            />
-        </div>
-    </section>
+{#snippet row(label: string, value: string, full = value)}
+	<div class="flex items-center justify-between gap-2 py-1.5 text-sm" title={full}>
+		<span class="text-white/60">{label}</span>
+		<span class="font-semibold text-white tabular-nums">{value}</span>
+	</div>
+{/snippet}
 
-    <!-- Power-ups -->
-    <section>
-        <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-            <Zap size={18} />
-            Power-ups
-        </h3>
-        <div class="grid gap-1.5 sm:grid-cols-2">
-            <StatItem
-                fullValue={formatNumberFull(gameManager.powerUpsCollected)}
-                icon={Zap}
-                label="Power-ups Collected"
-                value={formatNumber(gameManager.powerUpsCollected, 0)}
-            />
-            <StatItem
-                currency={CurrenciesTypes.HIGGS_BOSON}
-                description="This run"
-                fullValue={formatNumberFull(gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedRun)}
-                label="Bonus Higgs Clicked"
-                value={formatNumber(gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedRun, 0)}
-            />
-            <StatItem
-                currency={CurrenciesTypes.HIGGS_BOSON}
-                description="All time"
-                fullValue={formatNumberFull(gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedAllTime)}
-                label="Bonus Higgs Clicked (Total)"
-                value={formatNumber(gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedAllTime, 0)}
-            />
-            <StatItem
-                fullValue={`${gameManager.powerUpDurationMultiplier.toFixed(2)}×`}
-                icon={ClockPlus}
-                label="Duration Multiplier"
-                prefix="×"
-                value={formatNumber(gameManager.powerUpDurationMultiplier)}
-            />
-            <StatItem
-                fullValue={`${gameManager.powerUpEffectMultiplier.toFixed(2)}×`}
-                icon={TrendingUp}
-                label="Effect Multiplier"
-                prefix="×"
-                value={formatNumber(gameManager.powerUpEffectMultiplier)}
-            />
-        </div>
-    </section>
+{#snippet currency(type: CurrencyName, extra: [string, number][])}
+	{@const data = gameManager.currencies[type]}
+	<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+		<div class="flex items-center gap-3">
+			<Currency name={type} size={28} />
+			<span class="flex flex-col leading-tight">
+				<span class="text-xl font-bold tabular-nums" style:color={CURRENCIES[type].color} title={formatNumberFull(data.amount)}>{formatNumber(data.amount)}</span>
+				<span class="text-xs text-white/50">{type}</span>
+			</span>
+		</div>
+		{@render bar('Earned this run', data.earnedRun, data.earnedAllTime, CURRENCIES[type].color)}
+		{#each extra as [label, value] (label)}
+			{@render row(label, formatNumber(value, 0))}
+		{/each}
+	</div>
+{/snippet}
 
-    <!-- Prestige Stats -->
-    {#if Object.values(CurrenciesTypes).some(t => (([CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS] as unknown) as CurrencyName[]).includes(t as CurrencyName) && gameManager.currencies[t as CurrencyName].earnedAllTime > 0)}
-        <section>
-            <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-                <RotateCcw size={18} />
-                Prestige
-            </h3>
-            <div class="grid gap-1.5 lg:grid-cols-2">
-                {#each [CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS] as currencyType}
-                    {@const currency = gameManager.currencies[currencyType]}
-                    {#if currency.earnedAllTime > 0 || currency.amount > 0 || (currencyType === CurrenciesTypes.PROTONS && gameManager.totalProtonisesRun > 0) || (currencyType === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0)}
-                        <div class="flex flex-col gap-1.5">
-                            <StatItem
-                                currency={currencyType}
-                                fullValue={formatNumberFull(currency.amount)}
-                                label={`Current ${currencyType}`}
-                                value={formatNumber(currency.amount)}
-                            />
-                            <StatItem
-                                currency={currencyType}
-                                description="This run"
-                                fullValue={formatNumberFull(currency.earnedRun)}
-                                label={`${currencyType} Earned`}
-                                value={formatNumber(currency.earnedRun)}
-                            />
-                            <StatItem
-                                currency={currencyType}
-                                description="All time"
-                                fullValue={formatNumberFull(currency.earnedAllTime)}
-                                label={`${currencyType} Earned (Total)`}
-                                value={formatNumber(currency.earnedAllTime)}
-                            />
-                            {#if currencyType === CurrenciesTypes.PROTONS}
-                                <StatItem
-                                    fullValue={formatNumberFull(gameManager.totalProtonisesRun)}
-                                    icon={RotateCcw}
-                                    label="Times Protonised"
-                                    value={gameManager.totalProtonisesRun}
-                                />
-                                <StatItem
-                                    fullValue={formatNumberFull(gameManager.totalProtonisesAllTime)}
-                                    icon={RotateCcw}
-                                    label="Times Protonised (Total)"
-                                    value={gameManager.totalProtonisesAllTime}
-                                />
-                            {:else if currencyType === CurrenciesTypes.ELECTRONS}
-                                <StatItem
-                                    fullValue={formatNumberFull(gameManager.totalElectronizesRun)}
-                                    icon={RotateCw}
-                                    label="Times Electronized"
-                                    value={gameManager.totalElectronizesRun}
-                                />
-                                <StatItem
-                                    fullValue={formatNumberFull(gameManager.totalElectronizesAllTime)}
-                                    icon={RotateCw}
-                                    label="Times Electronized (Total)"
-                                    value={gameManager.totalElectronizesAllTime}
-                                />
-                            {/if}
-                        </div>
-                    {/if}
-                {/each}
-            </div>
-        </section>
-    {/if}
+<div class="flex flex-col gap-8">
+	<section class="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
+		{#each highlights as highlight (highlight.label)}
+			<div class="flex flex-col" title={formatNumberFull(highlight.value)}>
+				<span class="flex items-center gap-1.5 text-xs text-white/50"><highlight.icon size={14} />{highlight.label}</span>
+				<span class="truncate text-3xl font-bold text-white tabular-nums">{formatNumber(highlight.value)}</span>
+			</div>
+		{/each}
+	</section>
 
-    <!-- Photon Realm Stats -->
-    {#if Object.values(CurrenciesTypes).some(t => (([CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS] as unknown) as CurrencyName[]).includes(t as CurrencyName) && gameManager.currencies[t as CurrencyName].earnedAllTime > 0)}
-        <section>
-            <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-                <Sparkles size={18} />
-                Photon Realm
-            </h3>
-            <div class="grid gap-1.5 sm:grid-cols-2">
-                {#each [CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS] as currencyType}
-                    {@const currency = gameManager.currencies[currencyType]}
-                    {#if currency.earnedAllTime > 0 || currency.amount > 0}
-                        <StatItem
-                            currency={currencyType}
-                            fullValue={formatNumberFull(currency.amount)}
-                            label={`Current ${currencyType}`}
-                            value={formatNumber(currency.amount)}
-                        />
-                        <StatItem
-                            currency={currencyType}
-                            description="This run"
-                            fullValue={formatNumberFull(currency.earnedRun)}
-                            label={`${currencyType} Earned`}
-                            value={formatNumber(currency.earnedRun)}
-                        />
-                        <StatItem
-                            currency={currencyType}
-                            description="All time"
-                            fullValue={formatNumberFull(currency.earnedAllTime)}
-                            label={`${currencyType} Earned (Total)`}
-                            value={formatNumber(currency.earnedAllTime)}
-                        />
-                    {/if}
-                {/each}
-                <StatItem
-                    fullValue={formatNumberFull(gameManager.photonAutoClicksPer5Seconds / 5)}
-                    icon={Repeat}
-                    label="Photon Auto Clicks/s"
-                    value={formatNumber(gameManager.photonAutoClicksPer5Seconds / 5)}
-                />
-                <StatItem
-                    fullValue={`${(gameManager.excitedPhotonChance * 100).toFixed(3)}%`}
-                    icon={Sun}
-                    label="Excited Photon Chance"
-                    suffix="%"
-                    value={(gameManager.excitedPhotonChance * 100).toFixed(2)}
-                />
-                <StatItem
-                    fullValue={`${(gameManager.photonSpawnInterval / 1000).toFixed(3)}s`}
-                    icon={Timer}
-                    label="Photon Spawn Interval"
-                    suffix="s"
-                    value={(gameManager.photonSpawnInterval / 1000).toFixed(2)}
-                />
-                <StatItem
-                    description="All upgrades combined"
-                    fullValue={formatNumberFull(gameManager.photonUpgradeLevels)}
-                    icon={Layers}
-                    label="Photon Upgrade Levels"
-                    value={formatNumber(gameManager.photonUpgradeLevels, 0)}
-                />
-            </div>
-        </section>
-    {/if}
+	<section>
+		{@render title(Hourglass, 'Progress')}
+		<div class="grid items-center gap-6 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[1fr_auto]">
+			<div class="grid gap-x-6 sm:grid-cols-2">
+				{@render row('Since you started', formatDuration(now - gameManager.startDate))}
+				{@render row('Played', formatDuration(gameManager.inGameTime))}
+				{@render row('Level', formatNumber(gameManager.playerLevel), formatNumberFull(gameManager.playerLevel))}
+				{@render row('Total XP', formatNumber(gameManager.totalXP), formatNumberFull(gameManager.totalXP))}
+				{@render row('Building levels', formatNumber(gameManager.skillPointsTotal, 0))}
+				{@render row('Power-ups collected', formatNumber(gameManager.powerUpsCollected, 0))}
+			</div>
+			<div class="flex justify-around gap-4">
+				{@render ring(gameManager.achievements.length, totalAchievements, 'Achievements', CURRENCIES['Higgs Boson'].color)}
+				{@render ring(gameManager.skillUpgrades.length, totalSkillUpgrades, 'Skill tree')}
+			</div>
+		</div>
+	</section>
 
-    <!-- Radiation Realm Stats -->
-    {#if radiationUnlocked}
-        <section>
-            <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-                <Radiation size={18} />
-                Radiation Realm
-            </h3>
-            <div class="grid gap-1.5 sm:grid-cols-2">
-                <StatItem
-                    fullValue={formatNumberFull(radiationManager.mass)}
-                    icon={Weight}
-                    label="Core Mass"
-                    value={formatNumber(radiationManager.mass)}
-                />
-                <StatItem
-                    fullValue={`${(radiationManager.controlRodLevel * 100).toFixed(2)}%`}
-                    icon={SlidersVertical}
-                    label="Control Rods"
-                    suffix="%"
-                    value={(radiationManager.controlRodLevel * 100).toFixed(0)}
-                />
-                <StatItem
-                    description="Max {formatNumber(radiationManager.maxCpm)}"
-                    fullValue={formatNumberFull(radiationManager.currentCpm)}
-                    icon={Gauge}
-                    label="Current CPM"
-                    value={formatNumber(radiationManager.currentCpm)}
-                />
-                <StatItem
-                    fullValue={`${radiationManager.radiationMultiplier.toFixed(2)}×`}
-                    icon={Radiation}
-                    label="Radiation Multiplier"
-                    prefix="×"
-                    value={formatNumber(radiationManager.radiationMultiplier)}
-                />
-                <StatItem
-                    description="Mass per second"
-                    fullValue={formatNumberFull(radiationManager.netMassChange)}
-                    icon={radiationManager.netMassChange >= 0 ? TrendingUp : TrendingDown}
-                    label="Net Mass Change"
-                    prefix={radiationManager.netMassChange > 0 ? '+' : ''}
-                    value={formatNumber(radiationManager.netMassChange)}
-                />
-                <StatItem
-                    description="At the current rate"
-                    fullValue={Number.isFinite(radiationManager.timeToEmpty) ? formatDuration(radiationManager.timeToEmpty * 1000) : 'Never'}
-                    icon={Hourglass}
-                    label="Time To Empty"
-                    value={Number.isFinite(radiationManager.timeToEmpty) ? formatDuration(radiationManager.timeToEmpty * 1000) : '∞'}
-                />
-            </div>
-        </section>
-    {/if}
+	{#if multipliers.length > 0}
+		<section>
+			{@render title(TrendingUp, 'Multipliers')}
+			<div class="flex flex-wrap gap-2">
+				{#each multipliers as multiplier (multiplier.label)}
+					<span class="rounded-full bg-white/5 px-3 py-1.5 text-sm text-white/60" title="×{multiplier.value.toFixed(3)}">
+						{multiplier.label} <b class="text-white">×{formatNumber(multiplier.value)}</b>
+					</span>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
-    <!-- Quarks -->
-    {#if quarksManager.hasSynced}
-        <section>
-            <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-                <Gem size={18} />
-                Quarks
-            </h3>
-            <div class="grid gap-1.5 sm:grid-cols-2">
-                <StatItem
-                    fullValue={formatNumberFull(quarksManager.balance)}
-                    icon={Gem}
-                    label="Quarks"
-                    value={formatNumber(quarksManager.balance, 0)}
-                />
-                <StatItem
-                    description="Shop items"
-                    fullValue={formatNumberFull(quarksManager.entitlements.length)}
-                    icon={ShoppingBag}
-                    label="Items Owned"
-                    value={quarksManager.entitlements.length}
-                />
-                <StatItem
-                    description="Today"
-                    fullValue={`${dailyQuestsClaimed} / ${quarksManager.quests.length}`}
-                    icon={Target}
-                    label="Daily Quests Claimed"
-                    suffix={` / ${quarksManager.quests.length}`}
-                    value={dailyQuestsClaimed}
-                />
-                <StatItem
-                    description="All time"
-                    fullValue={formatNumberFull(quarksManager.claimedAchievementIds.length)}
-                    icon={Medal}
-                    label="Achievements Claimed"
-                    value={quarksManager.claimedAchievementIds.length}
-                />
-            </div>
-        </section>
-    {/if}
+	<section class="grid gap-x-8 gap-y-4 md:grid-cols-2">
+		<div class="flex flex-col gap-3">
+			{@render title(MousePointerClick, 'This run out of all time')}
+			{@render bar('Clicks', gameManager.totalClicksRun, gameManager.totalClicksAllTime)}
+			{@render bar('Atoms earned', gameManager.currencies[CurrenciesTypes.ATOMS].earnedRun, gameManager.currencies[CurrenciesTypes.ATOMS].earnedAllTime, CURRENCIES.Atoms.color)}
+			{@render bar('Higgs bosons', gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedRun, gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedAllTime, CURRENCIES['Higgs Boson'].color)}
+		</div>
+		<div class="flex flex-col gap-3">
+			{@render title(Building2, 'Owned out of ever bought')}
+			{@render bar('Buildings', totalBuildings, gameManager.totalBuildingsPurchasedAllTime)}
+			{@render bar('Upgrades', gameManager.upgrades.length, gameManager.totalUpgradesPurchasedAllTime)}
+			{@render bar('Skill points left', gameManager.skillPointsAvailable, gameManager.skillPointsTotal)}
+		</div>
+	</section>
 
-    <!-- Today -->
-    <section>
-        <h3 class="mb-2 flex items-center gap-2 border-b border-white/20 pb-1.5 text-base font-semibold text-white/90">
-            <CalendarDays size={18} />
-            Today
-        </h3>
-        <div class="grid gap-1.5 sm:grid-cols-2">
-            <StatItem
-                currency={CurrenciesTypes.ATOMS}
-                fullValue={formatNumberFull(gameManager.dailyStats.atomsEarned)}
-                label="Atoms Earned"
-                value={formatNumber(gameManager.dailyStats.atomsEarned)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.dailyStats.clicks)}
-                icon={MousePointerClick}
-                label="Clicks"
-                value={formatNumber(gameManager.dailyStats.clicks, 0)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.dailyStats.buildingsPurchased)}
-                icon={Factory}
-                label="Buildings Purchased"
-                value={formatNumber(gameManager.dailyStats.buildingsPurchased, 0)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.dailyStats.upgradesPurchased)}
-                icon={PackageCheck}
-                label="Upgrades Purchased"
-                value={formatNumber(gameManager.dailyStats.upgradesPurchased, 0)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.dailyStats.powerUpsCollected)}
-                icon={Zap}
-                label="Power-ups Collected"
-                value={formatNumber(gameManager.dailyStats.powerUpsCollected, 0)}
-            />
-            <StatItem
-                currency={CurrenciesTypes.HIGGS_BOSON}
-                fullValue={formatNumberFull(gameManager.dailyStats.higgsBosonsCollected)}
-                label="Higgs Bosons"
-                value={formatNumber(gameManager.dailyStats.higgsBosonsCollected, 0)}
-            />
-            <StatItem
-                fullValue={formatNumberFull(gameManager.dailyStats.achievementsUnlocked)}
-                icon={Trophy}
-                label="Achievements Unlocked"
-                value={gameManager.dailyStats.achievementsUnlocked}
-            />
-            <StatItem
-                fullValue={`${gameManager.dailyStats.protonises} / ${gameManager.dailyStats.electronizes}`}
-                icon={RotateCcw}
-                label="Protonises / Electronizes"
-                value={`${gameManager.dailyStats.protonises} / ${gameManager.dailyStats.electronizes}`}
-            />
-        </div>
-    </section>
+	{#if hasEarned(CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS)}
+		<section>
+			{@render title(ProtonIcon, 'Prestige')}
+			<div class="grid gap-3 md:grid-cols-2">
+				{#if hasEarned(CurrenciesTypes.PROTONS)}
+					{@render currency(CurrenciesTypes.PROTONS, [['Protonised this run', gameManager.totalProtonisesRun], ['Protonised all time', gameManager.totalProtonisesAllTime]])}
+				{/if}
+				{#if hasEarned(CurrenciesTypes.ELECTRONS)}
+					{@render currency(CurrenciesTypes.ELECTRONS, [['Electronized this run', gameManager.totalElectronizesRun], ['Electronized all time', gameManager.totalElectronizesAllTime]])}
+				{/if}
+			</div>
+		</section>
+	{/if}
+
+	{#if hasEarned(CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS)}
+		<section>
+			{@render title(PhotonIcon, 'Photon Realm')}
+			<div class="grid gap-3 md:grid-cols-3">
+				{@render currency(CurrenciesTypes.PHOTONS, [])}
+				{#if hasEarned(CurrenciesTypes.EXCITED_PHOTONS)}
+					{@render currency(CurrenciesTypes.EXCITED_PHOTONS, [])}
+				{/if}
+				<div class="rounded-xl border border-white/10 bg-black/20 px-4 py-2.5">
+					{@render row('Auto clicks / s', formatNumber(gameManager.photonAutoClicksPer5Seconds / 5))}
+					{@render row('Excited chance', `${(gameManager.excitedPhotonChance * 100).toFixed(2)}%`)}
+					{@render row('Spawn every', `${(gameManager.photonSpawnInterval / 1000).toFixed(2)}s`)}
+					{@render row('Upgrade levels', formatNumber(gameManager.photonUpgradeLevels, 0))}
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	{#if radiationUnlocked}
+		<section>
+			{@render title(Radiation, 'Radiation Realm', REALMS.radiation.color)}
+			<div class="grid gap-x-8 gap-y-3 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-2">
+				<div class="flex flex-col gap-3">
+					{@render bar('Reactor output', radiationManager.currentCpm, radiationManager.maxCpm, REALMS.radiation.color, `${formatNumber(radiationManager.currentCpm)} / ${formatNumber(radiationManager.maxCpm)} CPM`)}
+					{@render bar('Control rods', radiationManager.controlRodLevel * 100, 100, REALMS.radiation.color, `${(radiationManager.controlRodLevel * 100).toFixed(0)}%`)}
+				</div>
+				<div>
+					{@render row('Core mass', formatNumber(radiationManager.mass), formatNumberFull(radiationManager.mass))}
+					{@render row('Mass / s', `${radiationManager.netMassChange > 0 ? '+' : ''}${formatNumber(radiationManager.netMassChange)}`)}
+					{@render row('Empty in', Number.isFinite(radiationManager.timeToEmpty) ? formatDuration(radiationManager.timeToEmpty * 1000) : 'Never')}
+					{@render row('Multiplier', `×${formatNumber(radiationManager.radiationMultiplier)}`)}
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	{#if quarksManager.hasSynced}
+		<section>
+			{@render title(QuarkIcon, 'Quarks')}
+			<div class="grid gap-x-8 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 md:grid-cols-2">
+				{@render row('Balance', formatNumber(quarksManager.balance, 0))}
+				{@render row('Shop items owned', quarksManager.entitlements.length.toString())}
+				{@render row('Daily quests claimed', `${dailyQuestsClaimed} / ${quarksManager.quests.length}`)}
+				{@render row('Achievement rewards claimed', quarksManager.claimedAchievementIds.length.toString())}
+			</div>
+		</section>
+	{/if}
+
+	<section>
+		{@render title(CalendarDays, 'Today')}
+		<div class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+			{#each today as stat (stat.label)}
+				<div class="flex flex-col">
+					<span class="flex items-center gap-1.5 text-xs text-white/50"><stat.icon size={13} />{stat.label}</span>
+					<span class="text-lg font-semibold text-white tabular-nums">{stat.value}</span>
+				</div>
+			{/each}
+		</div>
+	</section>
 </div>
