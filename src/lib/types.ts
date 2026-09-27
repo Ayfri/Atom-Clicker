@@ -39,48 +39,49 @@ export type CurrencyAmountMap = Partial<Record<CurrencyName, number>>;
 
 export type CurrencyStateMap = Record<CurrencyName, CurrencyState>;
 
-export interface Effect {
-	apply: (currentValue: number, manager: GameManager) => number;
-	description: string;
-	/** Effects sharing a group have their contributions summed, then applied once as a single multiplier, instead of stacking multiplicatively. */
-	group?: string;
-	target?: GeneratorType;
-	type:
-		| 'auto_buy'
-		| 'auto_click'
-		| 'auto_speed'
-		| 'auto_upgrade'
-		| 'click'
-		| 'electron_gain'
-		| 'excited_auto_click'
-		| 'excited_photon_chance'
-		| 'excited_photon_double'
-		| 'excited_photon_duration'
-		| 'excited_photon_from_max'
-		| 'excited_photon_stability'
-		| 'generator'
-		| 'global'
-		| 'photon_auto_click'
-		| 'photon_double_chance'
-		| 'photon_duration'
-		| 'photon_size'
-		| 'photon_spawn_interval'
-		| 'photon_stability'
-		| 'photon_value'
-		| 'power_up_duration'
-		| 'power_up_interval'
-		| 'power_up_multiplier'
-		| 'proton_gain'
-		| 'radiation_control_precision'
-		| 'radiation_critical_chance'
-		| 'radiation_enrichment'
-		| 'radiation_mass_preservation'
-		| 'radiation_mass_regen'
-		| 'radiation_max_cpm'
-		| 'stability_boost'
-		| 'stability_capacity'
-		| 'stability_speed'
-		| 'xp_gain';
+export type EffectStat =
+	| 'auto_buy'
+	| 'auto_click'
+	| 'auto_speed'
+	| 'auto_upgrade'
+	| 'click'
+	| 'click_aps'
+	| 'electron_gain'
+	| 'excited_photon_chance'
+	| 'excited_photon_double'
+	| 'excited_photon_duration'
+	| 'excited_photon_from_max'
+	| 'excited_photon_stability'
+	| 'generator'
+	| 'global'
+	| 'photon_auto_click'
+	| 'photon_double_chance'
+	| 'photon_duration'
+	| 'photon_size'
+	| 'photon_spawn_interval'
+	| 'photon_stability'
+	| 'photon_value'
+	| 'power_up_duration'
+	| 'power_up_interval'
+	| 'power_up_multiplier'
+	| 'proton_gain'
+	| 'stability_boost'
+	| 'stability_capacity'
+	| 'stability_speed'
+	| 'start_atoms'
+	| 'xp_gain';
+
+export type EffectAmount = number | ((manager: GameManager) => number);
+
+/** Built with `add`, `mul` and `sum` from `$helpers/effects`, a stat resolves to `(base + adds) × muls × Π(1 + per × Σsum)`. */
+export type Effect =
+	| { amount: EffectAmount; kind: 'add' | 'mul'; stat: EffectStat; target?: GeneratorType }
+	| { amount: number; kind: 'sum'; per: (manager: GameManager) => number; stat: EffectStat };
+
+export interface EffectSource {
+	effects: readonly Effect[];
+	id: string;
+	name: string;
 }
 
 export type FeatureState = Record<string, boolean>;

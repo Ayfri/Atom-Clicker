@@ -4,7 +4,6 @@ import { POWER_UPS } from '$data/powerUp';
 import { QUARK_ACHIEVEMENT_REWARD } from '$data/quarkAchievements';
 import { RealmTypes } from '$data/realms';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { foldEffects } from '$helpers/effects';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { connectDeriveds } from '$helpers/reactiveRoot.svelte';
@@ -667,7 +666,7 @@ export class SimulationEngine {
 	 * stability upgrades read live.
 	 */
 	private photonRealmEffects(): PhotonRealmEffects {
-		const sources = gameManager.allEffectSources;
+		const sources = gameManager.effects;
 		const stability = gameManager.stabilityMultiplier;
 		const cached = this.photonEffects;
 		if (cached && this.photonEffectsSources === sources && this.photonEffectsStability === stability) return cached;
@@ -676,10 +675,10 @@ export class SimulationEngine {
 		const doubleChance = gameManager.photonDoubleChance;
 		const excitedDoubleChance = gameManager.excitedPhotonDoubleChance;
 		const excitedFromMaxBonus = gameManager.excitedPhotonFromMaxBonus;
-		const excitedLifetimeMultiplier = foldEffects(sources, gameManager, 1, { type: 'excited_photon_duration' });
-		const excitedStability = foldEffects(sources, gameManager, 1, { type: 'excited_photon_stability' });
-		const lifetimeBonusMs = foldEffects(sources, gameManager, 0, { type: 'photon_duration' });
-		const normalStability = foldEffects(sources, gameManager, 1, { type: 'photon_stability' });
+		const excitedLifetimeMultiplier = sources.value('excited_photon_duration', 1, gameManager);
+		const excitedStability = sources.value('excited_photon_stability', 1, gameManager);
+		const lifetimeBonusMs = sources.value('photon_duration', 0, gameManager);
+		const normalStability = sources.value('photon_stability', 1, gameManager);
 
 		const effects: PhotonRealmEffects = {
 			excitedLifetimeMultiplier,

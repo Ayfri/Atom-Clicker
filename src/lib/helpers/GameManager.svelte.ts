@@ -11,7 +11,7 @@ import { UPGRADES } from '$data/upgrades';
 import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
 import {
 	type CurrencyBoosts,
-	type Effect,
+	type EffectSource,
 	type FeatureState,
 	type GameState,
 	type Generator,
@@ -25,7 +25,7 @@ import {
 } from '$lib/types';
 import { setItem } from '$lib/utils/safeLocalStorage';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { effectsFor, foldEffects } from '$helpers/effects';
+import { EffectTable } from '$helpers/effects';
 import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
 import { applyOfflineProgress } from '$helpers/offlineProgress';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
@@ -45,6 +45,7 @@ function scheduleExpiry(callback: () => void, delay: number) {
 }
 
 const AUTO_PURCHASE_BASE_INTERVAL = 30_000;
+const AUTO_PURCHASE_MIN_INTERVAL = 1000;
 const STABILITY_BASE_TIME_MS = 600_000;
 
 export class GameManager {
@@ -75,11 +76,11 @@ export class GameManager {
 	 * GameManager never imports QuarksManager directly, since simulation.worker.ts imports GameManager
 	 * and has no auth/DOM context - see QuarksManager.svelte.ts for the one-way dependency rule.
 	 */
-	quarkBoostEffects = $state<Effect[]>([]);
+	quarkBoostSources = $state<EffectSource[]>([]);
 	/**
 	 * IDs of owned Quark shop items, pushed in by QuarksManager after sync/purchase/refund. Used to
 	 * gate prestige-persistence behaviors (e.g. keeping skill tree/currency boosts) that the generic
-	 * Effect pipeline can't express. Same one-way dependency rule as `quarkBoostEffects`.
+	 * Effect pipeline can't express. Same one-way dependency rule as `quarkBoostSources`.
 	 */
 	quarkEntitlements = $state<string[]>([]);
 	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
@@ -126,19 +127,16 @@ export class GameManager {
 
 	// Derived Props (Sorted Alphabetically)
 
-	allEffectSources = $derived.by(() => {
-		const baseUpgrades = this.currentUpgradesBought;
-		const photonUpgrades = Object.entries(this.photonUpgrades)
-			.filter(([id, level]) => level > 0 && ALL_PHOTON_UPGRADES[id])
-			.map(([id, level]) => ({
-				effects: ALL_PHOTON_UPGRADES[id].effects(level),
-				id,
-			}));
-
-		const quarkBoosts = this.quarkBoostEffects.length > 0 ? [{ effects: this.quarkBoostEffects, id: 'quark_boosts' }] : [];
-
-		return [...baseUpgrades, ...photonUpgrades, ...quarkBoosts] as (Upgrade | SkillUpgrade)[];
+	allEffectSources = $derived.by((): EffectSource[] => {
+		const photonUpgrades = Object.entries(this.photonUpgrades).flatMap(([id, level]) => {
+			const upgrade = ALL_PHOTON_UPGRADES[id];
+			return level > 0 && upgrade ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
+		});
+		return [...this.currentUpgradesBought, ...photonUpgrades, ...this.quarkBoostSources];
 	});
+
+	/** Rebuilt only on a purchase, every stat below reads its value from here. */
+	effects = $derived(new EffectTable(this.allEffectSources));
 
 	atomsPerSecond = $derived.by(() => {
 		let baseProduction = 0;
@@ -149,28 +147,23 @@ export class GameManager {
 	/** Auto-buy period of each generator the player automated, in the order its upgrades were bought. */
 	autoBuyIntervals = $derived.by(() => {
 		const intervals: Partial<Record<GeneratorType, number>> = {};
-		for (const { target } of effectsFor(this.currentUpgradesBought, { type: 'auto_buy' })) {
-			if (!target || target in intervals || !this.settings.automation.generators.includes(target)) continue;
-			intervals[target] = foldEffects(this.currentUpgradesBought, this, AUTO_PURCHASE_BASE_INTERVAL, { target, type: 'auto_buy' });
+		const speed = this.effects.value('auto_speed', 1, this);
+		for (const target of this.effects.targets('auto_buy')) {
+			if (!this.settings.automation.generators.includes(target)) continue;
+			intervals[target] = Math.max(AUTO_PURCHASE_MIN_INTERVAL, this.effects.value('auto_buy', AUTO_PURCHASE_BASE_INTERVAL, this, target)) / speed;
 		}
 		return intervals;
 	});
 
-	autoUpgradeInterval = $derived.by(() =>
-		this.settings.automation.upgrades ? foldEffects(this.currentUpgradesBought, this, AUTO_PURCHASE_BASE_INTERVAL, { type: 'auto_upgrade' }) : 0,
+	autoUpgradeInterval = $derived(
+		this.settings.automation.upgrades && this.effects.has('auto_upgrade')
+			? Math.max(AUTO_PURCHASE_MIN_INTERVAL, this.effects.value('auto_upgrade', AUTO_PURCHASE_BASE_INTERVAL, this))
+			: 0,
 	);
 
-	autoClicksPerSecond = $derived.by(() => {
-		if (!this.settings.automation.autoClick) return 0;
-		const options = { type: 'auto_click' as const };
-		return foldEffects(this.allEffectSources, this, 0, options);
-	});
+	autoClicksPerSecond = $derived(this.settings.automation.autoClick ? this.effects.value('auto_click', 0, this) : 0);
 
-	photonAutoClicksPer5Seconds = $derived.by(() => {
-		if (!this.settings.automation.autoClickPhotons) return 0;
-		const options = { type: 'photon_auto_click' as const };
-		return foldEffects(this.allEffectSources, this, 0, options);
-	});
+	photonAutoClicksPer5Seconds = $derived(this.settings.automation.autoClickPhotons ? this.effects.value('photon_auto_click', 0, this) : 0);
 
 	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
 
@@ -200,7 +193,7 @@ export class GameManager {
 
 		for (const type of GENERATOR_TYPES) {
 			const generator = this.generators[type];
-			const rate = foldEffects(this.allEffectSources, this, GENERATORS[type].rate, { target: type, type: 'generator' });
+			const rate = this.effects.value('generator', GENERATORS[type].rate, this, type);
 			productions[type] = rate * getGeneratorLevelMultiplier(generator?.count ?? 0, generator?.level ?? 0) * commonMultiplier;
 		}
 
@@ -215,10 +208,10 @@ export class GameManager {
 
 	canProtonise = $derived(this.atoms >= PROTONS_ATOMS_REQUIRED || this.protons > 0);
 
-	clickPower = $derived.by(() => {
-		const options = { type: 'click' as const };
-		return foldEffects(this.allEffectSources, this, 1, options) * this.bonusMultiplier;
-	});
+	/** The share of atoms per second stays outside the click multipliers, which would otherwise scale it by ~250,000x late game. */
+	clickPower = $derived(
+		(this.effects.value('click', 1, this) + this.effects.value('click_aps', 0, this) * this.atomsPerSecond) * this.bonusMultiplier,
+	);
 
 	currentLevelXP = $derived.by(() => Math.max(0, this.totalXP - totalXPForLevel(this.playerLevel)));
 
@@ -229,25 +222,14 @@ export class GameManager {
 
 	electronizeElectronsGain = $derived.by(() => {
 		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return 0;
-		const options = { type: 'electron_gain' as const };
-		const baseGain = foldEffects(this.allEffectSources, this, 1, options);
-		return baseGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
+		return this.effects.value('electron_gain', 1, this) * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
 	});
 
-	excitedPhotonChance = $derived.by(() => {
-		const baseChance = 0.002; // 0.2%
-		const options = { type: 'excited_photon_chance' as const };
-		return foldEffects(this.allEffectSources, this, baseChance, options);
-	});
+	excitedPhotonChance = $derived(this.effects.value('excited_photon_chance', 0.002, this));
 
 	radiationMultiplier = $derived(radiationManager.radiationMultiplier);
 
-	globalMultiplier = $derived.by(() => {
-		const options = { type: 'global' as const };
-		const baseMultiplier = foldEffects(this.allEffectSources, this, 1, options);
-		// Radiation multiplier is applied multiplicatively
-		return baseMultiplier * this.radiationMultiplier;
-	});
+	globalMultiplier = $derived(this.effects.value('global', 1, this) * this.radiationMultiplier);
 
 	hasAvailableSkillUpgrades = $derived.by(() => {
 		return Object.values(SKILL_UPGRADES).some(skill => {
@@ -265,54 +247,35 @@ export class GameManager {
 
 	nextLevelXP = $derived.by(() => xpForLevel(this.playerLevel + 1));
 
-	photonSpawnInterval = $derived.by(() => {
-		const baseSpawnRate = 2000;
-		const options = { type: 'photon_spawn_interval' as const };
-		return foldEffects(this.allEffectSources, this, baseSpawnRate, options);
-	});
+	photonSpawnInterval = $derived(this.effects.value('photon_spawn_interval', 2000, this));
 
-	excitedPhotonDoubleChance = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'excited_photon_double' }));
-	excitedPhotonFromMaxBonus = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'excited_photon_from_max' }));
-	photonDoubleChance = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'photon_double_chance' }));
-	photonValueBonus = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'photon_value' }));
+	excitedPhotonDoubleChance = $derived(this.effects.value('excited_photon_double', 0, this));
+	excitedPhotonFromMaxBonus = $derived(this.effects.value('excited_photon_from_max', 0, this));
+	photonDoubleChance = $derived(this.effects.value('photon_double_chance', 0, this));
+	photonValueBonus = $derived(this.effects.value('photon_value', 0, this));
 
 	playerLevel = $derived(levelFromTotalXP(this.totalXP));
 
-	powerUpDurationMultiplier = $derived.by(() => {
-		const options = { type: 'power_up_duration' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
+	powerUpDurationMultiplier = $derived(this.effects.value('power_up_duration', 1, this));
 
-	powerUpEffectMultiplier = $derived.by(() => {
-		const options = { type: 'power_up_multiplier' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
+	powerUpEffectMultiplier = $derived(this.effects.value('power_up_multiplier', 1, this));
 
-	powerUpInterval = $derived.by(() => {
-		const options = { type: 'power_up_interval' as const };
-		return POWER_UP_DEFAULT_INTERVAL.map(interval =>
-			Math.max(POWER_UP_MIN_INTERVAL, foldEffects(this.allEffectSources, this, interval, options))
-		) as [number, number];
-	});
+	powerUpInterval = $derived(
+		POWER_UP_DEFAULT_INTERVAL.map(interval => Math.max(POWER_UP_MIN_INTERVAL, this.effects.value('power_up_interval', interval, this))) as [
+			number,
+			number,
+		],
+	);
 
 	protoniseProtonsGain = $derived.by(() => {
 		if (this.atoms < PROTONS_ATOMS_REQUIRED) return 0;
-
 		const baseGain = Math.floor(Math.sqrt(this.atoms / PROTONS_ATOMS_REQUIRED));
-		const options = { type: 'proton_gain' as const };
-		const boostedGain = foldEffects(this.allEffectSources, this, baseGain, options);
-		return boostedGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
+		return this.effects.value('proton_gain', baseGain, this) * this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
 	});
 
-	stabilityCapacity = $derived.by(() => {
-		const options = { type: 'stability_capacity' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
+	stabilityCapacity = $derived(this.effects.value('stability_capacity', 1, this));
 
-	stabilityMaxBoost = $derived.by(() => {
-		const options = { type: 'stability_boost' as const };
-		return foldEffects(this.allEffectSources, this, 2, options);
-	});
+	stabilityMaxBoost = $derived(this.effects.value('stability_boost', 2, this));
 
 	stabilityMultiplier = $derived.by(() => {
 		// 1. Check unlock & pause conditions
@@ -345,18 +308,12 @@ export class GameManager {
 	/** Idle time to fill the stability field: 10 minutes, stretched by capacity and shortened by speed. */
 	stabilityTimeRequired = $derived.by(() => (STABILITY_BASE_TIME_MS * this.stabilityCapacity) / this.stabilitySpeed);
 
-	stabilitySpeed = $derived.by(() => {
-		const options = { type: 'stability_speed' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
+	stabilitySpeed = $derived(this.effects.value('stability_speed', 1, this));
 
 	/** Membership lookups run over every achievement each tick, so the array is mirrored into a set once per change. */
 	unlockedAchievementIds = $derived(new Set(this.achievements));
 
-	xpGainMultiplier = $derived.by(() => {
-		const options = { type: 'xp_gain' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
+	xpGainMultiplier = $derived(this.effects.value('xp_gain', 1, this));
 
 	xpProgress = $derived((this.currentLevelXP / this.nextLevelXP) * 100);
 
@@ -845,6 +802,7 @@ export class GameManager {
 			this.syncFeatures();
 			this.checkRealmUnlocks();
 			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
+			currenciesManager.add(CurrenciesTypes.ATOMS, this.effects.value('start_atoms', 0, this));
 
 			this.lastInteractionTime = this.clock();
 			this.save();

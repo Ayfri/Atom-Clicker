@@ -5,13 +5,11 @@
 	import type { CurrencyName } from '$data/currencies';
 	import { FEATURES, type FeatureType } from '$data/features';
 	import type { SkillUpgrade } from '$lib/types';
-	import { formatNumber } from '$lib/utils';
 	import { Info, Sparkles } from '@lucide/svelte';
 
 	interface EffectBreakdownItem {
-		description: string;
-		percentChange: number;
-		type: string;
+		label: string;
+		value: string;
 	}
 
 	interface SkillNodeData extends SkillUpgrade {
@@ -98,10 +96,8 @@
 						<span class="text-sm font-bold uppercase tracking-wider text-accent-300">Active Effects</span>
 						{#each skillData.effectBreakdown as effect}
 							<div class="flex flex-col">
-								<span class="text-xs text-white/80">{effect.description}</span>
-								<span class="font-mono text-[11px] text-white/50">
-									{effect.percentChange >= 0 ? '+' : ''}{formatNumber(effect.percentChange, 1)}%
-								</span>
+								<span class="text-xs text-white/80">{effect.label}</span>
+								<span class="font-mono text-[11px] text-white/50">{effect.value}</span>
 							</div>
 						{/each}
 					</div>

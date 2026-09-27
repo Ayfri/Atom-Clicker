@@ -1,9 +1,9 @@
 import { CurrenciesTypes } from '$data/currencies';
-import { GENERATOR_TYPES, GENERATORS, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
+import { GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { foldEffects } from '$helpers/effects';
+import { EffectTable, effectAmount } from '$helpers/effects';
 import { gameManager } from '$helpers/GameManager.svelte';
 import type { QuestTracker } from './quests';
 import type { MilestoneCheckData, SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
@@ -65,8 +65,7 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		generatorLevels += generator?.level ?? 0;
 
 		if (generator && count > 0) {
-			const { rate } = GENERATORS[type];
-			generatorUpgradeFactors[type] = foldEffects(effectSources, gameManager, rate, { target: type, type: 'generator' }) / rate;
+			generatorUpgradeFactors[type] = gameManager.effects.value('generator', 1, gameManager, type);
 			generatorLevelFactors[type] = getGeneratorLevelMultiplier(count, generator.level);
 		}
 	}
@@ -89,14 +88,13 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		else if (id.startsWith('protonise_boost_')) protoniseSources.push(source);
 	}
 
-	const globalOptions = { type: 'global' as const };
-	const fold = (sources: typeof effectSources) => foldEffects(sources, gameManager, 1, globalOptions);
+	const fold = (sources: typeof effectSources) => new EffectTable(sources).value('global', 1, gameManager);
 
 	const ownedUpgrades = new Set<string>(gameManager.upgrades);
 	const contributionOf = (id: string): number => {
 		if (!ownedUpgrades.has(id)) return 1;
-		const globalEffect = UPGRADES[id]?.effects.find(effect => effect.type === 'global');
-		return globalEffect ? globalEffect.apply(1, gameManager) : 1;
+		const globalEffect = UPGRADES[id]?.effects.find(effect => effect.stat === 'global');
+		return globalEffect ? effectAmount(globalEffect, gameManager) : 1;
 	};
 	const contributions = (prefix: string, count: number): number[] =>
 		Array.from({ length: count }, (_, i) => contributionOf(`${prefix}_${i + 1}`));

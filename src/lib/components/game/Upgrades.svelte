@@ -6,7 +6,6 @@
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Currency from '@components/ui/Currency.svelte';
 	import Value from '@components/ui/Value.svelte';
-	import { effectsFor } from '$helpers/effects';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
 	import { clock } from '$stores/clock.svelte';
@@ -44,7 +43,7 @@
 			});
 	});
 
-	let hasAutomation = $derived(effectsFor(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0);
+	let hasAutomation = $derived(gameManager.effects.has('auto_upgrade'));
 
 	const gatedBoostTiers = $derived(selectedCurrency === CurrenciesTypes.ATOMS ? boostTiersUnlockedByNextProtonise(gameManager) : 0);
 

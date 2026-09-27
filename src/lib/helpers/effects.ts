@@ -1,97 +1,96 @@
-import type { Effect, SkillUpgrade, Upgrade } from '$lib/types';
+import { GENERATORS, type GeneratorType } from '$data/generators';
 import type { GameManager } from '$helpers/GameManager.svelte';
+import type { Effect, EffectAmount, EffectSource, EffectStat } from '$lib/types';
+import { capitalize, formatNumber } from '$lib/utils';
 
-interface SearchEffectsOptions {
-	target?: Effect['target'];
-	type?: Effect['type'];
-}
+type Reader = (manager: GameManager) => number;
 
-const ANY = '*';
-const INDEX_CACHE = new WeakMap<object, { index: Map<string, Effect[]>; length: number }>();
+export const add = (stat: EffectStat, amount: EffectAmount, target?: GeneratorType): Effect => ({ amount, kind: 'add', stat, target });
 
-function bucketKey(type: string | undefined, target: string | undefined): string {
-	return `${type ?? ANY}|${target ?? ANY}`;
-}
+export const mul = (stat: EffectStat, amount: EffectAmount, target?: GeneratorType): Effect => ({ amount, kind: 'mul', stat, target });
 
 /**
- * Effects are bucketed by the `{type, target}` pairs a fold can ask for, in source order, so a fold reads only the
- * effects it will actually apply instead of walking every effect of every source and skipping 97% of them.
+ * Effects sharing the same `per` reference add up before multiplying, so keep `per` in a shared constant.
+ * @example ten `sum('global', playerLevel, 0.02)` give `× (1 + playerLevel × 0.2)`, not `× 1.02^10` per level
  */
-function buildIndex(upgrades: (Upgrade | SkillUpgrade)[]): Map<string, Effect[]> {
-	const index = new Map<string, Effect[]>();
-	const push = (key: string, effect: Effect) => {
-		const bucket = index.get(key);
-		if (bucket) bucket.push(effect);
-		else index.set(key, [effect]);
-	};
+export const sum = (stat: EffectStat, per: Reader, amount: number): Effect => ({ amount, kind: 'sum', per, stat });
 
-	for (const upgrade of upgrades) {
-		const effects = (upgrade as { effects?: Effect[] }).effects;
-		if (!Array.isArray(effects)) continue;
+class Bucket {
+	add = 0;
+	dynamicAdds: Reader[] = [];
+	dynamicMuls: Reader[] = [];
+	groups = new Map<Reader, number>();
+	mul = 1;
 
-		for (const effect of effects) {
-			push(bucketKey(undefined, undefined), effect);
-			push(bucketKey(effect.type, undefined), effect);
-			if (effect.target !== undefined) {
-				push(bucketKey(undefined, effect.target), effect);
-				push(bucketKey(effect.type, effect.target), effect);
+	push(effect: Effect) {
+		if (effect.kind === 'sum') this.groups.set(effect.per, (this.groups.get(effect.per) ?? 0) + effect.amount);
+		else if (typeof effect.amount === 'function') (effect.kind === 'add' ? this.dynamicAdds : this.dynamicMuls).push(effect.amount);
+		else if (effect.kind === 'add') this.add += effect.amount;
+		else this.mul *= effect.amount;
+	}
+
+	value(base: number, manager: GameManager): number {
+		let value = base + this.add;
+		for (const read of this.dynamicAdds) value += read(manager);
+		value *= this.mul;
+		for (const read of this.dynamicMuls) value *= read(manager);
+		for (const [per, amount] of this.groups) value *= 1 + per(manager) * amount;
+		return value;
+	}
+}
+
+/** Constant amounts are folded once when the table is built, so reading a stat only calls the effects that depend on live game state. */
+export class EffectTable {
+	private readonly buckets = new Map<EffectStat, Map<GeneratorType | undefined, Bucket>>();
+
+	constructor(sources: readonly EffectSource[]) {
+		for (const { effects } of sources) {
+			for (const effect of effects) {
+				let byTarget = this.buckets.get(effect.stat);
+				if (!byTarget) this.buckets.set(effect.stat, (byTarget = new Map()));
+				const target = effect.kind === 'sum' ? undefined : effect.target;
+				let bucket = byTarget.get(target);
+				if (!bucket) byTarget.set(target, (bucket = new Bucket()));
+				bucket.push(effect);
 			}
 		}
 	}
 
-	return index;
-}
-
-/** The source lists are rebuilt, never mutated in place, so the array identity plus its length is a safe cache key. */
-export function effectsFor(upgrades: (Upgrade | SkillUpgrade)[], options: SearchEffectsOptions): Effect[] {
-	let cached = INDEX_CACHE.get(upgrades);
-	if (!cached || cached.length !== upgrades.length) {
-		cached = { index: buildIndex(upgrades), length: upgrades.length };
-		INDEX_CACHE.set(upgrades, cached);
-	}
-	return cached.index.get(bucketKey(options.type, options.target)) ?? [];
-}
-
-/** Folds the pre-bucketed effects matching `{type, target}` over `defaultValue`, in source order. */
-export function foldEffects(upgrades: (Upgrade | SkillUpgrade)[], manager: GameManager, defaultValue: number, options: SearchEffectsOptions): number {
-	return foldBucket(effectsFor(upgrades, options), manager, defaultValue);
-}
-
-/**
- * Effects in one bucket read the same manager stats (every click upgrade reads `atomsPerSecond`), and each read
- * re-validates the whole derived graph, so the reads are cached for the duration of a single fold.
- */
-function cachedManager(manager: GameManager): GameManager {
-	const cache = new Map<PropertyKey, unknown>();
-	return new Proxy(manager, {
-		get(target, property) {
-			if (cache.has(property)) return cache.get(property);
-			const value = Reflect.get(target, property, target);
-			cache.set(property, value);
-			return value;
-		},
-	});
-}
-
-function foldBucket(effects: Effect[], rawManager: GameManager, defaultValue: number): number {
-	const manager = effects.length > 1 ? cachedManager(rawManager) : rawManager;
-	let value = defaultValue;
-	let groupContributions: Map<string, number> | null = null;
-
-	for (const effect of effects) {
-		if (effect.group) {
-			const contribution = effect.apply(0, manager);
-			groupContributions ??= new Map();
-			groupContributions.set(effect.group, (groupContributions.get(effect.group) ?? 0) + contribution);
-			continue;
-		}
-
-		value = effect.apply(value, manager);
+	has(stat: EffectStat): boolean {
+		return this.buckets.has(stat);
 	}
 
-	if (groupContributions) {
-		for (const contribution of groupContributions.values()) value *= 1 + contribution;
+	/** Targets of `stat` in the order their first effect was bought. */
+	targets(stat: EffectStat): GeneratorType[] {
+		return [...(this.buckets.get(stat)?.keys() ?? [])].filter((target): target is GeneratorType => target !== undefined);
 	}
 
-	return value;
+	value(stat: EffectStat, base: number, manager: GameManager, target?: GeneratorType): number {
+		return this.buckets.get(stat)?.get(target)?.value(base, manager) ?? base;
+	}
+}
+
+export function effectAmount(effect: Effect, manager: GameManager): number {
+	if (effect.kind === 'sum') return effect.per(manager) * effect.amount;
+	return typeof effect.amount === 'number' ? effect.amount : effect.amount(manager);
+}
+
+/** Player-facing value of one effect: `×1.5`, `+10` or `+12%`. */
+export function formatEffect(effect: Effect, manager: GameManager): string {
+	const amount = effectAmount(effect, manager);
+	if (effect.kind === 'mul') return `×${formatNumber(amount)}`;
+	const sign = amount >= 0 ? '+' : '';
+	return effect.kind === 'sum' ? `${sign}${formatNumber(amount * 100)}%` : `${sign}${formatNumber(amount)}`;
+}
+
+export function effectLabel(effect: Effect): string {
+	if (effect.kind !== 'sum' && effect.target) return `${GENERATORS[effect.target].name} production`;
+	return capitalize(effect.stat.replaceAll('_', ' '));
+}
+
+/** Every owned effect on `stat` next to the name of the upgrade granting it, for the gain breakdown tooltips. */
+export function effectBreakdown(sources: readonly EffectSource[], stat: EffectStat, manager: GameManager): { name: string; value: string }[] {
+	return sources.flatMap(source =>
+		source.effects.filter(effect => effect.stat === stat).map(effect => ({ name: source.name, value: formatEffect(effect, manager) })),
+	);
 }

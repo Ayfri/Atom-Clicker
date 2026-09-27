@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '$data/currencies';
+	import { effectBreakdown } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { ELECTRONS_PROTONS_REQUIRED } from '$lib/constants';
 	import { formatNumber } from '$lib/utils';
@@ -18,53 +19,11 @@
 
 	let canElectronize = $derived(gameManager.protons >= ELECTRONS_PROTONS_REQUIRED || gameManager.electronizeElectronsGain > 0);
 
-	interface GainBreakdownItem {
-		after: number;
-		before: number;
-		description: string;
-		name: string;
-	}
-
-	const formatUpgradeName = (value: string) =>
-		value
-			.replace(/[_-]+/g, ' ')
-			.replace(/([a-z])([A-Z])/g, '$1 $2')
-			.replace(/\s+/g, ' ')
-			.trim()
-			.replace(/\b\w/g, char => char.toUpperCase());
-
-	const getUpgradeLabel = (upgrade: { id?: string; name?: string }) => {
-		const rawName =
-			typeof upgrade.name === 'string' && upgrade.name.trim().length > 0 ? upgrade.name : (upgrade.id ?? 'Unknown Upgrade');
-		return formatUpgradeName(rawName);
-	};
-
 	const electronGainBreakdown = $derived.by(() => {
 		const baseGain = gameManager.protons < ELECTRONS_PROTONS_REQUIRED ? 0 : 1;
-		const options = { type: 'electron_gain' as const };
-		const upgrades = gameManager.allEffectSources;
-		let currentValue = baseGain;
-		const effects: GainBreakdownItem[] = [];
-
-		for (const upgrade of upgrades) {
-			if (!('effects' in upgrade) || !Array.isArray(upgrade.effects)) continue;
-			const upgradeName = getUpgradeLabel(upgrade);
-			for (const effect of upgrade.effects) {
-				if (effect.type !== options.type) continue;
-				const before = currentValue;
-				const after = effect.apply(currentValue, gameManager);
-				effects.push({
-					after,
-					before,
-					description: effect.description,
-					name: upgradeName,
-				});
-				currentValue = after;
-			}
-		}
-
+		const effects = effectBreakdown(gameManager.allEffectSources, 'electron_gain', gameManager);
 		const boostMultiplier = gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
-		const finalValue = currentValue * boostMultiplier;
+		const finalValue = baseGain > 0 ? gameManager.effects.value('electron_gain', baseGain, gameManager) * boostMultiplier : 0;
 
 		return {
 			base: baseGain,
@@ -163,15 +122,10 @@
 								<span class="text-[10px] uppercase tracking-wider text-white/40">Upgrade effects</span>
 								{#if electronGainBreakdown.effects.length > 0}
 									<div class="flex flex-col gap-1 text-xs">
-										{#each electronGainBreakdown.effects as effect, effectIndex (effect.name + effect.description + effectIndex)}
+										{#each electronGainBreakdown.effects as effect, effectIndex (effect.name + effectIndex)}
 											<div class="flex items-start justify-between gap-3">
-												<div class="flex flex-col">
-													<span class="text-white/80">{effect.name}</span>
-													<span class="text-[11px] text-white/50">{effect.description}</span>
-												</div>
-												<span class="font-mono text-[11px] text-white/70 whitespace-nowrap">
-													{formatNumber(effect.before)} → {formatNumber(effect.after)}
-												</span>
+												<span class="text-white/80">{effect.name}</span>
+												<span class="font-mono text-[11px] text-white/70 whitespace-nowrap">{effect.value}</span>
 											</div>
 										{/each}
 									</div>

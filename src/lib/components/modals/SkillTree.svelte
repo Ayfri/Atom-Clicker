@@ -10,6 +10,7 @@
 	import { RealmTypes } from '$data/realms';
 	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+	import { effectLabel, formatEffect } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import type { SkillUpgrade } from '$lib/types';
 	import { mobile } from '$stores/window.svelte';
@@ -129,14 +130,7 @@
 			.map((skill) => {
 				const unlocked = unlockedSkills.includes(skill.id);
 				const effectBreakdown = unlocked && skill.effects.length > 0
-					? skill.effects.map(effect => {
-						const result = effect.apply(1, gameManager);
-						return {
-							description: effect.description,
-							percentChange: (result - 1) * 100,
-							type: effect.type,
-						};
-					})
+					? skill.effects.map(effect => ({ label: effectLabel(effect), value: formatEffect(effect, gameManager) }))
 					: null;
 
 				return {

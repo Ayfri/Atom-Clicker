@@ -3,7 +3,6 @@
 	import { GENERATOR_TYPES, GENERATORS, getGeneratorColor, type GeneratorType } from '$data/generators';
 	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
 	import Currency from '@components/ui/Currency.svelte';
-	import { effectsFor } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { MAX_BOOST_POINTS } from '$lib/constants';
 	import { formatNumber } from '$lib/utils';
@@ -15,10 +14,8 @@
 
 	const BOOSTABLE: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS];
 
-	const autoBuyUnlocked = $derived(
-		new Set(effectsFor(gameManager.currentUpgradesBought, { type: 'auto_buy' }).flatMap(effect => (effect.target ? [effect.target] : []))),
-	);
-	const autoUpgradeUnlocked = $derived(effectsFor(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0);
+	const autoBuyUnlocked = $derived(new Set(gameManager.effects.targets('auto_buy')));
+	const autoUpgradeUnlocked = $derived(gameManager.effects.has('auto_upgrade'));
 	const automation = $derived(gameManager.settings.automation);
 	const intervals = $derived(gameManager.autoBuyIntervals);
 

@@ -4,7 +4,6 @@
 	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
 	import { Info } from '@lucide/svelte';
-	import { effectsFor } from '$helpers/effects';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
@@ -19,7 +18,7 @@
 		})),
 	);
 
-	const hasAutoClick = $derived(effectsFor(gameManager.currentUpgradesBought, { type: 'auto_click' }).length > 0);
+	const hasAutoClick = $derived(gameManager.effects.has('auto_click'));
 </script>
 
 <div class="mb-8 text-center z-1 sm:mb-4 relative">

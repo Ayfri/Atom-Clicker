@@ -11,7 +11,7 @@ import {
 } from '$data/dailyQuests';
 import { getQuarkShopItem } from '$data/quarkShop';
 import { RealmTypes, type RealmType } from '$data/realms';
-import type { Effect } from '$lib/types';
+import type { EffectSource } from '$lib/types';
 import { obfuscateClientData } from '$lib/utils/obfuscation';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { supabaseAuth } from '$stores/supabaseAuth.svelte';
@@ -21,7 +21,7 @@ import { toastStore } from '$stores/toasts.svelte';
 // src/lib/simulation/engine.ts and simulation.worker.ts import GameManager and run in a Web
 // Worker with no auth context and no DOM - if QuarksManager got pulled into that import graph
 // it would attempt to fetch() from inside the worker. GameManager instead exposes a plain
-// `quarkBoostEffects` field that this manager pushes into, see GameManager.svelte.ts.
+// `quarkBoostSources` field that this manager pushes into, see GameManager.svelte.ts.
 
 interface QuarksApiState {
 	balance: number;
@@ -65,12 +65,12 @@ export class QuarksManager {
 		remainingAchievements: Object.keys(ACHIEVEMENTS).filter(id => !gameManager.achievements.includes(id)).length,
 	});
 
-	ownedBoostEffects = $derived.by<Effect[]>(() => {
-		return this.entitlements
-			.map(id => getQuarkShopItem(id))
-			.filter(item => item?.type === 'boost' || item?.type === 'convenience')
-			.flatMap(item => item?.effects ?? []);
-	});
+	ownedBoostSources = $derived.by<EffectSource[]>(() =>
+		this.entitlements.flatMap(id => {
+			const item = getQuarkShopItem(id);
+			return item?.effects ? [{ effects: item.effects, id: item.id, name: item.name }] : [];
+		}),
+	);
 
 	hasClaimableQuest = $derived.by(() => {
 		return this.quests.some(quest => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest));
@@ -105,7 +105,7 @@ export class QuarksManager {
 
 	/** Pushes owned boost/convenience effects and entitlements into GameManager. Called whenever `entitlements` changes. */
 	private applyBoostEffects() {
-		gameManager.quarkBoostEffects = this.ownedBoostEffects;
+		gameManager.quarkBoostSources = this.ownedBoostSources;
 		gameManager.quarkEntitlements = this.entitlements;
 	}
 

@@ -5,7 +5,6 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { foldEffects } from '$helpers/effects';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
 	import { formatNumber } from '$lib/utils';
@@ -86,14 +85,13 @@
 	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
 	const MAX_PIXEL_RATIO = 2;
 
-	const sizeMultiplier = $derived(foldEffects(gameManager.allEffectSources, gameManager, baseSizeMultiplier, { type: 'photon_size' }));
-	const lifetimeBonus = $derived(foldEffects(gameManager.allEffectSources, gameManager, 0, { type: 'photon_duration' }));
-	const excitedLifetimeMultiplier = $derived(foldEffects(gameManager.allEffectSources, gameManager, 1, { type: 'excited_photon_duration' }));
+	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', baseSizeMultiplier, gameManager));
+	const lifetimeBonus = $derived(gameManager.effects.value('photon_duration', 0, gameManager));
+	const excitedLifetimeMultiplier = $derived(gameManager.effects.value('excited_photon_duration', 1, gameManager));
 
 	function getCircleValue(circle: Circle) {
-		const amount = circle.photons;
-		const type = circle.type === 'excited' ? 'excited_photon_stability' : 'photon_stability';
-		return Math.floor(foldEffects(gameManager.allEffectSources, gameManager, amount, { type }));
+		const stat = circle.type === 'excited' ? 'excited_photon_stability' : 'photon_stability';
+		return Math.floor(gameManager.effects.value(stat, circle.photons, gameManager));
 	}
 
 	// Labels are redrawn every frame, so results are memoized until the effect sources change.
@@ -101,8 +99,8 @@
 	let labelCacheKey: unknown = null;
 
 	function getCircleLabel(circle: Circle) {
-		if (labelCacheKey !== gameManager.allEffectSources) {
-			labelCacheKey = gameManager.allEffectSources;
+		if (labelCacheKey !== gameManager.effects) {
+			labelCacheKey = gameManager.effects;
 			labelCache.clear();
 		}
 

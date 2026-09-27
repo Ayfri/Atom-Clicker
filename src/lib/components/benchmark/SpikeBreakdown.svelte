@@ -17,10 +17,11 @@
 	import StarIcon from '@components/icons/generators/Star.svelte';
 	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
 	import type { SimulationAction, SpikeEvent } from '$lib/simulation/types';
+	import type { EffectStat } from '$lib/types';
 
 	let { index, spike }: { index: number; spike: SpikeEvent } = $props();
 
-	const APS_BOOSTER_EFFECT_TYPES = new Set(['global', 'proton_gain', 'electron_gain', 'click']);
+	const APS_BOOSTER_EFFECT_TYPES = new Set<EffectStat>(['click', 'click_aps', 'electron_gain', 'global', 'proton_gain']);
 
 	const GENERATOR_ICONS: Record<string, Component<{ color?: string; size?: number }>> = {
 		[GeneratorTypes.BLACK_HOLE]: BlackHoleIcon,
@@ -54,13 +55,13 @@
 			case 'upgrade': {
 				const u = UPGRADES[d];
 				if (!u) return { description: d, isApsBooster: false, label: d };
-				const isApsBooster = u.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.type));
+				const isApsBooster = u.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.stat));
 				return { description: u.description, isApsBooster, label: u.name };
 			}
 			case 'skill': {
 				const s = SKILL_UPGRADES[d];
 				if (!s) return { description: d, isApsBooster: false, label: d };
-				const isApsBooster = s.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.type));
+				const isApsBooster = s.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.stat));
 				return { description: s.description, isApsBooster, label: s.name };
 			}
 			case 'photon_upgrade': {

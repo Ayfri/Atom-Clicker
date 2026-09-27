@@ -2,6 +2,7 @@ import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '$data/generators';
 import { GENERATOR_ICON_NAMES, type IconName } from '$data/icons';
+import { add, mul, sum } from '$helpers/effects';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import type { Effect, Upgrade } from '$lib/types';
 import { capitalize, formatNumber, shortNumberText } from '$lib/utils';
@@ -22,8 +23,6 @@ interface CreateUpgradesOptions {
 function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 	const upgrades: Upgrade[] = [];
 	for (let i = 1; i <= options.count; i++) {
-		const effects = options.effects(i);
-		const id = options.idForIndex?.(i) ?? `${options.id}_${i}`;
 		upgrades.push({
 			condition: state => options.condition?.(i, state) !== false,
 			cost: {
@@ -31,14 +30,17 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 				currency: options.currency ?? CurrenciesTypes.ATOMS,
 			},
 			description: options.description(i),
-			effects,
+			effects: options.effects(i),
 			icon: options.icon,
-			id,
+			id: options.idForIndex?.(i) ?? `${options.id}_${i}`,
 			name: options.name(i),
-		} as Upgrade);
+		});
 	}
 	return upgrades;
 }
+
+const achievementCount = (manager: GameManager) => manager.achievements.length;
+const playerLevel = (manager: GameManager) => manager.playerLevel;
 
 /** Boost tiers 6-10, 11-15 and 16-20 each need one more protonise, so a first run tops out near 1e15 atoms instead of 1e29. */
 export const GENERATOR_BOOST_TIERS_PER_PROTONISE = 5;
@@ -64,20 +66,12 @@ function createGeneratorUpgrades(generatorType: GeneratorType) {
 		name: i => `${generator.name} Boost ${i}`,
 		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${generator.name} production`,
 		cost: i => generator.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
-		effects: i => [
-			{
-				type: 'generator',
-				target: generatorType,
-				description: `Multiply ${generator.name} production by ${1 + Math.ceil(i / 5)}`,
-				apply: currentValue => currentValue * (1 + Math.ceil(i / 5)),
-			},
-		],
+		effects: i => [mul('generator', 1 + Math.ceil(i / 5), generatorType)],
 	});
 }
 
 function createClickPowerUpgrades() {
-	const upgrades: Upgrade[] = [];
-	upgrades.push(
+	return [
 		...createUpgrades({
 			count: 20,
 			icon: 'click',
@@ -88,17 +82,8 @@ function createClickPowerUpgrades() {
 				const baseCost = 10 * 2 ** (i * 3);
 				return i > 8 ? baseCost * i ** 6.5 : baseCost;
 			},
-			effects: i => [
-				{
-					type: 'click',
-					description: `Multiply click power by ${i < 6 ? 1.5 : 2}`,
-					apply: currentValue => currentValue * (i < 6 ? 1.5 : 2),
-				},
-			],
+			effects: i => [mul('click', i < 6 ? 1.5 : 2)],
 		}),
-	);
-
-	upgrades.push(
 		...createUpgrades({
 			count: 15,
 			icon: 'click',
@@ -109,17 +94,8 @@ function createClickPowerUpgrades() {
 				const baseCost = 4 ** (i * 2) * 10;
 				return i > 6 ? baseCost * i ** 3.5 * 1.1 : baseCost * 1.1;
 			},
-			effects: i => [
-				{
-					type: 'click',
-					description: `Add ${Math.ceil(10 ** i / 10)} base value per click`,
-					apply: currentValue => currentValue + Math.ceil(10 ** i / 10),
-				},
-			],
+			effects: i => [add('click', Math.ceil(10 ** i / 10))],
 		}),
-	);
-
-	upgrades.push(
 		...createUpgrades({
 			count: 7,
 			icon: 'trendingUp',
@@ -130,46 +106,31 @@ function createClickPowerUpgrades() {
 				const baseCost = 10 * 2 ** (i * 10);
 				return i > 3 ? baseCost * i ** 8 * 1.1 : baseCost * 1.1;
 			},
-			effects: i => [
-				{
-					type: 'click' as const,
-					description: `Add ${Math.ceil(i / 2)}% of APS to click power`,
-					apply: (currentValue, manager) => currentValue + (Math.ceil(i / 2) / 100) * (manager.atomsPerSecond ?? 0),
-				},
-			],
+			effects: i => [add('click_aps', Math.ceil(i / 2) / 100)],
 		}),
-	);
-
-	return upgrades;
+	];
 }
 
 function createGlobalUpgrades() {
-	const upgrades = createUpgrades({
-		id: 'global_boost',
-		count: 50,
-		icon: 'globe',
-		name: i => `Global Boost ${i}`,
-		description: i => `${formatNumber(1 + i / 100)}x all production`,
-		cost: i => {
-			const baseCost = 1.25 * 10 ** (i * 1.1);
-			if (i > 40) {
-				return baseCost * i ** 9.5;
-			}
-			if (i > 30) {
-				return baseCost * i ** 7.5;
-			}
-			return i > 20 ? baseCost * i ** 5.5 : baseCost;
-		},
-		effects: i => [
-			{
-				type: 'global',
-				description: `Multiply all production by ${1 + i / 100}`,
-				apply: currentValue => currentValue * (1 + i / 100),
+	return [
+		...createUpgrades({
+			id: 'global_boost',
+			count: 50,
+			icon: 'globe',
+			name: i => `Global Boost ${i}`,
+			description: i => `${formatNumber(1 + i / 100)}x all production`,
+			cost: i => {
+				const baseCost = 1.25 * 10 ** (i * 1.1);
+				if (i > 40) {
+					return baseCost * i ** 9.5;
+				}
+				if (i > 30) {
+					return baseCost * i ** 7.5;
+				}
+				return i > 20 ? baseCost * i ** 5.5 : baseCost;
 			},
-		],
-	});
-
-	upgrades.push(
+			effects: i => [mul('global', 1 + i / 100)],
+		}),
 		...createUpgrades({
 			id: 'global_achievements_mul',
 			count: 11,
@@ -178,22 +139,9 @@ function createGlobalUpgrades() {
 			name: i => `Atom Soup ${i}`,
 			description: i => `+${Math.ceil(i / 5)}% production per achievement`,
 			cost: i => Math.pow(10, i * 3 + 2),
-			effects: i => [
-				{
-					type: 'global',
-					group: 'global_achievements_mul',
-					description: `Add ${Math.ceil(i / 5)}% production per achievement`,
-					apply: (_currentValue, manager) => {
-						const perAchievement = Math.ceil(i / 5);
-						const achievements = manager.achievements.length;
-						return (achievements * perAchievement) / 100;
-					},
-				},
-			],
+			effects: i => [sum('global', achievementCount, Math.ceil(i / 5) / 100)],
 		}),
-	);
-
-	return upgrades;
+	];
 }
 
 function createOfflineCapUpgrades() {
@@ -257,51 +205,28 @@ function createPowerUpIntervalUpgrades() {
 			const baseCost = 15_000 * 2 ** (i * 10);
 			return i > 5 ? baseCost * i ** 3 * 1.1 : baseCost * 1.1;
 		},
-		effects: i => [
-			{
-				type: 'power_up_interval',
-				description: `Multiply power up interval by ${i > 5 ? 0.9 : 0.8}`,
-				apply: currentValue => currentValue * (i > 5 ? 0.9 : 0.8),
-			},
-		],
+		effects: i => [mul('power_up_interval', i > 5 ? 0.9 : 0.8)],
 	});
 }
 
 function createLevelBoostUpgrades() {
-	const upgrades: Upgrade[] = [];
-	const count = 10;
-	for (let i = 1; i <= count; i++) {
-		upgrades.push({
-			id: `level_boost_${i}`,
-			name: `Level Boost ${i}`,
-			description: `+${1 + Math.ceil(i / 2)}% production per level`,
-			cost: {
-				amount: 1e5 * 2_500_000 ** (i - 1),
-				currency: 'Atoms',
-			},
-			condition: state => state.features[FeatureTypes.LEVELS] === true,
-			icon: 'level',
-			effects: [
-				{
-					type: 'global',
-					group: 'level_boost',
-					description: `Add ${1 + Math.ceil(i / 2)}% production per level`,
-					apply: (_currentValue, manager) => {
-						const level = manager.playerLevel ?? 1;
-						return (level * (1 + Math.ceil(i / 2))) / 100;
-					},
-				},
-			],
-		});
-	}
-	return upgrades;
+	return createUpgrades({
+		condition: (_, state) => state.features[FeatureTypes.LEVELS] === true,
+		cost: i => 1e5 * 2_500_000 ** (i - 1),
+		count: 10,
+		description: i => `+${1 + Math.ceil(i / 2)}% production per level`,
+		effects: i => [sum('global', playerLevel, (1 + Math.ceil(i / 2)) / 100)],
+		icon: 'level',
+		id: 'level_boost',
+		name: i => `Level Boost ${i}`,
+	});
 }
 
-function createProtonUpgrades() {
-	const upgrades: Upgrade[] = [];
+function createProtonUpgrades(): Upgrade[] {
+	const isStabilityUnlocked = (_: number, state: GameManager) => state.features[FeatureTypes.STABILITY_FIELD] === true;
+	const isOfflineUnlocked = (state: GameManager) => state.features[FeatureTypes.OFFLINE_PROGRESS] === true;
 
-	// Global production multiplier from protons
-	upgrades.push(
+	return [
 		...createUpgrades({
 			id: 'proton_boost',
 			count: 10,
@@ -313,18 +238,8 @@ function createProtonUpgrades() {
 				const baseCost = Math.ceil(2 ** (i * 2.1));
 				return i > 2 ? baseCost * i ** 4.1 : baseCost;
 			},
-			effects: i => [
-				{
-					type: 'global',
-					description: `Multiply all production by ${2 + i}`,
-					apply: currentValue => currentValue * (2 + i),
-				},
-			],
+			effects: i => [mul('global', 2 + i)],
 		}),
-	);
-
-	// Electron gain multiplier upgrades
-	upgrades.push(
 		{
 			id: 'proton_electron_boost_1',
 			name: 'Double Electrons',
@@ -334,13 +249,7 @@ function createProtonUpgrades() {
 				amount: 8_000_000_000,
 				currency: CurrenciesTypes.PROTONS,
 			},
-			effects: [
-				{
-					type: 'electron_gain',
-					description: 'Double electrons gained from electronize',
-					apply: currentValue => currentValue * 2,
-				},
-			],
+			effects: [mul('electron_gain', 2)],
 		},
 		{
 			id: 'proton_electron_boost_2',
@@ -352,13 +261,7 @@ function createProtonUpgrades() {
 				amount: 350_000_000_000,
 				currency: CurrenciesTypes.PROTONS,
 			},
-			effects: [
-				{
-					type: 'electron_gain',
-					description: 'Double electrons gained from electronize',
-					apply: currentValue => currentValue * 2,
-				},
-			],
+			effects: [mul('electron_gain', 2)],
 		},
 		{
 			id: 'proton_electron_boost_3',
@@ -369,13 +272,7 @@ function createProtonUpgrades() {
 				amount: 20_000_000_000_000,
 				currency: CurrenciesTypes.PROTONS,
 			},
-			effects: [
-				{
-					type: 'electron_gain',
-					description: 'Triple electrons gained from electronize',
-					apply: currentValue => currentValue * 3,
-				},
-			],
+			effects: [mul('electron_gain', 3)],
 		},
 		{
 			id: 'proton_electron_boost_total_protonises',
@@ -386,18 +283,8 @@ function createProtonUpgrades() {
 				amount: 125_000_000_000_000,
 				currency: CurrenciesTypes.PROTONS,
 			},
-			effects: [
-				{
-					type: 'electron_gain',
-					description: '+1 electron per protonise',
-					apply: (currentValue, manager) => currentValue + (manager.totalProtonisesRun || 0),
-				},
-			],
+			effects: [add('electron_gain', manager => manager.totalProtonisesRun)],
 		},
-	);
-
-	// Proton boost based on total protonises
-	upgrades.push(
 		...createUpgrades({
 			id: 'protonise_boost',
 			count: 5,
@@ -409,21 +296,8 @@ function createProtonUpgrades() {
 				const baseCost = Math.ceil(5 * 3 ** (i + 2.1));
 				return i > 3 ? baseCost * i ** 5.1 : baseCost;
 			},
-			effects: i => [
-				{
-					type: 'global',
-					description: `Add ${25 * i}% production per protonise`,
-					apply: (currentValue, manager) => {
-						const boost = (manager.totalProtonisesRun || 0) * (0.25 * i);
-						return currentValue * (1 + boost);
-					},
-				},
-			],
+			effects: i => [mul('global', manager => 1 + manager.totalProtonisesRun * 0.25 * i)],
 		}),
-	);
-
-	// Starting atoms after protonise
-	upgrades.push(
 		...createUpgrades({
 			id: 'protonise_start',
 			count: 3,
@@ -435,18 +309,8 @@ function createProtonUpgrades() {
 				const baseCost = Math.ceil(3 * 2 ** (i + 1.1));
 				return i > 2 ? baseCost * i ** 3.1 : baseCost;
 			},
-			effects: i => [
-				{
-					type: 'global',
-					description: `Start with ${formatNumber(10 ** (3 + i))} atoms`,
-					apply: currentValue => currentValue,
-				},
-			],
+			effects: i => [add('start_atoms', 10 ** (3 + i))],
 		}),
-	);
-
-	// Auto-clicker upgrade
-	upgrades.push(
 		...createUpgrades({
 			id: 'proton_auto_click',
 			count: 5,
@@ -458,20 +322,10 @@ function createProtonUpgrades() {
 				const baseCost = Math.ceil(3 * 3 ** (i + 1.1));
 				return i > 1 ? baseCost * i ** 4.1 : baseCost;
 			},
-			effects: i => [
-				{
-					type: 'auto_click',
-					description: `Clicks ${Math.ceil(i / 2)} time${Math.ceil(i / 2) > 1 ? 's' : ''} per second automatically`,
-					apply: currentValue => currentValue + Math.ceil(i / 2),
-				},
-			],
+			effects: i => [add('auto_click', Math.ceil(i / 2))],
 		}),
-	);
-
-	// Offline automation unlocks
-	upgrades.push(
 		{
-			condition: state => state.features[FeatureTypes.OFFLINE_PROGRESS] === true,
+			condition: isOfflineUnlocked,
 			cost: {
 				amount: 120,
 				currency: CurrenciesTypes.PROTONS,
@@ -481,9 +335,9 @@ function createProtonUpgrades() {
 			icon: 'offline',
 			id: 'proton_offline_autobuy',
 			name: 'Offline Auto-upgrades',
-		} as Upgrade,
+		},
 		{
-			condition: state => state.features[FeatureTypes.OFFLINE_PROGRESS] === true,
+			condition: isOfflineUnlocked,
 			cost: {
 				amount: 250,
 				currency: CurrenciesTypes.PROTONS,
@@ -493,11 +347,7 @@ function createProtonUpgrades() {
 			icon: 'offline',
 			id: 'proton_offline_autoclick',
 			name: 'Offline Atom Auto-click',
-		} as Upgrade,
-	);
-
-	// Stability Boost
-	upgrades.push(
+		},
 		...createUpgrades({
 			id: 'stability_boost',
 			count: 5,
@@ -505,78 +355,38 @@ function createProtonUpgrades() {
 			icon: 'stabilityMeter',
 			name: i => `Stable Resonance ${i}`,
 			description: i => `+${25 * i}% effect from Stability Meter`,
-			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
-			cost: i => {
-				const baseCost = Math.ceil(140 * 2.05 ** i);
-				return baseCost;
-			},
-			effects: i => [
-				{
-					type: 'stability_boost',
-					description: `Increases Stability Meter effect`,
-					apply: (val) => val + 0.25,
-				},
-			],
+			condition: isStabilityUnlocked,
+			cost: i => Math.ceil(140 * 2.05 ** i),
+			effects: () => [add('stability_boost', 0.25)],
 		}),
-	);
-
-	// Stability Speed
-	upgrades.push(
 		...createUpgrades({
 			id: 'stability_speed',
 			count: 10,
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'stabilityMeter',
 			name: i => `Field Coherence ${i}`,
-			description: i => `Stability grows 10% faster`,
-			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
-			cost: i => {
-				const baseCost = Math.ceil(100 * 2.25 ** i);
-				return baseCost;
-			},
-			effects: i => [
-				{
-					type: 'stability_speed',
-					description: `Increases Stability Meter speed`,
-					apply: (val) => val + 0.1,
-				},
-			],
+			description: () => `Stability grows 10% faster`,
+			condition: isStabilityUnlocked,
+			cost: i => Math.ceil(100 * 2.25 ** i),
+			effects: () => [add('stability_speed', 0.1)],
 		}),
-	);
-
-	// Stability Expansion
-	upgrades.push(
 		...createUpgrades({
 			id: 'stability_expansion',
 			count: 5,
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'stabilityMeter',
 			name: i => `Temporal Expansion ${i}`,
-			description: i => `Extends stability capacity and max bonus`,
-			condition: (_, state) => state.features[FeatureTypes.STABILITY_FIELD] === true,
-			cost: i => {
-				const baseCost = Math.ceil(500 * 3 ** i);
-				return baseCost;
-			},
-			effects: i => [
-				{
-					type: 'stability_capacity',
-					description: `Increases Stability Meter capacity`,
-					apply: (val) => val + 2.2,
-				},
-			],
+			description: () => `Extends stability capacity and max bonus`,
+			condition: isStabilityUnlocked,
+			cost: i => Math.ceil(500 * 3 ** i),
+			effects: () => [add('stability_capacity', 2.2)],
 		}),
-	);
-
-	return upgrades;
+	];
 }
 
-function createElectronUpgrades() {
-	const upgrades: Upgrade[] = [];
-
-	// Auto-buy upgrades for each generator
-	upgrades.push(
-		...GENERATOR_TYPES.map((generatorType, index) => {
+function createElectronUpgrades(): Upgrade[] {
+	return [
+		...GENERATOR_TYPES.map((generatorType, index): Upgrade => {
 			const generator = GENERATORS[generatorType];
 			return {
 				id: `electron_auto_buy_${generatorType}`,
@@ -587,21 +397,10 @@ function createElectronUpgrades() {
 					currency: CurrenciesTypes.ELECTRONS,
 				},
 				icon: GENERATOR_ICON_NAMES[generatorType],
-				effects: [
-					{
-						type: 'auto_buy',
-						target: generatorType,
-						description: `Auto-buy 1 ${generator.name} every 30 seconds`,
-						apply: currentValue => 30000, // 30 seconds in milliseconds
-					},
-				],
-			} as Upgrade;
+				effects: [add('auto_buy', 0, generatorType)],
+			};
 		}),
-	);
-
-	// Auto-buy speed upgrades for each generator
-	upgrades.push(
-		...GENERATOR_TYPES.map((generatorType, index) => {
+		...GENERATOR_TYPES.map((generatorType, index): Upgrade => {
 			const generator = GENERATORS[generatorType];
 			return {
 				id: `electron_auto_buy_speed_${generatorType}`,
@@ -613,20 +412,9 @@ function createElectronUpgrades() {
 					currency: CurrenciesTypes.ELECTRONS,
 				},
 				icon: GENERATOR_ICON_NAMES[generatorType],
-				effects: [
-					{
-						type: 'auto_buy',
-						target: generatorType,
-						description: `Reduce auto-buy interval by 5 seconds`,
-						apply: currentValue => Math.max(1000, currentValue - 5000), // Minimum 1 second
-					},
-				],
-			} as Upgrade;
+				effects: [add('auto_buy', -5000, generatorType)],
+			};
 		}),
-	);
-
-	// Auto-upgrade system
-	upgrades.push(
 		...createUpgrades({
 			id: 'electron_auto_upgrade',
 			count: 4,
@@ -639,18 +427,8 @@ function createElectronUpgrades() {
 				}`,
 			condition: (i, state) => i === 1 || state.upgrades.includes(`electron_auto_upgrade_${i - 1}`),
 			cost: i => 25 + (i - 1) * 15,
-			effects: i => [
-				{
-					type: 'auto_upgrade',
-					description: i === 1 ? 'Auto-buy upgrades every 30 seconds' : 'Reduce auto-upgrade interval by 5 seconds',
-					apply: currentValue => (i === 1 ? 30000 : Math.max(1000, currentValue - 5000)),
-				},
-			],
+			effects: i => [add('auto_upgrade', i === 1 ? 0 : -5000)],
 		}),
-	);
-
-	// Power-up interval reduction
-	upgrades.push(
 		...createUpgrades({
 			id: 'electron_power_up_interval',
 			count: 4,
@@ -660,18 +438,8 @@ function createElectronUpgrades() {
 			description: i => `Reduces power-up spawn interval by ${i * 10}%`,
 			condition: (i, state) => i === 1 || state.upgrades.includes(`electron_power_up_interval_${i - 1}`),
 			cost: i => 6 * i,
-			effects: i => [
-				{
-					type: 'power_up_interval',
-					description: `Multiply power-up interval by ${1 - i * 0.1}`,
-					apply: currentValue => currentValue * (1 - i * 0.1),
-				},
-			],
+			effects: i => [mul('power_up_interval', 1 - i * 0.1)],
 		}),
-	);
-
-	// Stability Bypass Upgrades
-	upgrades.push(
 		{
 			id: 'electron_bypass_atom_autoclick_stability',
 			name: 'Stable Automation',
@@ -727,20 +495,18 @@ function createElectronUpgrades() {
 			icon: 'higgsBoson',
 			effects: [],
 		},
-	);
-
-	return upgrades;
+	];
 }
 
 const upgrades = [
-	...GENERATOR_TYPES.map(createGeneratorUpgrades).flat(),
+	...GENERATOR_TYPES.flatMap(createGeneratorUpgrades),
 	...createClickPowerUpgrades(),
 	...createGlobalUpgrades(),
 	...createOfflineCapUpgrades(),
 	...createPowerUpIntervalUpgrades(),
 	...createLevelBoostUpgrades(),
 	...createProtonUpgrades(),
-	...createElectronUpgrades()
+	...createElectronUpgrades(),
 ];
 
 export const UPGRADES = Object.fromEntries(upgrades.map(upgrade => [upgrade.id, upgrade]));

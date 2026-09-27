@@ -1,4 +1,5 @@
 import { RealmTypes, type RealmType } from '$data/realms';
+import { mul } from '$helpers/effects';
 import type { IconStackSpec } from '$helpers/iconStacks';
 import type { Effect } from '$lib/types';
 
@@ -58,13 +59,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	boost_click_power: {
 		cost: 60,
 		description: 'Permanently doubles click power.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Double click power',
-				type: 'click',
-			},
-		],
+		effects: [mul('click', 2), mul('click_aps', 2)],
 		iconStack: { icon: 'click' },
 		id: 'boost_click_power',
 		name: 'Heavy Click Boost',
@@ -73,13 +68,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	boost_global_production: {
 		cost: 120,
 		description: 'Permanently increases all production by 10%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.1,
-				description: '+10% global production',
-				type: 'global',
-			},
-		],
+		effects: [mul('global', 1.1)],
 		iconStack: { icon: 'trendingUp' },
 		id: 'boost_global_production',
 		name: 'Global Production Boost',
@@ -88,13 +77,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	boost_xp_gain: {
 		cost: 50,
 		description: 'Permanently increases XP gain by 25%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.25,
-				description: '+25% XP gain',
-				type: 'xp_gain',
-			},
-		],
+		effects: [mul('xp_gain', 1.25)],
 		iconStack: { icon: 'level' },
 		id: 'boost_xp_gain',
 		name: 'Experience Boost',
@@ -103,13 +86,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	convenience_auto_buy_speed: {
 		cost: 80,
 		description: 'Permanently increases auto-buyer speed by 20%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.2,
-				description: '+20% auto-buy speed',
-				type: 'auto_speed',
-			},
-		],
+		effects: [mul('auto_speed', 1.2)],
 		iconStack: { icon: 'speed' },
 		id: 'convenience_auto_buy_speed',
 		name: 'Faster Auto-Buyers',
@@ -118,13 +95,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	convenience_power_up_duration: {
 		cost: 70,
 		description: 'Permanently increases power-up duration by 20%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.2,
-				description: '+20% power-up duration',
-				type: 'power_up_duration',
-			},
-		],
+		effects: [mul('power_up_duration', 1.2)],
 		iconStack: { icon: 'offline' },
 		id: 'convenience_power_up_duration',
 		name: 'Extended Power-Ups',
