@@ -673,9 +673,9 @@ export class SimulationEngine {
 		if (cached && this.photonEffectsSources === sources && this.photonEffectsStability === stability) return cached;
 
 		const photonValueBonus = gameManager.photonValueBonus;
-		const doubleChance = foldEffects(sources, gameManager, 0, { type: 'photon_double_chance' });
-		const excitedDoubleChance = foldEffects(sources, gameManager, 0, { type: 'excited_photon_double' });
-		const excitedFromMaxBonus = foldEffects(sources, gameManager, 0, { type: 'excited_photon_from_max' });
+		const doubleChance = gameManager.photonDoubleChance;
+		const excitedDoubleChance = gameManager.excitedPhotonDoubleChance;
+		const excitedFromMaxBonus = gameManager.excitedPhotonFromMaxBonus;
 		const excitedLifetimeMultiplier = foldEffects(sources, gameManager, 1, { type: 'excited_photon_duration' });
 		const excitedStability = foldEffects(sources, gameManager, 1, { type: 'excited_photon_stability' });
 		const lifetimeBonusMs = foldEffects(sources, gameManager, 0, { type: 'photon_duration' });

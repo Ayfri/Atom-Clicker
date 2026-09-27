@@ -1,5 +1,4 @@
 import { gameManager } from '$helpers/GameManager.svelte';
-import { UPGRADES } from '$data/upgrades';
 import { browser } from '$app/environment';
 import { SvelteSet } from 'svelte/reactivity';
 
@@ -10,24 +9,9 @@ class AutoUpgradeManager {
 	purchaseAvailableUpgrades() {
 		if (!gameManager.settings.automation.upgrades) return;
 
-		const availableUpgrades = Object.values(UPGRADES)
-			.filter((upgrade) => {
-				const meetsCondition = upgrade.condition?.(gameManager) ?? true;
-				const notPurchased = !gameManager.upgrades.includes(upgrade.id);
-				return meetsCondition && notPurchased;
-			})
-			.sort((a, b) => a.cost.amount - b.cost.amount);
-
-		for (const upgrade of availableUpgrades) {
-			if (!gameManager.canAfford(upgrade.cost)) continue;
-
-			gameManager.purchaseUpgrade(upgrade.id);
-
-			// Add visual feedback
-			this.recentlyAutoPurchased.add(upgrade.id);
-			setTimeout(() => {
-				this.recentlyAutoPurchased.delete(upgrade.id);
-			}, 2000);
+		for (const id of gameManager.purchaseAffordableUpgrades()) {
+			this.recentlyAutoPurchased.add(id);
+			setTimeout(() => this.recentlyAutoPurchased.delete(id), 2000);
 		}
 	}
 

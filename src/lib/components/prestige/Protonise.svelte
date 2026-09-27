@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '$data/currencies';
 	import { FeatureTypes } from '$data/features';
-	import { getUpgradesWithEffects } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { prestigeStore } from '$stores/prestige.svelte';
 	import { PROTONS_ATOMS_REQUIRED } from '$lib/constants';
@@ -57,7 +56,7 @@
 	const protonGainBreakdown = $derived.by(() => {
 		const baseGain = gameManager.atoms < PROTONS_ATOMS_REQUIRED ? 0 : Math.floor(Math.sqrt(gameManager.atoms / PROTONS_ATOMS_REQUIRED));
 		const options = { type: 'proton_gain' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
+		const upgrades = gameManager.allEffectSources;
 		let currentValue = baseGain;
 		const effects: GainBreakdownItem[] = [];
 

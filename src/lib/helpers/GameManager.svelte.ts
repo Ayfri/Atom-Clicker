@@ -303,6 +303,9 @@ export class GameManager {
 		return foldEffects(this.allEffectSources, this, baseSpawnRate, options);
 	});
 
+	excitedPhotonDoubleChance = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'excited_photon_double' }));
+	excitedPhotonFromMaxBonus = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'excited_photon_from_max' }));
+	photonDoubleChance = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'photon_double_chance' }));
 	photonValueBonus = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'photon_value' }));
 
 	playerLevel = $derived(this.getLevelFromTotalXP(this.totalXP));
@@ -789,6 +792,18 @@ export class GameManager {
 			return true;
 		}
 		return false;
+	}
+
+	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline. Returns the purchased ids. */
+	purchaseAffordableUpgrades(): string[] {
+		const candidates = Object.values(UPGRADES)
+			.filter(upgrade => !this.upgrades.includes(upgrade.id) && (upgrade.condition?.(this) ?? true))
+			.sort((a, b) => a.cost.amount - b.cost.amount);
+		const purchased: string[] = [];
+		for (const upgrade of candidates) {
+			if (this.canAfford(upgrade.cost) && this.purchaseUpgrade(upgrade.id)) purchased.push(upgrade.id);
+		}
+		return purchased;
 	}
 
 	checkRealmUnlocks() {

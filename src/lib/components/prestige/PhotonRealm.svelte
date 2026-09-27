@@ -5,7 +5,7 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { calculateEffects } from '$helpers/effects';
+	import { foldEffects } from '$helpers/effects';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
 	import { formatNumber } from '$lib/utils';
@@ -86,38 +86,14 @@
 	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
 	const MAX_PIXEL_RATIO = 2;
 
-	function getSizeMultiplier() {
-		return calculateEffects(gameManager.allEffectSources, gameManager, baseSizeMultiplier, { type: 'photon_size' });
-	}
-
-	function getExcitedFromMaxBonus() {
-		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'excited_photon_from_max' });
-	}
-
-	function getLifetimeBonus() {
-		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'photon_duration' });
-	}
-
-	function getExcitedLifetimeMultiplier() {
-		return calculateEffects(gameManager.allEffectSources, gameManager, 1, { type: 'excited_photon_duration' });
-	}
-
-	function getDoubleChance() {
-		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'photon_double_chance' });
-	}
-
-	function getExcitedDoubleChance() {
-		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'excited_photon_double' });
-	}
-
-	function getIsExcited() {
-		return Math.random() < gameManager.excitedPhotonChance;
-	}
+	const sizeMultiplier = $derived(foldEffects(gameManager.allEffectSources, gameManager, baseSizeMultiplier, { type: 'photon_size' }));
+	const lifetimeBonus = $derived(foldEffects(gameManager.allEffectSources, gameManager, 0, { type: 'photon_duration' }));
+	const excitedLifetimeMultiplier = $derived(foldEffects(gameManager.allEffectSources, gameManager, 1, { type: 'excited_photon_duration' }));
 
 	function getCircleValue(circle: Circle) {
 		const amount = circle.photons;
 		const type = circle.type === 'excited' ? 'excited_photon_stability' : 'photon_stability';
-		return Math.floor(calculateEffects(gameManager.allEffectSources, gameManager, amount, { type }));
+		return Math.floor(foldEffects(gameManager.allEffectSources, gameManager, amount, { type }));
 	}
 
 	// Labels are redrawn every frame, so results are memoized until the effect sources change.
@@ -146,13 +122,8 @@
 
 		const margin = MAX_SIZE;
 
-		// Apply upgrades
-		const sizeMultiplier = getSizeMultiplier();
 		const photonValueBonus = gameManager.photonValueBonus;
-		const lifetimeBonus = getLifetimeBonus();
-		const doubleChance = getDoubleChance();
-
-		const isExcited = getIsExcited();
+		const isExcited = Math.random() < gameManager.excitedPhotonChance;
 
 		const baseSize = Math.random() * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
 		const basePhotons = Math.floor(Math.random() * (MAX_PHOTONS - MIN_PHOTONS + 1)) + MIN_PHOTONS;
@@ -160,24 +131,16 @@
 		let finalPhotons = basePhotons;
 
 		if (isExcited) {
-			// Excited photons give 1 excited photon currency (or 2 if double chance)
-			const excitedDoubleChance = getExcitedDoubleChance();
-			const baseExcited = Math.random() < excitedDoubleChance ? 2 : 1;
-
-			// Add bonus from max photon value
-			const maxPhotonValue = MAX_PHOTONS + photonValueBonus;
-			const fromMaxBonusFactor = getExcitedFromMaxBonus();
-
-			finalPhotons = baseExcited + (maxPhotonValue * fromMaxBonusFactor);
+			// Excited photons give 1 excited photon currency (or 2 if double chance), plus a share of the max photon value
+			const baseExcited = Math.random() < gameManager.excitedPhotonDoubleChance ? 2 : 1;
+			finalPhotons = baseExcited + (MAX_PHOTONS + photonValueBonus) * gameManager.excitedPhotonFromMaxBonus;
 		} else {
-			// Apply double chance for normal photons
-			finalPhotons = Math.random() < doubleChance ? (basePhotons + photonValueBonus) * 2 : basePhotons + photonValueBonus;
+			finalPhotons = Math.random() < gameManager.photonDoubleChance ? (basePhotons + photonValueBonus) * 2 : basePhotons + photonValueBonus;
 		}
 
-		// Calculate Max Lifetime
 		let maxLifetime = baseCircleLifetime + lifetimeBonus;
 		if (isExcited) {
-			maxLifetime *= getExcitedLifetimeMultiplier();
+			maxLifetime *= excitedLifetimeMultiplier;
 		}
 
 		const circle: Circle = {

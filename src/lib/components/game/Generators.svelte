@@ -9,7 +9,7 @@
 	} from '$data/generators';
 	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
 	import { GENERATOR_COST_MULTIPLIER } from '$lib/constants';
-	import { getUpgradesWithEffects } from '$lib/helpers/effects';
+	import { effectsFor } from '$lib/helpers/effects';
 	import { formatNumber } from '$lib/utils';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
@@ -34,11 +34,7 @@
 
 	// The rows re-render on every atom commit, so the automation lookup is folded once instead of scanning every upgrade per row.
 	const automatedByUpgrade = $derived(
-		new Set(
-			getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_buy' })
-				.flatMap(upgrade => upgrade.effects ?? [])
-				.flatMap(effect => (effect.type === 'auto_buy' && effect.target ? [effect.target] : [])),
-		),
+		new Set(effectsFor(gameManager.currentUpgradesBought, { type: 'auto_buy' }).flatMap(effect => (effect.target ? [effect.target] : []))),
 	);
 
 	const hiddenGenerators = $derived(

@@ -1,29 +1,9 @@
-import type { Effect, SkillUpgrade, Upgrade } from "$lib/types";
+import type { Effect, SkillUpgrade, Upgrade } from '$lib/types';
 import type { GameManager } from '$helpers/GameManager.svelte';
 
 interface SearchEffectsOptions {
-    target?: Effect['target'];
-    type?: Effect['type'];
-}
-
-export function getUpgradesWithEffects(upgrades: (Upgrade | SkillUpgrade)[], options: SearchEffectsOptions) {
-    return upgrades.filter((upgrade): upgrade is (Upgrade | SkillUpgrade) => {
-        if ('effects' in upgrade && Array.isArray(upgrade.effects)) {
-            const effects = upgrade.effects;
-            let isType = true;
-            let isTarget = true;
-
-            if (options.type) {
-                isType = effects.some(effect => effect.type === options.type);
-            }
-            if (options.target) {
-                isTarget = effects.some(effect => effect.target === options.target);
-            }
-            return isType && isTarget;
-        }
-
-        return false;
-    });
+	target?: Effect['target'];
+	type?: Effect['type'];
 }
 
 const ANY = '*';
@@ -72,10 +52,7 @@ export function effectsFor(upgrades: (Upgrade | SkillUpgrade)[], options: Search
 	return cached.index.get(bucketKey(options.type, options.target)) ?? [];
 }
 
-/**
- * Fused `getUpgradesWithEffects` + `calculateEffects`: the hot derived stats read the pre-bucketed effects for the
- * requested `{type, target}` and fold them directly, without the intermediate array or the per-effect filtering.
- */
+/** Folds the pre-bucketed effects matching `{type, target}` over `defaultValue`, in source order. */
 export function foldEffects(upgrades: (Upgrade | SkillUpgrade)[], manager: GameManager, defaultValue: number, options: SearchEffectsOptions): number {
 	return foldBucket(effectsFor(upgrades, options), manager, defaultValue);
 }
@@ -117,8 +94,4 @@ function foldBucket(effects: Effect[], rawManager: GameManager, defaultValue: nu
 	}
 
 	return value;
-}
-
-export function calculateEffects(upgrades: (Upgrade | SkillUpgrade)[], manager: GameManager, defaultValue: number = 0, options?: SearchEffectsOptions): number {
-	return foldEffects(upgrades, manager, defaultValue, options ?? {});
 }

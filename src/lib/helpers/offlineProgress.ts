@@ -1,9 +1,7 @@
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import type { GeneratorType } from '$data/generators';
-import { UPGRADES } from '$data/upgrades';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { calculateEffects, getUpgradesWithEffects } from '$helpers/effects';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { XP_PER_ATOM } from '$lib/constants';
@@ -87,19 +85,18 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		}
 	};
 
-	const autoBuyIntervals = autoBuyEnabled ? getOfflineAutoBuyIntervals(manager) : {};
 	const offlineAutoBuyIntervals: Partial<Record<GeneratorType, number>> = {};
 	const nextAutoBuyTimes: Partial<Record<GeneratorType, number>> = {};
 
-	Object.entries(autoBuyIntervals).forEach(([type, interval]) => {
-		if (!interval || !Number.isFinite(interval) || interval <= 0) return;
-		const generatorType = type as GeneratorType;
-		offlineAutoBuyIntervals[generatorType] = interval * OFFLINE_AUTO_FACTOR;
-		nextAutoBuyTimes[generatorType] = interval * OFFLINE_AUTO_FACTOR;
-	});
+	if (autoBuyEnabled) {
+		for (const [type, interval] of Object.entries(manager.autoBuyIntervals) as [GeneratorType, number][]) {
+			if (!Number.isFinite(interval) || interval <= 0) continue;
+			offlineAutoBuyIntervals[type] = interval * OFFLINE_AUTO_FACTOR;
+			nextAutoBuyTimes[type] = interval * OFFLINE_AUTO_FACTOR;
+		}
+	}
 
-	const baseAutoUpgradeInterval = autoUpgradeEnabled ? getOfflineAutoUpgradeInterval(manager) : 0;
-	const offlineAutoUpgradeInterval = baseAutoUpgradeInterval > 0 ? baseAutoUpgradeInterval * OFFLINE_AUTO_FACTOR : 0;
+	const offlineAutoUpgradeInterval = autoUpgradeEnabled ? manager.autoUpgradeInterval * OFFLINE_AUTO_FACTOR : 0;
 	let nextAutoUpgradeAt = offlineAutoUpgradeInterval;
 
 	let elapsed = 0;
@@ -135,7 +132,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		if (elapsed + epsilon >= appliedMs) break;
 
 		if (offlineAutoUpgradeInterval > 0 && nextAutoUpgradeAt > 0 && nextAutoUpgradeAt <= elapsed + epsilon) {
-			autoUpgradePurchases += purchaseAvailableUpgradesOffline(manager);
+			autoUpgradePurchases += manager.purchaseAffordableUpgrades().length;
 			nextAutoUpgradeAt += offlineAutoUpgradeInterval;
 		}
 
@@ -149,26 +146,22 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		});
 	}
 
-	if (photonAutoClickEnabled && manager.photonAutoClicksPer5Seconds > 0) {
-		const appliedSeconds = appliedMs / 1000;
-		const photonAutoClicksPerSecond = manager.photonAutoClicksPer5Seconds / 5 / OFFLINE_AUTO_FACTOR;
-		photonAutoClicks = photonAutoClicksPerSecond * appliedSeconds;
+	const photonAutoClicksPerSecond = photonAutoClickEnabled ? manager.photonAutoClicksPer5Seconds / 5 / OFFLINE_AUTO_FACTOR : 0;
+	/** Expected photons from one normal and one excited circle, the averages the whole offline stretch is paid at. */
+	const photonClickExpectedNormal =
+		photonAutoClickEnabled ? ((OFFLINE_PHOTON_MIN + OFFLINE_PHOTON_MAX) / 2 + manager.photonValueBonus) * (1 + manager.photonDoubleChance) : 0;
+	const photonClickExpectedExcited =
+		photonAutoClickEnabled ?
+			1 + manager.excitedPhotonDoubleChance + (OFFLINE_PHOTON_MAX + manager.photonValueBonus) * manager.excitedPhotonFromMaxBonus
+		:	0;
 
-		const photonValueBonus = manager.photonValueBonus;
-		const doubleChance = getOfflinePhotonDoubleChance(manager);
-		const excitedDoubleChance = getOfflineExcitedPhotonDoubleChance(manager);
-		const fromMaxBonusFactor = getOfflineExcitedFromMaxBonus(manager);
+	if (photonAutoClicksPerSecond > 0) {
+		photonAutoClicks = photonAutoClicksPerSecond * (appliedMs / 1000);
 
 		const allowExcited = (manager.photonUpgrades['excited_auto_click'] || 0) > 0;
 		const excitedChance = allowExcited ? manager.excitedPhotonChance : 0;
-
-		const basePhotonAverage = (OFFLINE_PHOTON_MIN + OFFLINE_PHOTON_MAX) / 2;
-		const normalExpected = (basePhotonAverage + photonValueBonus) * (1 + doubleChance);
-		const baseExcitedExpected = 1 + excitedDoubleChance;
-		const maxPhotonValue = OFFLINE_PHOTON_MAX + photonValueBonus;
-		const excitedExpected = baseExcitedExpected + maxPhotonValue * fromMaxBonusFactor;
-		const expectedNormal = (1 - excitedChance) * normalExpected * photonAutoClicks;
-		const expectedExcited = excitedChance * excitedExpected * photonAutoClicks;
+		const expectedNormal = (1 - excitedChance) * photonClickExpectedNormal * photonAutoClicks;
+		const expectedExcited = excitedChance * photonClickExpectedExcited * photonAutoClicks;
 
 		photonsGained += expectedNormal;
 		excitedPhotonsGained += expectedExcited;
@@ -202,15 +195,6 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		manager.lastInteractionTime = now;
 	}
 
-	const photonAutoClicksPerSecond = photonAutoClickEnabled ? manager.photonAutoClicksPer5Seconds / 5 / OFFLINE_AUTO_FACTOR : 0;
-	const photonValueBonus = photonAutoClickEnabled ? manager.photonValueBonus : 0;
-	const photonDoubleChance = photonAutoClickEnabled ? getOfflinePhotonDoubleChance(manager) : 0;
-	const excitedDoubleChance = photonAutoClickEnabled ? getOfflineExcitedPhotonDoubleChance(manager) : 0;
-	const fromMaxBonusFactor = photonAutoClickEnabled ? getOfflineExcitedFromMaxBonus(manager) : 0;
-	const photonClickExpectedNormal =
-		photonAutoClickEnabled ? ((OFFLINE_PHOTON_MIN + OFFLINE_PHOTON_MAX) / 2 + photonValueBonus) * (1 + photonDoubleChance) : 0;
-	const photonClickExpectedExcited =
-		photonAutoClickEnabled ? 1 + excitedDoubleChance + (OFFLINE_PHOTON_MAX + photonValueBonus) * fromMaxBonusFactor : 0;
 	const photonClickExpectedTotal = photonAutoClickEnabled ? (photonsGained + excitedPhotonsGained) / (photonAutoClicks || 1) : 0;
 
 	// Radiation Summary
@@ -248,89 +232,12 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	};
 }
 
-function getOfflineAutoBuyIntervals(manager: GameManager) {
-	const autoBuyUpgrades = getUpgradesWithEffects(manager.currentUpgradesBought, { type: 'auto_buy' });
-	const intervals: Partial<Record<GeneratorType, number>> = {};
-
-	autoBuyUpgrades.forEach(upgrade => {
-		if (!upgrade.effects) return;
-
-		upgrade.effects.forEach(effect => {
-			if (effect.type === 'auto_buy' && effect.target) {
-				const generatorType = effect.target as GeneratorType;
-				if (manager.settings.automation.generators.includes(generatorType)) {
-					intervals[generatorType] = effect.apply(intervals[generatorType] || 30000, manager);
-				}
-			}
-		});
-	});
-
-	return intervals;
-}
-
-function getOfflineAutoUpgradeInterval(manager: GameManager) {
-	if (!manager.settings.automation.upgrades) return 0;
-
-	const autoUpgrades = getUpgradesWithEffects(manager.currentUpgradesBought, { type: 'auto_upgrade' });
-	let interval = 30000;
-
-	autoUpgrades.forEach(upgrade => {
-		upgrade.effects?.forEach(effect => {
-			if (effect.type === 'auto_upgrade') {
-				interval = effect.apply(interval, manager);
-			}
-		});
-	});
-
-	return interval;
-}
-
-function getOfflineExcitedFromMaxBonus(manager: GameManager) {
-	const options = { type: 'excited_photon_from_max' as const };
-	const upgrades = getUpgradesWithEffects(manager.allEffectSources, options);
-	return calculateEffects(upgrades, manager, 0, options);
-}
-
-function getOfflineExcitedPhotonDoubleChance(manager: GameManager) {
-	const options = { type: 'excited_photon_double' as const };
-	const upgrades = getUpgradesWithEffects(manager.allEffectSources, options);
-	return calculateEffects(upgrades, manager, 0, options);
-}
-
-function getOfflinePhotonDoubleChance(manager: GameManager) {
-	const options = { type: 'photon_double_chance' as const };
-	const upgrades = getUpgradesWithEffects(manager.allEffectSources, options);
-	return calculateEffects(upgrades, manager, 0, options);
-}
-
 function getOfflineProgressCapMs(manager: GameManager) {
 	if (!manager.features[OFFLINE_UNLOCK_FEATURE]) return 0;
 
 	let capMs = OFFLINE_BASE_MS;
-	Object.entries(OFFLINE_CAP_UPGRADE_MAP).forEach(([id, value]) => {
-		if (manager.upgrades.includes(id)) {
-			capMs = Math.max(capMs, value);
-		}
-	});
-
+	for (const [id, value] of Object.entries(OFFLINE_CAP_UPGRADE_MAP)) {
+		if (manager.upgrades.includes(id)) capMs = Math.max(capMs, value);
+	}
 	return Math.min(capMs, OFFLINE_MAX_MS);
-}
-
-function purchaseAvailableUpgradesOffline(manager: GameManager) {
-	let purchases = 0;
-	const availableUpgrades = Object.values(UPGRADES)
-		.filter(upgrade => {
-			const meetsCondition = upgrade.condition?.(manager) ?? true;
-			const notPurchased = !manager.upgrades.includes(upgrade.id);
-			return meetsCondition && notPurchased;
-		})
-		.sort((a, b) => a.cost.amount - b.cost.amount);
-
-	availableUpgrades.forEach(upgrade => {
-		if (!manager.canAfford(upgrade.cost)) return;
-		manager.purchaseUpgrade(upgrade.id);
-		purchases += 1;
-	});
-
-	return purchases;
 }

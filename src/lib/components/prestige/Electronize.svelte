@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '$data/currencies';
-	import { getUpgradesWithEffects } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { ELECTRONS_PROTONS_REQUIRED } from '$lib/constants';
 	import { formatNumber } from '$lib/utils';
@@ -43,7 +42,7 @@
 	const electronGainBreakdown = $derived.by(() => {
 		const baseGain = gameManager.protons < ELECTRONS_PROTONS_REQUIRED ? 0 : 1;
 		const options = { type: 'electron_gain' as const };
-		const upgrades = getUpgradesWithEffects(gameManager.allEffectSources, options);
+		const upgrades = gameManager.allEffectSources;
 		let currentValue = baseGain;
 		const effects: GainBreakdownItem[] = [];
 
