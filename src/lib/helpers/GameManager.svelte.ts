@@ -38,7 +38,7 @@ import { leaderboard } from '$stores/leaderboard.svelte';
 import { saveRecovery } from '$stores/saveRecovery';
 import { toastStore } from '$stores/toasts.svelte';
 
-/** `tick` already drops expired power-ups on the simulated clock, so this timer is a precision helper and must never hold a headless runtime open. */
+/** `tick` already drops expired power-ups on `clock`, so this timer only adds sub-second precision and must never hold a headless runtime open. */
 function scheduleExpiry(callback: () => void, delay: number) {
 	const timer = setTimeout(callback, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
 	timer.unref?.();
@@ -599,16 +599,10 @@ export class GameManager {
 			this.lastInteractionTime = data.lastInteractionTime;
 		}
 
-		// Filter expired power-ups and setup removal timeouts
 		if (this.activePowerUps.length > 0) {
-			const now = Date.now();
-			this.activePowerUps = this.activePowerUps.filter(p => {
-				if (!p.startTime) return false; // Remove malformed power-ups
-				return now < p.startTime + p.duration;
-			});
-			this.activePowerUps.forEach(p => {
-				scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
-			});
+			const now = this.clock();
+			this.activePowerUps = this.activePowerUps.filter(p => p.startTime && now < p.startTime + p.duration);
+			for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 		}
 	}
 
@@ -1085,8 +1079,8 @@ export class GameManager {
 
 		// Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live.
 		if (this.activePowerUps.length > 0) {
-			const expireTime = this.inGameTime;
-			const remaining = this.activePowerUps.filter(p => expireTime - (p.startTime ?? 0) < p.duration);
+			const now = this.clock();
+			const remaining = this.activePowerUps.filter(p => now - (p.startTime ?? 0) < p.duration);
 			if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
 		}
 	}
