@@ -1,35 +1,59 @@
+import { CurrenciesTypes } from '$data/currencies';
 import { GENERATORS, GENERATOR_TYPES } from '$data/generators';
-import type { MilestoneCheckData, MilestoneDefinition } from './types';
+import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+import { gameManager } from '$helpers/GameManager.svelte';
+import type { RunState } from './snapshots';
+import type { MilestoneDefinition, MilestoneHit } from './types';
 
-type NumericField = {
-	[K in keyof MilestoneCheckData]: MilestoneCheckData[K] extends number ? K : never;
-}[keyof MilestoneCheckData];
+const DAY_MS = 86_400_000;
+
+type Reader = (run: RunState) => number;
 
 /**
- * Definition and predicate live in one entry so an id can never exist in one list and be missing from the other.
- * The predicate stays beside the definition rather than on it: MilestoneHit carries the definition across the
- * worker boundary, and a function on it would fail structured cloning.
+ * The predicate stays beside the definition rather than on it: MilestoneHit carries the definition across the worker
+ * boundary, and a function on it would fail structured cloning.
  */
-export interface MilestoneEntry {
-	check: (snapshot: MilestoneCheckData) => boolean;
+interface MilestoneEntry {
 	milestone: MilestoneDefinition;
+	read: Reader;
+	value: number;
 }
 
-const at = (field: NumericField, value: number, id: string, name: string, description: string): MilestoneEntry => ({
-	check: snapshot => snapshot[field] >= value,
+const READERS = {
+	achievements: () => gameManager.achievements.length,
+	atoms: () => currenciesManager.getAmount(CurrenciesTypes.ATOMS),
+	atomsPerSecond: () => gameManager.atomsPerSecond,
+	boostPointsUsed: () => gameManager.boostPointsUsed,
+	electronizes: () => gameManager.totalElectronizesAllTime,
+	electrons: () => currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
+	excitedPhotons: () => currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
+	photonUpgradeLevels: () => gameManager.photonUpgradeLevels,
+	playerLevel: () => gameManager.playerLevel,
+	protonises: () => gameManager.totalProtonisesAllTime,
+	protons: () => currenciesManager.getAmount(CurrenciesTypes.PROTONS),
+	quarks: run => run.quarksFromAchievements + run.quests.quarks,
+	skills: () => gameManager.skillUpgrades.length,
+	totalGenerators: () => gameManager.generatorTotals.count,
+	upgrades: () => gameManager.upgrades.length,
+} satisfies Record<string, Reader>;
+
+const at = (field: keyof typeof READERS, value: number, id: string, name: string, description: string): MilestoneEntry => ({
 	milestone: { description, id, name },
+	read: READERS[field],
+	value,
 });
 
 const firstPurchase = (type: (typeof GENERATOR_TYPES)[number]): MilestoneEntry => ({
-	check: snapshot => snapshot.generatorsEverPurchased.has(type),
 	milestone: {
 		description: `Purchased first ${GENERATORS[type].name}`,
 		id: `first_generator_${type}`,
 		name: `First ${GENERATORS[type].name}`,
 	},
+	read: run => (run.everPurchasedGenerators.has(type) ? 1 : 0),
+	value: 1,
 });
 
-export const MILESTONE_ENTRIES: MilestoneEntry[] = [
+const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('atoms', 1e3, 'atoms_1k', '1K Atoms', 'Reached 1K Atoms'),
 	at('atoms', 1e6, 'atoms_1m', '1M Atoms', 'Reached 1M Atoms'),
 	at('atoms', 1e9, 'atoms_1b', '1B Atoms', 'Reached 1B Atoms'),
@@ -82,9 +106,48 @@ export const MILESTONE_ENTRIES: MilestoneEntry[] = [
 
 	...GENERATOR_TYPES.map(firstPurchase),
 
-	at('quarks', 10, 'quarks_10', '10 Quark', 'Earned 10 Quark'),
-	at('quarks', 50, 'quarks_50', '50 Quarks', 'Earned 100 Quarks'),
-	at('quarks', 100, 'quarks_100', '100 Quarks', 'Earned 200 Quarks'),
+	at('quarks', 10, 'quarks_10', '10 Quarks', 'Earned 10 Quarks'),
+	at('quarks', 50, 'quarks_50', '50 Quarks', 'Earned 50 Quarks'),
+	at('quarks', 100, 'quarks_100', '100 Quarks', 'Earned 100 Quarks'),
 ];
 
 export const MILESTONES: MilestoneDefinition[] = MILESTONE_ENTRIES.map(entry => entry.milestone);
+
+interface Queue {
+	entries: MilestoneEntry[];
+	next: number;
+	read: Reader;
+}
+
+/**
+ * Entries sharing a reader are queued by threshold, so a tick reads each still-pending value once and stops at the first
+ * unmet threshold. Checked every tick rather than per snapshot: a counter that rises and is spent in between still counts.
+ */
+export class MilestoneTracker {
+	private queues: Queue[];
+
+	constructor() {
+		const byReader = new Map<Reader, MilestoneEntry[]>();
+		for (const entry of MILESTONE_ENTRIES) byReader.set(entry.read, [...(byReader.get(entry.read) ?? []), entry]);
+		this.queues = [...byReader].map(([read, entries]) => ({ entries: entries.sort((a, b) => a.value - b.value), next: 0, read }));
+	}
+
+	/** Appends the milestones reached this tick to `hits`, in definition order. */
+	check(run: RunState, hits: MilestoneHit[]) {
+		let exhausted = false;
+		const firstHit = hits.length;
+		const timeReached = gameManager.inGameTime;
+		for (const queue of this.queues) {
+			const value = queue.read(run);
+			while (queue.next < queue.entries.length && value >= queue.entries[queue.next].value) {
+				hits.push({ dayReached: timeReached / DAY_MS, milestone: queue.entries[queue.next++].milestone, timeReached });
+			}
+			if (queue.next === queue.entries.length) exhausted = true;
+		}
+		if (exhausted) this.queues = this.queues.filter(queue => queue.next < queue.entries.length);
+		if (hits.length - firstHit > 1) {
+			const sameTick = hits.splice(firstHit).sort((a, b) => MILESTONES.indexOf(a.milestone) - MILESTONES.indexOf(b.milestone));
+			hits.push(...sameTick);
+		}
+	}
+}

@@ -145,7 +145,6 @@
 </script>
 
 <div class="backdrop-blur-xl bg-slate-900/95 border border-white/10 flex flex-col h-full overflow-hidden rounded-2xl">
-	<!-- Header -->
 	<div class="border-b border-white/10 flex items-center justify-between px-4 py-3 shrink-0">
 		<div class="flex gap-2.5 items-center">
 			<History
@@ -169,7 +168,6 @@
 		</button>
 	</div>
 
-	<!-- Search + Sort -->
 	{#if reports.length > 0}
 		<div class="border-b border-white/5 flex flex-col gap-2 px-3 py-2.5 shrink-0">
 			<div class="bg-white/5 flex gap-2 items-center px-2.5 py-1.5 rounded-lg">
@@ -219,7 +217,6 @@
 		</div>
 	{/if}
 
-	<!-- List -->
 	<div class="flex-1 overflow-y-auto px-3 py-3">
 		{#if loading}
 			<div class="flex flex-col gap-2 pt-2">
@@ -254,7 +251,6 @@
 								? 'bg-cyan-500/8 border-cyan-500/40'
 								: 'bg-white/4 border-white/8 hover:border-white/15'}"
 					>
-						<!-- Name + meta -->
 						<div class="flex flex-col gap-1 min-w-0">
 							{#if isEditing}
 								<div class="flex gap-1.5 items-center">
@@ -305,7 +301,6 @@
 							</div>
 						</div>
 
-						<!-- Result summary -->
 						<div class="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px]">
 							<span class="text-pink-400">{formatNumber(report.finalAPS)}/s</span>
 							<span class="text-green-400">{formatNumber(report.finalAtoms)} atoms</span>
@@ -313,7 +308,6 @@
 							<span class="text-cyan-400">{report.milestoneCount} milestones</span>
 						</div>
 
-						<!-- Actions -->
 						<div class="flex gap-1.5 items-center">
 							<button
 								onclick={() => onLoad(report.id)}

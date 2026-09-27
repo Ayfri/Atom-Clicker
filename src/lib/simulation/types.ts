@@ -174,27 +174,14 @@ export interface SimulationResult {
 	spikes: SpikeEvent[];
 }
 
-/**
- * Fields a milestone predicate may read. Checked on every tick, so this is a mutable scratch object the engine reuses
- * and `generatorsEverPurchased` is the engine's own set rather than a copy.
- */
-export interface MilestoneCheckData {
-	achievements: number;
-	atoms: number;
-	atomsPerSecond: number;
-	generatorsEverPurchased: ReadonlySet<string>;
-	dayNumber: number;
-	electronizes: number;
-	electrons: number;
-	excitedPhotons: number;
-	photonUpgradeLevels: number;
-	playerLevel: number;
-	protonises: number;
-	protons: number;
-	quarks: number;
-	boostPointsUsed: number;
-	skills: number;
-	timestamp: number;
-	totalGenerators: number;
-	upgrades: number;
+export interface SimulationProgress {
+	currentHour: number;
+	estimatedTimeLeft: number;
+	/** Only what happened since the previous callback: resending whole arrays every time is quadratic. */
+	newMilestones: MilestoneHit[];
+	newSnapshots: SimulationSnapshot[];
+	newSpikes: SpikeEvent[];
+	percent: number;
+	ticksPerSecond: number;
+	totalHours: number;
 }

@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { RotateCcw, Target } from '@lucide/svelte';
 	import { formatDuration, formatNumber, formatSimTimePrecise } from '$lib/utils';
-	import type { MilestoneHit } from '$lib/simulation/types';
-	import type { SimulationProgress } from '$lib/simulation/engine';
+	import type { MilestoneHit, SimulationProgress } from '$lib/simulation/types';
 
-	let { isRunning, elapsedTime, progress, milestones, targetHours } = $props<{
-		isRunning: boolean;
+	interface Props {
 		elapsedTime: number;
-		progress: SimulationProgress | null;
+		isRunning: boolean;
 		milestones: MilestoneHit[];
+		progress: SimulationProgress | null;
 		targetHours: number;
-	}>();
+	}
 
-	// Group milestones within 3% of the total run time together.
-	// Compare against the first item so chains don't stretch indefinitely.
+	let { elapsedTime, isRunning, milestones, progress, targetHours }: Props = $props();
+
+	/** Milestones within 3% of the run share a marker, measured from the group's first item so chains cannot stretch forever. */
 	const groupedMilestones = $derived.by(() => {
 		const totalMs = targetHours * 3600 * 1000;
 		const sorted = [...milestones].sort((a, b) => a.timeReached - b.timeReached);
@@ -75,14 +75,12 @@
 					onmouseenter={() => (hoveredIdx = idx)}
 					onmouseleave={() => (hoveredIdx = null)}
 				>
-					<!-- Marker line -->
 					<div
 						class="h-6 w-0.5 {isCluster
 							? 'bg-orange-400 shadow-[0_0_8px] shadow-orange-400/50'
 							: 'bg-amber-400 shadow-[0_0_8px] shadow-amber-400/50'}"
 					></div>
 
-					<!-- Count badge for clusters -->
 					{#if isCluster}
 						<div
 							class="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-[7px] font-bold px-1 py-0.5 rounded-full leading-none"
@@ -91,7 +89,6 @@
 						</div>
 					{/if}
 
-					<!-- Label (name for singles, count for clusters) -->
 					<div
 						class="-translate-x-1/2 absolute font-semibold left-1/2 pointer-events-none text-[8.5px] whitespace-nowrap {isCluster
 							? 'text-orange-400 opacity-80'
@@ -105,7 +102,6 @@
 						{/if}
 					</div>
 
-					<!-- Tooltip on hover -->
 					{#if tooltipVisible}
 						<div
 							class="absolute z-50 bg-gray-900 border border-white/15 rounded-xl shadow-2xl p-3 pointer-events-none"
@@ -116,7 +112,7 @@
 									{group.items.length} milestones ~{formatSimTimePrecise(group.items[0].timeReached)}
 								</p>
 								<ol class="flex flex-col gap-1">
-									{#each group.items as item, i}
+									{#each group.items as item, i (item.milestone.id)}
 										<li class="flex gap-2 items-baseline text-[10px]">
 											<span class="text-gray-600 font-mono shrink-0">{i + 1}.</span>
 											<span class="text-gray-200 flex-1">{item.milestone.name}</span>
@@ -167,7 +163,7 @@
 			</div>
 			<div class="flex flex-col items-center text-center">
 				<span class="text-gray-500 text-xs">Milestones</span>
-				<span class="font-mono font-semibold text-cyan-400 text-lg">{progress.milestoneCount}</span>
+				<span class="font-mono font-semibold text-cyan-400 text-lg">{milestones.length}</span>
 			</div>
 		</div>
 	{/if}

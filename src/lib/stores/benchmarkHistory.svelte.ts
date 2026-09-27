@@ -62,7 +62,7 @@ function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Saves a report to IndexedDB. */
+/** `result` must be plain data, IndexedDB's structured clone rejects Svelte proxies. */
 export async function saveReport(result: SimulationResult, customName?: string): Promise<string> {
 	const database = await openDB();
 	const id = generateId();
@@ -82,13 +82,10 @@ export async function saveReport(result: SimulationResult, customName?: string):
 		wasCompleted: !result.cancelled,
 	};
 
-	// IDB structured clone fails on Svelte proxies and function refs; strip with JSON round-trip.
-	const plain = JSON.parse(JSON.stringify(report)) as BenchmarkReport;
-
 	return new Promise((resolve, reject) => {
 		const transaction = database.transaction(STORE_NAME, 'readwrite');
 		const store = transaction.objectStore(STORE_NAME);
-		const request = store.add(plain);
+		const request = store.add(report);
 
 		request.onerror = () => reject(request.error);
 		request.onsuccess = () => resolve(id);

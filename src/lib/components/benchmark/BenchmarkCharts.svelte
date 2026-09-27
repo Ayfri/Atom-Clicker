@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Chart from '$lib/components/benchmark/Chart.svelte';
-	import type { ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
+	import BaseChart, { type ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
+	import ComparisonChart from '$lib/components/benchmark/ComparisonChart.svelte';
 	import { GENERATORS, GENERATOR_COLORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '$data/generators';
 	import { totalActionCount, type SimulationSnapshot } from '$lib/simulation/types';
 
@@ -86,7 +86,7 @@
 				},
 				{
 					description: 'Purchases, prestiges and achievements per minute. Flat zones = the player has nothing affordable to do.',
-					series: [{ color: '#f87171', fillOpacity: 0.4, getValue: (s, iMin) => (totalActionCount(s.actionCounts) || s.actions.length) / iMin, label: 'Actions / min' }],
+					series: [{ color: '#f87171', fillOpacity: 0.4, getValue: (s, iMin) => totalActionCount(s.actionCounts) / iMin, label: 'Actions / min' }],
 					title: 'Game Pace (Actions per Minute)',
 					yAxisSuffix: '/m',
 				},
@@ -266,14 +266,13 @@
 		comparisonName?: string;
 		comparisonSnapshots: SimulationSnapshot[];
 		currentSnapshots: SimulationSnapshot[];
-		hasComparison: boolean;
 		simulationDurationHours: number;
 		snapshotInterval: number;
 	}
 
-	let { comparisonName, comparisonSnapshots, currentSnapshots, hasComparison, simulationDurationHours, snapshotInterval }: Props =
-		$props();
+	let { comparisonName, comparisonSnapshots, currentSnapshots, simulationDurationHours, snapshotInterval }: Props = $props();
 
+	const hasComparison = $derived(comparisonSnapshots.length > 0);
 	const comparisonDurationHours = $derived(
 		comparisonSnapshots.length > 0 ? comparisonSnapshots[comparisonSnapshots.length - 1].timestamp / 3_600_000 : 0,
 	);
@@ -331,18 +330,30 @@
 		class="backdrop-blur-xl bg-white/5 border border-white/10 flex items-center justify-center p-6 rounded-2xl"
 		style="min-height: {def.height ?? 340}px"
 	>
-		<Chart
-			{comparisonDurationHours}
-			comparisonSeries={comparison}
-			comparisonTitle={comparisonName?.slice(0, 20) ?? 'Comparison'}
-			description={def.description}
-			height={def.height ?? 340}
-			primarySeries={primary}
-			title={def.title}
-			totalHours={simulationDurationHours}
-			useLog={def.useLog}
-			yAxisSuffix={def.yAxisSuffix}
-		/>
+		{#if comparison.length > 0 && comparisonDurationHours > 0}
+			<ComparisonChart
+				{comparisonDurationHours}
+				comparisonSeries={comparison}
+				comparisonTitle={comparisonName?.slice(0, 20) ?? 'Comparison'}
+				description={def.description}
+				height={def.height ?? 340}
+				primarySeries={primary}
+				title={def.title}
+				totalHours={simulationDurationHours}
+				useLog={def.useLog}
+				yAxisSuffix={def.yAxisSuffix}
+			/>
+		{:else}
+			<BaseChart
+				description={def.description}
+				height={def.height ?? 340}
+				series={primary}
+				title={def.title}
+				totalHours={simulationDurationHours}
+				useLog={def.useLog}
+				yAxisSuffix={def.yAxisSuffix}
+			/>
+		{/if}
 	</div>
 {/snippet}
 

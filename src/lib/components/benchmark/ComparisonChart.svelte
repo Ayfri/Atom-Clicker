@@ -1,13 +1,7 @@
 <script lang="ts">
-	/** Comparison chart: two runs overlaid, each scaled to their actual duration. */
+	/** Two runs overlaid, each scaled to its actual duration. */
+	import type { ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
 	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
-
-	export interface ChartSeries {
-		color: string;
-		data: number[];
-		fillOpacity?: number;
-		label: string;
-	}
 
 	interface Props {
 		comparisonDurationHours?: number;
@@ -235,7 +229,6 @@
 			</defs>
 			<rect width="100%" height="100%" fill="url(#cmpBg)"></rect>
 
-			<!-- Grid lines & Y axis -->
 			<g font-family="'Inter', system-ui, sans-serif" font-size="10">
 				{#each Array(6) as _, i (i)}
 					{@const y = padding.top + (chartHeight * i) / 5}
@@ -247,7 +240,6 @@
 				{/each}
 			</g>
 
-			<!-- X axis using effectiveTotalHours -->
 			<g font-family="'Inter', system-ui, sans-serif" font-size="10">
 				{#each Array(7) as _, i (i)}
 					{@const x = padding.left + (chartWidth * i) / 6}
@@ -257,7 +249,6 @@
 			</g>
 
 			<g transform="translate({padding.left}, {padding.top})">
-				<!-- Primary series (solid) — scaled to primaryScale -->
 				{#each primarySeries as s (s.label)}
 					{#if s.data?.length > 0}
 						{#if s.fillOpacity && s.fillOpacity > 0 && s.data.length > 1}
@@ -269,7 +260,6 @@
 					{/if}
 				{/each}
 
-				<!-- Comparison series (dashed) — scaled to comparisonScale -->
 				{#if hasComparison}
 					{#each comparisonSeries as s (s.label)}
 						{#if s.data?.length > 1}
@@ -286,7 +276,6 @@
 						{/if}
 					{/each}
 
-					<!-- End-of-run marker for comparison if shorter than primary -->
 					{#if comparisonDurationHours < totalHours}
 						{@const markerX = chartWidth * comparisonScale}
 						<line x1={markerX} y1="0" x2={markerX} y2={chartHeight} stroke="#475569" stroke-width="1" stroke-dasharray="3 3"></line>
@@ -294,12 +283,10 @@
 					{/if}
 				{/if}
 
-				<!-- Hover line -->
 				{#if hoveredX !== null}
 					<line x1={hoveredX} y1="0" x2={hoveredX} y2={chartHeight} stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-dasharray="4 4"></line>
 				{/if}
 
-				<!-- Primary dots -->
 				{#if primaryDotX !== null}
 					{#each primaryTooltipData as { color, label, val } (label)}
 						{@const v = Math.max(0, transformValue(val))}
@@ -308,7 +295,6 @@
 					{/each}
 				{/if}
 
-				<!-- Comparison dots (outlined) -->
 				{#if comparisonDotX !== null}
 					{#each comparisonTooltipData as { color, label, val } (label)}
 						{@const v = Math.max(0, transformValue(val))}
@@ -319,14 +305,12 @@
 			</g>
 		</svg>
 
-		<!-- Tooltip -->
 		{#if hoveredX !== null && (primaryTooltipData.length > 0 || comparisonTooltipData.length > 0)}
 			<div
 				class="absolute backdrop-blur-md bg-slate-900/95 border border-slate-600/50 p-3 pointer-events-none rounded-2xl shadow-2xl text-[11px] z-10"
 				style={tooltipStyle}
 			>
 				{#if hasComparison && comparisonHoveredIndex !== null}
-					<!-- Header: run names + times -->
 					<div class="grid mb-2 pb-2 border-b border-slate-700" style="grid-template-columns: 1fr auto auto; gap: 0.5rem;">
 						<span class="text-slate-500"></span>
 						<span class="font-semibold text-emerald-400 text-[10px] text-right truncate">{primaryTitle}</span>
@@ -337,7 +321,6 @@
 						<span class="text-slate-400 text-right">{primaryHoveredIndex !== null ? formatSimTimePrecise(primaryTimeMs) : '—'}</span>
 						<span class="text-slate-400 text-right">{formatSimTimePrecise(comparisonTimeMs)}</span>
 					</div>
-					<!-- One row per metric: label | primary value | comparison value -->
 					<div class="flex flex-col gap-1">
 						{#each primaryTooltipData as { color, label, val }, i (label)}
 							{@const cmpVal = comparisonTooltipData[i]?.val}
@@ -352,7 +335,6 @@
 						{/each}
 					</div>
 				{:else}
-					<!-- Only primary visible at this X -->
 					<div class="font-bold mb-2 text-slate-50">
 						{primaryHoveredIndex !== null ? formatSimTimePrecise(primaryTimeMs) : ''}
 					</div>

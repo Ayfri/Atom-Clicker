@@ -14,18 +14,7 @@ export class QuestTracker {
 	offeredTotal = 0;
 	quarks = 0;
 
-	constructor(private behavior: QuestBehavior) {}
-
-	reset(behavior: QuestBehavior) {
-		this.behavior = behavior;
-		this.completedToday = 0;
-		this.completedTotal = 0;
-		this.dayIndex = -1;
-		this.offeredTotal = 0;
-		this.quarks = 0;
-		this.quests = [];
-		this.targets = {};
-	}
+	constructor(private readonly behavior: QuestBehavior) {}
 
 	get hasOpenDay(): boolean {
 		return this.dayIndex !== -1;

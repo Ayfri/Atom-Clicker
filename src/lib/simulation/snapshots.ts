@@ -6,11 +6,13 @@ import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { EffectTable, effectAmount } from '$helpers/effects';
 import { gameManager } from '$helpers/GameManager.svelte';
 import type { QuestTracker } from './quests';
-import type { MilestoneCheckData, SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
+import type { SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
 
 const DAY_MS = 24 * 3600 * 1000;
 
+/** Counters the engine accumulates over a run that the game managers do not track themselves. */
 export interface RunState {
+	/** Reset at every snapshot, so a snapshot holds what happened since the previous one. */
 	actionCounts: Partial<Record<SimulationActionType, number>>;
 	actions: SimulationAction[];
 	everPurchasedGenerators: Set<string>;
@@ -18,35 +20,6 @@ export interface RunState {
 	photonsExpired: number;
 	quarksFromAchievements: number;
 	quests: QuestTracker;
-}
-
-/**
- * Milestone predicates read a handful of counters, so between-snapshot checks skip the full snapshot build.
- * The engine checks every tick, so the target object is written in place instead of allocated per call.
- */
-export function fillMilestoneData(run: RunState, target: MilestoneCheckData): MilestoneCheckData {
-	let totalGenerators = 0;
-	for (const type of GENERATOR_TYPES) totalGenerators += gameManager.generators[type]?.count ?? 0;
-
-	target.achievements = gameManager.achievements.length;
-	target.atoms = currenciesManager.getAmount(CurrenciesTypes.ATOMS);
-	target.atomsPerSecond = gameManager.atomsPerSecond;
-	target.generatorsEverPurchased = run.everPurchasedGenerators;
-	target.dayNumber = gameManager.inGameTime / DAY_MS;
-	target.electronizes = gameManager.totalElectronizesAllTime;
-	target.electrons = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
-	target.excitedPhotons = currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
-	target.photonUpgradeLevels = gameManager.photonUpgradeLevels;
-	target.playerLevel = gameManager.playerLevel;
-	target.protonises = gameManager.totalProtonisesAllTime;
-	target.protons = currenciesManager.getAmount(CurrenciesTypes.PROTONS);
-	target.quarks = run.quarksFromAchievements + run.quests.quarks;
-	target.boostPointsUsed = gameManager.boostPointsUsed;
-	target.skills = gameManager.skillUpgrades.length;
-	target.timestamp = gameManager.inGameTime;
-	target.totalGenerators = totalGenerators;
-	target.upgrades = gameManager.upgrades.length;
-	return target;
 }
 
 export function createSnapshotData(run: RunState): SimulationSnapshot {
@@ -70,7 +43,6 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		}
 	}
 
-	// One pass over the effect sources; each group used to filter the whole list on its own.
 	const skillSources: typeof effectSources = [];
 	const flatSources: typeof effectSources = [];
 	const achievementSources: typeof effectSources = [];

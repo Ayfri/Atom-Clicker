@@ -1,12 +1,13 @@
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { GENERATORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
-import { RADIATION_UPGRADES, getRadiationUpgradePrice } from '$data/radiationUpgrades';
+import { RADIATION_UPGRADES, type RadiationUpgrade, getRadiationUpgradePrice } from '$data/radiationUpgrades';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
+import type { PhotonUpgrade } from '$lib/types';
 import type { BotBehavior } from './types';
 
 type Priced = { cost: { amount: number; currency: CurrencyName } };
@@ -30,22 +31,35 @@ const SKILL_GROUPS = groupByCurrency(SKILL_UPGRADES);
 const PHOTON_UPGRADE_ENTRIES = Object.entries(ALL_PHOTON_UPGRADES);
 const RADIATION_UPGRADE_ENTRIES = Object.entries(RADIATION_UPGRADES);
 
+interface NextLevel<T> {
+	cost: number;
+	entry: T;
+	id: string;
+}
+
+/** Price of the next level of every entry below its max, cheapest first. Only changes when a level does. */
+function nextLevels<T extends { maxLevel: number }>(
+	entries: [string, T][],
+	levels: Record<string, number>,
+	price: (entry: T, level: number) => number,
+): NextLevel<T>[] {
+	return entries
+		.filter(([id, entry]) => (levels[id] ?? 0) < entry.maxLevel)
+		.map(([id, entry]) => ({ cost: price(entry, levels[id] ?? 0), entry, id }))
+		.sort((a, b) => a.cost - b.cost);
+}
+
 export class PurchasePlanner {
 	private ownedSkillsRef: string[] | null = null;
 	private ownedSkillsSet = new Set<string>();
 	private ownedUpgradesRef: string[] | null = null;
 	private ownedUpgradesSet = new Set<string>();
+	private photonLevels: NextLevel<PhotonUpgrade>[] = [];
+	private photonLevelsRef: Record<string, number> | null = null;
+	private radiationLevels: NextLevel<RadiationUpgrade>[] = [];
+	private radiationLevelsRef: Record<string, number> | null = null;
 	private unownedSkills: CurrencyGroups<(typeof SKILL_UPGRADES)[string]> = SKILL_GROUPS;
 	private unownedUpgrades: CurrencyGroups<(typeof UPGRADES)[string]> = UPGRADE_GROUPS;
-
-	reset() {
-		this.ownedSkillsRef = null;
-		this.ownedSkillsSet = new Set();
-		this.ownedUpgradesRef = null;
-		this.ownedUpgradesSet = new Set();
-		this.unownedSkills = SKILL_GROUPS;
-		this.unownedUpgrades = UPGRADE_GROUPS;
-	}
 
 	/** gameManager swaps the array on every purchase, so identity is enough to know the cache is stale. */
 	private refreshCaches() {
@@ -100,43 +114,32 @@ export class PurchasePlanner {
 		return picks;
 	}
 
+	/** The cheapest affordable level across both photon currencies, entry order breaking ties. */
 	affordablePhotonUpgrade(): string | null {
+		if (gameManager.photonUpgrades !== this.photonLevelsRef) {
+			this.photonLevelsRef = gameManager.photonUpgrades;
+			this.photonLevels = nextLevels(PHOTON_UPGRADE_ENTRIES, gameManager.photonUpgrades, getPhotonUpgradeCost);
+		}
 		const photons = currenciesManager.getAmount(CurrenciesTypes.PHOTONS);
 		const excitedPhotons = currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
-		let bestId: string | null = null;
-		let bestCost = Infinity;
+		const most = Math.max(photons, excitedPhotons);
 
-		for (const [id, upgrade] of PHOTON_UPGRADE_ENTRIES) {
-			const currentLevel = gameManager.photonUpgrades[id] ?? 0;
-			if (currentLevel >= upgrade.maxLevel) continue;
-			const cost = getPhotonUpgradeCost(upgrade, currentLevel);
-			if (cost >= bestCost) continue;
-			const available = upgrade.currency === CurrenciesTypes.EXCITED_PHOTONS ? excitedPhotons : photons;
-			if (available < cost) continue;
+		for (const { cost, entry: upgrade, id } of this.photonLevels) {
+			if (cost > most) break;
+			if ((upgrade.currency === CurrenciesTypes.EXCITED_PHOTONS ? excitedPhotons : photons) < cost) continue;
 			if (upgrade.condition && !upgrade.condition(gameManager)) continue;
-			bestCost = cost;
-			bestId = id;
+			return id;
 		}
-
-		return bestId;
+		return null;
 	}
 
 	affordableRadiationUpgrade(): string | null {
-		const electrons = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
-		let bestId: string | null = null;
-		let bestCost = Infinity;
-
-		for (const [id, upgrade] of RADIATION_UPGRADE_ENTRIES) {
-			const currentLevel = radiationManager.upgradeLevels[id] ?? 0;
-			if (currentLevel >= upgrade.maxLevel) continue;
-			const price = getRadiationUpgradePrice(upgrade, currentLevel);
-			if (price.amount >= bestCost) continue;
-			if (electrons < price.amount) continue;
-			bestCost = price.amount;
-			bestId = id;
+		if (radiationManager.upgradeLevels !== this.radiationLevelsRef) {
+			this.radiationLevelsRef = radiationManager.upgradeLevels;
+			this.radiationLevels = nextLevels(RADIATION_UPGRADE_ENTRIES, radiationManager.upgradeLevels, (upgrade, level) => getRadiationUpgradePrice(upgrade, level).amount);
 		}
-
-		return bestId;
+		const cheapest = this.radiationLevels[0];
+		return cheapest && currenciesManager.getAmount(CurrenciesTypes.ELECTRONS) >= cheapest.cost ? cheapest.id : null;
 	}
 
 	selectGenerator(behavior: BotBehavior): GeneratorType | null {

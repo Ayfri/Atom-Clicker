@@ -35,7 +35,7 @@
 		[GeneratorTypes.STAR]: StarIcon,
 	};
 
-	const GENERATOR_TYPE_ORDER = Object.values(GeneratorTypes);
+	const GENERATOR_TYPE_ORDER: readonly string[] = Object.values(GeneratorTypes);
 
 	interface ResolvedAction {
 		apsDelta: number;
@@ -128,7 +128,7 @@
 		}
 		for (const list of Object.values(groups)) {
 			if (list[0]?.raw.type === 'generator') {
-				list.sort((a, b) => GENERATOR_TYPE_ORDER.indexOf(a.raw.details?.split(' ')[0] as any) - GENERATOR_TYPE_ORDER.indexOf(b.raw.details?.split(' ')[0] as any));
+				list.sort((a, b) => GENERATOR_TYPE_ORDER.indexOf(a.raw.details?.split(' ')[0] ?? '') - GENERATOR_TYPE_ORDER.indexOf(b.raw.details?.split(' ')[0] ?? ''));
 			} else {
 				list.sort((a, b) => b.count - a.count);
 			}
@@ -173,7 +173,6 @@
 </script>
 
 <div class="bg-amber-500/6 border border-amber-500/20 flex flex-col gap-4 p-4 rounded-xl text-sm">
-	<!-- Header -->
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-wrap gap-x-4 gap-y-1 items-center">
 			<div class="flex gap-2 items-center">
@@ -206,7 +205,6 @@
 		</div>
 	</div>
 
-	<!-- Action groups -->
 	<div class="flex flex-col gap-2">
 		{#each Object.entries(groupedActions) as [type, items]}
 			{@const Icon = TYPE_ICONS[type]}
@@ -224,7 +222,7 @@
 					{#each items as item (item.key)}
 						{@const generatorType = item.raw.type === 'generator' ? item.raw.details?.split(' ')[0] : null}
 						{@const GeneratorIcon = generatorType ? GENERATOR_ICONS[generatorType] : null}
-						{@const generatorColorIdx = generatorType ? GENERATOR_TYPE_ORDER.indexOf(generatorType as any) : -1}
+						{@const generatorColorIdx = generatorType ? GENERATOR_TYPE_ORDER.indexOf(generatorType) : -1}
 						{@const generatorColor = generatorColorIdx >= 0 ? GENERATOR_COLORS[generatorColorIdx] : null}
 						<div class="bg-black/20 border-l-2 flex flex-col gap-0.5 min-w-0 px-2.5 py-1.5 rounded-r-lg {item.isApsBooster ? 'border-amber-500/60' : 'border-white/10'}">
 							<div class="flex gap-1.5 items-center">

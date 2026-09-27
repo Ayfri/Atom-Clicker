@@ -1,5 +1,4 @@
 ﻿<script lang="ts">
-	/** SVG chart with hover, tooltip, toggle series. */
 	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
 
 	export interface ChartSeries {
@@ -46,7 +45,7 @@
 	const chartWidth = $derived(Math.max(0, containerWidth - padding.left - padding.right));
 	const chartHeight = $derived(Math.max(0, height - padding.top - padding.bottom));
 	const maxVal = $derived.by(() => {
-		let max = useLog ? 0 : 0;
+		let max = 0;
 		let hasData = false;
 
 		series.forEach(s => {
@@ -166,9 +165,8 @@
 			{/if}
 		</div>
 
-		<!-- Interactive Legend -->
 		<div class="flex flex-wrap gap-x-4 gap-y-2 justify-end">
-			{#each series as s, i}
+			{#each series as s (s.label)}
 				<button
 					onclick={() => toggleSeries(s.label)}
 					class="flex gap-2 group items-center text-xs transition-all"
@@ -211,15 +209,12 @@
 		role="application"
 		aria-label="Interactive chart"
 	>
-		<!-- SVG Chart -->
 		<svg
 			width={containerWidth}
 			{height}
 			viewBox="0 0 {containerWidth} {height}"
 			class="block h-full pointer-events-none w-full"
-			style:pointer-events="none"
 		>
-			<!-- Background -->
 			<defs>
 				<linearGradient
 					id="chartBgGradient"
@@ -244,7 +239,6 @@
 				fill="url(#chartBgGradient)"
 			></rect>
 
-			<!-- Grid Lines & Y Axis Labels -->
 			<g
 				class="text-[10px] font-sans text-slate-400"
 				font-family="'Inter', system-ui, sans-serif"
@@ -257,7 +251,6 @@
 					{@const val = valRaw < 0.0001 ? 0 : valRaw}
 					{@const text = formatNumber(val).length > 8 ? val.toExponential(1) : formatNumber(val)}
 
-					<!-- Grid Line -->
 					<line
 						x1={padding.left}
 						y1={y}
@@ -267,7 +260,6 @@
 						stroke-width="1"
 					></line>
 
-					<!-- Label -->
 					<text
 						x={padding.left - 8}
 						{y}
@@ -278,7 +270,6 @@
 				{/each}
 			</g>
 
-			<!-- X Axis Labels -->
 			<g
 				class="text-[10px] font-sans text-slate-400"
 				font-family="'Inter', system-ui, sans-serif"
@@ -297,7 +288,6 @@
 				{/each}
 			</g>
 
-			<!-- Chart Content Group -->
 			<g transform="translate({padding.left}, {padding.top})">
 				{#if !hasVisibleSeries}
 					<text
@@ -310,10 +300,8 @@
 						font-style="italic">No data visible</text
 					>
 				{:else}
-					<!-- Series Paths -->
-					{#each series as s, i}
+					{#each series as s (s.label)}
 						{#if !hiddenLabels.has(s.label) && s.data?.length > 0}
-							<!-- Area Fill -->
 							{#if s.fillOpacity && s.fillOpacity > 0 && s.data.length > 1}
 								<path
 									d={getAreaPath(s.data)}
@@ -322,7 +310,6 @@
 								></path>
 							{/if}
 
-							<!-- Line Stroke -->
 							{#if s.data.length > 1}
 								<path
 									d={getLinePath(s.data)}
@@ -333,7 +320,6 @@
 									stroke-linejoin="round"
 								></path>
 							{:else}
-								<!-- Single Dot -->
 								{@const val = Math.max(0, transformValue(s.data[0]))}
 								{@const y = chartHeight - chartHeight * (val / maxVal)}
 								<circle
@@ -346,9 +332,7 @@
 						{/if}
 					{/each}
 
-					<!-- Interactive Overlay Elements -->
 					{#if hoveredIndex !== null && tooltipData.length > 0}
-						<!-- Vertical Line -->
 						<line
 							x1={tooltipX}
 							y1="0"
@@ -359,8 +343,7 @@
 							stroke-dasharray="4 4"
 						></line>
 
-						<!-- Hover Dots -->
-						{#each tooltipData as { s, val }}
+						{#each tooltipData as { s, val } (s.label)}
 							{@const v = Math.max(0, transformValue(val))}
 							{@const y = chartHeight - chartHeight * (v / maxVal)}
 							<circle
@@ -377,7 +360,6 @@
 			</g>
 		</svg>
 
-		<!-- Tooltip HTML Overlay -->
 		{#if hoveredIndex !== null && tooltipData.length > 0}
 			<div
 				class="absolute backdrop-blur-md bg-slate-900/95 border border-slate-600/50 p-3 pointer-events-none rounded-2xl shadow-2xl text-xs z-10"
@@ -385,7 +367,7 @@
 			>
 				<div class="font-bold mb-2 text-slate-50">Time: {formatSimTimePrecise(simulatedTimeMs)}</div>
 				<div class="flex flex-col gap-1.5">
-					{#each tooltipData as { s, val }}
+					{#each tooltipData as { s, val } (s.label)}
 						<div class="flex items-center justify-between gap-4">
 							<div class="flex gap-2 items-center overflow-hidden">
 								<span

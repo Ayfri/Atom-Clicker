@@ -6,6 +6,7 @@ import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { formatDuration, formatNumber } from '$lib/utils';
 import { MILESTONES } from './milestones';
+import { DEFAULT_SEED } from './random';
 import { totalActionCount, type SimulationAction, type SimulationResult, type SimulationSnapshot } from './types';
 
 const CURVE_ROWS = 16;
@@ -56,10 +57,6 @@ interface FamilyStats {
 	lastTime: number;
 	maxIndex: number;
 	total: number;
-}
-
-function collectActions(snapshots: SimulationSnapshot[]): SimulationAction[] {
-	return snapshots.flatMap(s => s.actions);
 }
 
 function buildFamilies(actions: SimulationAction[], catalog: Record<string, unknown>, type: SimulationAction['type']): FamilyStats[] {
@@ -282,24 +279,16 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	const final = snapshots.at(-1);
 	if (!final) return '# Atom Clicker Benchmark\n\nNo snapshot recorded.';
 
-	const actions = collectActions(snapshots);
+	const actions = snapshots.flatMap(s => s.actions);
 	const reachedIds = new Set(result.milestones.map(m => m.milestone.id));
 	const missing = MILESTONES.filter(m => !reachedIds.has(m.id));
 	const stalls = findStalls(snapshots);
 	// Snapshots keep counts for every action type but detail only the ones looked up by id, so totals come from the counters.
 	let totalActions = 0;
 	const actionsByType = new Map<string, number>();
-	for (const snapshot of snapshots) {
-		const counts = snapshot.actionCounts;
-		if (!counts) {
-			for (const action of snapshot.actions) actionsByType.set(action.type, (actionsByType.get(action.type) ?? 0) + 1);
-			totalActions += snapshot.actions.length;
-			continue;
-		}
-		totalActions += totalActionCount(counts);
-		for (const [type, count] of Object.entries(counts)) {
-			actionsByType.set(type, (actionsByType.get(type) ?? 0) + (count ?? 0));
-		}
+	for (const { actionCounts } of snapshots) {
+		totalActions += totalActionCount(actionCounts);
+		for (const [type, count] of Object.entries(actionCounts)) actionsByType.set(type, (actionsByType.get(type) ?? 0) + (count ?? 0));
 	}
 
 	const lines: string[] = [];
@@ -312,6 +301,7 @@ export function buildMarkdownReport(result: SimulationResult): string {
 		table(
 			['setting', 'value'],
 			[
+				['seed', `${config.seed ?? DEFAULT_SEED}`],
 				['tick rate', `${config.tickRate} ms`],
 				['snapshot interval', `${config.snapshotInterval} s`],
 				['clicks/s', `${config.botBehavior.clicksPerSecond}`],
