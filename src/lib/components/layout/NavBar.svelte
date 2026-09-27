@@ -3,7 +3,6 @@
 	import { SKILL_UPGRADES } from '$data/skillTree';
 	import NotificationDot from '@components/ui/NotificationDot.svelte';
 	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-	import { changelog } from '$stores/changelog';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
@@ -88,23 +87,17 @@
 		id: 'settings',
 		label: 'Parameters',
 		load: settingsLoader,
-		notification: () => $changelog.hasUnread,
 	};
 
-	/** Raw, since deep state would proxy the links and the identity check in `updateVisible` would never match. */
-	let visibleComponents: Link[] = $state.raw([]);
-	let interval: ReturnType<typeof setInterval> | null = null;
+	/**
+	 * The conditions read live currencies, so the mask is re-evaluated on every atom commit, but as a string it only
+	 * invalidates the link list, and re-renders the nav, when a link actually appears or disappears.
+	 */
+	const visibleMask = $derived(links.map(link => (!link.condition || link.condition() ? '1' : '0')).join(''));
+	const visibleComponents = $derived(links.filter((_, i) => visibleMask[i] === '1'));
 
 	onMount(() => {
 		ui.registerSettings(settingsLoader);
-		// Reassigning unconditionally re-rendered the whole nav ten times a second, the visible set almost never changes.
-		const updateVisible = () => {
-			const next = links.filter(link => !link.condition || link.condition());
-			if (next.length === visibleComponents.length && next.every((link, i) => link === visibleComponents[i])) return;
-			visibleComponents = next;
-		};
-		updateVisible();
-		interval = setInterval(updateVisible, 100);
 
 		// Chunks are warmed once the page is idle, so the split costs nothing on the first open.
 		const warm = () => [...links, settingsLink].forEach(link => ui.preloadModal(link.id, link.load));
@@ -113,7 +106,6 @@
 	});
 
 	onDestroy(() => {
-		if (interval) clearInterval(interval);
 		document.documentElement.style.removeProperty('--mobile-nav-bottom');
 	});
 
@@ -156,7 +148,7 @@
 
 		<!-- Mobile Settings (add to grid or place separately? User said bottom of navbar, which implies desktop mostly, but let's add it here too if space permits or just keep it in flow) -->
 		<!-- For mobile, just append it to the list effectively -->
-		<NotificationDot hasNotification={settingsLink.notification ? settingsLink.notification() : false}>
+		<NotificationDot>
 			<button
 				aria-label={settingsLink.label}
 				class="flex items-center justify-center rounded-lg p-2 text-white/85 transition-all hover:text-white pointer-events-auto"
@@ -192,7 +184,7 @@
 
 		<div class="flex-1"></div>
 
-		<NotificationDot hasNotification={settingsLink.notification ? settingsLink.notification() : false}>
+		<NotificationDot>
 			<button
 				class="group relative flex h-12 w-12 items-center justify-center rounded-lg text-white/85 transition-all hover:text-white"
 				id="nav-{settingsLink.label.toLowerCase().replace(/\s+/g, '-')}"

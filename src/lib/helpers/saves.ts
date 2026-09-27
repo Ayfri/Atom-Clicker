@@ -6,7 +6,7 @@ import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
 import { statsConfig } from '$helpers/statConstants';
 import { getItem } from '$lib/utils/safeLocalStorage';
 import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
-import type { SaveErrorType } from '$stores/saveRecovery';
+import type { SaveErrorType } from '$stores/saveRecovery.svelte';
 
 export const SAVE_KEY = 'atomic-clicker-save';
 export const SAVE_VERSION = 27;

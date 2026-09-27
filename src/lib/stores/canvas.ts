@@ -1,32 +1,15 @@
-import {writable} from 'svelte/store';
-import type {Particle} from '$helpers/particles';
+import type { Particle } from '$helpers/particles';
 
-// We use an internal array managed by the Canvas component for the update loop.
-export const particleQueue = writable<Particle[]>([]);
+/** Resolved once: the check is environment-level and this runs on the click path. */
+export const particlesEnabled = typeof window !== 'undefined' && !/headless|phantom|selenium/.test(navigator.userAgent.toLowerCase());
 
-// Resolved once: the checks are environment-level and this runs on the click path.
-const environmentSuitable = (() => {
-	if (typeof window === 'undefined') return false;
+let sink: ((particles: Particle[]) => void) | null = null;
 
-	if (typeof navigator !== 'undefined') {
-		const userAgent = navigator.userAgent.toLowerCase();
-		if (userAgent.includes('headless') || userAgent.includes('phantom') || userAgent.includes('selenium')) {
-			return false;
-		}
-	}
-
-	if (typeof process !== 'undefined' && (process.env?.CI || process.env?.NODE_ENV === 'test' || process.env?.JEST_WORKER_ID)) {
-		return false;
-	}
-
-	return true;
-})();
-
-export function shouldCreateParticles(): boolean {
-	return environmentSuitable;
+/** Canvas.svelte plugs its engine in once the particle sprites are loaded, particles added before that are dropped. */
+export function setParticleSink(next: typeof sink) {
+	sink = next;
 }
 
-export function addParticles(newParticles: Particle[]) {
-	if (!environmentSuitable || newParticles.length === 0) return;
-	particleQueue.update(current => (current.length === 0 ? newParticles : [...current, ...newParticles]));
+export function addParticles(particles: Particle[]) {
+	if (particles.length > 0) sink?.(particles);
 }

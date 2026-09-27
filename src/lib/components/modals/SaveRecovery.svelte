@@ -2,7 +2,7 @@
 	import Login from '@components/modals/Login.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { saveRecovery } from '$stores/saveRecovery';
+	import { saveRecovery } from '$stores/saveRecovery.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
 	import { AlertTriangle, CloudDownload, Database, RefreshCw, Trash2, Trophy, X } from '@lucide/svelte';
@@ -94,25 +94,25 @@
 			<div class="flex-1">
 				<h3 class="text-lg font-bold text-red-300">Save Load Error</h3>
 				<p class="mt-1 text-red-200/80">
-					{errorMessages[$saveRecovery.errorType ?? 'unknown']}
+					{errorMessages[saveRecovery.errorType ?? 'unknown']}
 				</p>
 			</div>
 		</div>
 
 		<!-- Technical Details (collapsible) -->
-		{#if $saveRecovery.errorDetails}
+		{#if saveRecovery.errorDetails}
 			<details class="rounded-lg bg-black/30 border border-white/10">
 				<summary class="cursor-pointer px-4 py-3 text-sm text-white/60 hover:text-white/80"> Technical Details </summary>
 				<div class="px-4 pb-4">
 					<code class="block whitespace-pre-wrap break-all text-xs text-white/50 font-mono bg-black/20 p-2 rounded">
-						{$saveRecovery.errorDetails}
+						{saveRecovery.errorDetails}
 					</code>
 				</div>
 			</details>
 		{/if}
 
 		<!-- Backup Info -->
-		{#if $saveRecovery.backupKey}
+		{#if saveRecovery.backupKey}
 			<div class="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
 				<Database
 					size={20}
@@ -120,7 +120,7 @@
 				/>
 				<div class="flex-1">
 					<p class="text-sm text-green-300">A backup of your save has been created.</p>
-					<p class="text-xs text-green-400/60 mt-0.5">Key: {$saveRecovery.backupKey}</p>
+					<p class="text-xs text-green-400/60 mt-0.5">Key: {saveRecovery.backupKey}</p>
 				</div>
 			</div>
 		{/if}

@@ -11,7 +11,7 @@
 	import { isLocalStorageUnavailable } from '$lib/utils/safeLocalStorage';
 	import { autoBuyManager } from '$stores/autoBuy.svelte';
 	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import { saveRecovery } from '$stores/saveRecovery';
+	import { saveRecovery } from '$stores/saveRecovery.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
 	import { ui } from '$stores/ui.svelte';
@@ -246,7 +246,7 @@
 			</div>
 		{/each}
 
-		{#if $saveRecovery.hasError}
+		{#if saveRecovery.hasError}
 			<SaveRecovery onClose={() => saveRecovery.clearError()} />
 		{/if}
 	</main>

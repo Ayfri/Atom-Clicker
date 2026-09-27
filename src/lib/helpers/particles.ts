@@ -1,5 +1,4 @@
 import { CURRENCIES, type CurrencyName } from '$data/currencies';
-import { type Writable } from 'svelte/store';
 
 // --- Interfaces ---
 
@@ -183,23 +182,18 @@ export class ParticleEngine {
 	private particles: Particle[] = [];
 	private iconCount = 0;
 	private textCount = 0;
-	private unsubscribe: () => void;
 
-	constructor(queue: Writable<Particle[]>) {
-		this.unsubscribe = queue.subscribe(newParticles => {
-			if (!newParticles.length) return;
-			for (const particle of newParticles) {
-				if (particle.layer === TEXT_LAYER) {
-					if (this.textCount >= MAX_TEXT_PARTICLES) continue;
-					this.textCount++;
-				} else {
-					if (this.iconCount >= MAX_ICON_PARTICLES) continue;
-					this.iconCount++;
-				}
-				this.particles.push(particle);
+	add(newParticles: Particle[]) {
+		for (const particle of newParticles) {
+			if (particle.layer === TEXT_LAYER) {
+				if (this.textCount >= MAX_TEXT_PARTICLES) continue;
+				this.textCount++;
+			} else {
+				if (this.iconCount >= MAX_ICON_PARTICLES) continue;
+				this.iconCount++;
 			}
-			queue.set([]);
-		});
+			this.particles.push(particle);
+		}
 	}
 
 	update(dt: number) {
@@ -229,7 +223,6 @@ export class ParticleEngine {
 	}
 
 	destroy() {
-		this.unsubscribe();
 		this.particles = [];
 	}
 }

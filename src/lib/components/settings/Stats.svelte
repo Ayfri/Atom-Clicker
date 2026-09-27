@@ -15,19 +15,14 @@
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatDuration, formatNumber, formatNumberFull } from '$lib/utils';
 	import { CalendarDays, Factory, Flame, Hourglass, MousePointerClick, Package, Radiation, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
-	import { onMount, type Component } from 'svelte';
+	import { clock } from '$stores/clock.svelte';
+	import { type Component } from 'svelte';
 
 	type TitleIcon = Component<{ class?: string; color?: string; size?: number }>;
 
 	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
 	const totalSkillUpgrades = Object.keys(SKILL_UPGRADES).length;
 	const hasEarned = (...types: CurrencyName[]) => types.some(type => gameManager.currencies[type].earnedAllTime > 0);
-
-	let now = $state(Date.now());
-	onMount(() => {
-		const clock = setInterval(() => (now = Date.now()), 1000);
-		return () => clearInterval(clock);
-	});
 
 	const radiationUnlocked = $derived(gameManager.features[FeatureTypes.RADIATION_REALM] || radiationManager.unlocked);
 	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
@@ -138,7 +133,7 @@
 		{@render title(Hourglass, 'Progress')}
 		<div class="grid items-center gap-6 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[1fr_auto]">
 			<div class="grid gap-x-6 sm:grid-cols-2">
-				{@render row('Since you started', formatDuration(now - gameManager.startDate))}
+				{@render row('Since you started', formatDuration(clock.now - gameManager.startDate))}
 				{@render row('Played', formatDuration(gameManager.inGameTime))}
 				{@render row('Level', formatNumber(gameManager.playerLevel), formatNumberFull(gameManager.playerLevel))}
 				{@render row('Total XP', formatNumber(gameManager.totalXP), formatNumberFull(gameManager.totalXP))}

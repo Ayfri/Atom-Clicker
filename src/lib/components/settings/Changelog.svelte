@@ -1,38 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { marked } from 'marked';
-	import { changelog } from '$stores/changelog';
 	import { gameManager } from '$helpers/GameManager.svelte';
 
 	let changelogContent = $state('');
-
-	function parseChangelogDate(title: string): Date | null {
-		const dateMatch = title.match(/(\d{2})-(\d{2})-(\d{4})/);
-		if (!dateMatch) return null;
-
-		const [_, day, month, year] = dateMatch;
-		return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-	}
 
 	onMount(async () => {
 		gameManager.unlockAchievement('changelog_modal_opener');
 		try {
 			const response = await fetch('/Changelog.md');
 			changelogContent = await response.text();
-
-			// Get the first date from the changelog
-			const firstDateMatch = changelogContent.match(/# What's new (\d{2}-\d{2}-\d{4})/);
-			if (firstDateMatch) {
-				const lastChangelogDate = parseChangelogDate(firstDateMatch[0]);
-				if (lastChangelogDate) {
-					changelog.checkForUpdates(lastChangelogDate);
-				}
-			}
 		} catch (error) {
 			console.error('Failed to load changelog:', error);
 		}
-
-		changelog.markAsRead();
 	});
 </script>
 

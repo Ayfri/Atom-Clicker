@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { loadParticleAssets, ParticleEngine } from '$helpers/particles';
-	import { particleQueue, shouldCreateParticles } from '$stores/canvas';
+	import { particlesEnabled, setParticleSink } from '$stores/canvas';
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 	import { onDestroy, onMount } from 'svelte';
 
@@ -16,7 +16,6 @@
 	let frame = 0;
 	let lastTime = 0;
 	let ratio = 1;
-	let unsubscribeQueue: (() => void) | null = null;
 
 	/** The loop only runs while particles are alive: an idle pending rAF still costs Chrome a full main frame per vsync. */
 	function start() {
@@ -59,7 +58,7 @@
 	});
 
 	onMount(async () => {
-		if (!shouldCreateParticles()) {
+		if (!particlesEnabled) {
 			console.info('Particle system disabled.');
 			return;
 		}
@@ -72,14 +71,15 @@
 
 		resize();
 		document.body.appendChild(canvas);
-		engine = new ParticleEngine(particleQueue);
-		unsubscribeQueue = particleQueue.subscribe(added => {
-			if (added.length > 0) start();
+		engine = new ParticleEngine();
+		setParticleSink(particles => {
+			engine?.add(particles);
+			start();
 		});
 	});
 
 	onDestroy(() => {
-		unsubscribeQueue?.();
+		setParticleSink(null);
 		cancelAnimationFrame(frame);
 		engine?.destroy();
 		canvas?.remove();

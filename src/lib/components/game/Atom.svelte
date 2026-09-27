@@ -5,7 +5,7 @@
 	import {GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor} from '$data/generators';
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
 	import {formatNumber} from '$lib/utils';
-	import {shouldCreateParticles, addParticles} from '$stores/canvas';
+	import { addParticles, particlesEnabled } from '$stores/canvas';
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '$helpers/AtomRenderer';
 	import { untrack } from 'svelte';
@@ -115,7 +115,7 @@
 
 	function spawnParticles(x: number, y: number) {
 		// The atom realm stays mounted while another one is on screen, so its auto-click particles would drift over that realm.
-		if (!shouldCreateParticles() || realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
+		if (!particlesEnabled || realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
 
 		const newParticles: Particle[] = [];
 		const textParticle = createClickTextParticleSync(x + Math.random() * 10, y + Math.random() * 10, `+${formatNumber(gameManager.clickPower)}`);

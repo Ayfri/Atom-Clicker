@@ -35,7 +35,7 @@ import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
 import { TutorialManager } from '$helpers/TutorialManager.svelte';
 import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '$helpers/xp';
 import { leaderboard } from '$stores/leaderboard.svelte';
-import { saveRecovery } from '$stores/saveRecovery';
+import { saveRecovery } from '$stores/saveRecovery.svelte';
 import { toastStore } from '$stores/toasts.svelte';
 
 /** `tick` already drops expired power-ups on `clock`, so this timer only adds sub-second precision and must never hold a headless runtime open. */
