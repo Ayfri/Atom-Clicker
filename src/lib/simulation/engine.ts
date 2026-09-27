@@ -284,9 +284,12 @@ export class SimulationEngine {
 			canPrestige() &&
 			prestigeStrategy.autoElectronize &&
 			electronizeGain >= Math.max(1, this.lastElectronizeGain * prestigeStrategy.electronizeThreshold) &&
+			!this.planner.canSpend(CurrenciesTypes.PROTONS) &&
 			gameManager.electronize()
 		) {
 			this.lastElectronizeGain = electronizeGain;
+			/** Electronize wipes protons, a threshold left on the last proton run would block every protonise after it. */
+			this.lastProtoniseGain = 0;
 			this.record('electronize', `+${electronizeGain} electrons`);
 			this.prestigesThisActiveWindow++;
 			actionsThisTick++;

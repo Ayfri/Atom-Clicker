@@ -114,6 +114,11 @@ export class PurchasePlanner {
 		return picks;
 	}
 
+	/** Whether an upgrade or skill priced in `currency` is affordable now, so a balance gets spent before a prestige wipes it. */
+	canSpend(currency: CurrencyName): boolean {
+		return [...this.affordableUpgrades(), ...this.affordableSkills()].some(id => (UPGRADES[id] ?? SKILL_UPGRADES[id]).cost.currency === currency);
+	}
+
 	/** The cheapest affordable level across both photon currencies, entry order breaking ties. */
 	affordablePhotonUpgrade(): string | null {
 		if (gameManager.photonUpgrades !== this.photonLevelsRef) {
