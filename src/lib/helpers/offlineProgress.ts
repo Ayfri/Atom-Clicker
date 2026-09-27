@@ -67,15 +67,15 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const updateIncome = (deltaMs: number) => {
 		const deltaSeconds = deltaMs / 1000;
 		const autoClickRate = atomAutoClickEnabled ? manager.autoClicksPerSecond / OFFLINE_AUTO_FACTOR : 0;
-		const baseRate = manager.atomsPerSecond + autoClickRate * manager.clickPower;
+		/** `atomsPerSecond` already holds the live reactor multiplier, it is swapped for the average over the step. */
+		const productionWithoutRadiation = manager.atomsPerSecond / manager.radiationMultiplier;
 
-		// Apply radiation multiplier
 		const radiationMult = radiationManager.tickOffline(deltaSeconds);
 		radMultiplierSum += radiationMult;
 		radSteps++;
 		radRegenTotal += radiationManager.regenRate * deltaSeconds;
 
-		const income = baseRate * OFFLINE_INCOME_MULTIPLIER * deltaSeconds * radiationMult;
+		const income = (productionWithoutRadiation * radiationMult + autoClickRate * manager.clickPower) * OFFLINE_INCOME_MULTIPLIER * deltaSeconds;
 		if (income > 0) {
 			atomsGained += income;
 			addCurrency(CurrenciesTypes.ATOMS, income);
