@@ -104,11 +104,11 @@ class RadiationManager {
 
 	// Radiation Multiplier = 1 + (CPM / 50)
 	// 100 CPM = x3, 500 CPM = x11, 1000 CPM = x21
-	radiationMultiplier = $derived.by(() => {
-		if (!this.unlocked || this.currentCpm <= 0) return 1;
-		const critBonus = this.criticalChance > 0 ? 1 + this.criticalChance : 1;
-		return 1 + (this.currentCpm / 50) * critBonus;
-	});
+	radiationMultiplier = $derived(this.unlocked ? this.multiplierFor(this.currentCpm) : 1);
+
+	multiplierFor(cpm: number): number {
+		return cpm > 0 ? 1 + (cpm / 50) * (1 + this.criticalChance) : 1;
+	}
 
 	// Visual instability (0 to 1)
 	instability = $derived.by(() => {
@@ -204,16 +204,7 @@ class RadiationManager {
 			}
 		}
 
-		// Calculate multiplier based on average mass
-		// Replicate logic from currentCpm and radiationMultiplier derived values
-		// but using avgMass instead of this.mass
-		if (avgMass <= 0 || this.controlRodLevel <= 0) return 1;
-
-		const rawCpm = avgMass * this.controlRodLevel * 10 * this.enrichmentBonus;
-		const cpm = Math.min(rawCpm, this.maxCpm);
-
-		const critBonus = this.criticalChance > 0 ? 1 + this.criticalChance : 1;
-		return 1 + (cpm / 50) * critBonus;
+		return this.multiplierFor(this.cpmFor(avgMass, this.controlRodLevel));
 	}
 
 	// Purchase upgrade

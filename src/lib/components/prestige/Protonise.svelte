@@ -103,7 +103,7 @@
 				return;
 			}
 
-			const timeToMax = (600000 * gameManager.stabilityCapacity) / gameManager.stabilitySpeed;
+			const timeToMax = gameManager.stabilityTimeRequired;
 
 			const elapsed = Date.now() - gameManager.lastInteractionTime;
 			stabilityProgress = Math.min(Math.max(elapsed / timeToMax, 0), 1) * 100;

@@ -2,7 +2,6 @@
 	import { CurrenciesTypes } from '$data/currencies';
 	import { RADIATION_UPGRADES, getRadiationUpgradeCost } from '$data/radiationUpgrades';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
@@ -10,13 +9,6 @@
 
 	const electronBalance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
 	const upgradeLevels = $derived(radiationManager.upgradeLevels);
-
-	function purchaseUpgrade(id: string) {
-		if (radiationManager.purchaseUpgrade(id)) {
-			// Sync to GameManager for save persistence
-			gameManager.radiationUpgrades = { ...radiationManager.upgradeLevels };
-		}
-	}
 
 	// Sort upgrades alphabetically by name
 	const sortedUpgrades = Object.values(RADIATION_UPGRADES).sort((a, b) => a.name.localeCompare(b.name));
@@ -69,7 +61,7 @@
 			{@const isMaxed = currentLevel >= upgrade.maxLevel}
 
 			<button
-				onclick={() => purchaseUpgrade(upgrade.id)}
+				onclick={() => radiationManager.purchaseUpgrade(upgrade.id)}
 				disabled={!canAfford || isMaxed}
 				class="group flex flex-col p-3 rounded-lg transition-all duration-200 text-left border
 					{isMaxed ? 'bg-radiation/10 border-radiation/30 cursor-default'

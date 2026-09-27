@@ -348,8 +348,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		effects: [
 			{
 				apply: (currentValue, state) => {
-					const totalGenerators = Object.values(state.generators || {}).reduce((sum, generator) => sum + (generator?.count || 0), 0);
-					const bonus = Math.floor(totalGenerators / 100) * 0.2;
+					const bonus = Math.floor(state.generatorTotals.count / 100) * 0.2;
 					return currentValue * (1 + bonus);
 				},
 				description: 'Add 20% production per 100 generators owned',
@@ -472,10 +471,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		description: '+1% all production per photon upgrade owned',
 		effects: [
 			{
-				apply: (currentValue, state) => {
-					const photonUpgradeCount = Object.values(state.photonUpgrades || {}).reduce((sum, level) => sum + level, 0);
-					return currentValue * (1 + photonUpgradeCount * 0.01);
-				},
+				apply: (currentValue, state) => currentValue * (1 + state.photonUpgradeLevels * 0.01),
 				description: 'Add 1% production per photon upgrade owned',
 				type: 'global',
 			},
@@ -491,10 +487,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		description: 'Add 1% protons per photon upgrade owned',
 		effects: [
 			{
-				apply: (currentValue, state) => {
-					const photonUpgradeCount = Object.values(state.photonUpgrades || {}).reduce((sum, level) => sum + level, 0);
-					return currentValue * (1 + photonUpgradeCount * 0.01);
-				},
+				apply: (currentValue, state) => currentValue * (1 + state.photonUpgradeLevels * 0.01),
 				description: 'Add 1% protons per photon upgrade owned',
 				type: 'proton_gain',
 			},

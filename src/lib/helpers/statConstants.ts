@@ -3,7 +3,9 @@
 // 1 = reset all stats at layer
 // 2 = reset all stats at layer and layer 1
 // 3 = reset all stats at layer and layer 1 and layer 2 etc...
+import type { DailyStats } from '$data/dailyQuests';
 import { RealmTypes } from '$data/realms';
+import type { RealmState, Settings } from '$lib/types';
 
 export const LAYERS = {
 	ELECTRONIZE: 2,
@@ -16,17 +18,15 @@ export const LAYERS = {
 
 export type LayerType = (typeof LAYERS)[keyof typeof LAYERS];
 
-export interface StatConfig<T = any> {
-	defaultValue: T;
-	description?: string;
+interface StatConfig {
+	defaultValue: unknown;
 	layer: LayerType;
 	minVersion: number;
-	saveable?: boolean;
 }
 
-export const statsConfig: Record<string, StatConfig> = {
+export const statsConfig = {
 	achievements: { defaultValue: [], layer: LAYERS.NEVER, minVersion: 1 },
-	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1, saveable: true },
+	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1 },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 17 }, // Handled by CurrenciesManager
 	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 21 },
 	dailyStats: {
@@ -44,7 +44,7 @@ export const statsConfig: Record<string, StatConfig> = {
 			questIds: [],
 			questTargets: {},
 			upgradesPurchased: 0,
-		},
+		} satisfies DailyStats,
 		layer: LAYERS.NEVER,
 		minVersion: 24,
 	},
@@ -62,7 +62,11 @@ export const statsConfig: Record<string, StatConfig> = {
 	},
 	radiationUpgrades: { defaultValue: {}, layer: LAYERS.RADIATION_REALM, minVersion: 22 },
 	realms: {
-		defaultValue: { atoms: { unlocked: true }, photons: { unlocked: false }, radiation: { unlocked: false } },
+		defaultValue: {
+			[RealmTypes.ATOMS]: { unlocked: true },
+			[RealmTypes.PHOTONS]: { unlocked: false },
+			[RealmTypes.RADIATION]: { unlocked: false },
+		} satisfies Record<string, RealmState>,
 		layer: LAYERS.NEVER,
 		minVersion: 19,
 	},
@@ -71,7 +75,7 @@ export const statsConfig: Record<string, StatConfig> = {
 			automation: { autoClick: false, autoClickPhotons: false, generators: [], upgrades: false },
 			gameplay: { offlineProgressEnabled: true },
 			upgrades: { displayAlreadyBought: false },
-		},
+		} satisfies Settings,
 		layer: LAYERS.NEVER,
 		minVersion: 8,
 	},
@@ -86,60 +90,8 @@ export const statsConfig: Record<string, StatConfig> = {
 	totalProtonisesAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },
 	totalProtonisesRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE, minVersion: 16 },
 	totalUpgradesPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },
-	totalUsers: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 15, saveable: false },
+	totalUsers: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 15 },
 	totalXP: { defaultValue: 0, layer: LAYERS.PROTONIZER, minVersion: 3 },
 	tutorial: { defaultValue: { enabled: true, seen: [] }, layer: LAYERS.NEVER, minVersion: 23 },
 	upgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1 },
-};
-
-const STATS = {
-	ACHIEVEMENTS: 'achievements',
-	ACTIVE_POWER_UPS: 'activePowerUps',
-	CURRENCIES: 'currencies',
-	CURRENCY_BOOSTS: 'currencyBoosts',
-	DAILY_STATS: 'dailyStats',
-	FEATURES: 'features',
-	GENERATORS: 'generators',
-	HIGHEST_APS: 'highestAPS',
-	IN_GAME_TIME: 'inGameTime',
-	LAST_SAVE: 'lastSave',
-	PHOTON_UPGRADES: 'photonUpgrades',
-	POWER_UPS_COLLECTED: 'powerUpsCollected',
-	REALMS: 'realms',
-	SELECTED_REALM_ID: 'selectedRealmId',
-	SETTINGS: 'settings',
-	SKILL_UPGRADES: 'skillUpgrades',
-	START_DATE: 'startDate',
-	TOTAL_CLICKS_ALL_TIME: 'totalClicksAllTime',
-	TOTAL_CLICKS_RUN: 'totalClicksRun',
-	TOTAL_ELECTRONIZES_ALL_TIME: 'totalElectronizesAllTime',
-	TOTAL_ELECTRONIZES_RUN: 'totalElectronizesRun',
-	TOTAL_GENERATORS_PURCHASED_ALL_TIME: 'totalGeneratorsPurchasedAllTime',
-	TOTAL_PROTONISES_ALL_TIME: 'totalProtonisesAllTime',
-	TOTAL_PROTONISES_RUN: 'totalProtonisesRun',
-	TOTAL_UPGRADES_PURCHASED_ALL_TIME: 'totalUpgradesPurchasedAllTime',
-	TOTAL_USERS: 'totalUsers',
-	TOTAL_XP: 'totalXP',
-	TUTORIAL: 'tutorial',
-	UPGRADES: 'upgrades',
-} as const;
-
-export const NUMBER_STATS = [
-	STATS.HIGHEST_APS,
-	STATS.IN_GAME_TIME,
-	STATS.LAST_SAVE,
-	STATS.POWER_UPS_COLLECTED,
-	STATS.START_DATE,
-	STATS.TOTAL_CLICKS_ALL_TIME,
-	STATS.TOTAL_CLICKS_RUN,
-	STATS.TOTAL_ELECTRONIZES_ALL_TIME,
-	STATS.TOTAL_ELECTRONIZES_RUN,
-	STATS.TOTAL_GENERATORS_PURCHASED_ALL_TIME,
-	STATS.TOTAL_PROTONISES_ALL_TIME,
-	STATS.TOTAL_PROTONISES_RUN,
-	STATS.TOTAL_UPGRADES_PURCHASED_ALL_TIME,
-	STATS.TOTAL_USERS,
-	STATS.TOTAL_XP,
-] as const;
-
-export const ARRAY_STATS = [STATS.ACHIEVEMENTS, STATS.ACTIVE_POWER_UPS, STATS.SKILL_UPGRADES, STATS.UPGRADES] as const;
+} satisfies Record<string, StatConfig>;

@@ -7,6 +7,7 @@
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { levelFromTotalXP } from '$helpers/xp';
 	import type { GameState } from '$lib/types';
 	import { formatDuration } from '$lib/utils';
 	import { autoSave } from '$stores/autoSave.svelte';
@@ -118,7 +119,7 @@
 		cloudSaveInfo && {
 			amount: type => cloudSaveInfo?.currencies[type]?.amount ?? 0,
 			date: cloudSaveInfo.lastSaveDate,
-			level: gameManager.getLevelFromTotalXP(cloudSaveInfo.totalXP),
+			level: levelFromTotalXP(cloudSaveInfo.totalXP),
 			time: cloudSaveInfo.inGameTime,
 		},
 	);

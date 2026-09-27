@@ -59,10 +59,7 @@
 	<LevelList
 		items={radiationUpgrades}
 		levels={radiationManager.upgradeLevels}
-		onChange={levels => {
-			radiationManager.upgradeLevels = levels;
-			gameManager.radiationUpgrades = { ...levels };
-		}}
+		onChange={levels => (radiationManager.upgradeLevels = levels)}
 	/>
 {:else}
 	<LevelList

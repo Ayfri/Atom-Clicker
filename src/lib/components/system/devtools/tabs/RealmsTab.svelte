@@ -12,7 +12,7 @@
 	const realms = Object.values(RealmTypes);
 	const tutorial = gameManager.tutorialManager;
 
-	const stabilityTime = $derived((600_000 * gameManager.stabilityCapacity) / gameManager.stabilitySpeed);
+	const stabilityTime = $derived(gameManager.stabilityTimeRequired);
 	const stabilityProgress = $derived.by(() => {
 		gameManager.inGameTime;
 		return Math.min(Math.max((Date.now() - gameManager.lastInteractionTime) / stabilityTime, 0), 1);
