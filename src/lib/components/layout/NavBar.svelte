@@ -44,7 +44,7 @@
 			id: 'skill-tree',
 			label: 'Skill Tree',
 			load: () => import('@components/modals/SkillTree.svelte'),
-			condition: () => gameManager.skillUpgrades.length > 0 || SKILL_TREE_ROOTS.some(root => gameManager.canAfford(root.cost)),
+			condition: () => gameManager.skillUpgrades.length > 0 || skillTreeUnlocked,
 			notification: () => gameManager.hasAvailableSkillUpgrades,
 		},
 		{
@@ -92,6 +92,8 @@
 
 	/** Raw, since deep state would proxy the links and the identity check in `updateVisible` would never match. */
 	let visibleComponents: Link[] = $state.raw([]);
+	// Sticky once true: reaching the skill tree's atom threshold once should not hide the icon again if atoms are spent elsewhere and drop back below it.
+	let skillTreeUnlocked = $state(false);
 
 	let interval: ReturnType<typeof setInterval> | null = null;
 
@@ -99,6 +101,7 @@
 		ui.registerSettings(settingsLoader);
 		// Reassigning unconditionally re-rendered the whole nav ten times a second, the visible set almost never changes.
 		const updateVisible = () => {
+			if (!skillTreeUnlocked && SKILL_TREE_ROOTS.some(root => gameManager.canAfford(root.cost))) skillTreeUnlocked = true;
 			const next = links.filter(link => !link.condition || link.condition());
 			if (next.length === visibleComponents.length && next.every((link, i) => link === visibleComponents[i])) return;
 			visibleComponents = next;
