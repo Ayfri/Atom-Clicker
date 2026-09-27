@@ -20,9 +20,10 @@ export class CurrenciesManager {
 	add(type: CurrencyName, amount: number) {
 		if (amount <= 0) return;
 
-		this.currencies[type].amount += amount;
-		this.currencies[type].earnedRun += amount;
-		this.currencies[type].earnedAllTime += amount;
+		const currency = this.currencies[type];
+		currency.amount += amount;
+		currency.earnedRun += amount;
+		currency.earnedAllTime += amount;
 	}
 
 	remove(type: CurrencyName, amount: number) {

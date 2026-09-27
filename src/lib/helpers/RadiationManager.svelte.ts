@@ -27,7 +27,7 @@ class RadiationManager {
 	lastBombard = $state({ mass: 0, seq: 0 });
 
 	// Upgrade levels (synced from GameManager)
-	upgradeLevels = $state<Record<string, number>>({});
+	upgradeLevels = $state.raw<Record<string, number>>({});
 
 	// === DERIVED VALUES ===
 

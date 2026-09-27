@@ -147,14 +147,16 @@ export function formatNumberFull(num: number): string {
 	return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-const SIM_TIME_FORMAT = new Intl.DurationFormat('en', { style: 'narrow' });
+/** Built on first use: constructing it loads ICU duration data, which costs ~0.5s in Bun on every import of this module. */
+let simTimeFormat: Intl.DurationFormat | undefined;
 
 export function formatSimTimePrecise(ms: number): string {
 	const h = Math.floor(ms / 3600000);
 	const m = Math.floor((ms % 3600000) / 60000);
 	const s = Math.floor((ms % 60000) / 1000);
 	const msRem = Math.floor(ms % 1000);
-	return SIM_TIME_FORMAT.format({ hours: h, milliseconds: msRem, minutes: m, seconds: s });
+	simTimeFormat ??= new Intl.DurationFormat('en', { style: 'narrow' });
+	return simTimeFormat.format({ hours: h, milliseconds: msRem, minutes: m, seconds: s });
 }
 
 export function formatDuration(ms: number): string {

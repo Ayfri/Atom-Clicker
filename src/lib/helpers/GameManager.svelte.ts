@@ -48,16 +48,16 @@ function scheduleExpiry(callback: () => void, delay: number) {
 }
 
 export class GameManager {
-	achievements = $state<string[]>([]);
-	activePowerUps = $state<PowerUp[]>([]);
+	achievements = $state.raw<string[]>([]);
+	activePowerUps = $state.raw<PowerUp[]>([]);
 	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseGenerator/purchaseUpgrade directly. */
 	applyingOfflineProgress = false;
 	/** The simulation swaps this for its own clock, a 24h benchmark run finishes in seconds of wall time. */
 	clock: () => number = () => Date.now();
-	currencyBoosts = $state<CurrencyBoosts>({});
+	currencyBoosts = $state.raw<CurrencyBoosts>({});
 	dailyStats = $state<DailyStats>(structuredClone(statsConfig.dailyStats.defaultValue));
 	featuresManager = new FeaturesManager();
-	generators = $state<Partial<Record<GeneratorType, Generator>>>({});
+	generators = $state.raw<Partial<Record<GeneratorType, Generator>>>({});
 	highestAPS = $state(0);
 	inGameTime = $state(0);
 	lastInteractionTime = $state(Date.now());
@@ -65,7 +65,7 @@ export class GameManager {
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
 	/** Set from +layout.svelte, simulation.worker.ts imports GameManager and has no auth/DOM context for QuarksManager. */
 	onAchievementUnlocked: ((achievementId: string) => void) | null = null;
-	photonUpgrades = $state<Record<string, number>>({});
+	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
 	/** Pushed in by QuarksManager, same one-way dependency rule as `onAchievementUnlocked`. */
 	quarkBoostSources = $state<EffectSource[]>([]);
@@ -75,7 +75,7 @@ export class GameManager {
 	saveIntegrityTampered = $state(false);
 	saveIntegrityWarnings = $state<string[]>([]);
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
-	skillUpgrades = $state<string[]>([]);
+	skillUpgrades = $state.raw<string[]>([]);
 	startDate = $state(Date.now());
 	totalClicksAllTime = $state(0);
 	totalClicksRun = $state(0);
@@ -87,7 +87,7 @@ export class GameManager {
 	totalUpgradesPurchasedAllTime = $state(0);
 	totalXP = $state(0);
 	tutorialManager = new TutorialManager();
-	upgrades = $state<string[]>([]);
+	upgrades = $state.raw<string[]>([]);
 
 	private gameInterval: ReturnType<typeof setInterval> | null = null;
 
