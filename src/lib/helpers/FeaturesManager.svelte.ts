@@ -1,4 +1,4 @@
-import { createDefaultFeatureState, type FeatureType, FeatureTypes } from '$data/features';
+import { createDefaultFeatureState, FeatureTypes } from '$data/features';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import type { FeatureState } from '$lib/types';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
@@ -22,10 +22,6 @@ export function deriveFeatureState(state: FeatureAccessState): FeatureState {
 
 export class FeaturesManager {
 	state = $state<FeatureState>(createDefaultFeatureState());
-
-	isUnlocked(feature: FeatureType) {
-		return this.state[feature] === true;
-	}
 
 	reset() {
 		this.state = createDefaultFeatureState();

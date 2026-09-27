@@ -34,10 +34,6 @@ export class CurrenciesManager {
 		return this.currencies[type]?.amount || 0;
 	}
 
-	getEarnedRun(type: CurrencyName) {
-		return this.currencies[type]?.earnedRun || 0;
-	}
-
 	getEarnedAllTime(type: CurrencyName) {
 		return this.currencies[type]?.earnedAllTime || 0;
 	}
