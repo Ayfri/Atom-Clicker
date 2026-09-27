@@ -1,5 +1,5 @@
 import { CurrenciesTypes } from '$data/currencies';
-import { GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
+import { GENERATOR_TYPES, GENERATORS, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
 import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
@@ -65,8 +65,8 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		generatorLevels += generator?.level ?? 0;
 
 		if (generator && count > 0) {
-			const effectiveRate = foldEffects(effectSources, gameManager, generator.rate, { target: type, type: 'generator' });
-			generatorUpgradeFactors[type] = effectiveRate / generator.rate;
+			const { rate } = GENERATORS[type];
+			generatorUpgradeFactors[type] = foldEffects(effectSources, gameManager, rate, { target: type, type: 'generator' }) / rate;
 			generatorLevelFactors[type] = getGeneratorLevelMultiplier(count, generator.level);
 		}
 	}

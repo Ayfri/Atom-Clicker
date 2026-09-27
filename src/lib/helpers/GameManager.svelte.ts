@@ -225,7 +225,7 @@ export class GameManager {
 
 		for (const type of GENERATOR_TYPES) {
 			const generator = this.generators[type];
-			const rate = foldEffects(this.allEffectSources, this, generator?.rate ?? GENERATORS[type].rate, { target: type, type: 'generator' });
+			const rate = foldEffects(this.allEffectSources, this, GENERATORS[type].rate, { target: type, type: 'generator' });
 			productions[type] = rate * getGeneratorLevelMultiplier(generator?.count ?? 0, generator?.level ?? 0) * commonMultiplier;
 		}
 
@@ -712,40 +712,13 @@ export class GameManager {
 
 	// Purchasing
 	purchaseGenerator(type: GeneratorType, amount: number = 1) {
-		const generator = GENERATORS[type];
-		const currentGenerator =
-			this.generators[type] ??
-			({
-				cost: generator.cost,
-				rate: generator.rate,
-				level: 0,
-				count: 0,
-				unlocked: true,
-			} as Generator);
-
-		const totalCost = this.getGeneratorCost(type, amount);
-
-		const cost = {
-			amount: totalCost,
-			currency: currentGenerator.cost.currency,
-		};
-
+		const cost = { amount: this.getGeneratorCost(type, amount), currency: GENERATORS[type].cost.currency };
 		if (!this.spendCurrency(cost)) return false;
 
-		const newCount = currentGenerator.count + amount;
-		const newGenerator = {
-			...currentGenerator,
-			cost: {
-				amount: this.getGeneratorCost(type, 1),
-				currency: cost.currency,
-			},
-			count: newCount,
-			level: Math.floor(newCount / GENERATOR_LEVEL_UP_COST),
-		};
-
+		const count = (this.generators[type]?.count ?? 0) + amount;
 		this.generators = {
 			...this.generators,
-			[type]: newGenerator,
+			[type]: { count, level: Math.floor(count / GENERATOR_LEVEL_UP_COST), unlocked: true },
 		};
 
 		this.totalGeneratorsPurchasedAllTime += amount;
@@ -834,16 +807,7 @@ export class GameManager {
 	unlockGenerator(type: GeneratorType) {
 		if (type in this.generators) return;
 
-		this.generators = {
-			...this.generators,
-			[type]: {
-				cost: GENERATORS[type].cost,
-				rate: GENERATORS[type].rate,
-				level: 0,
-				count: 0,
-				unlocked: true,
-			},
-		};
+		this.generators = { ...this.generators, [type]: { count: 0, level: 0, unlocked: true } };
 	}
 
 	// Prestige

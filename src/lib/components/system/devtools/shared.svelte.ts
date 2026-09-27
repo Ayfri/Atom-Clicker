@@ -1,5 +1,5 @@
 import type { CurrencyName } from '$data/currencies';
-import { GENERATOR_LEVEL_UP_COST, GENERATORS, type GeneratorType } from '$data/generators';
+import { GENERATOR_LEVEL_UP_COST, type GeneratorType } from '$data/generators';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { SAVE_KEY } from '$helpers/saves';
@@ -40,13 +40,11 @@ export function setCurrency(currency: CurrencyName, value: number) {
 
 /** The level always follows the count in the real purchase path, so only the count is editable. */
 export function setGeneratorCount(type: GeneratorType, count: number) {
-	const { cost, rate } = GENERATORS[type];
 	const safeCount = Math.max(0, Math.floor(count));
 	gameManager.generators = {
 		...gameManager.generators,
-		[type]: { cost, rate, unlocked: true, ...gameManager.generators[type], count: safeCount, level: Math.floor(safeCount / GENERATOR_LEVEL_UP_COST) },
+		[type]: { count: safeCount, level: Math.floor(safeCount / GENERATOR_LEVEL_UP_COST), unlocked: true },
 	};
-	gameManager.generators[type]!.cost = { amount: gameManager.getGeneratorCost(type, 1), currency: cost.currency };
 }
 
 /** Silences `save()` first, else the page's 1s save loop can write the live state back before the reload lands. `null` wipes the save. */

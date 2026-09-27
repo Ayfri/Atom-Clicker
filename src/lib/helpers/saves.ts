@@ -9,7 +9,7 @@ import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
 import type { SaveErrorType } from '$stores/saveRecovery';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 26;
+export const SAVE_VERSION = 27;
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
 const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;
@@ -325,7 +325,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 4) {
-			Object.entries<Partial<Generator>>(state.buildings)?.forEach(([key, building]) => {
+			Object.entries<{ cost?: number | { amount: number } }>(state.buildings)?.forEach(([key, building]) => {
 				state[key].cost = {
 					amount: typeof building.cost === 'number' ? building.cost : building.cost?.amount,
 					currency: CurrenciesTypes.ATOMS,
@@ -577,6 +577,14 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 			}
 			if (Array.isArray(state.tutorial?.seen)) {
 				state.tutorial.seen = state.tutorial.seen.map((id: string) => (id === 'atoms:building' ? 'atoms:generator' : id));
+			}
+		}
+
+		if (state.version === 26) {
+			// Generators stored a copy of their base rate and cost, which kept rebalances from reaching existing saves
+			for (const generator of Object.values<Record<string, unknown>>(state.generators ?? {})) {
+				delete generator.cost;
+				delete generator.rate;
 			}
 		}
 

@@ -85,11 +85,10 @@ export interface Effect {
 
 export type FeatureState = Record<string, boolean>;
 
+/** Base rate and cost always come from `GENERATORS`, so a rebalance reaches existing saves. */
 export interface Generator {
-	cost: Price;
 	count: number;
 	level: number;
-	rate: number;
 	unlocked: boolean;
 }
 
