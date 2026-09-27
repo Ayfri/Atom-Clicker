@@ -66,6 +66,7 @@ export interface Effect {
 		| 'photon_size'
 		| 'photon_spawn_interval'
 		| 'photon_stability'
+		| 'photon_value'
 		| 'power_up_duration'
 		| 'power_up_interval'
 		| 'power_up_multiplier'

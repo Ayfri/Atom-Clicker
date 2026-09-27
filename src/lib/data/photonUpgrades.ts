@@ -165,7 +165,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 		maxLevel: 20,
 		effects: (level: number) => [
 			{
-				type: 'click',
+				type: 'photon_value',
 				description: `Add ${level} photons per circle`,
 				apply: (currentValue) => currentValue + level,
 			},

@@ -8,7 +8,6 @@ import { foldEffects } from '$helpers/effects';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { connectDeriveds } from '$helpers/reactiveRoot.svelte';
-import type { SkillUpgrade, Upgrade } from '$lib/types';
 import { MILESTONE_ENTRIES, type MilestoneEntry } from './milestones';
 import { PurchasePlanner } from './purchases';
 import { DEFAULT_SEED, createRandom } from './random';
@@ -119,8 +118,6 @@ export class SimulationEngine {
 	private photonEffects: PhotonRealmEffects | null = null;
 	private photonEffectsSources: unknown = null;
 	private photonEffectsStability = 0;
-	private photonValueKey: unknown = null;
-	private photonValueSources: (Upgrade | SkillUpgrade)[] = [];
 	private milestoneScratch = {} as MilestoneCheckData;
 	private runStateCache = {} as RunState;
 	private random: () => number = createRandom(DEFAULT_SEED);
@@ -184,7 +181,6 @@ export class SimulationEngine {
 		this.nextPowerUpTime = this.rollPowerUpInterval();
 		this.photonEffects = null;
 		this.photonEffectsSources = null;
-		this.photonValueKey = null;
 		this.photonPoolExcited = 0;
 		this.photonPoolNormal = 0;
 		this.peakAtomsPerSecond = 0;
@@ -676,14 +672,7 @@ export class SimulationEngine {
 		const cached = this.photonEffects;
 		if (cached && this.photonEffectsSources === sources && this.photonEffectsStability === stability) return cached;
 
-		// Only the photon_value upgrade's click effect counts here, so it keeps its own stable one-source list to fold.
-		if (this.photonValueKey !== sources) {
-			const source = sources.find(entry => entry.id === 'photon_value');
-			this.photonValueKey = sources;
-			this.photonValueSources = source ? [source] : [];
-		}
-
-		const photonValueBonus = foldEffects(this.photonValueSources, gameManager, 0, { type: 'click' });
+		const photonValueBonus = gameManager.photonValueBonus;
 		const doubleChance = foldEffects(sources, gameManager, 0, { type: 'photon_double_chance' });
 		const excitedDoubleChance = foldEffects(sources, gameManager, 0, { type: 'excited_photon_double' });
 		const excitedFromMaxBonus = foldEffects(sources, gameManager, 0, { type: 'excited_photon_from_max' });

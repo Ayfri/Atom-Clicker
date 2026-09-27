@@ -8,7 +8,6 @@
 	import { calculateEffects } from '$helpers/effects';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
-	import type { SkillUpgrade, Upgrade } from '$lib/types';
 	import { formatNumber } from '$lib/utils';
 	import { addParticles } from '$stores/canvas';
 	import { mobile } from '$stores/window.svelte';
@@ -87,35 +86,8 @@
 	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
 	const MAX_PIXEL_RATIO = 2;
 
-	/**
-	 * `calculateEffects` caches its effect index on the source array identity, so handing it a freshly filtered array
-	 * rebuilt the whole index on every spawn and every click. The full source list keeps the cache warm, and the bucket
-	 * it reads back is the same one the pre-filtered list would have produced.
-	 */
-	const singleSourceCache = new Map<string, (Upgrade | SkillUpgrade)[]>();
-	let singleSourceKey: unknown = null;
-
-	function sourcesById(id: string) {
-		if (singleSourceKey !== gameManager.allEffectSources) {
-			singleSourceKey = gameManager.allEffectSources;
-			singleSourceCache.clear();
-		}
-
-		let cached = singleSourceCache.get(id);
-		if (!cached) {
-			const upgrade = gameManager.allEffectSources.find(u => u.id === id);
-			cached = upgrade ? [upgrade] : [];
-			singleSourceCache.set(id, cached);
-		}
-		return cached;
-	}
-
 	function getSizeMultiplier() {
 		return calculateEffects(gameManager.allEffectSources, gameManager, baseSizeMultiplier, { type: 'photon_size' });
-	}
-
-	function getPhotonValueBonus() {
-		return calculateEffects(sourcesById('photon_value'), gameManager, 0, { type: 'click' });
 	}
 
 	function getExcitedFromMaxBonus() {
@@ -123,7 +95,7 @@
 	}
 
 	function getLifetimeBonus() {
-		return calculateEffects(sourcesById('circle_lifetime'), gameManager, 0, { type: 'photon_duration' });
+		return calculateEffects(gameManager.allEffectSources, gameManager, 0, { type: 'photon_duration' });
 	}
 
 	function getExcitedLifetimeMultiplier() {
@@ -176,7 +148,7 @@
 
 		// Apply upgrades
 		const sizeMultiplier = getSizeMultiplier();
-		const photonValueBonus = getPhotonValueBonus();
+		const photonValueBonus = gameManager.photonValueBonus;
 		const lifetimeBonus = getLifetimeBonus();
 		const doubleChance = getDoubleChance();
 

@@ -287,6 +287,8 @@ export class GameManager {
 		return foldEffects(this.allEffectSources, this, baseSpawnRate, options);
 	});
 
+	photonValueBonus = $derived(foldEffects(this.allEffectSources, this, 0, { type: 'photon_value' }));
+
 	playerLevel = $derived(this.getLevelFromTotalXP(this.totalXP));
 
 	powerUpDurationMultiplier = $derived.by(() => {

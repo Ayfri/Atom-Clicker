@@ -154,7 +154,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		const photonAutoClicksPerSecond = manager.photonAutoClicksPer5Seconds / 5 / OFFLINE_AUTO_FACTOR;
 		photonAutoClicks = photonAutoClicksPerSecond * appliedSeconds;
 
-		const photonValueBonus = getOfflinePhotonValueBonus(manager);
+		const photonValueBonus = manager.photonValueBonus;
 		const doubleChance = getOfflinePhotonDoubleChance(manager);
 		const excitedDoubleChance = getOfflineExcitedPhotonDoubleChance(manager);
 		const fromMaxBonusFactor = getOfflineExcitedFromMaxBonus(manager);
@@ -203,7 +203,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	}
 
 	const photonAutoClicksPerSecond = photonAutoClickEnabled ? manager.photonAutoClicksPer5Seconds / 5 / OFFLINE_AUTO_FACTOR : 0;
-	const photonValueBonus = photonAutoClickEnabled ? getOfflinePhotonValueBonus(manager) : 0;
+	const photonValueBonus = photonAutoClickEnabled ? manager.photonValueBonus : 0;
 	const photonDoubleChance = photonAutoClickEnabled ? getOfflinePhotonDoubleChance(manager) : 0;
 	const excitedDoubleChance = photonAutoClickEnabled ? getOfflineExcitedPhotonDoubleChance(manager) : 0;
 	const fromMaxBonusFactor = photonAutoClickEnabled ? getOfflineExcitedFromMaxBonus(manager) : 0;
@@ -301,12 +301,6 @@ function getOfflinePhotonDoubleChance(manager: GameManager) {
 	const options = { type: 'photon_double_chance' as const };
 	const upgrades = getUpgradesWithEffects(manager.allEffectSources, options);
 	return calculateEffects(upgrades, manager, 0, options);
-}
-
-function getOfflinePhotonValueBonus(manager: GameManager) {
-	const upgrade = manager.allEffectSources.find(source => source.id === 'photon_value');
-	if (!upgrade) return 0;
-	return calculateEffects([upgrade], manager, 0, { type: 'click' });
 }
 
 function getOfflineProgressCapMs(manager: GameManager) {
