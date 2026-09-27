@@ -138,7 +138,7 @@
 			{@const Icon = ICONS[GENERATOR_ICON_NAMES[type]]}
 
 			{#snippet autoBuyTooltip()}
-				{@const interval = autoBuyManager.autoBuyIntervals[type]}
+				{@const interval = gameManager.autoBuyIntervals[type]}
 				{@const nextFire = autoBuyManager.nextFireTimes.get(type)}
 				<div class="flex flex-col gap-1">
 					<p class="text-xs text-white/80">Automatically buys 1 {generator.name} whenever you can afford it.</p>

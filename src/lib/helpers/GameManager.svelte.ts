@@ -25,7 +25,7 @@ import {
 } from '$lib/types';
 import { setItem } from '$lib/utils/safeLocalStorage';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { foldEffects } from '$helpers/effects';
+import { effectsFor, foldEffects } from '$helpers/effects';
 import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
 import { applyOfflineProgress } from '$helpers/offlineProgress';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
@@ -43,6 +43,8 @@ function scheduleExpiry(callback: () => void, delay: number) {
 	const timer = setTimeout(callback, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
 	timer.unref?.();
 }
+
+const AUTO_PURCHASE_BASE_INTERVAL = 30_000;
 
 export class GameManager {
 	// State
@@ -168,6 +170,20 @@ export class GameManager {
 		for (const production of Object.values(this.generatorProductions)) baseProduction += production;
 		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
+
+	/** Auto-buy period of each generator the player automated, in the order its upgrades were bought. */
+	autoBuyIntervals = $derived.by(() => {
+		const intervals: Partial<Record<GeneratorType, number>> = {};
+		for (const { target } of effectsFor(this.currentUpgradesBought, { type: 'auto_buy' })) {
+			if (!target || target in intervals || !this.settings.automation.generators.includes(target)) continue;
+			intervals[target] = foldEffects(this.currentUpgradesBought, this, AUTO_PURCHASE_BASE_INTERVAL, { target, type: 'auto_buy' });
+		}
+		return intervals;
+	});
+
+	autoUpgradeInterval = $derived.by(() =>
+		this.settings.automation.upgrades ? foldEffects(this.currentUpgradesBought, this, AUTO_PURCHASE_BASE_INTERVAL, { type: 'auto_upgrade' }) : 0,
+	);
 
 	autoClicksPerSecond = $derived.by(() => {
 		if (!this.settings.automation.autoClick) return 0;

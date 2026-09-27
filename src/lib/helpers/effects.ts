@@ -63,7 +63,7 @@ function buildIndex(upgrades: (Upgrade | SkillUpgrade)[]): Map<string, Effect[]>
 }
 
 /** The source lists are rebuilt, never mutated in place, so the array identity plus its length is a safe cache key. */
-function effectsFor(upgrades: (Upgrade | SkillUpgrade)[], options: SearchEffectsOptions): Effect[] {
+export function effectsFor(upgrades: (Upgrade | SkillUpgrade)[], options: SearchEffectsOptions): Effect[] {
 	let cached = INDEX_CACHE.get(upgrades);
 	if (!cached || cached.length !== upgrades.length) {
 		cached = { index: buildIndex(upgrades), length: upgrades.length };

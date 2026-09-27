@@ -90,9 +90,9 @@
 					{#snippet autoUpgradeTooltip()}
 						<div class="flex flex-col gap-1">
 							<p class="text-xs text-white/80">Automatically buys the cheapest affordable upgrade.</p>
-							{#if gameManager.settings.automation.upgrades && autoUpgradeManager.autoUpgradeInterval}
+							{#if gameManager.settings.automation.upgrades && gameManager.autoUpgradeInterval}
 								<p class="text-xs text-white/60">
-									Checks every {(autoUpgradeManager.autoUpgradeInterval / 1000).toFixed(1)}s
+									Checks every {(gameManager.autoUpgradeInterval / 1000).toFixed(1)}s
 									{#if autoUpgradeManager.nextFireTime}
 										- next in {Math.max(0, (autoUpgradeManager.nextFireTime - clock.now) / 1000).toFixed(1)}s
 									{/if}

@@ -24,7 +24,7 @@
 	);
 	const autoUpgradeUnlocked = $derived(getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0);
 	const automation = $derived(gameManager.settings.automation);
-	const intervals = $derived(autoBuyManager.autoBuyIntervals);
+	const intervals = $derived(gameManager.autoBuyIntervals);
 
 	const setAutoBuy = (generators: GeneratorType[]) => (gameManager.settings.automation.generators = generators);
 </script>
@@ -88,7 +88,7 @@
 				Auto-upgrade {autoUpgradeUnlocked ? '' : '(not owned)'}
 			</label>
 			<span class="ml-auto font-mono text-white/40">
-				{autoUpgradeManager.autoUpgradeInterval ? `${autoUpgradeManager.autoUpgradeInterval / 1000}s` : 'off'}
+				{gameManager.autoUpgradeInterval ? `${gameManager.autoUpgradeInterval / 1000}s` : 'off'}
 			</span>
 			<button class={btn} disabled={!automation.upgrades} onclick={() => autoUpgradeManager.purchaseAvailableUpgrades()}>Run</button>
 		</div>

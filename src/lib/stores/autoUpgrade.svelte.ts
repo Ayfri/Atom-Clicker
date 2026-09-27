@@ -1,30 +1,11 @@
 import { gameManager } from '$helpers/GameManager.svelte';
 import { UPGRADES } from '$data/upgrades';
 import { browser } from '$app/environment';
-import { getUpgradesWithEffects } from '$helpers/effects';
 import { SvelteSet } from 'svelte/reactivity';
 
 class AutoUpgradeManager {
 	recentlyAutoPurchased = new SvelteSet<string>();
 	nextFireTime = $state<number | null>(null);
-	private timer: ReturnType<typeof setInterval> | null = null;
-
-	get autoUpgradeInterval() {
-		if (!gameManager.settings.automation.upgrades) return 0;
-
-		const autoUpgrades = getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_upgrade' });
-		let interval = 30000; // Default: 30 seconds
-
-		autoUpgrades.forEach((upgrade) => {
-			upgrade.effects?.forEach((effect) => {
-				if (effect.type === 'auto_upgrade') {
-					interval = effect.apply(interval, gameManager);
-				}
-			});
-		});
-
-		return interval;
-	}
 
 	purchaseAvailableUpgrades() {
 		if (!gameManager.settings.automation.upgrades) return;
@@ -51,28 +32,22 @@ class AutoUpgradeManager {
 	}
 
 	init() {
-		if (browser) {
-			$effect(() => {
-				const interval = this.autoUpgradeInterval;
+		if (!browser) return;
+		/** `autoUpgradeInterval` is a derived number, so the timer only restarts when the period itself changes, not on every purchase. */
+		$effect(() => {
+			const interval = gameManager.autoUpgradeInterval;
+			if (interval <= 0) {
+				this.nextFireTime = null;
+				return;
+			}
 
-				if (this.timer) clearInterval(this.timer);
-
-				if (interval > 0) {
-					this.nextFireTime = Date.now() + interval;
-					this.timer = setInterval(() => {
-						this.purchaseAvailableUpgrades();
-						this.nextFireTime = Date.now() + interval;
-					}, interval);
-				} else {
-					this.nextFireTime = null;
-					this.timer = null;
-				}
-
-				return () => {
-					if (this.timer) clearInterval(this.timer);
-				};
-			});
-		}
+			this.nextFireTime = Date.now() + interval;
+			const timer = setInterval(() => {
+				this.purchaseAvailableUpgrades();
+				this.nextFireTime = Date.now() + interval;
+			}, interval);
+			return () => clearInterval(timer);
+		});
 	}
 }
 
