@@ -10,6 +10,7 @@ import {
 	ChromaticColors,
 	type ChromaticUpgrade,
 	getChromaticUpgradeCost,
+	ionizeLightMultiplier,
 	KILLS_PER_SPECTRUM_LEVEL,
 	SPECTRUM_DROP_GROWTH,
 	SPECTRUM_HP_GROWTH,
@@ -60,10 +61,9 @@ class ChromaticManager {
 		return auto ? damage * (CHROMATIC_AUTO_DAMAGE + 0.15 * this.level('prism_autofocus')) : damage;
 	}
 
-	/** Light for one break at a given base drop, every Ionize adds half of the base on top. */
 	lightFor(color: ChromaticColor, drop: number, ionizes: number): number {
 		const upgrades = (1 + 0.25 * this.level(`${color}_yield`)) * (1 + 0.5 * this.level('white_spectrum'));
-		return drop * SPECTRUM_DROP_GROWTH ** this.spectrumLevel(color) * upgrades * (1 + 0.5 * ionizes);
+		return drop * SPECTRUM_DROP_GROWTH ** this.spectrumLevel(color) * upgrades * ionizeLightMultiplier(ionizes);
 	}
 
 	/**

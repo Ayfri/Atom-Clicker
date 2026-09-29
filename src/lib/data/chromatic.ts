@@ -43,6 +43,13 @@ export const CHROMATIC_AUTO_DAMAGE = 0.25;
 export const KILLS_PER_SPECTRUM_LEVEL = 10;
 export const SPECTRUM_HP_GROWTH = 1.18;
 export const SPECTRUM_DROP_GROWTH = 1.12;
+/** Ionize counts that raise colored Light, each one sets the bonus to 2% per Ionize: +10% at 5, +100% at 50. */
+export const IONIZE_LIGHT_MILESTONES = [5, 10, 20, 30, 50];
+
+export const ionizeMilestoneBonus = (ionizes: number): number => 0.02 * (IONIZE_LIGHT_MILESTONES.findLast(count => ionizes >= count) ?? 0);
+
+/** Every Ionize adds half the base Light, and the milestones multiply that. */
+export const ionizeLightMultiplier = (ionizes: number): number => (1 + 0.5 * ionizes) * (1 + ionizeMilestoneBonus(ionizes));
 
 export interface ChromaticUpgrade {
 	baseCost: number;
