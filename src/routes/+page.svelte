@@ -60,8 +60,14 @@
 	/** One-shot overlay of a player-triggered switch, a new `id` remounts it so back-to-back switches restart it. */
 	let warp = $state<{ color: string; direction: 1 | -1; id: number } | null>(null);
 
+	/** Switches spammed mid-swing restart the transitions from wherever they are and pile up warps. */
+	const SWITCH_COOLDOWN_MS = 500;
+	let lastSwitchTime = -SWITCH_COOLDOWN_MS;
+
 	function switchRealm(realm: RealmConfig, index: number) {
-		if (index === selectedIndex) return;
+		const now = performance.now();
+		if (index === selectedIndex || now - lastSwitchTime < SWITCH_COOLDOWN_MS) return;
+		lastSwitchTime = now;
 		warp = { color: realm.color, direction: index > selectedIndex ? 1 : -1, id: (warp?.id ?? 0) + 1 };
 		realmManager.selectRealm(realm.id);
 	}
