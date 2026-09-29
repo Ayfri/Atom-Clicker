@@ -5,7 +5,7 @@
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { formatDuration, formatNumber } from '$lib/utils';
 	import Currency from '@components/ui/Currency.svelte';
-	import { ArrowBigUp, ChevronsUp, Factory, Hourglass, MousePointerClick, Radiation, Sparkles, Star, Zap } from '@lucide/svelte';
+	import { ArrowBigUp, ChevronsUp, Factory, Hourglass, MousePointerClick, Radiation, Sparkles, Zap } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion, Tween } from 'svelte/motion';
@@ -63,20 +63,20 @@
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<div
-			class="custom-scrollbar relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col items-center gap-6 overflow-x-hidden overflow-y-auto rounded-3xl border border-white/10 bg-accent-900 bg-[radial-gradient(circle_at_50%_0%,rgb(74_144_226/0.3),transparent_55%)] px-5 pt-8 pb-6 text-center shadow-2xl shadow-accent-500/20 sm:px-8"
+			class="custom-scrollbar relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col items-center gap-4 overflow-x-hidden overflow-y-auto rounded-3xl border border-white/10 bg-accent-900 bg-[radial-gradient(circle_at_50%_0%,rgb(74_144_226/0.3),transparent_55%)] px-5 pt-5 pb-5 text-center shadow-2xl shadow-accent-500/20 sm:px-8"
 			onclick={e => e.stopPropagation()}
 			transition:scale={{ duration: 350, easing: cubicOut, start: 0.85 }}
 		>
-			<div class="relative grid size-24 shrink-0 place-items-center">
+			<div class="relative grid size-16 shrink-0 place-items-center">
 				<span
-					class="absolute -inset-16 bg-[repeating-conic-gradient(rgb(129_173_223/0.14)_0deg_10deg,transparent_10deg_30deg)] [mask-image:radial-gradient(circle,black_20%,transparent_70%)] motion-safe:animate-[offline-rays_24s_linear_infinite]"
+					class="absolute -inset-12bg-[repeating-conic-gradient(rgb(129_173_223/0.14)_0deg_10deg,transparent_10deg_30deg)] [mask-image:radial-gradient(circle,black_20%,transparent_70%)] motion-safe:animate-[offline-rays_24s_linear_infinite]"
 				></span>
 				<span class="absolute inset-2 rounded-full bg-accent-400/30 blur-2xl"></span>
-				<Currency class="relative motion-safe:animate-[offline-float_4s_ease-in-out_infinite]" name="Atoms" size={80} />
+				<Currency class="relative motion-safe:animate-[offline-float_4s_ease-in-out_infinite]" name="Atoms" size={56} />
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<h2 class="text-3xl font-black tracking-wide text-white uppercase [text-shadow:0_0_24px_rgb(74_144_226/0.8)] sm:text-4xl">
+			<div class="flex flex-col gap-0.5">
+				<h2 class="text-2xl font-black tracking-wide text-white uppercase [text-shadow:0_0_24px_rgb(74_144_226/0.8)] sm:text-3xl">
 					Welcome back!
 				</h2>
 				<p class="text-white/60">
@@ -102,32 +102,32 @@
 
 			{#if summary.levelsGained > 0}
 				<div
-					class="flex items-center gap-2 text-2xl font-black tracking-wider text-yellow-300 uppercase [text-shadow:0_0_20px_rgb(250_204_21/0.6)] motion-safe:animate-[offline-pop_600ms_cubic-bezier(.34,1.56,.64,1)_1.6s_backwards]"
+					class="flex items-center gap-2 text-xl font-black tracking-wider text-yellow-300 uppercase [text-shadow:0_0_20px_rgb(250_204_21/0.6)] motion-safe:animate-[offline-pop_600ms_cubic-bezier(.34,1.56,.64,1)_1.6s_backwards]"
 				>
-					<ChevronsUp size={28} />
+					<ChevronsUp size={24} />
 					Level up! +{summary.levelsGained}
 				</div>
 			{/if}
 
-			<div class="flex w-full flex-col gap-4">
+			<div class="flex w-full flex-col gap-3">
 				<div class="flex items-center gap-3 text-[11px] font-bold tracking-[0.25em] text-white/40 uppercase">
 					<span class="h-px flex-1 bg-white/10"></span>
 					Loot
 					<span class="h-px flex-1 bg-white/10"></span>
 				</div>
 				{#if loot.length > 0 || summary.xpGained > 0}
-					<div class="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-x-3 gap-y-5">
+					<div class="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-2 gap-y-3">
 						{#each loot as { amount, currency }, i (currency)}
 							{@const color = CURRENCIES[currency].color}
 							<div
-								class="flex flex-col items-center gap-1 motion-safe:animate-[offline-pop_500ms_cubic-bezier(.34,1.56,.64,1)_backwards]"
+								class="flex flex-col items-center gap-0.5 motion-safe:animate-[offline-pop_500ms_cubic-bezier(.34,1.56,.64,1)_backwards]"
 								style:animation-delay="{250 + i * 120}ms"
 							>
-								<div class="relative grid size-14 place-items-center">
+								<div class="relative grid size-10 place-items-center">
 									<span class="absolute inset-1 rounded-full opacity-40 blur-lg" style:background={color}></span>
-									<Currency class="relative" name={currency} size={40} />
+									<Currency class="relative" name={currency} size={30} />
 								</div>
-								<span class="text-2xl font-black text-white tabular-nums" style:text-shadow="0 0 16px {color}">
+								<span class="text-xl font-black text-white tabular-nums" style:text-shadow="0 0 16px {color}">
 									+{formatNumber(amount * reveal.current)}
 								</span>
 								<span class="text-[11px] font-semibold tracking-widest text-white/45 uppercase">{currency}</span>
@@ -135,14 +135,14 @@
 						{/each}
 						{#if summary.xpGained > 0}
 							<div
-								class="flex flex-col items-center gap-1 motion-safe:animate-[offline-pop_500ms_cubic-bezier(.34,1.56,.64,1)_backwards]"
+								class="flex flex-col items-center gap-0.5 motion-safe:animate-[offline-pop_500ms_cubic-bezier(.34,1.56,.64,1)_backwards]"
 								style:animation-delay="{250 + loot.length * 120}ms"
 							>
-								<div class="relative grid size-14 place-items-center">
+								<div class="relative grid size-10 place-items-center">
 									<span class="absolute inset-1 rounded-full opacity-40 blur-lg" style:background={XP_COLOR}></span>
-									<Star class="relative" color={XP_COLOR} fill={XP_COLOR} size={36} />
+									<ChevronsUp class="relative" color={XP_COLOR} size={30} strokeWidth={2.5} />
 								</div>
-								<span class="text-2xl font-black text-white tabular-nums" style:text-shadow="0 0 16px {XP_COLOR}">
+								<span class="text-xl font-black text-white tabular-nums" style:text-shadow="0 0 16px {XP_COLOR}">
 									+{formatNumber(summary.xpGained * reveal.current)}
 								</span>
 								<span class="text-[11px] font-semibold tracking-widest text-white/45 uppercase">XP</span>
@@ -155,13 +155,13 @@
 			</div>
 
 			{#if hasActivity}
-				<div class="flex w-full flex-col gap-3">
+				<div class="flex w-full flex-col gap-2">
 					<div class="flex items-center gap-3 text-[11px] font-bold tracking-[0.25em] text-white/40 uppercase">
 						<span class="h-px flex-1 bg-white/10"></span>
 						While you were away
 						<span class="h-px flex-1 bg-white/10"></span>
 					</div>
-					<ul class="flex flex-col gap-2 text-left text-sm text-white/75">
+					<ul class="flex flex-col gap-1.5 text-left text-sm text-white/75">
 						{#if autoBuyTotal > 0}
 							<li class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
@@ -220,7 +220,7 @@
 
 			<div class="flex w-full flex-col items-center gap-2">
 				<button
-					class="relative flex w-full max-w-64 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-linear-to-b from-accent-400 to-accent-600 py-3 text-xl font-black tracking-wider text-white uppercase shadow-[0_4px_0_var(--color-accent-700),0_0_24px_rgb(74_144_226/0.4)] transition-transform hover:scale-105 active:translate-y-1 active:shadow-[0_0_0_var(--color-accent-700)]"
+					class="relative flex w-full max-w-64 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-linear-to-b from-accent-400 to-accent-600 py-2.5 text-lg font-black tracking-wider text-white uppercase shadow-[0_4px_0_var(--color-accent-700),0_0_24px_rgb(74_144_226/0.4)] transition-transform hover:scale-105 active:translate-y-1 active:shadow-[0_0_0_var(--color-accent-700)]"
 					onclick={close}
 				>
 					<span
