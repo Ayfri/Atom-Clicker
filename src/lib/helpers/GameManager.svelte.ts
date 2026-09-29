@@ -10,6 +10,7 @@ import { SKILL_UPGRADES } from '$data/skillTree';
 import { UPGRADES } from '$data/upgrades';
 import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
 import type {
+	ChromaticState,
 	CurrencyBoosts,
 	EffectSource,
 	FeatureState,
@@ -23,6 +24,7 @@ import type {
 	SkillUpgrade,
 } from '$lib/types';
 import { setItem } from '$lib/utils/safeLocalStorage';
+import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { EffectTable } from '$helpers/effects';
 import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
@@ -96,10 +98,27 @@ export class GameManager {
 		return currenciesManager.getAmount(CurrenciesTypes.ATOMS);
 	}
 
+	/** ChromaticManager owns the colored photon state, these accessors only expose it to the save and reset loops. */
+	get chromatic(): ChromaticState {
+		return chromaticManager.getState();
+	}
+	set chromatic(state: ChromaticState) {
+		chromaticManager.loadState(state);
+	}
+
+	get chromaticUpgrades() {
+		return chromaticManager.upgradeLevels;
+	}
+	set chromaticUpgrades(levels: Record<string, number>) {
+		chromaticManager.upgradeLevels = levels;
+	}
+
 	get currencies() {
 		return currenciesManager.currencies;
 	}
+	/** A save from before a currency existed has no entry for it, which `add` would crash on. */
 	set currencies(value) {
+		for (const type of Object.values(CurrenciesTypes)) value[type] ??= { amount: 0, earnedAllTime: 0, earnedRun: 0 };
 		currenciesManager.currencies = value;
 	}
 
@@ -386,6 +405,8 @@ export class GameManager {
 		return {
 			achievements: this.achievements,
 			activePowerUps: this.activePowerUps,
+			chromatic: this.chromatic,
+			chromaticUpgrades: this.chromaticUpgrades,
 			currencies: this.currencies,
 			currencyBoosts: this.currencyBoosts,
 			dailyStats: this.dailyStats,

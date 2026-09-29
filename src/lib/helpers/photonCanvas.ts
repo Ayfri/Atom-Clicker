@@ -28,6 +28,43 @@ export function pulseOpacity(elapsedMs: number): number {
 	return progress < 0.5 ? 1 - 0.5 * pulseEase(progress * 2) : 0.5 + 0.5 * pulseEase(progress * 2 - 1);
 }
 
+/** Corners of the facet inside a Light glyph, in the 24x24 icon space with a point facing up. */
+export function facetPoints(facets: number, radius = 5.5): [number, number][] {
+	return Array.from({ length: facets }, (_, i) => {
+		const angle = -Math.PI / 2 + (i * Math.PI * 2) / facets;
+		return [12 + Math.cos(angle) * radius, 12 + Math.sin(angle) * radius];
+	});
+}
+
+/** Draws a Light glyph centered on the current origin, matching `@components/icons/Light.svelte`. */
+export function drawLightIcon(ctx: CanvasRenderingContext2D, color: string, facets: number, size: number, alpha: number) {
+	ctx.save();
+	ctx.scale(size / ICON_VIEWBOX, size / ICON_VIEWBOX);
+	ctx.translate(-ICON_VIEWBOX / 2, -ICON_VIEWBOX / 2);
+	ctx.fillStyle = color;
+	ctx.strokeStyle = color;
+	ctx.lineJoin = 'round';
+
+	ctx.beginPath();
+	ctx.arc(12, 12, 10, 0, Math.PI * 2);
+	ctx.globalAlpha = alpha * 0.14;
+	ctx.fill();
+	ctx.globalAlpha = alpha;
+	ctx.lineWidth = 1;
+	ctx.stroke();
+
+	ctx.beginPath();
+	for (const [x, y] of facetPoints(facets)) ctx.lineTo(x, y);
+	ctx.closePath();
+	ctx.globalAlpha = alpha * 0.25;
+	ctx.fill();
+	ctx.globalAlpha = alpha;
+	ctx.lineWidth = 1.75;
+	ctx.stroke();
+
+	ctx.restore();
+}
+
 /**
  * Draws a photon icon centered on the current origin, matching the SVG markup of
  * `@components/icons/Photon.svelte` and `@components/icons/ExcitedPhoton.svelte`.

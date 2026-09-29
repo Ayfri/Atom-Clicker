@@ -26,10 +26,12 @@ import {
 	ChevronsUp,
 	Clock,
 	Coffee,
+	Diamond,
 	Factory,
 	FileText,
 	Gauge,
 	Globe,
+	Hexagon,
 	Layers,
 	Magnet,
 	Milestone,
@@ -44,6 +46,7 @@ import {
 	ShieldPlus,
 	Sparkles,
 	TrendingUp,
+	Triangle,
 	Trophy,
 	Zap,
 } from '@lucide/svelte';
@@ -61,6 +64,7 @@ export const ICONS = {
 	award: Award,
 	balance: Scale,
 	blackHole: BlackHoleIcon,
+	blueLight: Hexagon,
 	boostMax: ChevronsUp,
 	changelog: FileText,
 	click: MousePointerClick,
@@ -72,6 +76,7 @@ export const ICONS = {
 	generatorLevel: Factory,
 	github: GitHubIcon,
 	globe: Globe,
+	greenLight: Diamond,
 	higgsBoson: HiggsBosonIcon,
 	layers: Layers,
 	level: ArrowBigUp,
@@ -89,6 +94,7 @@ export const ICONS = {
 	proton: ProtonIcon,
 	quark: QuarkIcon,
 	radiation: Radiation,
+	redLight: Triangle,
 	rock: RockIcon,
 	shieldCheck: ShieldCheck,
 	shieldCog: ShieldCog,
@@ -107,11 +113,14 @@ export type IconName = keyof typeof ICONS;
 
 export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.ATOMS]: 'atom',
+	[CurrenciesTypes.BLUE_LIGHT]: 'blueLight',
 	[CurrenciesTypes.ELECTRONS]: 'electron',
 	[CurrenciesTypes.EXCITED_PHOTONS]: 'excitedPhoton',
+	[CurrenciesTypes.GREEN_LIGHT]: 'greenLight',
 	[CurrenciesTypes.HIGGS_BOSON]: 'higgsBoson',
 	[CurrenciesTypes.PHOTONS]: 'photon',
 	[CurrenciesTypes.PROTONS]: 'proton',
+	[CurrenciesTypes.RED_LIGHT]: 'redLight',
 };
 
 export const GENERATOR_ICON_NAMES: Record<GeneratorType, IconName> = {

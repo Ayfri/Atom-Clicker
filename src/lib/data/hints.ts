@@ -1,9 +1,12 @@
+import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
 import { CurrenciesTypes } from '$data/currencies';
 import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 import { RealmTypes, type RealmType } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
+import { chromaticManager } from '$helpers/ChromaticManager.svelte';
+import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { gameManager } from '$helpers/GameManager.svelte';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
+import { IONIZE_CPM, radiationManager } from '$helpers/RadiationManager.svelte';
 import { realmManager } from '$helpers/RealmManager.svelte';
 import { reveals } from '$helpers/reveals.svelte';
 import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
@@ -136,6 +139,26 @@ export const HINTS: Hint[] = [
 		title: 'Excited Photons',
 	},
 	{
+		done: () => CHROMATIC_COLORS.some(color => chromaticManager.kills[color] > 0),
+		id: 'photons:chromatic',
+		placement: 'bottom',
+		realm: RealmTypes.PHOTONS,
+		show: () => gameManager.totalIonizesAllTime > 0,
+		targets: ['[data-photon-realm]'],
+		text: 'The Prism splits light into Red, Green and Blue photons. They are tougher, tap them several times to break them.',
+		title: 'Colored Photons',
+	},
+	{
+		done: () => Object.keys(chromaticManager.upgradeLevels).length > 0,
+		id: 'photons:prism',
+		placement: 'bottom',
+		realm: RealmTypes.PHOTONS,
+		show: () => CHROMATIC_COLORS.some(color => currenciesManager.getAmount(CHROMATIC[color].currency) >= 10),
+		targets: ['[data-hint="prism-tab"]'],
+		text: 'Each color pays its own Light. Spend it in the Prism tab to break them faster.',
+		title: 'The Prism',
+	},
+	{
 		done: () => radiationManager.mass > 0,
 		id: 'radiation:intro',
 		placement: 'top',
@@ -162,5 +185,15 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="radiation-upgrades"]'],
 		text: 'The reactor has room to grow. What exactly improves is best discovered by browsing.',
 		title: 'Reactor Upgrades',
+	},
+	{
+		done: () => ui.activeModalId === 'ionize' || gameManager.totalIonizesAllTime > 0,
+		id: 'radiation:ionize',
+		placement: 'right',
+		realm: RealmTypes.RADIATION,
+		show: () => radiationManager.currentCpm >= IONIZE_CPM || radiationManager.ionizeReady,
+		targets: ['#nav-ionize'],
+		text: 'The core is past the ionization line. Hold it there for a full minute, then Ionize here.',
+		title: 'Ionize',
 	},
 ];

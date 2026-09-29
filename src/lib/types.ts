@@ -1,3 +1,4 @@
+import type { ChromaticColor } from '$data/chromatic';
 import type { CurrencyName } from '$data/currencies';
 import type { DailyStats } from '$data/dailyQuests';
 import type { FeatureType } from '$data/features';
@@ -19,6 +20,10 @@ export interface Achievement {
 	iconStack?: IconStackSpec;
 	id: string;
 	name: string;
+}
+
+export interface ChromaticState {
+	kills: Record<ChromaticColor, number>;
 }
 
 export interface Currency {
@@ -126,6 +131,8 @@ export interface TutorialState {
 export interface GameState {
 	achievements: string[];
 	activePowerUps: PowerUp[];
+	chromatic: ChromaticState;
+	chromaticUpgrades: Record<string, number>;
 	currencies: CurrencyStateMap;
 	currencyBoosts: CurrencyBoosts;
 	dailyStats: DailyStats;

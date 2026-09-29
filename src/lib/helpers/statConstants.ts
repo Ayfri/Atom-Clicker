@@ -5,7 +5,7 @@
 // 3 = reset all stats at layer and layer 1 and layer 2 etc...
 import type { DailyStats } from '$data/dailyQuests';
 import { RealmTypes } from '$data/realms';
-import type { RealmState, Settings } from '$lib/types';
+import type { ChromaticState, RealmState, Settings } from '$lib/types';
 
 export const LAYERS = {
 	ELECTRONIZE: 2,
@@ -27,6 +27,8 @@ interface StatConfig {
 export const statsConfig = {
 	achievements: { defaultValue: [], layer: LAYERS.NEVER, minVersion: 1 },
 	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1 },
+	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER, minVersion: 29 },
+	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 29 },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 17 }, // Handled by CurrenciesManager
 	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 21 },
 	dailyStats: {

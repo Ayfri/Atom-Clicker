@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { CHROMATIC } from '$data/chromatic';
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { FeatureTypes } from '$data/features';
 	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
+	import { ChromaticField, type ChromaticPhoton } from '$helpers/chromaticField';
+	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
@@ -18,16 +21,18 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 
 	function simulateClick() {
-		if (!container || circles.length === 0) return;
+		if (!container) return;
 
 		// Filter valid targets
 		const allowExcited = (gameManager.photonUpgrades['excited_auto_click'] || 0) > 0;
 		const validCircles = circles.filter(c => allowExcited || c.type !== 'excited');
+		const targets = validCircles.length + chromatic.photons.length;
+		if (targets === 0) return;
 
-		if (validCircles.length === 0) return;
-
-		// Get a random circle from our valid circles array
-		const randomCircle = validCircles[Math.floor(Math.random() * validCircles.length)];
+		// Colored photons share the draw with the circles, one auto-click chips at their HP instead of collecting.
+		const pick = Math.floor(Math.random() * targets);
+		if (pick >= validCircles.length) return hitChromatic(chromatic.photons[pick - validCircles.length], true);
+		const randomCircle = validCircles[pick];
 
 		// Hidden, the click spawns no particles, and measuring the translated realm forced a layout on every auto-click.
 		if (!visible) return clickCircle(randomCircle, 0, 0, true);
@@ -37,6 +42,32 @@
 
 		clickCircle(randomCircle, rect.left + randomCircle.x, rect.top + randomCircle.y, true);
 	}
+
+	const chromatic = new ChromaticField();
+	let lastHoveredChromaticId: number | null = null;
+	const prismUnlocked = $derived(gameManager.totalIonizesAllTime > 0);
+
+	function hitChromatic(photon: ChromaticPhoton, auto: boolean) {
+		const broken = chromatic.hit(photon, auto);
+		if (!broken) return;
+		chromaticManager.collect(broken, gameManager.totalIonizesAllTime);
+		if (!visible || broken.drop === 0) return;
+
+		const rect = getContainerRect();
+		if (!rect) return;
+		const addedParticles: Particle[] = [];
+		for (let i = 0; i < 5; i++) {
+			const particle = createClickParticleSync(rect.left + broken.x, rect.top + broken.y, CHROMATIC[broken.color].currency);
+			if (particle) addedParticles.push(particle);
+		}
+		if (addedParticles.length > 0) addParticles(addedParticles);
+	}
+
+	$effect(() => {
+		if (!prismUnlocked) return;
+		const interval = setInterval(() => chromatic.spawn(canvasWidth, canvasHeight), chromaticManager.spawnInterval);
+		return () => clearInterval(interval);
+	});
 
 	interface Circle {
 		id: number;
@@ -268,6 +299,7 @@
 			if (circle.lifetime < circle.maxLifetime) circles[alive++] = circle;
 		}
 		circles.length = alive;
+		chromatic.update(deltaTime, canvasWidth, canvasHeight, visible);
 	}
 
 	function opacity(circle: Circle) {
@@ -336,7 +368,7 @@
 		if (!canvas || !ctx) return;
 
 		// Nothing to show: skip the clear entirely once the last circle is gone.
-		const hasCircles = circles.length > 0;
+		const hasCircles = circles.length > 0 || !chromatic.empty;
 		if (!hasCircles && !hadCircles) return;
 		hadCircles = hasCircles;
 
@@ -377,6 +409,8 @@
 
 			ctx.restore();
 		}
+
+		chromatic.draw(ctx, still);
 	}
 
 	function circleAt(x: number, y: number) {
@@ -398,6 +432,12 @@
 		return circleAt(event.clientX - rect.left, event.clientY - rect.top);
 	}
 
+	function chromaticFromEvent(event: MouseEvent) {
+		const rect = getContainerRect();
+		if (!rect) return null;
+		return chromatic.at(event.clientX - rect.left, event.clientY - rect.top);
+	}
+
 	function handleClick(event: MouseEvent) {
 		// A drag that already collected photons must not also count as a tap.
 		if (collectedWhileDown) {
@@ -405,6 +445,9 @@
 			return;
 		}
 
+		// Colored photons are drawn above the circles, so they take the tap first.
+		const photon = chromaticFromEvent(event);
+		if (photon) return hitChromatic(photon, false);
 		const circle = circleFromEvent(event);
 		if (circle) clickCircle(circle, event.clientX, event.clientY, false);
 	}
@@ -413,6 +456,7 @@
 		pointerDown = true;
 		collectedWhileDown = false;
 		lastHoveredId = circleFromEvent(event)?.id ?? null;
+		lastHoveredChromaticId = chromaticFromEvent(event)?.id ?? null;
 	}
 
 	function handlePointerUp() {
@@ -420,6 +464,19 @@
 	}
 
 	function handlePointerMove(event: PointerEvent) {
+		// Dragging over a colored photon deals one hit per entry, it has to be left and re-entered to hit again.
+		const photon = chromaticFromEvent(event);
+		if (photon) {
+			hovering = true;
+			if (photon.id !== lastHoveredChromaticId && hoverCollection) {
+				hitChromatic(photon, false);
+				if (pointerDown) collectedWhileDown = true;
+			}
+			lastHoveredChromaticId = photon.id;
+			return;
+		}
+		lastHoveredChromaticId = null;
+
 		const circle = circleFromEvent(event);
 		hovering = circle !== null;
 
@@ -440,6 +497,7 @@
 		hovering = false;
 		pointerDown = false;
 		lastHoveredId = null;
+		lastHoveredChromaticId = null;
 	}
 
 	// Every realm stays mounted, the hidden ones are only translated off screen, so the canvas has to know.

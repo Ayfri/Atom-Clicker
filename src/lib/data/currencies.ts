@@ -3,11 +3,14 @@ import type { Currency } from '$lib/types';
 
 export const CurrenciesTypes = {
 	ATOMS: 'Atoms',
+	BLUE_LIGHT: 'Blue Light',
 	ELECTRONS: 'Electrons',
 	EXCITED_PHOTONS: 'Excited Photons',
+	GREEN_LIGHT: 'Green Light',
 	HIGGS_BOSON: 'Higgs Boson',
 	PHOTONS: 'Photons',
 	PROTONS: 'Protons',
+	RED_LIGHT: 'Red Light',
 } as const;
 
 export type CurrencyName = typeof CurrenciesTypes[keyof typeof CurrenciesTypes];
@@ -20,6 +23,13 @@ export const CURRENCIES = {
 		layer: LAYERS.PROTONIZER,
 		name: 'Atoms',
 		stat: CurrenciesTypes.ATOMS,
+	},
+	[CurrenciesTypes.BLUE_LIGHT]: {
+		color: '#4d8dff',
+		id: 'blue-light',
+		layer: LAYERS.NEVER,
+		name: 'Blue Light',
+		stat: CurrenciesTypes.BLUE_LIGHT,
 	},
 	[CurrenciesTypes.ELECTRONS]: {
 		color: '#45d945',
@@ -35,6 +45,13 @@ export const CURRENCIES = {
 		layer: LAYERS.PHOTON_REALM,
 		name: 'Excited Photons',
 		stat: CurrenciesTypes.EXCITED_PHOTONS,
+	},
+	[CurrenciesTypes.GREEN_LIGHT]: {
+		color: '#2ee6a0',
+		id: 'green-light',
+		layer: LAYERS.NEVER,
+		name: 'Green Light',
+		stat: CurrenciesTypes.GREEN_LIGHT,
 	},
 	[CurrenciesTypes.HIGGS_BOSON]: {
 		achievementTiers: [1, 10, 64, 512, 4096],
@@ -57,5 +74,12 @@ export const CURRENCIES = {
 		layer: LAYERS.ELECTRONIZE,
 		name: 'Protons',
 		stat: CurrenciesTypes.PROTONS,
+	},
+	[CurrenciesTypes.RED_LIGHT]: {
+		color: '#ff4d5e',
+		id: 'red-light',
+		layer: LAYERS.NEVER,
+		name: 'Red Light',
+		stat: CurrenciesTypes.RED_LIGHT,
 	},
 } as Record<CurrencyName, Currency>;

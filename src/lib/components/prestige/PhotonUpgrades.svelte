@@ -8,7 +8,8 @@
 	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import PhotonUpgradeItem from './PhotonUpgradeItem.svelte';
-	import { Eye, EyeOff } from '@lucide/svelte';
+	import PrismUpgrades from './PrismUpgrades.svelte';
+	import { Eye, EyeOff, Triangle } from '@lucide/svelte';
 
 	const selectedCurrency = $derived(photonUpgradesTab.selected);
 
@@ -28,6 +29,7 @@
 	});
 
 	const showExcitedTab = $derived(gameManager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime > 0);
+	const showPrismTab = $derived(gameManager.totalIonizesAllTime > 0);
 </script>
 
 <div id="photon-upgrades" class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100vh-180px)]">
@@ -40,6 +42,9 @@
 						Spend <CurrencyLabel name={CurrenciesTypes.PHOTONS} /> on repeatable upgrades.
 						{#if showExcitedTab}
 							Rare <CurrencyLabel name={CurrenciesTypes.EXCITED_PHOTONS} /> unlock a separate tab with stronger effects.
+						{/if}
+						{#if showPrismTab}
+							The Prism tab spends the Light of colored photons.
 						{/if}
 					</p>
 				{/snippet}
@@ -79,24 +84,40 @@
 				<Currency name={CurrenciesTypes.EXCITED_PHOTONS} />
 			</button>
 		{/if}
+		{#if showPrismTab}
+			<button
+				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 text-realm-200 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
+				class:active={selectedCurrency === 'prism'}
+				data-hint="prism-tab"
+				in:reveal={{ y: 0 }}
+				onclick={() => photonUpgradesTab.selected = 'prism'}
+				title="Prism"
+			>
+				<Triangle size={18} />
+			</button>
+		{/if}
 	</div>
 
 	<div class="flex-1 overflow-y-auto px-1 custom-scrollbar">
-		<div class="grid gap-2">
-			{#each availableUpgrades as upgrade (upgrade.id)}
-				<PhotonUpgradeItem
-					{upgrade}
-					currency={selectedCurrency}
-					isExcited={selectedCurrency === CurrenciesTypes.EXCITED_PHOTONS}
-				/>
-			{/each}
+		{#if selectedCurrency === 'prism'}
+			<PrismUpgrades />
+		{:else}
+			<div class="grid gap-2">
+				{#each availableUpgrades as upgrade (upgrade.id)}
+					<PhotonUpgradeItem
+						{upgrade}
+						currency={selectedCurrency}
+						isExcited={selectedCurrency === CurrenciesTypes.EXCITED_PHOTONS}
+					/>
+				{/each}
 
-			{#if availableUpgrades.length === 0}
-				<div class="text-center py-4 text-realm-400/60 text-sm">
-					All upgrades maxed out!
-				</div>
-			{/if}
-		</div>
+				{#if availableUpgrades.length === 0}
+					<div class="text-center py-4 text-realm-400/60 text-sm">
+						All upgrades maxed out!
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
 
