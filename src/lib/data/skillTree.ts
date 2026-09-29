@@ -16,11 +16,11 @@ function gridPos(x: number, y: number) {
 	};
 }
 
-/** Lays out the i-th node of a 3-tall block column by column, alternating direction so consecutive nodes stay adjacent, odd columns sit half a cell lower. */
-function snakePos(startX: number, startY: number, i: number) {
-	const column = Math.floor(i / 3);
-	const row = column % 2 === 0 ? i % 3 : 2.5 - (i % 3);
-	return gridPos(startX + column, startY + row);
+/** Lays out the i-th node in tight rows of 3 that alternate direction like bricks, odd rows shifted half a node right. */
+function brickPos(startX: number, startY: number, i: number) {
+	const row = Math.floor(i / 3);
+	const column = row % 2 === 0 ? i % 3 : 2 - (i % 3);
+	return gridPos(startX + column * 0.7 + (row % 2) * 0.35, startY + row * 0.75);
 }
 
 /**
@@ -47,7 +47,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.BOOST_ASSIGN_ALL,
 		id: 'boostAssignAll',
 		name: 'Boost Dump',
-		position: gridPos(0, -1),
+		position: gridPos(-0.35, -1.1),
 		requires: ['unlockLevels'],
 	},
 
@@ -58,7 +58,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.BOOST_EVEN_SPLIT,
 		id: 'boostEvenSplit',
 		name: 'Boost Balancer',
-		position: gridPos(0, -2),
+		position: gridPos(0.35, -1.1),
 		requires: ['boostAssignAll'],
 	},
 
@@ -71,7 +71,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.PURPLE_REALM,
 		id: 'purpleRealm',
 		name: 'Purple Realm',
-		position: gridPos(-1, 0),
+		position: gridPos(-1.2, 0.2),
 		requires: ['unlockLevels'],
 	},
 
@@ -83,7 +83,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.HOVER_COLLECTION,
 		id: 'hoverCollection',
 		name: 'Quantum Magnetism',
-		position: gridPos(-1, -1),
+		position: gridPos(-1.2, -0.55),
 		requirement: 'Own 1 photon upgrade',
 		requires: ['purpleRealm'],
 	},
@@ -95,7 +95,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.RADIATION_REALM,
 		id: 'radiationRealm',
 		name: 'Radiation Realm',
-		position: gridPos(-2, 0),
+		position: gridPos(-2.3, 0.5),
 		requires: ['purpleRealm'],
 	},
 
@@ -107,7 +107,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		effects: [add('auto_click', 1)],
 		id: 'autoClicker',
 		name: 'Auto Clicker',
-		position: gridPos(0, 1),
+		position: gridPos(0, 1.1),
 		requires: ['unlockLevels'],
 	},
 
@@ -117,7 +117,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		effects: [add('auto_upgrade', 0)],
 		id: 'autoUpgrade',
 		name: 'Auto Upgrade',
-		position: gridPos(-1, 1),
+		position: gridPos(-0.7, 1.1),
 		requires: ['autoClicker'],
 	},
 
@@ -133,7 +133,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 					effects: [add('auto_buy', 0, generatorType)],
 					id,
 					name: `Auto ${name}`,
-					position: snakePos(0, 2, i),
+					position: brickPos(-0.35, 2.05, i),
 					requires: [i === 0 ? 'autoClicker' : `${GENERATOR_TYPES[i - 1]}AutoBuy`],
 				},
 			];
@@ -149,7 +149,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.OFFLINE_PROGRESS,
 		id: 'offlineProgress',
 		name: 'Offline Progress',
-		position: gridPos(1, 0),
+		position: gridPos(1.2, -0.1),
 		requires: ['unlockLevels'],
 	},
 
@@ -160,7 +160,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.OFFLINE_AUTO_UPGRADE,
 		id: 'offlineAutoUpgrades',
 		name: 'Offline Auto-upgrades',
-		position: gridPos(2, 0),
+		position: gridPos(2.2, -0.45),
 		requires: ['offlineProgress'],
 	},
 
@@ -171,7 +171,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.OFFLINE_AUTO_CLICK,
 		id: 'offlineAutoClick',
 		name: 'Offline Auto-click',
-		position: gridPos(1, 1),
+		position: gridPos(1.2, 0.75),
 		requires: ['autoClicker', 'offlineProgress'],
 	},
 
@@ -182,7 +182,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.STABILITY_FIELD,
 		id: 'stabilityField',
 		name: 'Stability Field',
-		position: gridPos(1, -1),
+		position: gridPos(1.3, -1.1),
 		requires: ['offlineProgress'],
 	},
 
@@ -193,7 +193,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.STABLE_ATOM_AUTO_CLICK,
 		id: 'stableAutomation',
 		name: 'Stable Automation',
-		position: gridPos(1, -2),
+		position: gridPos(0.95, -1.95),
 		requires: ['stabilityField'],
 	},
 
@@ -204,7 +204,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.STABLE_ATOM_CLICK,
 		id: 'stableManipulation',
 		name: 'Stable Manipulation',
-		position: gridPos(1, -3),
+		position: gridPos(0.95, -2.7),
 		requires: ['stableAutomation'],
 	},
 
@@ -215,7 +215,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.STABLE_PHOTON_AUTO_CLICK,
 		id: 'stableQuantumFlux',
 		name: 'Stable Quantum Flux',
-		position: gridPos(2, -1),
+		position: gridPos(2, -1.8),
 		requires: ['stabilityField'],
 	},
 
@@ -226,7 +226,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.STABLE_PHOTON_CLICK,
 		id: 'stableInteraction',
 		name: 'Stable Interaction',
-		position: gridPos(2, -2),
+		position: gridPos(2, -2.55),
 		requires: ['stableQuantumFlux'],
 	},
 
@@ -237,7 +237,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		feature: FeatureTypes.STABLE_BONUS_CLICK,
 		id: 'stableAnomalies',
 		name: 'Stable Anomalies',
-		position: gridPos(2, -3),
+		position: gridPos(1.475, -3.5),
 		requires: ['stableInteraction', 'stableManipulation'],
 	},
 };
