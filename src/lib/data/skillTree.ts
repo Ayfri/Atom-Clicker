@@ -1,12 +1,21 @@
 import { CurrenciesTypes } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '$data/generators';
+import { GENERATOR_ICON_NAMES } from '$data/icons';
 import { add } from '$helpers/effects';
-import type { SkillUpgrade } from '$lib/types';
+import type { SkillBranch, SkillUpgrade } from '$lib/types';
 
 export const SKILL_GRID = {
 	x: 550,
 	y: 264,
+};
+
+export const SKILL_BRANCH_COLORS: Record<SkillBranch, string> = {
+	automation: '#fb923c',
+	boosts: '#4a90e2',
+	core: '#facc15',
+	idle: '#2dd4bf',
+	realms: '#b57bff',
 };
 
 function gridPos(x: number, y: number) {
@@ -29,10 +38,12 @@ function brickPos(startX: number, startY: number, i: number) {
  */
 export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	unlockLevels: {
+		branch: 'core',
 		cost: { amount: 10_000, currency: CurrenciesTypes.ATOMS },
 		description: 'Unlock the leveling system',
 		effects: [],
 		feature: FeatureTypes.LEVELS,
+		icon: 'level',
 		id: 'unlockLevels',
 		name: 'Unlock Levels',
 		position: gridPos(0, 0),
@@ -41,10 +52,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	// CURRENCY BOOSTS (north)
 
 	boostAssignAll: {
+		branch: 'boosts',
 		cost: { amount: 100, currency: CurrenciesTypes.PROTONS },
 		description: 'Adds a Max button to each currency boost that assigns every free point at once',
 		effects: [],
 		feature: FeatureTypes.BOOST_ASSIGN_ALL,
+		icon: 'boostMax',
 		id: 'boostAssignAll',
 		name: 'Boost Dump',
 		position: gridPos(-0.35, -1.1),
@@ -52,10 +65,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	boostEvenSplit: {
+		branch: 'boosts',
 		cost: { amount: 500, currency: CurrenciesTypes.PROTONS },
 		description: 'Adds a Balance button that spreads your boost points evenly across every currency you have earned',
 		effects: [],
 		feature: FeatureTypes.BOOST_EVEN_SPLIT,
+		icon: 'balance',
 		id: 'boostEvenSplit',
 		name: 'Boost Balancer',
 		position: gridPos(0.35, -1.1),
@@ -65,10 +80,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	// REALMS (west)
 
 	purpleRealm: {
+		branch: 'realms',
 		cost: { amount: 10_000_000_000, currency: CurrenciesTypes.ATOMS },
 		description: 'Unlock the mysterious purple realm',
 		effects: [],
 		feature: FeatureTypes.PURPLE_REALM,
+		icon: 'photon',
 		id: 'purpleRealm',
 		name: 'Purple Realm',
 		position: gridPos(-1.2, 0.2),
@@ -76,11 +93,13 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	hoverCollection: {
+		branch: 'realms',
 		condition: manager => Object.keys(manager.photonUpgrades).length >= 1,
 		cost: { amount: 1_000, currency: CurrenciesTypes.PHOTONS },
 		description: 'Collect photons by hovering over them or touching them',
 		effects: [],
 		feature: FeatureTypes.HOVER_COLLECTION,
+		icon: 'magnet',
 		id: 'hoverCollection',
 		name: 'Quantum Magnetism',
 		position: gridPos(-1.2, -0.55),
@@ -89,10 +108,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	radiationRealm: {
+		branch: 'realms',
 		cost: { amount: 100, currency: CurrenciesTypes.ELECTRONS },
 		description: 'Unlock the Radiation Realm and harness nuclear decay',
 		effects: [],
 		feature: FeatureTypes.RADIATION_REALM,
+		icon: 'radiation',
 		id: 'radiationRealm',
 		name: 'Radiation Realm',
 		position: gridPos(-2.3, 0.5),
@@ -102,9 +123,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	// AUTOMATION (south)
 
 	autoClicker: {
+		branch: 'automation',
 		cost: { amount: 31, currency: CurrenciesTypes.PROTONS },
 		description: 'Automatically clicks the atom once per second',
 		effects: [add('auto_click', 1)],
+		icon: 'click',
 		id: 'autoClicker',
 		name: 'Auto Clicker',
 		position: gridPos(0, 1.1),
@@ -112,9 +135,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	autoUpgrade: {
+		branch: 'automation',
 		cost: { amount: 25, currency: CurrenciesTypes.ELECTRONS },
 		description: 'Automatically buys the cheapest available upgrade every 30 seconds',
 		effects: [add('auto_upgrade', 0)],
+		icon: 'upgrade',
 		id: 'autoUpgrade',
 		name: 'Auto Upgrade',
 		position: gridPos(-0.7, 1.1),
@@ -128,9 +153,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 			return [
 				id,
 				{
+					branch: 'automation',
 					cost: { amount: 2 + i, currency: CurrenciesTypes.ELECTRONS },
 					description: `Automatically buys 1 ${name} every 30 seconds`,
 					effects: [add('auto_buy', 0, generatorType)],
+					icon: GENERATOR_ICON_NAMES[generatorType],
 					id,
 					name: `Auto ${name}`,
 					position: brickPos(-0.35, 2.05, i),
@@ -143,10 +170,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	// IDLE PLAY (east)
 
 	offlineProgress: {
+		branch: 'idle',
 		cost: { amount: 2_000_000, currency: CurrenciesTypes.ATOMS },
 		description: 'Keep producing atoms while you are away',
 		effects: [],
 		feature: FeatureTypes.OFFLINE_PROGRESS,
+		icon: 'offline',
 		id: 'offlineProgress',
 		name: 'Offline Progress',
 		position: gridPos(1.2, -0.1),
@@ -154,10 +183,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	offlineAutoUpgrades: {
+		branch: 'idle',
 		cost: { amount: 120, currency: CurrenciesTypes.PROTONS },
 		description: 'Auto-upgrade keeps buying while you are away, at 1/120 speed',
 		effects: [],
 		feature: FeatureTypes.OFFLINE_AUTO_UPGRADE,
+		icon: 'moon',
 		id: 'offlineAutoUpgrades',
 		name: 'Offline Auto-upgrades',
 		position: gridPos(2.2, -0.45),
@@ -165,10 +196,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	offlineAutoClick: {
+		branch: 'idle',
 		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
 		description: 'The auto-clicker keeps clicking while you are away, at 1/120 speed',
 		effects: [],
 		feature: FeatureTypes.OFFLINE_AUTO_CLICK,
+		icon: 'moonStar',
 		id: 'offlineAutoClick',
 		name: 'Offline Auto-click',
 		position: gridPos(1.2, 0.75),
@@ -176,10 +209,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stabilityField: {
+		branch: 'idle',
 		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
 		description: 'Unlock the Stability Meter, a production bonus that grows while you do not interact',
 		effects: [],
 		feature: FeatureTypes.STABILITY_FIELD,
+		icon: 'stabilityMeter',
 		id: 'stabilityField',
 		name: 'Stability Field',
 		position: gridPos(1.3, -1.1),
@@ -187,10 +222,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stableAutomation: {
+		branch: 'idle',
 		cost: { amount: 50, currency: CurrenciesTypes.ELECTRONS },
 		description: 'The Atom Realm auto-clicker no longer destabilizes the field',
 		effects: [],
 		feature: FeatureTypes.STABLE_ATOM_AUTO_CLICK,
+		icon: 'shieldCog',
 		id: 'stableAutomation',
 		name: 'Stable Automation',
 		position: gridPos(0.95, -1.95),
@@ -198,10 +235,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stableManipulation: {
+		branch: 'idle',
 		cost: { amount: 400, currency: CurrenciesTypes.ELECTRONS },
 		description: 'Clicking the atom no longer destabilizes the field',
 		effects: [],
 		feature: FeatureTypes.STABLE_ATOM_CLICK,
+		icon: 'shieldCheck',
 		id: 'stableManipulation',
 		name: 'Stable Manipulation',
 		position: gridPos(0.95, -2.7),
@@ -209,10 +248,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stableQuantumFlux: {
+		branch: 'idle',
 		cost: { amount: 100, currency: CurrenciesTypes.ELECTRONS },
 		description: 'The Photon Realm auto-clicker no longer destabilizes the field',
 		effects: [],
 		feature: FeatureTypes.STABLE_PHOTON_AUTO_CLICK,
+		icon: 'shieldCog',
 		id: 'stableQuantumFlux',
 		name: 'Stable Quantum Flux',
 		position: gridPos(2, -1.8),
@@ -220,10 +261,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stableInteraction: {
+		branch: 'idle',
 		cost: { amount: 250, currency: CurrenciesTypes.ELECTRONS },
 		description: 'Clicking in the Photon Realm no longer destabilizes the field',
 		effects: [],
 		feature: FeatureTypes.STABLE_PHOTON_CLICK,
+		icon: 'shieldCheck',
 		id: 'stableInteraction',
 		name: 'Stable Interaction',
 		position: gridPos(2, -2.55),
@@ -231,10 +274,12 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 
 	stableAnomalies: {
+		branch: 'idle',
 		cost: { amount: 500, currency: CurrenciesTypes.ELECTRONS },
 		description: 'Clicking bonuses no longer destabilizes the field',
 		effects: [],
 		feature: FeatureTypes.STABLE_BONUS_CLICK,
+		icon: 'shieldPlus',
 		id: 'stableAnomalies',
 		name: 'Stable Anomalies',
 		position: gridPos(1.475, -3.5),

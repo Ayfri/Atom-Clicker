@@ -19,7 +19,34 @@ import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
 import PhotonIcon from '@components/icons/Photon.svelte';
 import ProtonIcon from '@components/icons/Proton.svelte';
 import QuarkIcon from '@components/icons/Quark.svelte';
-import { Activity, ArrowBigUp, Award, Clock, Coffee, Factory, FileText, Gauge, Globe, Layers, Milestone, MousePointerClick, Network, Radiation, Sparkles, TrendingUp, Trophy, Zap } from '@lucide/svelte';
+import {
+	Activity,
+	ArrowBigUp,
+	Award,
+	ChevronsUp,
+	Clock,
+	Coffee,
+	Factory,
+	FileText,
+	Gauge,
+	Globe,
+	Layers,
+	Magnet,
+	Milestone,
+	Moon,
+	MoonStar,
+	MousePointerClick,
+	Network,
+	Radiation,
+	Scale,
+	ShieldCheck,
+	ShieldCog,
+	ShieldPlus,
+	Sparkles,
+	TrendingUp,
+	Trophy,
+	Zap,
+} from '@lucide/svelte';
 
 /** Every icon component in the game accepts at least these two props, which is all `IconStack` needs. */
 export type IconComponent = Component<{ color?: string; size?: number }>;
@@ -32,7 +59,9 @@ export type IconComponent = Component<{ color?: string; size?: number }>;
 export const ICONS = {
 	atom: AtomIcon,
 	award: Award,
+	balance: Scale,
 	blackHole: BlackHoleIcon,
+	boostMax: ChevronsUp,
 	changelog: FileText,
 	click: MousePointerClick,
 	coffee: Coffee,
@@ -46,9 +75,12 @@ export const ICONS = {
 	higgsBoson: HiggsBosonIcon,
 	layers: Layers,
 	level: ArrowBigUp,
+	magnet: Magnet,
 	microorganism: MicroorganismIcon,
 	milestone: Milestone,
 	molecule: MoleculeIcon,
+	moon: Moon,
+	moonStar: MoonStar,
 	nanostructure: NanostructureIcon,
 	neutronStar: NeutronStarIcon,
 	offline: Clock,
@@ -58,6 +90,9 @@ export const ICONS = {
 	quark: QuarkIcon,
 	radiation: Radiation,
 	rock: RockIcon,
+	shieldCheck: ShieldCheck,
+	shieldCog: ShieldCog,
+	shieldPlus: ShieldPlus,
 	skillTreeMaster: Network,
 	speed: Gauge,
 	sparkles: Sparkles,

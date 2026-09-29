@@ -221,12 +221,16 @@ export interface Settings {
 	};
 }
 
+export type SkillBranch = 'automation' | 'boosts' | 'core' | 'idle' | 'realms';
+
 export interface SkillUpgrade {
+	branch: SkillBranch;
 	condition?: (manager: GameManager) => boolean;
 	cost: Price;
 	description: string;
 	effects: Effect[];
 	feature?: FeatureType;
+	icon: IconName;
 	id: string;
 	name: string;
 	position: { x: number; y: number };
