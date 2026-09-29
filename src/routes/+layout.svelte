@@ -21,8 +21,8 @@
 
 	let { children }: Props = $props();
 
-	// The benchmark route is a standalone analysis tool, none of the in-game overlays belong there.
-	const isBenchmark = $derived(page.url.pathname.startsWith('/benchmark'));
+	// The benchmark and cosmos routes are standalone dev tools, none of the in-game overlays belong there.
+	const isStandalone = $derived(['/benchmark', '/cosmos'].some(path => page.url.pathname.startsWith(path)));
 
 	let mounted = $state(false);
 	let updatePromptShown = false;
@@ -76,7 +76,7 @@
 		onComplete={() => prestigeStore.reset()}
 	/>
 	{@render children?.()}
-	{#if !isBenchmark}
+	{#if !isStandalone}
 		<DevTools />
 		<Hints />
 	{/if}
