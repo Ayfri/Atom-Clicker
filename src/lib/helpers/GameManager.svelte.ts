@@ -205,10 +205,11 @@ export class GameManager {
 
 	currentUpgradesBought = $derived([...this.upgrades, ...this.skillUpgrades].flatMap(id => UPGRADES[id] ?? SKILL_UPGRADES[id] ?? []));
 
+	/** Multiplies the whole electron gain by one more per decade of protons past the threshold: 1e9 gives x1, 1e12 gives x4. */
+	electronizeBaseGain = $derived(this.protons < ELECTRONS_PROTONS_REQUIRED ? 0 : Math.floor(1 + Math.log10(this.protons / ELECTRONS_PROTONS_REQUIRED)));
+
 	electronizeElectronsGain = $derived(
-		this.protons < ELECTRONS_PROTONS_REQUIRED
-			? 0
-			: this.effects.value('electron_gain', 1, this) * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS),
+		this.electronizeBaseGain * this.effects.value('electron_gain', 1, this) * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS),
 	);
 
 	excitedPhotonChance = $derived(this.effects.value('excited_photon_chance', 0.002, this));

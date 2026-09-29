@@ -20,10 +20,10 @@
 	let canElectronize = $derived(gameManager.protons >= ELECTRONS_PROTONS_REQUIRED || gameManager.electronizeElectronsGain > 0);
 
 	const electronGainBreakdown = $derived.by(() => {
-		const baseGain = gameManager.protons < ELECTRONS_PROTONS_REQUIRED ? 0 : 1;
+		const baseGain = gameManager.electronizeBaseGain;
 		const effects = effectBreakdown(gameManager.allEffectSources, 'electron_gain', gameManager);
 		const boostMultiplier = gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
-		const finalValue = baseGain > 0 ? gameManager.effects.value('electron_gain', baseGain, gameManager) * boostMultiplier : 0;
+		const finalValue = gameManager.electronizeElectronsGain;
 
 		return {
 			base: baseGain,
@@ -86,8 +86,7 @@
 							<div class="flex flex-col gap-2">
 								<span class="text-[11px] font-bold uppercase tracking-wider text-green-300">Electron Gain</span>
 								<p class="text-[11px] text-white/70">
-									Electrons are skittish sparks - the forge teases out only a small charge unless your upgrades stabilize
-									the flow.
+									The core yield grows by one for every tenfold of protons past 1 billion, and your upgrades multiply it.
 								</p>
 								<div class="grid gap-1 text-xs">
 									<div class="flex items-center justify-between gap-3">
