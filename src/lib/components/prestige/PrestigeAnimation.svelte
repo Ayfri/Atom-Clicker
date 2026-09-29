@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import type { PrestigeAnimationType as AnimationType } from '$stores/prestige.svelte';
 	import Electron from '@components/icons/Electron.svelte';
 	import Proton from '@components/icons/Proton.svelte';
-
-	type AnimationType = 'electronize' | 'protonise';
+	import { Radiation } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		animation: AnimationType | null;
@@ -161,6 +161,11 @@
 					size={160}
 					class="symbol-icon"
 				/>
+			{:else if currentAnimation === 'ionize'}
+				<Radiation
+					size={160}
+					class="symbol-icon text-(--primary)"
+				/>
 			{:else}
 				<Electron
 					size={160}
@@ -203,6 +208,15 @@
 		--accent: #d1fae5;
 		--glow: rgba(52, 211, 153, 0.6);
 		--bg-tint: rgba(52, 211, 153, 0.1);
+	}
+
+	/* Ionize color scheme: the reactor green burning out to white */
+	.prestige-overlay[data-type='ionize'] {
+		--primary: #39ff14;
+		--secondary: #22c55e;
+		--accent: #f5f7ff;
+		--glow: rgba(57, 255, 20, 0.6);
+		--bg-tint: rgba(57, 255, 20, 0.1);
 	}
 
 	.currency-splash {

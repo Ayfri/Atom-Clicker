@@ -9,7 +9,7 @@ import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
 import type { SaveErrorType } from '$stores/saveRecovery.svelte';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 28;
+export const SAVE_VERSION = 29;
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
 const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;

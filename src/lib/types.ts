@@ -149,6 +149,7 @@ export interface GameState {
 	totalElectronizesAllTime: number;
 	totalElectronizesRun: number;
 	totalGeneratorsPurchasedAllTime: number;
+	totalIonizesAllTime: number;
 	totalProtonisesAllTime: number;
 	totalProtonisesRun: number;
 	totalUpgradesPurchasedAllTime: number;

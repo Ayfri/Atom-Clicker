@@ -6,11 +6,12 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
+	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
-	import { Atom, Network, Orbit, Settings as SettingsIcon, Trophy, Zap } from '@lucide/svelte';
+	import { Atom, Network, Orbit, Radiation, Settings as SettingsIcon, Trophy, Zap } from '@lucide/svelte';
 	import { onDestroy, onMount, type Component } from 'svelte';
 
 	type NavBarIcon = Component<{ class?: string; size?: number }>;
@@ -79,6 +80,14 @@
 			load: () => import('@components/prestige/Electronize.svelte'),
 			condition: () => gameManager.protons >= ELECTRONS_PROTONS_REQUIRED || gameManager.totalElectronizesAllTime > 0,
 			notification: () => gameManager.electronizeElectronsGain > 0,
+		},
+		{
+			icon: Radiation,
+			id: 'ionize',
+			label: 'Ionize',
+			load: () => import('@components/prestige/Ionize.svelte'),
+			condition: () => radiationManager.unlocked || gameManager.totalIonizesAllTime > 0,
+			notification: () => radiationManager.ionizeReady,
 		},
 	];
 

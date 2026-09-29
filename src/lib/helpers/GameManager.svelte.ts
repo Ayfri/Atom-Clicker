@@ -82,6 +82,7 @@ export class GameManager {
 	totalElectronizesAllTime = $state(0);
 	totalElectronizesRun = $state(0);
 	totalGeneratorsPurchasedAllTime = $state(0);
+	totalIonizesAllTime = $state(0);
 	totalProtonisesAllTime = $state(0);
 	totalProtonisesRun = $state(0);
 	totalUpgradesPurchasedAllTime = $state(0);
@@ -362,7 +363,17 @@ export class GameManager {
 		this.totalElectronizesAllTime++;
 		this.totalElectronizesRun++;
 		this.dailyStats.electronizes = (this.dailyStats.electronizes ?? 0) + 1;
-		this.prestige(LAYERS.ELECTRONIZE, CurrenciesTypes.ELECTRONS, this.electronizeElectronsGain);
+		this.prestige(LAYERS.ELECTRONIZE, { amount: this.electronizeElectronsGain, currency: CurrenciesTypes.ELECTRONS });
+		this.save();
+		return true;
+	}
+
+	/** Layer 4 prestige once the reactor held IONIZE_CPM for a minute, the core is emptied too since its state never resets by layer. */
+	ionize() {
+		if (!radiationManager.ionizeReady) return false;
+		this.totalIonizesAllTime++;
+		this.prestige(LAYERS.RADIATION_REALM);
+		radiationManager.reset();
 		this.save();
 		return true;
 	}
@@ -398,6 +409,7 @@ export class GameManager {
 			totalElectronizesAllTime: this.totalElectronizesAllTime,
 			totalElectronizesRun: this.totalElectronizesRun,
 			totalGeneratorsPurchasedAllTime: this.totalGeneratorsPurchasedAllTime,
+			totalIonizesAllTime: this.totalIonizesAllTime,
 			totalProtonisesAllTime: this.totalProtonisesAllTime,
 			totalProtonisesRun: this.totalProtonisesRun,
 			totalUpgradesPurchasedAllTime: this.totalUpgradesPurchasedAllTime,
@@ -512,15 +524,17 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
-	/** Proton and electron upgrades survive both prestiges, skills never reset. */
-	private prestige(layer: LayerType, currency: CurrencyName, gain: number) {
+	/** Proton and electron upgrades survive every prestige and photon upgrades survive Ionize, skills never reset. */
+	private prestige(layer: LayerType, gain?: Price) {
 		const upgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
+		const photonUpgrades = this.photonUpgrades;
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
+		this.photonUpgrades = photonUpgrades;
 		this.syncFeatures();
 		this.checkRealmUnlocks();
-		currenciesManager.add(currency, gain);
+		if (gain) currenciesManager.add(gain.currency, gain.amount);
 		this.lastInteractionTime = this.clock();
 	}
 
@@ -529,7 +543,7 @@ export class GameManager {
 		this.totalProtonisesAllTime++;
 		this.totalProtonisesRun++;
 		this.dailyStats.protonises++;
-		this.prestige(LAYERS.PROTONIZER, CurrenciesTypes.PROTONS, this.protoniseProtonsGain);
+		this.prestige(LAYERS.PROTONIZER, { amount: this.protoniseProtonsGain, currency: CurrenciesTypes.PROTONS });
 		currenciesManager.add(CurrenciesTypes.ATOMS, this.effects.value('start_atoms', 0, this));
 		this.save();
 		return true;

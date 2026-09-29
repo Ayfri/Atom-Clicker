@@ -14,10 +14,15 @@ import type { RadiationState } from '$lib/types';
 const BASE_DECAY_PERCENT = 0.02; // 2% per second at max
 // Mass per electron spent
 export const MASS_PER_ELECTRON = 0.1;
+/** Ionize needs the core held at this output without a break, 18 of the 20 Coolant Pumps levels lift the cap that high. */
+export const IONIZE_CPM = 10_000;
+export const IONIZE_HOLD_SECONDS = 60;
 
 class RadiationManager {
 	// State
 	controlRodLevel = $state(0); // Start at 0 (safe)
+	/** Seconds the core has stayed at or above IONIZE_CPM in a row, latched once ready. Not saved, a reload restarts the hold. */
+	ionizeHold = $state(0);
 	lastTick = $state(Date.now());
 	/** Swapped by the simulation for a seeded generator so a benchmark run is reproducible. */
 	random: () => number = () => Math.random();
@@ -110,6 +115,8 @@ class RadiationManager {
 		return cpm > 0 ? 1 + (cpm / 50) * (1 + this.criticalChance) : 1;
 	}
 
+	ionizeReady = $derived(this.ionizeHold >= IONIZE_HOLD_SECONDS);
+
 	// Visual instability (0 to 1)
 	instability = $derived.by(() => {
 		if (this.mass <= 0) return 0;
@@ -154,7 +161,10 @@ class RadiationManager {
 
 	// Main tick - called every second from game loop
 	tick(deltaMs: number) {
-		if (!this.unlocked || this.mass <= 0) return;
+		if (!this.unlocked || this.mass <= 0) {
+			if (!this.ionizeReady) this.ionizeHold = 0;
+			return;
+		}
 
 		const seconds = deltaMs / 1000;
 
@@ -170,6 +180,7 @@ class RadiationManager {
 		}
 
 		this.mass = Math.max(0, this.mass - decay);
+		if (!this.ionizeReady) this.ionizeHold = this.currentCpm >= IONIZE_CPM ? this.ionizeHold + seconds : 0;
 		this.lastTick = Date.now();
 	}
 
@@ -230,6 +241,7 @@ class RadiationManager {
 	// Load state
 	loadState(state: RadiationState, upgrades: Record<string, number>) {
 		this.controlRodLevel = state.controlRodLevel ?? 0;
+		this.ionizeHold = 0;
 		this.lastTick = state.lastTick ?? Date.now();
 		this.mass = state.mass ?? 0;
 		this.unlocked = state.unlocked ?? false;
@@ -249,6 +261,7 @@ class RadiationManager {
 	// Reset
 	reset() {
 		this.controlRodLevel = 0;
+		this.ionizeHold = 0;
 		this.lastTick = Date.now();
 		this.mass = 0;
 	}

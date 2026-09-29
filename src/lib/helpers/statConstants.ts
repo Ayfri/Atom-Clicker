@@ -87,6 +87,7 @@ export const statsConfig = {
 	totalElectronizesAllTime: { defaultValue: 0, layer: LAYERS.SPECIAL, minVersion: 16 },
 	totalElectronizesRun: { defaultValue: 0, layer: LAYERS.SPECIAL, minVersion: 16 },
 	totalGeneratorsPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 26 },
+	totalIonizesAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 29 },
 	totalProtonisesAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },
 	totalProtonisesRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE, minVersion: 16 },
 	totalUpgradesPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },
