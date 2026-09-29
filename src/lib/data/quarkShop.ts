@@ -19,14 +19,17 @@ export type BannerPattern =
 	| 'chevrons'
 	| 'cloud'
 	| 'constellation'
+	| 'facets'
 	| 'hazard'
 	| 'lattice'
 	| 'nucleus'
 	| 'orbitals'
 	| 'rays'
 	| 'rings'
+	| 'split'
 	| 'stripes'
-	| 'waves';
+	| 'waves'
+	| 'weave';
 
 export interface BannerDefinition {
 	/** 2-3 hex colors forming a CSS linear-gradient, rendered behind the leaderboard row. */
@@ -401,6 +404,30 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 		description: 'A violet banner carrying a photon travelling as a wave.',
 		id: 'banner_photon',
 		name: 'Photon',
+		type: 'banner',
+	},
+	banner_red_light: {
+		banner: { gradient: ['#b4232f', '#5a1219', '#14070a'], pattern: 'facets' },
+		cost: 40,
+		description: 'A red banner glowing like the Light of a tough Red photon.',
+		id: 'banner_red_light',
+		name: 'Red Light',
+		type: 'banner',
+	},
+	banner_green_light: {
+		banner: { gradient: ['#0f8a5f', '#08452f', '#04140e'], pattern: 'weave' },
+		cost: 40,
+		description: 'A green banner weaving like a darting Green photon.',
+		id: 'banner_green_light',
+		name: 'Green Light',
+		type: 'banner',
+	},
+	banner_blue_light: {
+		banner: { gradient: ['#1f4fb8', '#11285c', '#070c1a'], pattern: 'split' },
+		cost: 40,
+		description: 'A blue banner rippling like a Blue photon splitting in two.',
+		id: 'banner_blue_light',
+		name: 'Blue Light',
 		type: 'banner',
 	},
 };

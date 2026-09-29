@@ -118,6 +118,34 @@
 			<path d="M0 36h240" stroke="white" stroke-width=".5" stroke-dasharray="4 6" opacity=".28" />
 			<path d="m226 27 10 9-10 9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".82" />
 			<g fill="white"><circle cx="20" cy="16" r="2" opacity=".6" /><circle cx="116" cy="56" r="2" opacity=".55" /><circle cx="164" cy="16" r="1.75" opacity=".5" /></g>
+		{:else if banner.pattern === 'facets'}
+			<!-- Red Light: the triangle facet of a tough Red photon inside its HP ring, chipped shards drifting off. -->
+			<circle cx="120" cy="36" r="26" fill="white" opacity=".08" />
+			<circle cx="120" cy="36" r="26" stroke="white" stroke-width="1" opacity=".45" />
+			<path d="M120 4a32 32 0 1 1-30.4 42" stroke="white" stroke-width="3" stroke-linecap="round" opacity=".7" />
+			<path d="m120 17 16.5 28.5h-33Z" fill="white" opacity=".16" />
+			<path d="m120 17 16.5 28.5h-33Z" stroke="white" stroke-width="2" stroke-linejoin="round" opacity=".82" />
+			<g stroke="white" stroke-width="1.5" stroke-linejoin="round">
+				<path d="m42 16 6 10H36Z" opacity=".6" /><path d="m68 46 5 8.5H63Z" opacity=".45" /><path d="m176 12 5 8.5h-10Z" opacity=".5" /><path d="m204 44 6 10h-12Z" opacity=".62" />
+			</g>
+			<path d="M16 36h58m92 0h58" stroke="white" stroke-width=".75" stroke-dasharray="2 6" opacity=".3" />
+		{:else if banner.pattern === 'weave'}
+			<!-- Green Light: a darting Green photon weaving a trail that never runs straight, its diamond facet in the lead. -->
+			<path d="M-6 52C18 14 44 66 76 38s50-34 80 0 44 30 62-10" stroke="white" stroke-width="2" stroke-linecap="round" opacity=".72" />
+			<path d="M-6 58C20 24 46 72 78 46s48-30 78 2 42 24 58-14" stroke="white" stroke-width="1" stroke-dasharray="2 5" opacity=".34" />
+			<path d="m218 18 10 10-10 10-10-10Z" fill="white" opacity=".2" />
+			<path d="m218 18 10 10-10 10-10-10Z" stroke="white" stroke-width="2" stroke-linejoin="round" opacity=".86" />
+			<g fill="white"><circle cx="30" cy="34" r="1.75" opacity=".5" /><circle cx="76" cy="38" r="2.25" opacity=".62" /><circle cx="118" cy="22" r="1.5" opacity=".45" /><circle cx="156" cy="38" r="2" opacity=".58" /><circle cx="192" cy="50" r="1.5" opacity=".48" /></g>
+		{:else if banner.pattern === 'split'}
+			<!-- Blue Light: a Blue photon breaking into the two halves that fly apart from it. -->
+			<circle cx="90" cy="36" r="27" stroke="white" stroke-width=".75" opacity=".2" />
+			<path d="M90 16 107.3 26v20L90 56 72.7 46V26Z" stroke="white" stroke-width="1.5" stroke-dasharray="3 4" stroke-linejoin="round" opacity=".4" />
+			<path d="m112 31 34-8m-34 18 42 10" stroke="white" stroke-width="1" stroke-dasharray="2 5" opacity=".42" />
+			<g stroke="white" stroke-width="2" stroke-linejoin="round">
+				<path d="m160 9 9.5 5.5v11L160 31l-9.5-5.5v-11Z" fill="white" fill-opacity=".16" opacity=".86" />
+				<path d="m172 43 9.5 5.5v11L172 65l-9.5-5.5v-11Z" fill="white" fill-opacity=".16" opacity=".86" />
+			</g>
+			<g fill="white"><circle cx="90" cy="36" r="2.5" opacity=".55" /><circle cx="30" cy="22" r="1.5" opacity=".42" /><circle cx="44" cy="54" r="1.75" opacity=".5" /><circle cx="214" cy="30" r="2" opacity=".55" /></g>
 		{/if}
 	</svg>
 	<div class="absolute inset-0 bg-linear-to-b from-white/8 via-transparent to-black/18"></div>
