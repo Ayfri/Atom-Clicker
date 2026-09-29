@@ -15,15 +15,23 @@ import type { RadiationState } from '$lib/types';
 const BASE_DECAY_PERCENT = 0.02; // 2% per second at max
 // Mass per electron spent
 export const MASS_PER_ELECTRON = 0.1;
-/** Ionize needs the core held at this output without a break, 18 of the 20 Coolant Pumps levels lift the cap that high. */
+/**
+ * The first Ionize needs the core held at IONIZE_CPM without a break, 18 of the 20 Coolant Pumps levels lift the cap that high.
+ * Every Ionize raises the line by IONIZE_CPM_STEP: the late game replays a whole Electronize run in a minute, so only a
+ * stronger reactor can pace it.
+ */
 export const IONIZE_CPM = 10_000;
+export const IONIZE_CPM_STEP = 2000;
 export const IONIZE_HOLD_SECONDS = 60;
 
 class RadiationManager {
 	// State
 	controlRodLevel = $state(0); // Start at 0 (safe)
-	/** Seconds the core has stayed at or above IONIZE_CPM in a row, latched once ready. Not saved, a reload restarts the hold. */
+	/** Seconds the core has stayed at or above `ionizeCpm` in a row, latched once ready. Not saved, a reload restarts the hold. */
 	ionizeHold = $state(0);
+	/** Saved by GameManager as `totalIonizesAllTime`, it lives here because it sets the ionization line. */
+	ionizes = $state(0);
+	ionizeCpm = $derived(IONIZE_CPM + IONIZE_CPM_STEP * this.ionizes);
 	lastTick = $state(Date.now());
 	/** Swapped by the simulation for a seeded generator so a benchmark run is reproducible. */
 	random: () => number = () => Math.random();
@@ -184,7 +192,7 @@ class RadiationManager {
 		}
 
 		this.mass = Math.max(0, this.mass - decay);
-		if (!this.ionizeReady) this.ionizeHold = this.currentCpm >= IONIZE_CPM ? this.ionizeHold + seconds : 0;
+		if (!this.ionizeReady) this.ionizeHold = this.currentCpm >= this.ionizeCpm ? this.ionizeHold + seconds : 0;
 		this.lastTick = Date.now();
 	}
 

@@ -6,7 +6,7 @@ import { SKILL_UPGRADES } from '$data/skillTree';
 import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { gameManager } from '$helpers/GameManager.svelte';
-import { IONIZE_CPM, radiationManager } from '$helpers/RadiationManager.svelte';
+import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { realmManager } from '$helpers/RealmManager.svelte';
 import { reveals } from '$helpers/reveals.svelte';
 import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
@@ -201,7 +201,7 @@ export const HINTS: Hint[] = [
 		id: 'radiation:ionize',
 		placement: 'right',
 		realm: RealmTypes.RADIATION,
-		show: () => radiationManager.currentCpm >= IONIZE_CPM || radiationManager.ionizeReady,
+		show: () => radiationManager.currentCpm >= radiationManager.ionizeCpm || radiationManager.ionizeReady,
 		targets: ['#nav-ionize'],
 		text: 'The core is past the ionization line. Hold it there for a full minute, then Ionize here.',
 		title: 'Ionize',

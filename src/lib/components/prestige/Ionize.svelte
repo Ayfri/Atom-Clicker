@@ -3,7 +3,7 @@
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { RADIATION_UPGRADES } from '$data/radiationUpgrades';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { IONIZE_CPM, IONIZE_HOLD_SECONDS, radiationManager } from '$helpers/RadiationManager.svelte';
+	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { prestigeStore } from '$stores/prestige.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -52,7 +52,7 @@
 
 	const ionizes = $derived(gameManager.totalIonizesAllTime);
 	const holdProgress = $derived(Math.min(radiationManager.ionizeHold / IONIZE_HOLD_SECONDS, 1));
-	const aboveThreshold = $derived(radiationManager.currentCpm >= IONIZE_CPM);
+	const aboveThreshold = $derived(radiationManager.currentCpm >= radiationManager.ionizeCpm);
 	const reached = $derived(MILESTONES.findLastIndex(({ count }) => ionizes >= count));
 	const next = $derived(MILESTONES[reached + 1]);
 	/** Node index the track fills up to, partway between the last reached milestone and the next one. */
@@ -141,7 +141,9 @@
 				/>
 			</div>
 			<div class="flex min-w-0 flex-col gap-0.5">
-				<span class="text-sm text-white/70">Core above {formatNumber(IONIZE_CPM, 0)} CPM</span>
+				<span class="text-sm text-white/70" title="The line rises by {formatNumber(IONIZE_CPM_STEP, 0)} CPM with every Ionize">
+					Core above {formatNumber(radiationManager.ionizeCpm, 0)} CPM
+				</span>
 				<span class="font-mono text-2xl font-bold tabular-nums {aboveThreshold || radiationManager.ionizeReady ? 'text-radiation' : 'text-white/60'}">
 					{Math.floor(Math.min(radiationManager.ionizeHold, IONIZE_HOLD_SECONDS))} / {IONIZE_HOLD_SECONDS} s
 				</span>

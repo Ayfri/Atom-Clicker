@@ -8,7 +8,7 @@ import { RealmTypes } from '$data/realms';
 import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { gameManager } from '$helpers/GameManager.svelte';
-import { IONIZE_CPM, radiationManager } from '$helpers/RadiationManager.svelte';
+import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { connectDeriveds } from '$helpers/reactiveRoot.svelte';
 import { MilestoneTracker } from './milestones';
 import { PurchasePlanner } from './purchases';
@@ -300,8 +300,9 @@ export class SimulationEngine {
 		}
 
 		// Once the fuel can carry it, the rods come out just far enough to hold the ionization line, then the bot Ionizes.
-		if (radiationManager.unlocked && !radiationManager.ionizeReady && radiationManager.cpmFor(radiationManager.mass, 1) >= IONIZE_CPM) {
-			radiationManager.setControlRodLevel((IONIZE_CPM * 1.01) / (radiationManager.mass * 10 * radiationManager.enrichmentBonus));
+		const line = radiationManager.ionizeCpm;
+		if (radiationManager.unlocked && !radiationManager.ionizeReady && radiationManager.cpmFor(radiationManager.mass, 1) >= line) {
+			radiationManager.setControlRodLevel((line * 1.01) / (radiationManager.mass * 10 * radiationManager.enrichmentBonus));
 		}
 		if (canPrestige() && radiationManager.ionizeReady && gameManager.ionize()) {
 			this.lastElectronizeGain = 0;

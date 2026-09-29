@@ -85,7 +85,6 @@ export class GameManager {
 	totalElectronizesAllTime = $state(0);
 	totalElectronizesRun = $state(0);
 	totalGeneratorsPurchasedAllTime = $state(0);
-	totalIonizesAllTime = $state(0);
 	totalProtonisesAllTime = $state(0);
 	totalProtonisesRun = $state(0);
 	totalUpgradesPurchasedAllTime = $state(0);
@@ -144,6 +143,14 @@ export class GameManager {
 
 	get protons() {
 		return currenciesManager.getAmount(CurrenciesTypes.PROTONS);
+	}
+
+	/** RadiationManager owns the count since it sets the ionization line, this accessor exposes it to the save and reset loops. */
+	get totalIonizesAllTime() {
+		return radiationManager.ionizes;
+	}
+	set totalIonizesAllTime(count: number) {
+		radiationManager.ionizes = count;
 	}
 
 	/** RadiationManager owns the levels, this accessor only exposes them to the save and reset loops. */
@@ -393,7 +400,7 @@ export class GameManager {
 	}
 
 	/**
-	 * Layer 4 prestige once the reactor held IONIZE_CPM for a minute. The core and the electrons that fuel it are emptied too,
+	 * Layer 4 prestige once the reactor held its ionization line for a minute. The core and the electrons that fuel it are emptied too,
 	 * neither resets by layer, and a kept electron bank refuelled the reactor for another Ionize a minute later.
 	 */
 	ionize() {
