@@ -6,6 +6,7 @@
 - **Skill Tree**: A redrawn, animated tree where energy flows into each skill you buy, whose skills now unlock new mechanics only, grouped by theme and kept through every prestige, while the production boosts moved to the Upgrades list and the photon shop.
 - **Photon Realm**: The photon field now glows with drifting light waves, and each photon shows a ring counting down its time left.
 - **Radiation Realm**: The reactor is redrawn in 3D with control rods that pull out as you raise the power lever and a core that grows with your fuel and burns white-hot at full power, with fuel, power and output gathered around it.
+- **Ionize & the Prism**: Holding your reactor above 10K CPM for a minute unlocks Ionize, a deeper prestige that installs a Prism sending tough Red, Green and Blue photons into the Photon Realm, each paying its own Light for new upgrades.
 - **Offline Progress**: Coming back now greets you with a Welcome Back screen where your loot counts up, showing how much time was stored and what your automation did while you were away.
 - **Settings**: A cleaner menu on desktop and mobile with a more visual Profile and Stats, a Gameplay tab open to everyone, a Save tab comparing this device with your cloud save, and a Legal & Privacy tab where you can turn off Google Analytics.
 
