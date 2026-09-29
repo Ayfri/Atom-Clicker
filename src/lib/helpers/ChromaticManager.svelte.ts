@@ -23,6 +23,8 @@ class ChromaticManager {
 
 	/** Chance that collecting an Excited Photon releases a colored photon where it was. */
 	excitationChance = $derived(0.01 * this.level('prism_excitation'));
+	/** Chance that collecting an Excited Photon lands one tap on a colored photon already on screen. */
+	resonanceChance = $derived(0.1 * this.level('prism_resonance'));
 	lifetimeBonus = $derived(1000 * this.level('prism_persistence'));
 	spawnInterval = $derived(CHROMATIC_BASE_SPAWN_INTERVAL * 0.92 ** this.level('prism_frequency'));
 

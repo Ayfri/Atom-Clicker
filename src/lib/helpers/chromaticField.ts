@@ -16,6 +16,8 @@ export interface ChromaticPhoton {
 	maxHp: number;
 	maxLifetime: number;
 	size: number;
+	/** Current curve of a moving photon in radians per second, drifting at random. */
+	turn: number;
 	vx: number;
 	vy: number;
 	x: number;
@@ -38,6 +40,9 @@ const HIT_PADDING = 6;
 const MIN_HIT_RADIUS = 24;
 /** Blue halves fly apart then slow down, px per second lost each second. */
 const HALF_DRAG = 3;
+/** Radians per second a moving photon can curve, and how hard its turn rate is shaken each second. */
+const MAX_TURN = 4;
+const WANDER = 14;
 
 /**
  * Colored photons of the Photon Realm, drawn on the same canvas as the normal circles and above them.
@@ -71,6 +76,7 @@ export class ChromaticField {
 			maxHp,
 			maxLifetime: lifetime + chromaticManager.lifetimeBonus,
 			size,
+			turn: 0,
 			vx: Math.cos(angle) * speed,
 			vy: Math.sin(angle) * speed,
 			x: at?.x ?? margin + Math.random() * Math.max(0, width - margin * 2),
@@ -94,6 +100,14 @@ export class ChromaticField {
 
 	#move(photon: ChromaticPhoton, seconds: number, width: number, height: number) {
 		if (photon.vx === 0 && photon.vy === 0) return;
+		if (!photon.half) {
+			/** The turn rate itself drifts at random, so a Green photon weaves in curves that change without warning. */
+			photon.turn = Math.min(MAX_TURN, Math.max(-MAX_TURN, photon.turn + (Math.random() - 0.5) * WANDER * Math.sqrt(seconds)));
+			const angle = Math.atan2(photon.vy, photon.vx) + photon.turn * seconds;
+			const speed = Math.hypot(photon.vx, photon.vy);
+			photon.vx = Math.cos(angle) * speed;
+			photon.vy = Math.sin(angle) * speed;
+		}
 		const radius = photon.size / 2;
 		photon.x += photon.vx * seconds;
 		photon.y += photon.vy * seconds;

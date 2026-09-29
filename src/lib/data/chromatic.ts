@@ -1,4 +1,6 @@
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
+import { add } from '$helpers/effects';
+import type { Effect } from '$lib/types';
 
 export const ChromaticColors = {
 	BLUE: 'blue',
@@ -47,6 +49,8 @@ export interface ChromaticUpgrade {
 	/** The cost is paid in full in each of these. */
 	currencies: CurrencyName[];
 	description: (level: number) => string;
+	/** Stat boosts for the rest of the game, folded into `gameManager.effects` like photon upgrades. */
+	effects?: (level: number) => Effect[];
 	id: string;
 	maxLevel: number;
 	name: string;
@@ -75,6 +79,8 @@ const colorUpgrades = (color: ChromaticColor): ChromaticUpgrade[] => {
 		},
 	];
 };
+
+const ALL_LIGHTS = CHROMATIC_COLORS.map(color => CHROMATIC[color].currency);
 
 /** Ids are saved as upgrade levels, so they never get renamed. */
 export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromEntries(
@@ -110,11 +116,30 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 		{
 			baseCost: 30,
 			costMultiplier: 1.8,
-			currencies: CHROMATIC_COLORS.map(color => CHROMATIC[color].currency),
+			currencies: ALL_LIGHTS,
 			description: (level: number) => `${level}% chance that an Excited Photon releases a colored photon`,
 			id: 'prism_excitation',
-			maxLevel: 10,
+			maxLevel: 20,
 			name: 'Prism Excitation',
+		},
+		{
+			baseCost: 80,
+			costMultiplier: 1.8,
+			currencies: ALL_LIGHTS,
+			description: (level: number) => `+${level}% chance for a photon to spawn excited`,
+			effects: (level: number) => [add('excited_photon_chance', 0.01 * level)],
+			id: 'prism_excited_chance',
+			maxLevel: 10,
+			name: 'Excited Spectrum',
+		},
+		{
+			baseCost: 100,
+			costMultiplier: 2,
+			currencies: ALL_LIGHTS,
+			description: (level: number) => `${level * 10}% chance that an Excited Photon strikes a colored photon on screen`,
+			id: 'prism_resonance',
+			maxLevel: 5,
+			name: 'Prism Resonance',
 		},
 	].map(upgrade => [upgrade.id, upgrade]),
 );

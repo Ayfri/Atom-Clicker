@@ -1,4 +1,5 @@
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '$data/achievements';
+import { CHROMATIC_UPGRADES } from '$data/chromatic';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import type { DailyStats } from '$data/dailyQuests';
 import { FeatureTypes } from '$data/features';
@@ -158,7 +159,11 @@ export class GameManager {
 			const upgrade = ALL_PHOTON_UPGRADES[id];
 			return level > 0 && upgrade ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
 		});
-		return [...this.currentUpgradesBought, ...photonUpgrades, ...this.quarkBoostSources];
+		const chromaticUpgrades = Object.entries(this.chromaticUpgrades).flatMap(([id, level]) => {
+			const upgrade = CHROMATIC_UPGRADES[id];
+			return level > 0 && upgrade?.effects ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
+		});
+		return [...this.currentUpgradesBought, ...photonUpgrades, ...chromaticUpgrades, ...this.quarkBoostSources];
 	});
 
 	/** Rebuilt only on a purchase, every stat below reads its value from here. */

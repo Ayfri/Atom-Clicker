@@ -254,6 +254,9 @@
 		if (circle.type === 'excited') {
 			const amount = baseAmount * gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.EXCITED_PHOTONS);
 			currenciesManager.add(CurrenciesTypes.EXCITED_PHOTONS, amount);
+			if (!chromatic.empty && Math.random() < chromaticManager.resonanceChance) {
+				hitChromatic(chromatic.photons[Math.floor(Math.random() * chromatic.photons.length)], false);
+			}
 			if (Math.random() < chromaticManager.excitationChance) chromatic.spawn(canvasWidth, canvasHeight, circle);
 		} else {
 			const amount = baseAmount * gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.PHOTONS);
