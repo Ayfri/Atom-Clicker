@@ -51,8 +51,9 @@ export class ChromaticField {
 		return this.photons.length === 0;
 	}
 
-	spawn(width: number, height: number) {
-		if (width === 0 || this.photons.filter(photon => !photon.half).length >= CHROMATIC_MAX_ON_SCREEN) return;
+	/** A photon released at a given spot (Prism Excitation) skips the on-screen cap, the upgrade must never roll for nothing. */
+	spawn(width: number, height: number, at?: { x: number; y: number }) {
+		if (width === 0 || (!at && this.photons.filter(photon => !photon.half).length >= CHROMATIC_MAX_ON_SCREEN)) return;
 
 		const color = CHROMATIC_COLORS[Math.floor(Math.random() * CHROMATIC_COLORS.length)];
 		const { drop, lifetime, size, speed } = CHROMATIC[color];
@@ -72,8 +73,8 @@ export class ChromaticField {
 			size,
 			vx: Math.cos(angle) * speed,
 			vy: Math.sin(angle) * speed,
-			x: margin + Math.random() * Math.max(0, width - margin * 2),
-			y: margin + Math.random() * Math.max(0, height - margin * 2),
+			x: at?.x ?? margin + Math.random() * Math.max(0, width - margin * 2),
+			y: at?.y ?? margin + Math.random() * Math.max(0, height - margin * 2),
 		});
 	}
 

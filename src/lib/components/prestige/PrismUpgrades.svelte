@@ -16,7 +16,7 @@
 	{@const level = chromaticManager.level(upgrade.id)}
 	{@const maxed = level >= upgrade.maxLevel}
 	{@const cost = getChromaticUpgradeCost(upgrade, level)}
-	{@const affordable = !maxed && currenciesManager.getAmount(upgrade.currency) >= cost}
+	{@const affordable = chromaticManager.canAfford(upgrade)}
 	<button
 		class={[
 			'rounded-sm border border-realm-500/20 bg-realm-900/20 p-2 text-start transition-all duration-200',
@@ -33,7 +33,11 @@
 		</div>
 		<p class="mb-0.5 text-xs leading-tight text-realm-200/50">{upgrade.description(maxed ? level : level + 1)}</p>
 		{#if !maxed}
-			<Value class="text-xs" currency={upgrade.currency} value={cost} />
+			<span class="flex flex-wrap gap-x-2">
+				{#each upgrade.currencies as currency (currency)}
+					<Value class="text-xs" {currency} value={cost} />
+				{/each}
+			</span>
 		{/if}
 	</button>
 {/snippet}

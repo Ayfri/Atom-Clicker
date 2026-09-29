@@ -4,6 +4,7 @@ import {
 	CHROMATIC_BASE_SPAWN_INTERVAL,
 	CHROMATIC_UPGRADES,
 	type ChromaticColor,
+	type ChromaticUpgrade,
 	getChromaticUpgradeCost,
 	KILLS_PER_SPECTRUM_LEVEL,
 	SPECTRUM_DROP_GROWTH,
@@ -20,6 +21,8 @@ class ChromaticManager {
 	kills = $state.raw<Record<ChromaticColor, number>>({ ...EMPTY_KILLS });
 	upgradeLevels = $state.raw<Record<string, number>>({});
 
+	/** Chance that collecting an Excited Photon releases a colored photon where it was. */
+	excitationChance = $derived(0.01 * this.level('prism_excitation'));
 	lifetimeBonus = $derived(1000 * this.level('prism_persistence'));
 	spawnInterval = $derived(CHROMATIC_BASE_SPAWN_INTERVAL * 0.92 ** this.level('prism_frequency'));
 
@@ -51,14 +54,19 @@ class ChromaticManager {
 		if (!half) this.kills = { ...this.kills, [color]: this.kills[color] + 1 };
 	}
 
+	canAfford(upgrade: ChromaticUpgrade): boolean {
+		const level = this.level(upgrade.id);
+		const cost = getChromaticUpgradeCost(upgrade, level);
+		return level < upgrade.maxLevel && upgrade.currencies.every(currency => currenciesManager.getAmount(currency) >= cost);
+	}
+
 	purchaseUpgrade(upgradeId: string): boolean {
 		const upgrade = CHROMATIC_UPGRADES[upgradeId];
-		const level = this.level(upgradeId);
-		if (!upgrade || level >= upgrade.maxLevel) return false;
-		const cost = getChromaticUpgradeCost(upgrade, level);
-		if (currenciesManager.getAmount(upgrade.currency) < cost) return false;
+		if (!upgrade || !this.canAfford(upgrade)) return false;
 
-		currenciesManager.remove(upgrade.currency, cost);
+		const level = this.level(upgradeId);
+		const cost = getChromaticUpgradeCost(upgrade, level);
+		for (const currency of upgrade.currencies) currenciesManager.remove(currency, cost);
 		this.upgradeLevels = { ...this.upgradeLevels, [upgradeId]: level + 1 };
 		return true;
 	}
