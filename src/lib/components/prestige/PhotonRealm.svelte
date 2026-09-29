@@ -13,6 +13,7 @@
 	import PhotonCounter from '@components/prestige/PhotonCounter.svelte';
 	import PhotonUpgrades from '@components/prestige/PhotonUpgrades.svelte';
 	import { onMount } from 'svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	function simulateClick() {
 		if (!container || circles.length === 0) return;
@@ -44,6 +45,10 @@
 		lifetime: number;
 		maxLifetime: number;
 		rotation: number;
+		/** Degrees per second, signed so photons turn both ways. */
+		spin: number;
+		/** Offset of the float cycle, so neighbours never bob in sync. */
+		phase: number;
 		type?: 'normal' | 'excited';
 		baseValue?: number;
 	}
@@ -83,6 +88,11 @@
 	const FONT_SIZE = 12;
 	const LABEL_SHADOW_BLUR = 5;
 	const RING_GAP = 3;
+	const POP_DURATION = 350;
+	const FLOAT_AMPLITUDE = 3;
+	const FLOAT_PERIOD = 2600;
+	const MIN_SPIN = 10;
+	const MAX_SPIN = 30;
 	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
 	const MAX_PIXEL_RATIO = 2;
 
@@ -190,6 +200,8 @@
 			lifetime: 0,
 			maxLifetime: maxLifetime,
 			rotation: Math.random() * 360,
+			spin: (Math.random() < 0.5 ? -1 : 1) * (MIN_SPIN + Math.random() * (MAX_SPIN - MIN_SPIN)),
+			phase: Math.random() * Math.PI * 2,
 			type: isExcited ? 'excited' : 'normal',
 			baseValue: isExcited ? 1 : 1
 		};
@@ -254,12 +266,16 @@
 		return Math.max(0, 1 - circle.lifetime / circle.maxLifetime);
 	}
 
+	/** Pops in past full size then settles (ease-out-back). */
 	function scale(circle: Circle) {
-		const fadeInDuration = 150; // 0.15s
-		if (circle.lifetime < fadeInDuration) {
-			return circle.lifetime / fadeInDuration;
-		}
-		return 1;
+		if (circle.lifetime >= POP_DURATION) return 1;
+		const t = circle.lifetime / POP_DURATION - 1;
+		return 1 + 2.70158 * t * t * t + 1.70158 * t * t;
+	}
+
+	/** Vertical float, also applied to hit tests so a bobbing photon is clicked where it is drawn. */
+	function floatOffset(circle: Circle, still: boolean) {
+		return still ? 0 : Math.sin((circle.lifetime / FLOAT_PERIOD) * Math.PI * 2 + circle.phase) * FLOAT_AMPLITUDE;
 	}
 
 	// The canvas fills the container, so one rect serves both. getBoundingClientRect forces a synchronous layout, and this
@@ -317,6 +333,7 @@
 		hadCircles = hasCircles;
 
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+		const still = prefersReducedMotion.current;
 
 		for (const circle of circles) {
 			const alpha = opacity(circle);
@@ -325,12 +342,13 @@
 			const currentScale = scale(circle);
 			const size = circle.size * currentScale;
 			const excited = circle.type === 'excited';
+			const rotation = still ? circle.rotation : circle.rotation + (circle.spin * circle.lifetime) / 1000;
 
 			ctx.save();
-			ctx.translate(circle.x, circle.y);
+			ctx.translate(circle.x, circle.y + floatOffset(circle, still));
 
 			ctx.save();
-			ctx.rotate((circle.rotation * Math.PI) / 180);
+			ctx.rotate((rotation * Math.PI) / 180);
 			drawPhotonIcon(ctx, excited, size, excited ? alpha * pulseOpacity(circle.lifetime) : alpha);
 			ctx.restore();
 
@@ -353,12 +371,13 @@
 	}
 
 	function circleAt(x: number, y: number) {
+		const still = prefersReducedMotion.current;
 		// Later circles are drawn on top, so they take the pointer first.
 		for (let i = circles.length - 1; i >= 0; i--) {
 			const circle = circles[i];
 			const radius = Math.max(MIN_HIT_RADIUS, (circle.size * scale(circle)) / 2 + HIT_PADDING);
 			const dx = x - circle.x;
-			const dy = y - circle.y;
+			const dy = y - circle.y - floatOffset(circle, still);
 			if (dx * dx + dy * dy <= radius * radius) return circle;
 		}
 		return null;
