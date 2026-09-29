@@ -1,5 +1,6 @@
 import { CurrenciesTypes } from '$data/currencies';
 import { RADIATION_UPGRADES, getRadiationUpgradePrice } from '$data/radiationUpgrades';
+import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import type { RadiationState } from '$lib/types';
 
@@ -74,13 +75,13 @@ class RadiationManager {
 	maxCpm = $derived.by(() => {
 		const baseCpm = 1000;
 		const level = this.upgradeLevels['coolant_pumps'] || 0;
-		return baseCpm * (1 + level * 0.5);
+		return baseCpm * (1 + level * 0.5) * chromaticManager.reactorCapBonus;
 	});
 
 	// Enrichment bonus (from Isotopic Enrichment)
 	enrichmentBonus = $derived.by(() => {
 		const level = this.upgradeLevels['isotopic_enrichment'] || 0;
-		return 1 + level * 0.25; // +25% per level
+		return (1 + level * 0.25) * chromaticManager.reactorOutputBonus; // +25% per level
 	});
 
 	// Mass preservation chance (from Magnetic Confinement)

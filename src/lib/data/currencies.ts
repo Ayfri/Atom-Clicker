@@ -11,6 +11,7 @@ export const CurrenciesTypes = {
 	PHOTONS: 'Photons',
 	PROTONS: 'Protons',
 	RED_LIGHT: 'Red Light',
+	WHITE_LIGHT: 'White Light',
 } as const;
 
 export type CurrencyName = typeof CurrenciesTypes[keyof typeof CurrenciesTypes];
@@ -81,5 +82,12 @@ export const CURRENCIES = {
 		layer: LAYERS.NEVER,
 		name: 'Red Light',
 		stat: CurrenciesTypes.RED_LIGHT,
+	},
+	[CurrenciesTypes.WHITE_LIGHT]: {
+		color: '#f5f7ff',
+		id: 'white-light',
+		layer: LAYERS.NEVER,
+		name: 'White Light',
+		stat: CurrenciesTypes.WHITE_LIGHT,
 	},
 } as Record<CurrencyName, Currency>;

@@ -159,6 +159,16 @@ export const HINTS: Hint[] = [
 		title: 'The Prism',
 	},
 	{
+		done: () => currenciesManager.getEarnedAllTime(CurrenciesTypes.WHITE_LIGHT) > 0,
+		id: 'photons:white-light',
+		placement: 'bottom',
+		realm: RealmTypes.PHOTONS,
+		show: () => chromaticManager.recombinable > 0,
+		targets: ['[data-hint="prism-recombine"]', '[data-hint="prism-tab"]'],
+		text: 'Red, Green and Blue add up to White. Recombine them into White Light, which buys the strongest boosts.',
+		title: 'White Light',
+	},
+	{
 		done: () => radiationManager.mass > 0,
 		id: 'radiation:intro',
 		placement: 'top',

@@ -1,6 +1,7 @@
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { add } from '$helpers/effects';
+import { add, mul } from '$helpers/effects';
 import type { Effect } from '$lib/types';
+import { formatNumber } from '$lib/utils';
 
 export const ChromaticColors = {
 	BLUE: 'blue',
@@ -54,7 +55,25 @@ export interface ChromaticUpgrade {
 	id: string;
 	maxLevel: number;
 	name: string;
+	/** Hidden until this color reaches the spectrum level, the phase 2 boosts wait for a color to be farmed first. */
+	unlock?: { color: ChromaticColor; spectrum: number };
 }
+
+/** Recombine turns this much of each color into one White Light. */
+export const WHITE_RECIPE = 10;
+export const BOOST_SPECTRUM = 5;
+
+/** A boost a color gives the rest of the game once its spectrum reaches BOOST_SPECTRUM, paid in that color. */
+const colorBoost = (
+	color: ChromaticColor,
+	upgrade: Pick<ChromaticUpgrade, 'baseCost' | 'description' | 'effects' | 'id' | 'name'>,
+): ChromaticUpgrade => ({
+	...upgrade,
+	costMultiplier: 1.6,
+	currencies: [CHROMATIC[color].currency],
+	maxLevel: 20,
+	unlock: { color, spectrum: BOOST_SPECTRUM },
+});
 
 const colorUpgrades = (color: ChromaticColor): ChromaticUpgrade[] => {
 	const { currency, name } = CHROMATIC[color];
@@ -140,6 +159,75 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'prism_resonance',
 			maxLevel: 5,
 			name: 'Prism Resonance',
+		},
+		colorBoost(ChromaticColors.RED, {
+			baseCost: 100,
+			description: level => `x${formatNumber(1 + 0.1 * level, 1)} atom production`,
+			effects: level => [mul('global', 1 + 0.1 * level)],
+			id: 'red_ember',
+			name: 'Red Ember',
+		}),
+		colorBoost(ChromaticColors.RED, {
+			baseCost: 150,
+			description: level => `x${formatNumber(1 + 0.2 * level, 1)} click power`,
+			effects: level => [mul('click', 1 + 0.2 * level)],
+			id: 'red_spark',
+			name: 'Red Spark',
+		}),
+		colorBoost(ChromaticColors.GREEN, {
+			baseCost: 100,
+			description: level => `x${formatNumber(1 + 0.1 * level, 1)} protons from Protonise`,
+			effects: level => [mul('proton_gain', 1 + 0.1 * level)],
+			id: 'green_bloom',
+			name: 'Green Bloom',
+		}),
+		colorBoost(ChromaticColors.GREEN, {
+			baseCost: 150,
+			description: level => `x${formatNumber(1 + 0.1 * level, 1)} electrons from Electronize`,
+			effects: level => [mul('electron_gain', 1 + 0.1 * level)],
+			id: 'green_charge',
+			name: 'Green Charge',
+		}),
+		/** The reactor reads these two levels itself, its formulas don't go through the effect system. */
+		colorBoost(ChromaticColors.BLUE, {
+			baseCost: 100,
+			description: level => `+${level * 10}% reactor output`,
+			id: 'blue_enrichment',
+			name: 'Blue Enrichment',
+		}),
+		colorBoost(ChromaticColors.BLUE, {
+			baseCost: 150,
+			description: level => `Raises the reactor output cap by ${level * 10}%`,
+			id: 'blue_coolant',
+			name: 'Blue Coolant',
+		}),
+		{
+			baseCost: 3,
+			costMultiplier: 2,
+			currencies: [CurrenciesTypes.WHITE_LIGHT],
+			description: (level: number) => `+${level * 50}% Light of every color`,
+			id: 'white_spectrum',
+			maxLevel: 10,
+			name: 'Full Spectrum',
+		},
+		{
+			baseCost: 5,
+			costMultiplier: 2.2,
+			currencies: [CurrenciesTypes.WHITE_LIGHT],
+			description: (level: number) => `x${formatNumber(1 + 0.5 * level, 1)} atom production`,
+			effects: (level: number) => [mul('global', 1 + 0.5 * level)],
+			id: 'white_radiance',
+			maxLevel: 10,
+			name: 'White Radiance',
+		},
+		{
+			baseCost: 10,
+			costMultiplier: 3,
+			currencies: [CurrenciesTypes.WHITE_LIGHT],
+			description: (level: number) => `${CHROMATIC_MAX_ON_SCREEN + level} colored photons can be on screen`,
+			id: 'white_prism',
+			maxLevel: 5,
+			name: 'Wider Prism',
 		},
 	].map(upgrade => [upgrade.id, upgrade]),
 );

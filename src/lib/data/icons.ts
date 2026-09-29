@@ -40,6 +40,7 @@ import {
 	MousePointerClick,
 	Network,
 	Radiation,
+	Rainbow,
 	Scale,
 	ShieldCheck,
 	ShieldCog,
@@ -107,6 +108,7 @@ export const ICONS = {
 	trendingUp: TrendingUp,
 	trophy: Trophy,
 	upgrade: Zap,
+	whiteLight: Rainbow,
 } as const satisfies Record<string, IconComponent>;
 
 export type IconName = keyof typeof ICONS;
@@ -121,6 +123,7 @@ export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.PHOTONS]: 'photon',
 	[CurrenciesTypes.PROTONS]: 'proton',
 	[CurrenciesTypes.RED_LIGHT]: 'redLight',
+	[CurrenciesTypes.WHITE_LIGHT]: 'whiteLight',
 };
 
 export const GENERATOR_ICON_NAMES: Record<GeneratorType, IconName> = {

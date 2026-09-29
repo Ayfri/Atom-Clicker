@@ -1,15 +1,28 @@
 <script lang="ts">
-	import { CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticUpgrade, getChromaticUpgradeCost } from '$data/chromatic';
-	import { CURRENCIES } from '$data/currencies';
+	import {
+		BOOST_SPECTRUM,
+		CHROMATIC,
+		CHROMATIC_COLORS,
+		CHROMATIC_UPGRADES,
+		type ChromaticUpgrade,
+		getChromaticUpgradeCost,
+		WHITE_RECIPE,
+	} from '$data/chromatic';
+	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { reveal } from '$helpers/reveals.svelte';
 	import Value from '@components/ui/Value.svelte';
 
-	const PRISM_UPGRADES = Object.values(CHROMATIC_UPGRADES).filter(upgrade => upgrade.id.startsWith('prism_'));
+	const UPGRADES = Object.values(CHROMATIC_UPGRADES);
+	const byPrefix = (prefix: string) => UPGRADES.filter(upgrade => upgrade.id.startsWith(prefix));
 
 	const visible = (upgrade: ChromaticUpgrade) =>
-		chromaticManager.level(upgrade.id) < upgrade.maxLevel || gameManager.settings.upgrades.displayAlreadyBought;
+		chromaticManager.isUnlocked(upgrade) &&
+		(chromaticManager.level(upgrade.id) < upgrade.maxLevel || gameManager.settings.upgrades.displayAlreadyBought);
+
+	const whiteUnlocked = $derived(chromaticManager.recombinable > 0 || currenciesManager.getEarnedAllTime(CurrenciesTypes.WHITE_LIGHT) > 0);
 </script>
 
 {#snippet item(upgrade: ChromaticUpgrade)}
@@ -23,8 +36,8 @@
 			maxed ? 'cursor-default opacity-85' : 'hover:border-realm-500/40 hover:bg-realm-900/30',
 			!maxed && (affordable ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'),
 		]}
-		data-hint="prism-upgrade"
 		disabled={maxed}
+		in:reveal={{ y: 0 }}
 		onclick={() => chromaticManager.purchaseUpgrade(upgrade.id)}
 	>
 		<div class="mb-0.5 flex items-start justify-between">
@@ -43,29 +56,53 @@
 {/snippet}
 
 <div class="flex flex-col gap-3">
-	<div class="flex items-center justify-between gap-2 text-sm">
+	<div class="flex flex-wrap items-center justify-between gap-2 text-sm">
 		{#each CHROMATIC_COLORS as color (color)}
 			<Value class="font-semibold" currency={CHROMATIC[color].currency} value={currenciesManager.getAmount(CHROMATIC[color].currency)} />
 		{/each}
+		{#if whiteUnlocked}
+			<Value class="font-semibold" currency={CurrenciesTypes.WHITE_LIGHT} value={currenciesManager.getAmount(CurrenciesTypes.WHITE_LIGHT)} />
+		{/if}
 	</div>
 
 	{#each CHROMATIC_COLORS as color (color)}
-		{@const upgrades = Object.values(CHROMATIC_UPGRADES).filter(upgrade => upgrade.id.startsWith(`${color}_`) && visible(upgrade))}
+		{@const spectrum = chromaticManager.spectrumLevel(color)}
 		<section class="flex flex-col gap-1.5">
 			<h3 class="flex items-baseline justify-between text-xs">
 				<span class="font-semibold" style:color={CURRENCIES[CHROMATIC[color].currency].color}>{CHROMATIC[color].name}</span>
-				<span class="text-white/40">Spectrum {chromaticManager.spectrumLevel(color)}</span>
+				<span class="text-white/40">Spectrum {spectrum}</span>
 			</h3>
-			{#each upgrades as upgrade (upgrade.id)}
+			{#each byPrefix(`${color}_`).filter(visible) as upgrade (upgrade.id)}
 				{@render item(upgrade)}
 			{/each}
+			{#if spectrum < BOOST_SPECTRUM}
+				<p class="border-t border-white/5 pt-1 text-[11px] text-white/35">Spectrum {BOOST_SPECTRUM} unlocks boosts for the other realms</p>
+			{/if}
 		</section>
 	{/each}
 
 	<section class="flex flex-col gap-1.5">
 		<h3 class="text-xs font-semibold text-realm-300">Prism</h3>
-		{#each PRISM_UPGRADES.filter(visible) as upgrade (upgrade.id)}
+		{#each byPrefix('prism_').filter(visible) as upgrade (upgrade.id)}
 			{@render item(upgrade)}
 		{/each}
 	</section>
+
+	{#if whiteUnlocked}
+		<section class="flex flex-col gap-1.5" in:reveal={{ y: 0 }}>
+			<h3 class="text-xs font-semibold" style:color={CURRENCIES[CurrenciesTypes.WHITE_LIGHT].color}>White</h3>
+			<button
+				class="flex items-center justify-between gap-2 rounded-sm border border-white/15 bg-white/5 p-2 text-start text-xs transition-colors enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+				data-hint="prism-recombine"
+				disabled={chromaticManager.recombinable === 0}
+				onclick={() => chromaticManager.recombine()}
+			>
+				<span class="text-white/60">Recombine {WHITE_RECIPE} of each color into 1 White Light</span>
+				<Value class="whitespace-nowrap font-semibold" currency={CurrenciesTypes.WHITE_LIGHT} prefix="+" value={chromaticManager.recombinable} />
+			</button>
+			{#each byPrefix('white_').filter(visible) as upgrade (upgrade.id)}
+				{@render item(upgrade)}
+			{/each}
+		</section>
+	{/if}
 </div>

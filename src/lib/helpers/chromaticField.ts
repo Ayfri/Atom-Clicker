@@ -1,4 +1,4 @@
-import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_MAX_ON_SCREEN, type ChromaticColor, ChromaticColors } from '$data/chromatic';
+import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, type ChromaticColor, ChromaticColors } from '$data/chromatic';
 import { CURRENCIES } from '$data/currencies';
 import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { drawLightIcon } from '$helpers/photonCanvas';
@@ -58,7 +58,7 @@ export class ChromaticField {
 
 	/** A photon released at a given spot (Prism Excitation) skips the on-screen cap, the upgrade must never roll for nothing. */
 	spawn(width: number, height: number, at?: { x: number; y: number }) {
-		if (width === 0 || (!at && this.photons.filter(photon => !photon.half).length >= CHROMATIC_MAX_ON_SCREEN)) return;
+		if (width === 0 || (!at && this.photons.filter(photon => !photon.half).length >= chromaticManager.maxOnScreen)) return;
 
 		const color = CHROMATIC_COLORS[Math.floor(Math.random() * CHROMATIC_COLORS.length)];
 		const { drop, lifetime, size, speed } = CHROMATIC[color];

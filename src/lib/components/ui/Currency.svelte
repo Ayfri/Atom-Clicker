@@ -3,6 +3,7 @@
 	import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
 	import {CURRENCIES, type CurrencyName} from '$data/currencies';
 	import LightIcon from '@components/icons/Light.svelte';
+	import WhiteLightIcon from '@components/icons/WhiteLight.svelte';
 	import AtomIcon from '@components/icons/Atom.svelte';
 	import ElectronIcon from '@components/icons/Electron.svelte';
 	import ExcitedPhotonIcon from '@components/icons/ExcitedPhoton.svelte';
@@ -41,6 +42,8 @@
 		<PhotonIcon class="inline {className}" color={currency.color} {...rest} />
 	{:else if chromaticColor}
 		<LightIcon class="inline {className}" color={currency.color} facets={CHROMATIC[chromaticColor].facets} {...rest} />
+	{:else if currency.id === 'white-light'}
+		<WhiteLightIcon class="inline {className}" color={currency.color} {...rest} />
 	{/if}
 {:else}
 	<span class="currency">{currency.name}</span>
