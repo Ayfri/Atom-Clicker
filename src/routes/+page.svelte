@@ -44,6 +44,32 @@
 		return theme?.background ?? realm.background;
 	}
 
+	const WARP_STREAKS = [
+		{ delay: 0, top: 14, width: 28 },
+		{ delay: 60, top: 27, width: 18 },
+		{ delay: 20, top: 39, width: 36 },
+		{ delay: 110, top: 48, width: 22 },
+		{ delay: 40, top: 57, width: 40 },
+		{ delay: 140, top: 68, width: 16 },
+		{ delay: 80, top: 79, width: 30 },
+		{ delay: 30, top: 90, width: 24 },
+	] as const;
+
+	const selectedIndex = $derived(realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealmId));
+
+	/** One-shot overlay of a player-triggered switch, a new `id` remounts it so back-to-back switches restart it. */
+	let warp = $state<{ color: string; direction: 1 | -1; id: number } | null>(null);
+
+	function switchRealm(realm: RealmConfig, index: number) {
+		if (index === selectedIndex) return;
+		warp = { color: realm.color, direction: index > selectedIndex ? 1 : -1, id: (warp?.id ?? 0) + 1 };
+		realmManager.selectRealm(realm.id);
+	}
+
+	function endWarp(event: AnimationEvent) {
+		if (event.target === event.currentTarget) warp = null;
+	}
+
 	autoBuyManager.init();
 	autoUpgradeManager.init();
 
@@ -181,7 +207,7 @@
 			in:reveal
 		>
 			<div class="flex flex-col gap-1">
-				{#each realmManager.availableRealms as realm (realm.id)}
+				{#each realmManager.availableRealms as realm, i (realm.id)}
 					<button
 						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 pointer-events-auto {(
 							realmManager.selectedRealmId === realm.id
@@ -190,7 +216,7 @@
 						:	'bg-white/5 hover:bg-white/10'}"
 						id="realm-{realm.id}"
 						in:reveal
-						onclick={() => realmManager.selectRealm(realm.id)}
+						onclick={() => switchRealm(realm, i)}
 						title="{realm.title} - {formatNumber(realmManager.realmValues[realm.id] ?? 0)} {realm.currency.name.toLowerCase()}"
 					>
 						<Currency name={realm.currency.name} />
@@ -199,6 +225,25 @@
 				{/each}
 			</div>
 		</div>
+	{/if}
+
+	{#if warp}
+		{#key warp.id}
+			<div
+				aria-hidden="true"
+				class="realm-warp"
+				onanimationend={endWarp}
+				style="--warp-color: {warp.color}; --warp-dir: {warp.direction};"
+			>
+				<div class="realm-warp-sweep"></div>
+				{#each WARP_STREAKS as streak, i (i)}
+					<div
+						class="realm-warp-streak"
+						style="animation-delay: {streak.delay}ms; top: {streak.top}%; width: {streak.width}vw;"
+					></div>
+				{/each}
+			</div>
+		{/key}
 	{/if}
 
 	<main
@@ -211,29 +256,25 @@
 			<Levels />
 		{/if}
 
-		<!-- Use transform and opacity for virtual desktop swipe effect -->
+		<!-- Realms sit side by side and swing in like the faces of a cube, the leaving one first, the arriving one after
+		     a short delay. `translateX(0)` at rest keeps the panel 2D and the containing block of its fixed children. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
 			{@const RealmComponent = realmComponents[realm.componentId]}
 			{@const background = getRealmBackground(realm)}
+			{@const side = Math.sign(i - selectedIndex)}
 
 			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
-			     animations. `transition-discrete` holds it visible until the slide out ends. -->
+			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
+			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
 			<div
-				class="absolute inset-x-0 bottom-0 transition-all transition-discrete duration-300 ease-in-out overflow-hidden {(
-					realmManager.selectedRealm.id !== realm.id
+				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
+					side
 				) ?
-					'[content-visibility:hidden]'
-				:	''}"
-				class:opacity-100={realmManager.selectedRealm.id === realm.id}
-				class:translate-x-0={realmManager.selectedRealm.id === realm.id}
-				class:opacity-0={realmManager.selectedRealm.id !== realm.id}
-				class:pointer-events-none={realmManager.selectedRealm.id !== realm.id}
-				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; transform: translateX({(
-					realmManager.selectedRealm.id === realm.id
-				) ?
-					'0'
-				: i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%'
-				: '-100%'}); {background ? `background-image: ${background};` : ''}"
+					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
+				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
+				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; transform: {side ?
+					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`
+				:	'translateX(0)'}; {background ? `background-image: ${background};` : ''}"
 			>
 				<div class="absolute inset-0 overflow-y-auto custom-scrollbar">
 					<div class="flex flex-col min-h-full">
@@ -251,3 +292,91 @@
 		{/if}
 	</main>
 </div>
+
+<style>
+	/* Only opacity and transform animate, so the whole overlay stays on the compositor even on small phones. */
+	.realm-warp {
+		animation: warp-flash 750ms ease-out both;
+		background: radial-gradient(
+			ellipse 70% 90% at calc(50% + var(--warp-dir) * 50%) 50%,
+			color-mix(in srgb, var(--warp-color), transparent 65%),
+			transparent 70%
+		);
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+		position: fixed;
+		z-index: 20;
+	}
+
+	.realm-warp-sweep {
+		animation: warp-sweep 650ms cubic-bezier(0.65, 0, 0.35, 1) both;
+		background: linear-gradient(
+			90deg,
+			transparent,
+			color-mix(in srgb, var(--warp-color), transparent 75%) 35%,
+			color-mix(in srgb, var(--warp-color), white 45%) 50%,
+			color-mix(in srgb, var(--warp-color), transparent 75%) 65%,
+			transparent
+		);
+		inset-block: -10%;
+		left: 32.5vw;
+		position: absolute;
+		width: 35vw;
+	}
+
+	.realm-warp-streak {
+		animation: warp-streak 450ms cubic-bezier(0.5, 0, 0.75, 0) both;
+		background: linear-gradient(90deg, transparent, var(--warp-color), transparent);
+		border-radius: 9999px;
+		height: 2px;
+		left: 0;
+		position: absolute;
+	}
+
+	@keyframes warp-flash {
+		0% {
+			opacity: 0;
+		}
+		30% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
+	}
+
+	@keyframes warp-sweep {
+		0% {
+			opacity: 0;
+			transform: translateX(calc(var(--warp-dir) * 90vw)) skewX(-14deg);
+		}
+		25% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: translateX(calc(var(--warp-dir) * -90vw)) skewX(-14deg);
+		}
+	}
+
+	@keyframes warp-streak {
+		0% {
+			opacity: 0;
+			transform: translateX(calc(var(--warp-dir) * 110vw));
+		}
+		30% {
+			opacity: 0.8;
+		}
+		100% {
+			opacity: 0;
+			transform: translateX(calc(var(--warp-dir) * -110vw));
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.realm-warp {
+			display: none;
+		}
+	}
+</style>

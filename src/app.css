@@ -26,6 +26,7 @@
 	--color-realm-900: #4a1e64;
 	--color-realm-950: #2d1142;
 
+	--color-page: #1a1a1a;
 	--color-radiation: #39ff14;
 }
 
@@ -36,7 +37,7 @@
 @layer base {
 	:root {
 		--banner-height: 0rem;
-		background-color: #1a1a1a;
+		background-color: var(--color-page);
 		color: rgba(255, 255, 255, 0.87);
 		color-scheme: light dark;
 		font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;

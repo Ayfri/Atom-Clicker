@@ -6,6 +6,8 @@ import type { Currency } from '$lib/types';
 
 export interface RealmConfig {
 	background?: string;
+	/** Tint of the light sweep played when switching to this realm. */
+	color: string;
 	componentId: string;
 	currency: Currency;
 	id: RealmType;
@@ -19,6 +21,7 @@ class RealmManager {
 		{
 			background:
 				'radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--color-accent-400), transparent 88%) 0%, color-mix(in srgb, var(--color-accent-400), transparent 92%) 30%, transparent 60%), radial-gradient(circle at 95% 90%, color-mix(in srgb, var(--color-accent-400), transparent 88%) 0%, color-mix(in srgb, var(--color-accent-400), transparent 92%) 25%, transparent 50%)',
+			color: 'var(--color-accent-400)',
 			componentId: 'AtomRealm',
 			currency: CURRENCIES[CurrenciesTypes.ATOMS],
 			id: RealmTypes.ATOMS,
@@ -27,6 +30,7 @@ class RealmManager {
 		{
 			background:
 				'linear-gradient(135deg, color-mix(in srgb, var(--color-realm-500), transparent 90%) 0%, color-mix(in srgb, var(--color-realm-950), transparent 90%) 50%, color-mix(in srgb, var(--color-realm-500), transparent 90%) 100%)',
+			color: 'var(--color-realm-400)',
 			componentId: 'PhotonRealm',
 			currency: CURRENCIES[CurrenciesTypes.PHOTONS],
 			id: RealmTypes.PHOTONS,
@@ -35,6 +39,7 @@ class RealmManager {
 		{
 			background:
 				'radial-gradient(circle at 30% 30%, rgba(30, 70, 32, 0.15) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(57, 255, 20, 0.1) 0%, transparent 40%)',
+			color: 'var(--color-radiation)',
 			componentId: 'RadiationRealm',
 			currency: CURRENCIES[CurrenciesTypes.ELECTRONS],
 			id: RealmTypes.RADIATION,
