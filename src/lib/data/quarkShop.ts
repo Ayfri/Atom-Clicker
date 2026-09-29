@@ -221,6 +221,20 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 		},
 		type: 'theme',
 	},
+	theme_photons_prism: {
+		cost: 40,
+		description: 'Splits the Photon Realm into Red, Green and Blue light.',
+		id: 'theme_photons_prism',
+		name: 'Prism',
+		theme: {
+			accent: '#7dd3fc',
+			accentSecondary: '#f472b6',
+			background:
+				'radial-gradient(circle at 15% 20%, rgba(255, 77, 94, 0.12) 0%, transparent 45%), radial-gradient(circle at 85% 30%, rgba(46, 230, 160, 0.1) 0%, transparent 45%), radial-gradient(circle at 50% 90%, rgba(77, 141, 255, 0.12) 0%, transparent 50%)',
+			realmId: RealmTypes.PHOTONS,
+		},
+		type: 'theme',
+	},
 	theme_radiation_cherenkov: {
 		cost: 25,
 		description: 'Recolors the Radiation Realm with the blue glow of Cherenkov radiation.',
