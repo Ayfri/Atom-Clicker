@@ -6,15 +6,17 @@
 	import QuarkIcon from '@components/icons/Quark.svelte';
 	import Currency from '@components/ui/Currency.svelte';
 	import { ACHIEVEMENTS } from '$data/achievements';
+	import { CHROMATIC, CHROMATIC_COLORS, KILLS_PER_SPECTRUM_LEVEL } from '$data/chromatic';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { FeatureTypes } from '$data/features';
 	import { REALMS } from '$data/realms';
 	import { SKILL_UPGRADES } from '$data/skillTree';
+	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatDuration, formatNumber, formatNumberFull } from '$lib/utils';
-	import { CalendarDays, Factory, Flame, Hourglass, MousePointerClick, Package, Radiation, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
+	import { CalendarDays, Factory, Flame, Hourglass, MousePointerClick, Package, Radiation, Rainbow, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
 	import { clock } from '$stores/clock.svelte';
 	import { type Component } from 'svelte';
 
@@ -24,6 +26,8 @@
 	const totalSkillUpgrades = Object.keys(SKILL_UPGRADES).length;
 	const hasEarned = (...types: CurrencyName[]) => types.some(type => gameManager.currencies[type].earnedAllTime > 0);
 
+	const prismUnlocked = $derived(CHROMATIC_COLORS.some(color => chromaticManager.kills[color] > 0));
+	const whiteUnlocked = $derived(chromaticManager.recombinable > 0 || hasEarned(CurrenciesTypes.WHITE_LIGHT));
 	const radiationUnlocked = $derived(gameManager.features[FeatureTypes.RADIATION_REALM] || radiationManager.unlocked);
 	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
 
@@ -102,16 +106,21 @@
 	</div>
 {/snippet}
 
+{#snippet amount(type: CurrencyName)}
+	{@const value = gameManager.currencies[type].amount}
+	<div class="flex items-center gap-3">
+		<Currency name={type} size={28} />
+		<span class="flex flex-col leading-tight">
+			<span class="text-xl font-bold tabular-nums" style:color={CURRENCIES[type].color} title={formatNumberFull(value)}>{formatNumber(value)}</span>
+			<span class="text-xs text-white/50">{type}</span>
+		</span>
+	</div>
+{/snippet}
+
 {#snippet currency(type: CurrencyName, extra: [string, number][])}
 	{@const data = gameManager.currencies[type]}
 	<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
-		<div class="flex items-center gap-3">
-			<Currency name={type} size={28} />
-			<span class="flex flex-col leading-tight">
-				<span class="text-xl font-bold tabular-nums" style:color={CURRENCIES[type].color} title={formatNumberFull(data.amount)}>{formatNumber(data.amount)}</span>
-				<span class="text-xs text-white/50">{type}</span>
-			</span>
-		</div>
+		{@render amount(type)}
 		{@render bar('Earned this run', data.earnedRun, data.earnedAllTime, CURRENCIES[type].color)}
 		{#each extra as [label, value] (label)}
 			{@render row(label, formatNumber(value, 0))}
@@ -204,6 +213,39 @@
 					{@render row('Upgrade levels', formatNumber(gameManager.photonUpgradeLevels, 0))}
 				</div>
 			</div>
+		</section>
+	{/if}
+
+	{#if prismUnlocked}
+		<section>
+			{@render title(Rainbow, 'Prism')}
+			<div class="grid gap-3 md:grid-cols-3">
+				{#each CHROMATIC_COLORS as color (color)}
+					{@const type = CHROMATIC[color].currency}
+					{@const kills = chromaticManager.kills[color]}
+					{@const earned = gameManager.currencies[type].earnedAllTime}
+					<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+						{@render amount(type)}
+						{@render bar(
+							`Spectrum ${chromaticManager.spectrumLevel(color)}`,
+							kills % KILLS_PER_SPECTRUM_LEVEL,
+							KILLS_PER_SPECTRUM_LEVEL,
+							CURRENCIES[type].color,
+							`${kills % KILLS_PER_SPECTRUM_LEVEL} / ${KILLS_PER_SPECTRUM_LEVEL} breaks`,
+						)}
+						{@render row('Photons broken', formatNumber(kills, 0))}
+						{@render row('Light earned', formatNumber(earned), formatNumberFull(earned))}
+					</div>
+				{/each}
+			</div>
+			{#if whiteUnlocked}
+				{@const earned = gameManager.currencies[CurrenciesTypes.WHITE_LIGHT].earnedAllTime}
+				<div class="mt-3 grid items-center gap-x-8 gap-y-2 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[auto_1fr_1fr]">
+					{@render amount(CurrenciesTypes.WHITE_LIGHT)}
+					{@render row('Light earned', formatNumber(earned), formatNumberFull(earned))}
+					{@render row('Recombinable now', formatNumber(chromaticManager.recombinable, 0))}
+				</div>
+			{/if}
 		</section>
 	{/if}
 
