@@ -75,7 +75,7 @@ class RadiationManager {
 	maxCpm = $derived.by(() => {
 		const baseCpm = 1000;
 		const level = this.upgradeLevels['coolant_pumps'] || 0;
-		return baseCpm * (1 + level * 0.5) * chromaticManager.reactorCapBonus;
+		return (baseCpm * (1 + level * 0.5) + this.getUpgradeEffect('fusion_ignition') * 1000) * chromaticManager.reactorCapBonus;
 	});
 
 	// Enrichment bonus (from Isotopic Enrichment)
@@ -113,8 +113,11 @@ class RadiationManager {
 	radiationMultiplier = $derived(this.unlocked ? this.multiplierFor(this.currentCpm) : 1);
 
 	multiplierFor(cpm: number): number {
-		return cpm > 0 ? 1 + (cpm / 50) * (1 + this.criticalChance) : 1;
+		return cpm > 0 ? 1 + (cpm / 50) * (1 + this.criticalChance) * (1 + 0.2 * this.getUpgradeEffect('ion_lattice')) : 1;
 	}
+
+	/** Fuel mass one electron adds, raised by Neutron Reflector. */
+	massPerElectron = $derived(MASS_PER_ELECTRON * (1 + 0.25 * this.getUpgradeEffect('neutron_reflector')));
 
 	ionizeReady = $derived(this.ionizeHold >= IONIZE_HOLD_SECONDS);
 
@@ -149,7 +152,7 @@ class RadiationManager {
 		if (electronBalance < electronAmount) return false;
 
 		currenciesManager.remove(CurrenciesTypes.ELECTRONS, electronAmount);
-		const added = electronAmount * MASS_PER_ELECTRON;
+		const added = electronAmount * this.massPerElectron;
 		this.mass += added;
 		this.lastBombard = { mass: added, seq: this.lastBombard.seq + 1 };
 		return true;

@@ -2,7 +2,7 @@
 	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes } from '$data/currencies';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { MASS_PER_ELECTRON, radiationManager } from '$helpers/RadiationManager.svelte';
+	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { Zap } from '@lucide/svelte';
 
@@ -17,7 +17,7 @@
 
 	const balance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
 	const electrons = $derived(Math.max(1, Math.floor(balance * share)));
-	const addedMass = $derived(electrons * MASS_PER_ELECTRON);
+	const addedMass = $derived(electrons * radiationManager.massPerElectron);
 	const cpmGain = $derived(
 		radiationManager.cpmFor(radiationManager.mass + addedMass, radiationManager.controlRodLevel) - radiationManager.currentCpm,
 	);

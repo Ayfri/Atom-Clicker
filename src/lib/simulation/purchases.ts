@@ -143,8 +143,13 @@ export class PurchasePlanner {
 			this.radiationLevelsRef = radiationManager.upgradeLevels;
 			this.radiationLevels = nextLevels(RADIATION_UPGRADE_ENTRIES, radiationManager.upgradeLevels, (upgrade, level) => getRadiationUpgradePrice(upgrade, level).amount);
 		}
-		const cheapest = this.radiationLevels[0];
-		return cheapest && currenciesManager.getAmount(CurrenciesTypes.ELECTRONS) >= cheapest.cost ? cheapest.id : null;
+		const electrons = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
+		for (const { cost, entry: upgrade, id } of this.radiationLevels) {
+			if (cost > electrons) break;
+			if (upgrade.condition && !upgrade.condition(gameManager)) continue;
+			return id;
+		}
+		return null;
 	}
 
 	selectGenerator(behavior: BotBehavior): GeneratorType | null {

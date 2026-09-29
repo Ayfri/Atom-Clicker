@@ -4,24 +4,33 @@
 	import { CurrenciesTypes } from '$data/currencies';
 	import { RADIATION_UPGRADES, getRadiationUpgradeCost } from '$data/radiationUpgrades';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+	import { gameManager } from '$helpers/GameManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { FlaskConical, Layers, Magnet, Recycle, Snowflake, Sparkles } from '@lucide/svelte';
+	import { reveal } from '$helpers/reveals.svelte';
+	import { Flame, FlaskConical, Grid3x3, Layers, Magnet, Recycle, ShieldHalf, Snowflake, Sparkles } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 
 	const ICONS: Record<string, Component> = {
 		breeder_reactor: Recycle,
 		cherenkov_glow: Sparkles,
 		coolant_pumps: Snowflake,
+		fusion_ignition: Flame,
 		graphite_moderators: Layers,
+		ion_lattice: Grid3x3,
 		isotopic_enrichment: FlaskConical,
 		magnetic_confinement: Magnet,
+		neutron_reflector: ShieldHalf,
 	};
 
 	const balance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
 	const levels = $derived(radiationManager.upgradeLevels);
 
-	/** Cheapest first, the order players can afford them in. */
-	const upgrades = Object.values(RADIATION_UPGRADES).sort((a, b) => a.baseCost - b.baseCost);
+	/** Cheapest first, the order players can afford them in. The Ionize ones appear with the Ionize that unlocks them. */
+	const upgrades = $derived(
+		Object.values(RADIATION_UPGRADES)
+			.filter(upgrade => upgrade.condition?.(gameManager) ?? true)
+			.sort((a, b) => a.baseCost - b.baseCost),
+	);
 </script>
 
 <section class="flex flex-col gap-3" data-hint="radiation-upgrades">
@@ -29,7 +38,10 @@
 		<h2 class="text-lg">Reactor Upgrades</h2>
 		<HelpIcon position="bottom">
 			{#snippet content()}
-				<p class="text-xs text-white/80">Bought with Electrons, they make the reactor stronger, cooler and longer lasting, and survive Protonize and Electronize.</p>
+				<p class="text-xs text-white/80">
+					Bought with Electrons, they make the reactor stronger, cooler and longer lasting. They survive Protonize and Electronize, Ionize resets them and
+					unlocks new ones.
+				</p>
 			{/snippet}
 		</HelpIcon>
 		<Value class="ml-auto text-sm text-white/60" currency={CurrenciesTypes.ELECTRONS} value={balance} />
@@ -46,6 +58,7 @@
 				class="flex items-center gap-3 rounded-xl p-2.5 text-left transition-colors duration-200
 					{affordable ? 'cursor-pointer bg-radiation/8 hover:bg-radiation/15' : 'cursor-default bg-white/3'}"
 				disabled={!affordable}
+				in:reveal={{ y: 0 }}
 				onclick={() => radiationManager.purchaseUpgrade(upgrade.id)}
 			>
 				<span

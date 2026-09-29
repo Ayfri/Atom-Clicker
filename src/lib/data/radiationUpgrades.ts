@@ -1,6 +1,7 @@
 import { CurrenciesTypes } from '$data/currencies';
 import type { Price } from '$lib/types';
 import type { GameManager } from '$helpers/GameManager.svelte';
+import { formatNumber } from '$lib/utils';
 
 /** Effects live in RadiationManager, which reads the levels directly because every reactor formula is a single term per upgrade. */
 export interface RadiationUpgrade {
@@ -38,6 +39,15 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 		maxLevel: 20,
 		name: 'Coolant Pumps',
 	},
+	fusion_ignition: {
+		baseCost: 8000,
+		condition: manager => manager.totalIonizesAllTime >= 3,
+		costMultiplier: 1.7,
+		description: level => `Raises the output cap by ${formatNumber(level * 1000)} CPM`,
+		id: 'fusion_ignition',
+		maxLevel: 10,
+		name: 'Fusion Ignition',
+	},
 	graphite_moderators: {
 		baseCost: 15,
 		costMultiplier: 1.15,
@@ -45,6 +55,15 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 		id: 'graphite_moderators',
 		maxLevel: 8,
 		name: 'Graphite Moderators',
+	},
+	ion_lattice: {
+		baseCost: 2000,
+		condition: manager => manager.totalIonizesAllTime >= 2,
+		costMultiplier: 1.6,
+		description: level => `+${(level * 20).toFixed(0)}% radiation multiplier`,
+		id: 'ion_lattice',
+		maxLevel: 10,
+		name: 'Ion Lattice',
 	},
 	isotopic_enrichment: {
 		baseCost: 10,
@@ -61,6 +80,15 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 		id: 'magnetic_confinement',
 		maxLevel: 5,
 		name: 'Magnetic Confinement',
+	},
+	neutron_reflector: {
+		baseCost: 500,
+		condition: manager => manager.totalIonizesAllTime >= 1,
+		costMultiplier: 1.5,
+		description: level => `Each electron makes ${(level * 25).toFixed(0)}% more fuel`,
+		id: 'neutron_reflector',
+		maxLevel: 10,
+		name: 'Neutron Reflector',
 	},
 };
 
