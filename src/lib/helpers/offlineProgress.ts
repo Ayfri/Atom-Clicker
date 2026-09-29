@@ -1,6 +1,8 @@
+import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import type { GeneratorType } from '$data/generators';
+import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
@@ -168,6 +170,11 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 		addCurrency(CurrenciesTypes.PHOTONS, expectedNormal);
 		addCurrency(CurrenciesTypes.EXCITED_PHOTONS, expectedExcited);
+
+		if (manager.totalIonizesAllTime > 0) {
+			const rates = chromaticManager.autoLightPerSecond(photonAutoClicksPerSecond, OFFLINE_AUTO_FACTOR, manager.totalIonizesAllTime);
+			for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, rates[color] * (appliedMs / 1000));
+		}
 	}
 
 	const levelBefore = manager.playerLevel;

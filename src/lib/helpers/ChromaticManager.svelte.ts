@@ -1,4 +1,5 @@
 import {
+	BLUE_HALF,
 	CHROMATIC,
 	CHROMATIC_AUTO_DAMAGE,
 	CHROMATIC_BASE_SPAWN_INTERVAL,
@@ -6,6 +7,7 @@ import {
 	CHROMATIC_MAX_ON_SCREEN,
 	CHROMATIC_UPGRADES,
 	type ChromaticColor,
+	ChromaticColors,
 	type ChromaticUpgrade,
 	getChromaticUpgradeCost,
 	KILLS_PER_SPECTRUM_LEVEL,
@@ -62,6 +64,24 @@ class ChromaticManager {
 	lightFor(color: ChromaticColor, drop: number, ionizes: number): number {
 		const upgrades = (1 + 0.25 * this.level(`${color}_yield`)) * (1 + 0.5 * this.level('white_spectrum'));
 		return drop * SPECTRUM_DROP_GROWTH ** this.spectrumLevel(color) * upgrades * (1 + 0.5 * ionizes);
+	}
+
+	/**
+	 * Light per second the photon auto-clicker earns on its own, for offline progress. Half its clicks land on colored photons,
+	 * split evenly between the colors, and a color never breaks faster than it spawns. A Blue photon counts its two halves.
+	 */
+	autoLightPerSecond(autoClicksPerSecond: number, spawnFactor: number, ionizes: number): Record<ChromaticColor, number> {
+		const spawnsPerColor = 1000 / this.spawnInterval / CHROMATIC_COLORS.length / spawnFactor;
+		const clicksPerColor = autoClicksPerSecond / 2 / CHROMATIC_COLORS.length;
+		const rates = { ...EMPTY_KILLS };
+		for (const color of CHROMATIC_COLORS) {
+			const blue = color === ChromaticColors.BLUE;
+			const hp = this.maxHp(color) * (blue ? 1 + 2 * BLUE_HALF.hp : 1);
+			const drop = blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop;
+			const breaks = Math.min(spawnsPerColor, (clicksPerColor * this.tapDamage(color, true)) / hp);
+			rates[color] = breaks * this.lightFor(color, drop, ionizes);
+		}
+		return rates;
 	}
 
 	isUnlocked({ unlock }: ChromaticUpgrade): boolean {
