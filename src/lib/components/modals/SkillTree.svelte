@@ -1,12 +1,12 @@
 <script lang="ts" module>
-	import { skillLinkPath } from '@components/game/SkillEdge.svelte';
+	import { skillLink } from '@components/game/SkillEdge.svelte';
 	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '$data/skillTree';
 	import type { SkillUpgrade } from '$lib/types';
 
 	const SKILLS = Object.values(SKILL_UPGRADES);
 
 	const LINKS = SKILLS.flatMap(target =>
-		(target.requires ?? []).map(source => ({ id: `${source}-${target.id}`, path: skillLinkPath(SKILL_UPGRADES[source], target), source, target })),
+		(target.requires ?? []).map(source => ({ ...skillLink(SKILL_UPGRADES[source], target), id: `${source}-${target.id}`, source, target })),
 	);
 
 	const TREE_BOUNDS = {
@@ -32,16 +32,20 @@
 		return depth;
 	}
 
-	/** Background stars stay fixed while the dot grid pans with the tree, which gives the view some depth. */
-	const STARS = Array.from({ length: 70 }, () => ({
-		delay: Math.random() * 6,
-		duration: 3 + Math.random() * 4,
-		size: Math.random() < 0.15 ? 2 : 1,
-		x: Math.random() * 100,
-		y: Math.random() * 100,
+	/**
+	 * Background stars stay fixed while the dot grid pans with the tree, which gives the view some depth.
+	 * Each layer paints its stars once as gradients and twinkles as a whole, one animated element per star cost far more.
+	 */
+	const STAR_LAYERS = Array.from({ length: 3 }, (_, layer) => ({
+		delay: layer * -2.3,
+		duration: 5 + layer * 1.7,
+		image: Array.from({ length: 24 }, () => {
+			const radius = Math.random() < 0.15 ? 1.6 : 1.1;
+			return `radial-gradient(circle ${radius}px at ${Math.random() * 100}% ${Math.random() * 100}%, white, transparent)`;
+		}).join(','),
 	}));
 
-	const DUST = Array.from({ length: 12 }, () => ({
+	const DUST = Array.from({ length: 6 }, () => ({
 		delay: Math.random() * -20,
 		duration: 14 + Math.random() * 12,
 		x: Math.random() * 100,
@@ -51,7 +55,7 @@
 <script lang="ts">
 	import { LocateFixed, Minus, Plus } from '@lucide/svelte';
 	import { dev } from '$app/environment';
-	import SkillEdge, { FILL_MS } from '@components/game/SkillEdge.svelte';
+	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '@components/game/SkillEdge.svelte';
 	import SkillNode, { type SkillStatus } from '@components/game/SkillNode.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import Modal from '@components/ui/Modal.svelte';
@@ -64,6 +68,7 @@
 	import { PanZoom } from '$helpers/PanZoom.svelte';
 	import { mobile } from '$stores/window.svelte';
 	import { onMount } from 'svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	interface Props {
 		onClose: () => void;
@@ -111,6 +116,11 @@
 				return [skill.id, status];
 			}),
 		);
+	}
+
+	function linkState(target: SkillUpgrade): SkillLinkState {
+		const status = statuses[target.id];
+		return status.owned ? 'owned' : status.available ? 'ready' : 'locked';
 	}
 
 	function unlock(skill: SkillUpgrade) {
@@ -172,15 +182,12 @@
 		class="relative size-full cursor-grab touch-none overflow-hidden rounded-xl bg-[#0b0f14] bg-[radial-gradient(circle_at_50%_8%,rgb(74_144_226/0.16),transparent_45%),radial-gradient(circle_at_8%_55%,rgb(181_123_255/0.16),transparent_45%),radial-gradient(circle_at_50%_100%,rgb(251_146_60/0.12),transparent_45%),radial-gradient(circle_at_92%_40%,rgb(45_212_191/0.12),transparent_45%)] active:cursor-grabbing"
 	>
 		<div class="pointer-events-none absolute inset-0" aria-hidden="true">
-			{#each STARS as { delay, duration, size, x, y }, i (i)}
+			{#each STAR_LAYERS as { delay, duration, image }, i (i)}
 				<span
-					class="absolute rounded-full bg-white opacity-20 motion-safe:animate-[skill-twinkle_var(--t)_ease-in-out_infinite]"
+					class="absolute inset-0 opacity-30 motion-safe:animate-[skill-twinkle_var(--t)_ease-in-out_infinite]"
 					style:--t="{duration}s"
 					style:animation-delay="{delay}s"
-					style:height="{size}px"
-					style:left="{x}%"
-					style:top="{y}%"
-					style:width="{size}px"
+					style:background-image={image}
 				></span>
 			{/each}
 			{#each DUST as { delay, duration, x }, i (i)}
@@ -205,17 +212,28 @@
 		<div class="absolute top-0 left-0 origin-top-left" style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})">
 			<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
 				{#each LINKS as { id, path, source, target } (id)}
-					{@const status = statuses[target.id]}
-					{#if statuses[source].visible && status.visible}
-						<SkillEdge
-							color={SKILL_BRANCH_COLORS[target.branch]}
-							enterDelay={enterDelays.get(target.id) ?? 0}
-							{path}
-							state={status.owned ? 'owned' : status.available ? 'ready' : 'locked'}
-						/>
+					{#if statuses[source].visible && statuses[target.id].visible}
+						<SkillEdge color={SKILL_BRANCH_COLORS[target.branch]} enterDelay={enterDelays.get(target.id) ?? 0} {path} state={linkState(target)} />
 					{/if}
 				{/each}
 			</svg>
+			{#if !prefersReducedMotion.current}
+				{#each LINKS as link (link.id)}
+					{@const state = linkState(link.target)}
+					{#if statuses[link.source].visible && state !== 'locked'}
+						{#each state === 'owned' ? [0, 0.5] : [0] as phase (phase)}
+							<span
+								{@attach flowAlong(link, state === 'owned' ? 140 : 80, phase)}
+								class={[
+									'absolute top-0 left-0 size-1.5 -translate-1/2 animate-[skill-appear_600ms_ease-out_1.4s_backwards] rounded-full bg-[color-mix(in_oklab,var(--c)_35%,white)]',
+									state === 'owned' ? 'opacity-85' : 'opacity-50',
+								]}
+								style:--c={SKILL_BRANCH_COLORS[link.target.branch]}
+							></span>
+						{/each}
+					{/if}
+				{/each}
+			{/if}
 			{#each SKILLS as skill (skill.id)}
 				{@const status = statuses[skill.id]}
 				{#if status.visible}
@@ -318,12 +336,6 @@
 		}
 		to {
 			stroke-dashoffset: -0.96;
-		}
-	}
-
-	@keyframes -global-skill-march {
-		to {
-			stroke-dashoffset: -24;
 		}
 	}
 

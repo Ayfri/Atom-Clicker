@@ -19,7 +19,7 @@
 		size: 3 + Math.random() * 4,
 	}));
 
-	const MOTES = Array.from({ length: 5 }, (_, i) => ({ delay: i * 0.5, x: 18 + Math.random() * 64 }));
+	const MOTES = Array.from({ length: 3 }, (_, i) => ({ delay: i * 0.8, x: 18 + Math.random() * 64 }));
 </script>
 
 <script lang="ts">
@@ -95,7 +95,7 @@
 	>
 		{#if available && animated}
 			<div
-				class="absolute -inset-3 animate-[skill-spin_3.5s_linear_infinite] rounded-full bg-[conic-gradient(from_0deg,transparent,var(--c),transparent_30%,transparent_50%,var(--c)_80%,transparent)] opacity-80 [mask:radial-gradient(closest-side,transparent_80%,black_84%,transparent)]"
+				class="absolute -inset-2.5 animate-[skill-spin_3.5s_linear_infinite] rounded-full border-2 border-transparent border-t-(color:--c) border-b-(color:--c)/40"
 			></div>
 			{#each MOTES as { delay, x }, i (i)}
 				<span
