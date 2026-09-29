@@ -1,5 +1,5 @@
 import { CurrenciesTypes } from '$data/currencies';
-import { GENERATOR_LEVEL_UP_COST, type GeneratorType } from '$data/generators';
+import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType } from '$data/generators';
 import { RealmTypes } from '$data/realms';
 import type { GameState, Generator } from '$lib/types';
 import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
@@ -9,7 +9,7 @@ import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
 import type { SaveErrorType } from '$stores/saveRecovery.svelte';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 27;
+export const SAVE_VERSION = 28;
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
 const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;
@@ -586,6 +586,57 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				delete generator.cost;
 				delete generator.rate;
 			}
+		}
+
+		if (state.version === 27) {
+			// Stat boosts left the skill tree for the upgrade lists and the photon shop, automation and stability unlocks became skills
+			const skillToUpgrade: Record<string, string> = {
+				atomicStability: 'atomic_stability',
+				biologicalAmplifier: 'biological_amplifier',
+				clickMastery: 'click_mastery',
+				communityPower: 'proton_community_power',
+				cosmicSynergy: 'electron_cosmic_synergy',
+				electronHarvester: 'proton_electron_harvester',
+				geologicalForce: 'geological_force',
+				globalMultiplier: 'global_multiplier',
+				levelMastery: 'level_mastery',
+				molecularBoost: 'molecular_boost',
+				nanoEnhancement: 'nano_enhancement',
+				particleAccelerator: 'proton_particle_accelerator',
+				powerUpMastery: 'power_up_mastery',
+				prestigeBonus: 'proton_prestige_bonus',
+				protonCollector: 'proton_collector',
+				quantumResonance: 'proton_quantum_resonance',
+				stellarCore: 'proton_stellar_core',
+			};
+			const upgradeToSkill: Record<string, string> = {
+				electron_auto_upgrade_1: 'autoUpgrade',
+				electron_bypass_atom_autoclick_stability: 'stableAutomation',
+				electron_bypass_atom_click_stability: 'stableManipulation',
+				electron_bypass_bonus_click_stability: 'stableAnomalies',
+				electron_bypass_photon_autoclick_stability: 'stableQuantumFlux',
+				electron_bypass_photon_click_stability: 'stableInteraction',
+				proton_auto_click_1: 'autoClicker',
+				proton_offline_autobuy: 'offlineAutoUpgrades',
+				proton_offline_autoclick: 'offlineAutoClick',
+			};
+			for (const type of GENERATOR_TYPES) {
+				skillToUpgrade[`${type}Multiplier`] = `${type.toLowerCase()}_multiplier`;
+				skillToUpgrade[`${type}LevelMastery`] = `${type.toLowerCase()}_level_mastery`;
+				upgradeToSkill[`electron_auto_buy_${type}`] = `${type}AutoBuy`;
+			}
+			const skillToPhotonUpgrade: Record<string, string> = { photonEfficiency: 'photon_efficiency', photonProtonBoost: 'photon_proton_boost' };
+
+			const skills: string[] = state.skillUpgrades ?? [];
+			const upgrades: string[] = state.upgrades ?? [];
+			state.photonUpgrades ??= {};
+			for (const id of skills) {
+				const photonId = skillToPhotonUpgrade[id];
+				if (photonId) state.photonUpgrades[photonId] = Math.max(state.photonUpgrades[photonId] ?? 0, 1);
+			}
+			state.upgrades = [...upgrades.filter(id => !upgradeToSkill[id]), ...skills.flatMap(id => skillToUpgrade[id] ?? [])];
+			state.skillUpgrades = [...skills.filter(id => !skillToUpgrade[id] && !skillToPhotonUpgrade[id]), ...upgrades.flatMap(id => upgradeToSkill[id] ?? [])];
+			state.features = deriveFeatureState({ skillUpgrades: state.skillUpgrades });
 		}
 
 		state.version = nextVersion;

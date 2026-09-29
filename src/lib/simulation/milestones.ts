@@ -85,8 +85,8 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('upgrades', 100, 'upgrades_100', '100 Upgrades', 'Bought 100 upgrades'),
 
 	at('skills', 1, 'skills_1', '1 Skill', 'Unlocked 1 skill'),
-	at('skills', 15, 'skills_15', '15 Skills', 'Unlocked 15 skills'),
-	at('skills', 30, 'skills_30', '30 Skills', 'Unlocked 30 skills'),
+	at('skills', 10, 'skills_10', '10 Skills', 'Unlocked 10 skills'),
+	at('skills', 20, 'skills_20', '20 Skills', 'Unlocked 20 skills'),
 
 	at('photonUpgradeLevels', 10, 'photon_10', '10 Photon Lvls', '10 Photon Upgrade Levels'),
 	at('photonUpgradeLevels', 50, 'photon_50', '50 Photon Lvls', '50 Photon Upgrade Levels'),

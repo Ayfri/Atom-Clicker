@@ -55,19 +55,64 @@ export function boostTiersUnlockedByNextProtonise(manager: GameManager): number 
 	return manager.totalProtonisesAllTime < 3 ? unlockedGenerators * GENERATOR_BOOST_TIERS_PER_PROTONISE : 0;
 }
 
-function createGeneratorUpgrades(generatorType: GeneratorType) {
+const isGeneratorUnlocked = (generatorType: GeneratorType) => (state: GameManager) => state.generators[generatorType]?.unlocked === true;
+
+function createGeneratorUpgrades(generatorType: GeneratorType, index: number): Upgrade[] {
 	const generator = GENERATORS[generatorType];
-	return createUpgrades({
-		condition: (i, state) =>
-			state.generators[generatorType]?.unlocked === true && state.totalProtonisesAllTime >= boostTierProtonises(i),
-		count: 20,
-		icon: GENERATOR_ICON_NAMES[generatorType],
-		id: generatorType.toLowerCase(),
-		name: i => `${generator.name} Boost ${i}`,
-		description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${generator.name} production`,
-		cost: i => generator.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
-		effects: i => [mul('generator', 1 + Math.ceil(i / 5), generatorType)],
-	});
+	const icon = GENERATOR_ICON_NAMES[generatorType];
+	const id = generatorType.toLowerCase();
+	const levels = (manager: GameManager) => manager.generators[generatorType]?.level ?? 0;
+	return [
+		...createUpgrades({
+			condition: (i, state) => isGeneratorUnlocked(generatorType)(state) && state.totalProtonisesAllTime >= boostTierProtonises(i),
+			count: 20,
+			icon,
+			id,
+			name: i => `${generator.name} Boost ${i}`,
+			description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${generator.name} production`,
+			cost: i => generator.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
+			effects: i => [mul('generator', 1 + Math.ceil(i / 5), generatorType)],
+		}),
+		{
+			condition: state => (state.generators[generatorType]?.count ?? 0) >= 100,
+			cost: { amount: 1_000_000 * 10 ** index, currency: CurrenciesTypes.ATOMS },
+			description: `2x ${generator.name} production, needs 100 ${generator.name}`,
+			effects: [mul('generator', 2, generatorType)],
+			icon,
+			id: `${id}_multiplier`,
+			name: `${generator.name} Multiplier`,
+		},
+		{
+			condition: isGeneratorUnlocked(generatorType),
+			// 30x per generator so the last masteries wait for later protonise runs instead of all landing at 5e14 atoms.
+			cost: { amount: 5_000_000 * 30 ** index, currency: CurrenciesTypes.ATOMS },
+			description: `+10% ${generator.name} production per 25 ${generator.name} levels`,
+			effects: [mul('generator', manager => 1 + Math.floor(levels(manager) / 25) * 0.1, generatorType)],
+			icon: 'generatorLevel',
+			id: `${id}_level_mastery`,
+			name: `${generator.name} Level Mastery`,
+		},
+	];
+}
+
+/** Boosts shared by a few neighbouring generator tiers, shown once the first tier they boost is unlocked. */
+function createGeneratorGroupUpgrades(): Upgrade[] {
+	const groups: { amount: number; cost: number; id: string; name: string; targets: GeneratorType[] }[] = [
+		{ amount: 1.5, cost: 100_000, id: 'atomic_stability', name: 'Atomic Stability', targets: ['molecule', 'crystal', 'nanostructure'] },
+		{ amount: 3, cost: 1_000_000, id: 'molecular_boost', name: 'Molecular Boost', targets: ['molecule', 'crystal'] },
+		{ amount: 2.5, cost: 2_500_000, id: 'nano_enhancement', name: 'Nano Enhancement', targets: ['nanostructure'] },
+		{ amount: 2.5, cost: 5_000_000, id: 'biological_amplifier', name: 'Biological Amplifier', targets: ['microorganism'] },
+		{ amount: 2, cost: 15_000_000, id: 'geological_force', name: 'Geological Force', targets: ['rock', 'planet'] },
+	];
+	return groups.map(({ amount, cost, id, name, targets }) => ({
+		condition: isGeneratorUnlocked(targets[0]),
+		cost: { amount: cost, currency: CurrenciesTypes.ATOMS },
+		description: `${amount}x ${new Intl.ListFormat('en').format(targets.map(type => GENERATORS[type].name))} production`,
+		effects: targets.map(type => mul('generator', amount, type)),
+		icon: GENERATOR_ICON_NAMES[targets[0]],
+		id,
+		name,
+	}));
 }
 
 function createClickPowerUpgrades() {
@@ -111,8 +156,41 @@ function createClickPowerUpgrades() {
 	];
 }
 
-function createGlobalUpgrades() {
+function createGlobalUpgrades(): Upgrade[] {
 	return [
+		{
+			cost: { amount: 5_000, currency: CurrenciesTypes.ATOMS },
+			description: '2x all production',
+			effects: [mul('global', 2)],
+			icon: 'globe',
+			id: 'global_multiplier',
+			name: 'Global Multiplier',
+		},
+		{
+			cost: { amount: 250_000, currency: CurrenciesTypes.ATOMS },
+			description: '+10% production per 100 clicks this run',
+			effects: [mul('global', manager => 1 + Math.floor(manager.totalClicksRun / 100) * 0.1)],
+			icon: 'click',
+			id: 'click_mastery',
+			name: 'Click Mastery',
+		},
+		{
+			condition: state => state.features[FeatureTypes.LEVELS],
+			cost: { amount: 500_000, currency: CurrenciesTypes.ATOMS },
+			description: '+20% production per 10 levels',
+			effects: [mul('global', manager => 1 + Math.floor(manager.playerLevel / 10) * 0.2)],
+			icon: 'level',
+			id: 'level_mastery',
+			name: 'Level Mastery',
+		},
+		{
+			cost: { amount: 10_000_000, currency: CurrenciesTypes.ATOMS },
+			description: '0.9x power-up interval, 1.1x power-up duration',
+			effects: [mul('power_up_interval', 0.9), mul('power_up_duration', 1.1)],
+			icon: 'higgsBoson',
+			id: 'power_up_mastery',
+			name: 'Power-up Mastery',
+		},
 		...createUpgrades({
 			id: 'global_boost',
 			count: 50,
@@ -224,7 +302,6 @@ function createLevelBoostUpgrades() {
 
 function createProtonUpgrades(): Upgrade[] {
 	const isStabilityUnlocked = (_: number, state: GameManager) => state.features[FeatureTypes.STABILITY_FIELD] === true;
-	const isOfflineUnlocked = (state: GameManager) => state.features[FeatureTypes.OFFLINE_PROGRESS] === true;
 
 	return [
 		...createUpgrades({
@@ -311,42 +388,75 @@ function createProtonUpgrades(): Upgrade[] {
 			},
 			effects: i => [add('start_atoms', 10 ** (3 + i))],
 		}),
+		// Level 1 is the Auto Clicker skill, these start at level 2.
 		...createUpgrades({
 			id: 'proton_auto_click',
-			count: 5,
+			count: 4,
+			condition: (_, state) => state.skillUpgrades.includes('autoClicker'),
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'click',
-			name: i => `Auto Clicker ${i}`,
-			description: i => `Automatically clicks ${Math.ceil(i / 2)} time${Math.ceil(i / 2) > 1 ? 's' : ''} per second`,
-			cost: i => {
-				const baseCost = Math.ceil(3 * 3 ** (i + 1.1));
-				return i > 1 ? baseCost * i ** 4.1 : baseCost;
-			},
-			effects: i => [add('auto_click', Math.ceil(i / 2))],
+			idForIndex: i => `proton_auto_click_${i + 1}`,
+			name: i => `Auto Clicker ${i + 1}`,
+			description: i => `Automatically clicks ${Math.ceil((i + 1) / 2)} more time${Math.ceil((i + 1) / 2) > 1 ? 's' : ''} per second`,
+			cost: i => Math.ceil(3 * 3 ** (i + 2.1)) * (i + 1) ** 4.1,
+			effects: i => [add('auto_click', Math.ceil((i + 1) / 2))],
 		}),
 		{
-			condition: isOfflineUnlocked,
-			cost: {
-				amount: 120,
-				currency: CurrenciesTypes.PROTONS,
-			},
-			description: 'Unlock offline auto-upgrades (1/120 speed)',
-			effects: [],
-			icon: 'offline',
-			id: 'proton_offline_autobuy',
-			name: 'Offline Auto-upgrades',
+			cost: { amount: 1_000, currency: CurrenciesTypes.PROTONS },
+			description: '+1% production per thousand registered players',
+			effects: [mul('global', manager => 1 + manager.totalUsers / 100_000)],
+			icon: 'globe',
+			id: 'proton_community_power',
+			name: 'Community Power',
 		},
 		{
-			condition: isOfflineUnlocked,
-			cost: {
-				amount: 250,
-				currency: CurrenciesTypes.PROTONS,
-			},
-			description: 'Unlock offline atom auto-clicks (1/120 speed)',
-			effects: [],
-			icon: 'offline',
-			id: 'proton_offline_autoclick',
-			name: 'Offline Atom Auto-click',
+			cost: { amount: 2_500, currency: CurrenciesTypes.PROTONS },
+			description: '2x electrons gained from electronize',
+			effects: [mul('electron_gain', 2)],
+			icon: 'electron',
+			id: 'proton_electron_harvester',
+			name: 'Electron Harvester',
+		},
+		{
+			cost: { amount: 25_000, currency: CurrenciesTypes.PROTONS },
+			description: '1.5x protons gained from protonise',
+			effects: [mul('proton_gain', 1.5)],
+			icon: 'proton',
+			id: 'proton_collector',
+			name: 'Proton Collector',
+		},
+		{
+			cost: { amount: 250_000, currency: CurrenciesTypes.PROTONS },
+			description: '+1% production per electronize',
+			effects: [mul('global', manager => 1 + manager.totalElectronizesAllTime * 0.01)],
+			icon: 'electron',
+			id: 'proton_prestige_bonus',
+			name: 'Prestige Bonus',
+		},
+		{
+			cost: { amount: 2_500_000, currency: CurrenciesTypes.PROTONS },
+			description: '+20% production per 100 generators owned',
+			effects: [mul('global', manager => 1 + Math.floor(manager.generatorTotals.count / 100) * 0.2)],
+			icon: 'generatorLevel',
+			id: 'proton_quantum_resonance',
+			name: 'Quantum Resonance',
+		},
+		{
+			condition: state => (state.generators.star?.count ?? 0) >= 5,
+			cost: { amount: 25_000_000, currency: CurrenciesTypes.PROTONS },
+			description: '2x Star, Neutron Star and Black Hole production',
+			effects: [mul('generator', 2, 'star'), mul('generator', 2, 'neutronStar'), mul('generator', 2, 'blackHole')],
+			icon: 'star',
+			id: 'proton_stellar_core',
+			name: 'Stellar Core',
+		},
+		{
+			cost: { amount: 250_000_000, currency: CurrenciesTypes.PROTONS },
+			description: '+25% production per protonise',
+			effects: [mul('global', manager => 1 + manager.totalProtonisesRun * 0.25)],
+			icon: 'proton',
+			id: 'proton_particle_accelerator',
+			name: 'Particle Accelerator',
 		},
 		...createUpgrades({
 			id: 'stability_boost',
@@ -389,24 +499,10 @@ function createElectronUpgrades(): Upgrade[] {
 		...GENERATOR_TYPES.map((generatorType, index): Upgrade => {
 			const generator = GENERATORS[generatorType];
 			return {
-				id: `electron_auto_buy_${generatorType}`,
-				name: `Auto ${generator.name}`,
-				description: `Automatically buys 1 ${generator.name} every 30 seconds`,
-				cost: {
-					amount: 2 + index,
-					currency: CurrenciesTypes.ELECTRONS,
-				},
-				icon: GENERATOR_ICON_NAMES[generatorType],
-				effects: [add('auto_buy', 0, generatorType)],
-			};
-		}),
-		...GENERATOR_TYPES.map((generatorType, index): Upgrade => {
-			const generator = GENERATORS[generatorType];
-			return {
 				id: `electron_auto_buy_speed_${generatorType}`,
 				name: `Faster Auto ${generator.name}`,
 				description: `Reduces ${generator.name} auto-buy interval by 5 seconds`,
-				condition: state => state.upgrades.includes(`electron_auto_buy_${generatorType}`),
+				condition: state => state.skillUpgrades.includes(`${generatorType}AutoBuy`),
 				cost: {
 					amount: 3 + index,
 					currency: CurrenciesTypes.ELECTRONS,
@@ -415,19 +511,18 @@ function createElectronUpgrades(): Upgrade[] {
 				effects: [add('auto_buy', -5000, generatorType)],
 			};
 		}),
+		// Level 1 is the Auto Upgrade skill, these start at level 2.
 		...createUpgrades({
 			id: 'electron_auto_upgrade',
-			count: 4,
+			count: 3,
 			currency: CurrenciesTypes.ELECTRONS,
 			icon: 'upgrade',
-			name: i => `${i === 1 ? 'Auto' : 'Faster Auto'} Upgrade ${i > 1 ? i : ''}`,
-			description: i =>
-				`${i === 1 ? 'Automatically buys' : 'Reduces auto-upgrade interval by'} ${
-					i === 1 ? 'the cheapest available upgrade every 30 seconds' : '5 seconds'
-				}`,
-			condition: (i, state) => i === 1 || state.upgrades.includes(`electron_auto_upgrade_${i - 1}`),
-			cost: i => 25 + (i - 1) * 15,
-			effects: i => [add('auto_upgrade', i === 1 ? 0 : -5000)],
+			idForIndex: i => `electron_auto_upgrade_${i + 1}`,
+			name: i => `Faster Auto Upgrade ${i + 1}`,
+			description: () => 'Reduces auto-upgrade interval by 5 seconds',
+			condition: (i, state) => (i === 1 ? state.skillUpgrades.includes('autoUpgrade') : state.upgrades.includes(`electron_auto_upgrade_${i}`)),
+			cost: i => 25 + i * 15,
+			effects: () => [add('auto_upgrade', -5000)],
 		}),
 		...createUpgrades({
 			id: 'electron_power_up_interval',
@@ -441,65 +536,19 @@ function createElectronUpgrades(): Upgrade[] {
 			effects: i => [mul('power_up_interval', 1 - i * 0.1)],
 		}),
 		{
-			id: 'electron_bypass_atom_autoclick_stability',
-			name: 'Stable Automation',
-			description: 'Auto-clicker on Atom Realm no longer destabilizes the field',
-			cost: {
-				amount: 50,
-				currency: CurrenciesTypes.ELECTRONS,
-			},
-			icon: 'atom',
-			effects: [],
-		},
-		{
-			id: 'electron_bypass_photon_autoclick_stability',
-			name: 'Stable Quantum Flux',
-			description: 'Auto-clicker on Photon Realm no longer destabilizes the field',
-			cost: {
-				amount: 100,
-				currency: CurrenciesTypes.ELECTRONS,
-			},
-			icon: 'photon',
-			effects: [],
-		},
-		{
-			id: 'electron_bypass_photon_click_stability',
-			name: 'Stable Interaction',
-			description: 'Manual clicking on Photon Realm no longer destabilizes the field',
-			cost: {
-				amount: 250,
-				currency: CurrenciesTypes.ELECTRONS,
-			},
-			icon: 'photon',
-			effects: [],
-		},
-		{
-			id: 'electron_bypass_atom_click_stability',
-			name: 'Stable Manipulation',
-			description: 'Manual clicking on Atom Realm no longer destabilizes the field',
-			cost: {
-				amount: 400,
-				currency: CurrenciesTypes.ELECTRONS,
-			},
-			icon: 'atom',
-			effects: [],
-		},
-		{
-			id: 'electron_bypass_bonus_click_stability',
-			name: 'Stable Anomalies',
-			description: 'Clicking bonuses no longer destabilizes the field',
-			cost: {
-				amount: 500,
-				currency: CurrenciesTypes.ELECTRONS,
-			},
-			icon: 'higgsBoson',
-			effects: [],
+			cost: { amount: 10, currency: CurrenciesTypes.ELECTRONS },
+			description: '+5% production per generator type owned',
+			effects: [mul('global', manager => 1 + GENERATOR_TYPES.filter(type => (manager.generators[type]?.count ?? 0) > 0).length * 0.05)],
+			icon: 'sparkles',
+			id: 'electron_cosmic_synergy',
+			name: 'Cosmic Synergy',
 		},
 	];
 }
 
 const upgrades = [
 	...GENERATOR_TYPES.flatMap(createGeneratorUpgrades),
+	...createGeneratorGroupUpgrades(),
 	...createClickPowerUpgrades(),
 	...createGlobalUpgrades(),
 	...createOfflineCapUpgrades(),

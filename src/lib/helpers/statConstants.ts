@@ -80,7 +80,7 @@ export const statsConfig = {
 		minVersion: 8,
 	},
 	selectedRealmId: { defaultValue: RealmTypes.ATOMS, layer: LAYERS.NEVER, minVersion: 22 },
-	skillUpgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 3 },
+	skillUpgrades: { defaultValue: [], layer: LAYERS.NEVER, minVersion: 3 },
 	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER, minVersion: 5 },
 	totalClicksAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
 	totalClicksRun: { defaultValue: 0, layer: LAYERS.PROTONIZER, minVersion: 16 },

@@ -1,7 +1,7 @@
-import { GENERATORS, type GeneratorType } from '$data/generators';
+import type { GeneratorType } from '$data/generators';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import type { Effect, EffectAmount, EffectSource, EffectStat } from '$lib/types';
-import { capitalize, formatNumber } from '$lib/utils';
+import { formatNumber } from '$lib/utils';
 
 type Reader = (manager: GameManager) => number;
 
@@ -76,16 +76,11 @@ export function effectAmount(effect: Effect, manager: GameManager): number {
 }
 
 /** Player-facing value of one effect: `×1.5`, `+10` or `+12%`. */
-export function formatEffect(effect: Effect, manager: GameManager): string {
+function formatEffect(effect: Effect, manager: GameManager): string {
 	const amount = effectAmount(effect, manager);
 	if (effect.kind === 'mul') return `×${formatNumber(amount)}`;
 	const sign = amount >= 0 ? '+' : '';
 	return effect.kind === 'sum' ? `${sign}${formatNumber(amount * 100)}%` : `${sign}${formatNumber(amount)}`;
-}
-
-export function effectLabel(effect: Effect): string {
-	if (effect.kind !== 'sum' && effect.target) return `${GENERATORS[effect.target].name} production`;
-	return capitalize(effect.stat.replaceAll('_', ' '));
 }
 
 /** Every owned effect on `stat` next to the name of the upgrade granting it, for the gain breakdown tooltips. */

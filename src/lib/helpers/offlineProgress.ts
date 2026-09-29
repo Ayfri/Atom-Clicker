@@ -43,10 +43,10 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	let photonsGained = 0;
 
 	const atomAutoClickEnabled =
-		manager.upgrades.includes('proton_offline_autoclick') && manager.settings.automation.autoClick && manager.autoClicksPerSecond > 0;
+		manager.features[FeatureTypes.OFFLINE_AUTO_CLICK] && manager.settings.automation.autoClick && manager.autoClicksPerSecond > 0;
 	const photonOfflineUnlocked = (manager.photonUpgrades['offline_progress'] || 0) > 0;
 	const autoBuyEnabled = photonOfflineUnlocked;
-	const autoUpgradeEnabled = manager.upgrades.includes('proton_offline_autobuy') && manager.settings.automation.upgrades;
+	const autoUpgradeEnabled = manager.features[FeatureTypes.OFFLINE_AUTO_UPGRADE] && manager.settings.automation.upgrades;
 	const photonAutoClickEnabled = photonOfflineUnlocked && manager.settings.automation.autoClickPhotons;
 
 	const autoBuyCounts: GeneratorCountMap = {};
@@ -186,11 +186,9 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		manager.totalClicksAllTime += autoClickCountForStats;
 	}
 
-	const atomAutoClickAffectsStability = atomAutoClickEnabled && !manager.upgrades.includes('electron_bypass_atom_autoclick_stability');
+	const atomAutoClickAffectsStability = atomAutoClickEnabled && !manager.features[FeatureTypes.STABLE_ATOM_AUTO_CLICK];
 	const photonAutoClickAffectsStability =
-		photonAutoClickEnabled &&
-		manager.photonAutoClicksPer5Seconds > 0 &&
-		!manager.upgrades.includes('electron_bypass_photon_autoclick_stability');
+		photonAutoClickEnabled && manager.photonAutoClicksPer5Seconds > 0 && !manager.features[FeatureTypes.STABLE_PHOTON_AUTO_CLICK];
 	if (atomAutoClickAffectsStability || photonAutoClickAffectsStability) {
 		manager.lastInteractionTime = now;
 	}

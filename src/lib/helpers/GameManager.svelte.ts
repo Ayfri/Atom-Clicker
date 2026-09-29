@@ -318,7 +318,7 @@ export class GameManager {
 		this.activePowerUps = [...this.activePowerUps, newPowerUp];
 		this.powerUpsCollected++;
 		this.dailyStats.powerUpsCollected++;
-		if (!this.upgrades.includes('electron_bypass_bonus_click_stability')) this.lastInteractionTime = this.clock();
+		if (!this.features[FeatureTypes.STABLE_BONUS_CLICK]) this.lastInteractionTime = this.clock();
 		scheduleExpiry(() => this.removePowerUp(newPowerUp.id), newPowerUp.duration);
 	}
 
@@ -425,15 +425,14 @@ export class GameManager {
 	incrementBonusHiggsBosonClicks() {
 		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 1);
 		this.dailyStats.higgsBosonsCollected = (this.dailyStats.higgsBosonsCollected ?? 0) + 1;
-		if (!this.upgrades.includes('electron_bypass_bonus_click_stability')) this.lastInteractionTime = this.clock();
+		if (!this.features[FeatureTypes.STABLE_BONUS_CLICK]) this.lastInteractionTime = this.clock();
 	}
 
 	incrementClicks(isAuto = false, count = 1) {
 		this.totalClicksRun += count;
 		this.totalClicksAllTime += count;
 		this.dailyStats.clicks += count;
-		const bypass = isAuto ? 'electron_bypass_atom_autoclick_stability' : 'electron_bypass_atom_click_stability';
-		if (!this.upgrades.includes(bypass)) this.lastInteractionTime = this.clock();
+		if (!this.features[isAuto ? FeatureTypes.STABLE_ATOM_AUTO_CLICK : FeatureTypes.STABLE_ATOM_CLICK]) this.lastInteractionTime = this.clock();
 	}
 
 	initialize() {
@@ -512,20 +511,12 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
-	/** Proton and electron purchases, plus feature skills, survive both prestiges. */
+	/** Proton and electron upgrades survive both prestiges, skills never reset. */
 	private prestige(layer: LayerType, currency: CurrencyName, gain: number) {
-		const skills =
-			this.quarkEntitlements.includes('convenience_keep_skill_tree') ?
-				this.skillUpgrades
-			:	this.skillUpgrades.filter(id => {
-					const skill = SKILL_UPGRADES[id];
-					return !!skill?.feature || skill?.cost.currency === CurrenciesTypes.PROTONS || skill?.cost.currency === CurrenciesTypes.ELECTRONS;
-				});
 		const upgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
-		this.skillUpgrades = skills;
 		this.syncFeatures();
 		this.checkRealmUnlocks();
 		currenciesManager.add(currency, gain);
@@ -569,7 +560,7 @@ export class GameManager {
 	purchasePhotonUpgrade(upgradeId: string) {
 		const upgrade = ALL_PHOTON_UPGRADES[upgradeId];
 		const level = this.photonUpgrades[upgradeId] ?? 0;
-		if (!upgrade || level >= upgrade.maxLevel) return false;
+		if (!upgrade || level >= upgrade.maxLevel || !(upgrade.condition?.(this) ?? true)) return false;
 		if (!this.spendCurrency({ amount: getPhotonUpgradeCost(upgrade, level), currency: upgrade.currency || CurrenciesTypes.PHOTONS })) return false;
 
 		this.photonUpgrades = { ...this.photonUpgrades, [upgradeId]: level + 1 };

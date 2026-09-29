@@ -91,7 +91,7 @@ export const HINTS: Hint[] = [
 		realm: RealmTypes.ATOMS,
 		show: () => SKILL_TREE_ROOTS.some(root => gameManager.canAfford(root.cost)),
 		targets: ['#nav-skill-tree'],
-		text: 'The Skill Tree unlocks passive bonuses and whole new mechanics.',
+		text: 'The Skill Tree unlocks new mechanics like levels, automation and new realms, and you keep them forever.',
 		title: 'Skill Tree',
 	},
 	{

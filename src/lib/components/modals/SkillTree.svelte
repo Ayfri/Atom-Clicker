@@ -10,7 +10,6 @@
 	import { RealmTypes } from '$data/realms';
 	import { SKILL_UPGRADES } from '$data/skillTree';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { effectLabel, formatEffect } from '$helpers/effects';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import type { SkillUpgrade } from '$lib/types';
 	import { mobile } from '$stores/window.svelte';
@@ -129,10 +128,6 @@
 			.filter((skill) => visibleSkillIds.has(skill.id))
 			.map((skill) => {
 				const unlocked = unlockedSkills.includes(skill.id);
-				const effectBreakdown = unlocked && skill.effects.length > 0
-					? skill.effects.map(effect => ({ label: effectLabel(effect), value: formatEffect(effect, gameManager) }))
-					: null;
-
 				return {
 					id: skill.id,
 					type: 'skill',
@@ -145,7 +140,6 @@
 						available: canUnlockSkill(skill),
 						conditionMet: skill.condition === undefined || skill.condition(gameManager),
 						currencyUnlocked: isCurrencyUnlocked(skill.cost.currency),
-						effectBreakdown,
 						sourceHandles: Array.from(srcHandles.get(skill.id) ?? []),
 						targetHandles: Array.from(tgtHandles.get(skill.id) ?? []),
 						unlocked,
@@ -165,8 +159,8 @@
 				<HelpIcon position="bottom">
 					{#snippet content()}
 						<p class="text-xs text-white/80">
-							Spend your currencies here to unlock nodes that grant passive bonuses or new features. Nodes require their
-							prerequisites to be unlocked first, and the currency shown on each node is the cost to unlock it.
+							Spend your currencies here to unlock new mechanics: levels, automation, offline progress and new realms. Skills are
+							never lost when you prestige. Nodes require their prerequisites first, and the currency shown on each node is its cost.
 						</p>
 					{/snippet}
 				</HelpIcon>

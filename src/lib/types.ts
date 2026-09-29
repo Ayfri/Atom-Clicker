@@ -1,5 +1,6 @@
 import type { CurrencyName } from '$data/currencies';
 import type { DailyStats } from '$data/dailyQuests';
+import type { FeatureType } from '$data/features';
 import type { GeneratorType } from '$data/generators';
 import type { IconName } from '$data/icons';
 import type { RealmType } from '$data/realms';
@@ -84,7 +85,7 @@ export interface EffectSource {
 	name: string;
 }
 
-export type FeatureState = Record<string, boolean>;
+export type FeatureState = Record<FeatureType, boolean>;
 
 /** Base rate and cost always come from `GENERATORS`, so a rebalance reaches existing saves. */
 export interface Generator {
@@ -225,7 +226,7 @@ export interface SkillUpgrade {
 	cost: Price;
 	description: string;
 	effects: Effect[];
-	feature?: string;
+	feature?: FeatureType;
 	id: string;
 	name: string;
 	position: { x: number; y: number };
