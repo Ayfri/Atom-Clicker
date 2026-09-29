@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CurrenciesTypes } from '$data/currencies';
+	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { FeatureTypes } from '$data/features';
 	import { RealmTypes } from '$data/realms';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
@@ -82,11 +82,12 @@
 	const FONT_FAMILY = 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif';
 	const FONT_SIZE = 12;
 	const LABEL_SHADOW_BLUR = 5;
+	const RING_GAP = 3;
 	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
 	const MAX_PIXEL_RATIO = 2;
 
 	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', baseSizeMultiplier, gameManager));
-	const lifetimeBonus = $derived(gameManager.effects.value('photon_duration', 0, gameManager));
+	const circleLifetime = $derived(baseCircleLifetime + gameManager.effects.value('photon_duration', 0, gameManager));
 	const excitedLifetimeMultiplier = $derived(gameManager.effects.value('excited_photon_duration', 1, gameManager));
 
 	function getCircleValue(circle: Circle) {
@@ -136,7 +137,7 @@
 			finalPhotons = Math.random() < gameManager.photonDoubleChance ? (basePhotons + photonValueBonus) * 2 : basePhotons + photonValueBonus;
 		}
 
-		let maxLifetime = baseCircleLifetime + lifetimeBonus;
+		let maxLifetime = circleLifetime;
 		if (isExcited) {
 			maxLifetime *= excitedLifetimeMultiplier;
 		}
@@ -292,6 +293,14 @@
 			drawPhotonIcon(ctx, excited, size, excited ? alpha * pulseOpacity(circle.lifetime) : alpha);
 			ctx.restore();
 
+			// `alpha` is also the remaining lifetime, so the ring drains clockwise from the top as the photon fades.
+			ctx.globalAlpha = alpha * 0.5;
+			ctx.lineWidth = 1.5;
+			ctx.strokeStyle = CURRENCIES[excited ? CurrenciesTypes.EXCITED_PHOTONS : CurrenciesTypes.PHOTONS].color;
+			ctx.beginPath();
+			ctx.arc(0, 0, size / 2 + RING_GAP, -Math.PI / 2, -Math.PI / 2 + alpha * Math.PI * 2);
+			ctx.stroke();
+
 			ctx.globalAlpha = alpha;
 			ctx.font = `700 ${FONT_SIZE * currentScale}px ${FONT_FAMILY}`;
 			ctx.textAlign = 'center';
@@ -412,6 +421,7 @@
 
 	// Calculate current spawn rate reactively
 	const currentSpawnRate = $derived(gameManager.photonSpawnInterval);
+	const excitedUnlocked = $derived(gameManager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime > 0);
 
 	// Set up auto-clicker subscription
 	$effect(() => {
@@ -434,7 +444,8 @@
 </script>
 
 <div class="relative pt-12 lg:pt-4 transition-all duration-1000 ease-in-out">
-	<div class="h-full flex flex-col lg:flex-row px-4 pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
+	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. -->
+	<div class="h-full flex flex-col lg:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
 		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
 		<div class="flex-1 lg:w-2/3 flex flex-col items-center">
 			<PhotonCounter />
@@ -444,6 +455,20 @@
 				data-photon-realm
 				bind:this={container}
 			>
+				<div aria-hidden="true" class="photon-field absolute inset-0 pointer-events-none text-realm-400">
+					<svg class="photon-wave absolute h-24 left-0 -mt-12 top-1/2 w-[200%]" preserveAspectRatio="none" viewBox="0 0 400 40">
+						<path d="M0 20 Q50 4 100 20 T200 20 T300 20 T400 20" />
+					</svg>
+					<svg class="photon-wave photon-wave-reverse absolute h-24 left-0 -mt-12 top-1/2 w-[200%]" preserveAspectRatio="none" viewBox="0 0 400 40">
+						<path d="M0 20 Q25 30 50 20 T100 20 T150 20 T200 20 T250 20 T300 20 T350 20 T400 20" />
+					</svg>
+				</div>
+
+				<p class="absolute bottom-3 inset-x-0 pointer-events-none text-center text-realm-200/40 text-xs">
+					A photon every {formatNumber(currentSpawnRate / 1000)}s · lasts {formatNumber(circleLifetime / 1000)}s
+					{#if excitedUnlocked}· {formatNumber(gameManager.excitedPhotonChance * 100)}% excited{/if}
+				</p>
+
 				<!-- `pointer-events-auto` opts out of the global `canvas` rule in app.css, which targets the PixiJS overlay. -->
 				<canvas
 					bind:this={canvas}
@@ -466,3 +491,45 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* Static glow and interference rings, faded out at the edges so the field has no hard border. */
+	.photon-field {
+		background:
+			radial-gradient(ellipse 55% 50% at 50% 50%, color-mix(in srgb, var(--color-realm-500) 14%, transparent), transparent 70%),
+			repeating-radial-gradient(circle at 50% 50%, transparent 0 46px, color-mix(in srgb, var(--color-realm-400) 8%, transparent) 46px 47px);
+		mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, black 30%, transparent 75%);
+	}
+
+	/* Each path repeats every half of its width, so sliding by -50% loops seamlessly. Transform only, on the compositor. */
+	.photon-wave {
+		animation: photon-wave 16s linear infinite;
+		fill: none;
+		opacity: 0.22;
+		stroke: currentColor;
+		stroke-width: 1.5px;
+		will-change: transform;
+	}
+
+	.photon-wave path {
+		vector-effect: non-scaling-stroke;
+	}
+
+	.photon-wave-reverse {
+		animation-direction: reverse;
+		animation-duration: 11s;
+		opacity: 0.12;
+	}
+
+	@keyframes photon-wave {
+		to {
+			transform: translateX(-50%);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.photon-wave {
+			animation: none;
+		}
+	}
+</style>
