@@ -599,6 +599,14 @@
 </script>
 
 <div class="relative pt-12 lg:pt-4 transition-all duration-1000 ease-in-out" style={themePalette}>
+	<!-- Same glows the Atom Realm gets from its prestiges: the first Ionize splits the light into Red, Green and Blue. -->
+	{#if visible && prismUnlocked}
+		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
+			<div class="absolute bg-[#ff4d5e]/12 blur-[160px] h-64 left-[12%] rounded-full top-[12%] w-64"></div>
+			<div class="absolute bg-[#2ee6a0]/10 blur-[160px] h-64 right-[15%] rounded-full top-[35%] w-64"></div>
+			<div class="absolute bg-[#4d8dff]/12 blur-[180px] bottom-[8%] h-80 left-[35%] rounded-full w-80"></div>
+		</div>
+	{/if}
 	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. -->
 	<div class="h-full flex flex-col lg:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
 		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
@@ -610,9 +618,6 @@
 				data-photon-realm
 				bind:this={container}
 			>
-				{#if prismUnlocked}
-					<div aria-hidden="true" class="chromatic-dust absolute inset-0 pointer-events-none"></div>
-				{/if}
 				<div aria-hidden="true" class="photon-field absolute inset-0 pointer-events-none text-realm-400">
 					<svg class="photon-wave absolute h-24 left-0 -mt-12 top-1/2 w-[200%]" preserveAspectRatio="none" viewBox="0 0 400 40">
 						<path d="M0 20 Q50 4 100 20 T200 20 T300 20 T400 20" />
@@ -657,17 +662,6 @@
 			radial-gradient(ellipse 55% 50% at 50% 50%, color-mix(in srgb, var(--color-realm-500) 14%, transparent), transparent 70%),
 			repeating-radial-gradient(circle at 50% 50%, transparent 0 46px, color-mix(in srgb, var(--color-realm-400) 8%, transparent) 46px 47px);
 		mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, black 30%, transparent 75%);
-	}
-
-	/* Faint Red, Green and Blue specks once the Prism is installed, tiled at co-prime sizes so they never line up into a grid. */
-	.chromatic-dust {
-		background-image:
-			radial-gradient(circle, rgb(255 77 94 / 0.3) 1px, transparent 1.5px),
-			radial-gradient(circle, rgb(46 230 160 / 0.25) 1px, transparent 1.5px),
-			radial-gradient(circle, rgb(77 141 255 / 0.3) 1px, transparent 1.5px);
-		background-position: 13px 29px, 71px 7px, 41px 53px;
-		background-size: 97px 89px, 113px 131px, 139px 107px;
-		mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, black 40%, transparent 85%);
 	}
 
 	/* Each path repeats every half of its width, so sliding by -50% loops seamlessly. Transform only, on the compositor. */
