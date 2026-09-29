@@ -1,12 +1,14 @@
 import { ACHIEVEMENTS } from '$data/achievements';
+import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '$data/chromatic';
 import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 import { GENERATOR_TYPES, type GeneratorType } from '$data/generators';
 import { POWER_UPS } from '$data/powerUp';
 import { QUARK_ACHIEVEMENT_REWARD } from '$data/quarkAchievements';
 import { RealmTypes } from '$data/realms';
+import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { gameManager } from '$helpers/GameManager.svelte';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
+import { IONIZE_CPM, radiationManager } from '$helpers/RadiationManager.svelte';
 import { connectDeriveds } from '$helpers/reactiveRoot.svelte';
 import { MilestoneTracker } from './milestones';
 import { PurchasePlanner } from './purchases';
@@ -76,6 +78,8 @@ export class SimulationEngine {
 	/** Uncollected circles on screen, as expected counts: the realm is a spawn-and-expire queue, not one payout per click. */
 	private photonPoolExcited = 0;
 	private photonPoolNormal = 0;
+	/** HP of the colored photons on screen per color, as expected amounts like the circle pools. */
+	private readonly chromaticHp: Record<ChromaticColor, number> = { blue: 0, green: 0, red: 0 };
 	private readonly planner = new PurchasePlanner();
 	private powerUpCounter = 0;
 	private prestigesThisActiveWindow = 0;
@@ -108,7 +112,7 @@ export class SimulationEngine {
 	/** Mutates the global game managers for the duration of the run, then restores the state they started with. */
 	run(onProgress?: (progress: SimulationProgress) => void): SimulationResult {
 		const started = performance.now();
-		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager]);
+		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager]);
 		const savedState = JSON.stringify(gameManager.getCurrentState());
 		gameManager.resetAll();
 		currenciesManager.hardReset();
@@ -295,6 +299,18 @@ export class SimulationEngine {
 			actionsThisTick++;
 		}
 
+		// Once the fuel can carry it, the rods come out just far enough to hold the ionization line, then the bot Ionizes.
+		if (radiationManager.unlocked && !radiationManager.ionizeReady && radiationManager.cpmFor(radiationManager.mass, 1) >= IONIZE_CPM) {
+			radiationManager.setControlRodLevel((IONIZE_CPM * 1.01) / (radiationManager.mass * 10 * radiationManager.enrichmentBonus));
+		}
+		if (canPrestige() && radiationManager.ionizeReady && gameManager.ionize()) {
+			this.lastElectronizeGain = 0;
+			this.lastProtoniseGain = 0;
+			this.record('ionize', `#${gameManager.totalIonizesAllTime}`);
+			this.prestigesThisActiveWindow++;
+			actionsThisTick++;
+		}
+
 		if (!botBehavior.autoBuy) return;
 
 		if (canAct() && botBehavior.autoBuyGenerators) {
@@ -333,6 +349,13 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
+		if (canAct() && gameManager.totalIonizesAllTime > 0) {
+			const id = this.cheapestChromaticUpgrade();
+			if (id && chromaticManager.purchaseUpgrade(id)) {
+				this.record('chromatic_upgrade', id);
+				actionsThisTick++;
+			}
+		}
 		for (const currency of BOOST_PRIORITY) {
 			if (gameManager.boostPointsAvailable <= 0 || !canAct()) break;
 			if (gameManager.addCurrencyBoost(currency)) actionsThisTick++;
@@ -352,6 +375,26 @@ export class SimulationEngine {
 		}
 		const upgradeId = canAct() ? this.planner.affordableRadiationUpgrade() : null;
 		if (upgradeId && radiationManager.purchaseUpgrade(upgradeId)) actionsThisTick++;
+	}
+
+	/**
+	 * Cheapest Prism upgrade the bot can buy, recombining just enough White Light first when a White upgrade is the one
+	 * within reach, so the colors are not drained for nothing.
+	 */
+	private cheapestChromaticUpgrade(): string | null {
+		let best: { cost: number; id: string } | null = null;
+		for (const upgrade of Object.values(CHROMATIC_UPGRADES)) {
+			const level = chromaticManager.level(upgrade.id);
+			if (level >= upgrade.maxLevel || !chromaticManager.isUnlocked(upgrade)) continue;
+			const cost = getChromaticUpgradeCost(upgrade, level);
+			const white = upgrade.currencies.includes(CurrenciesTypes.WHITE_LIGHT);
+			const reachable = white
+				? currenciesManager.getAmount(CurrenciesTypes.WHITE_LIGHT) + chromaticManager.recombinable >= cost
+				: chromaticManager.canAfford(upgrade);
+			if (reachable && (!best || cost < best.cost)) best = { cost, id: upgrade.id };
+		}
+		if (best && CHROMATIC_UPGRADES[best.id].currencies.includes(CurrenciesTypes.WHITE_LIGHT)) chromaticManager.recombine();
+		return best?.id ?? null;
 	}
 
 	private isActive(): boolean {
@@ -460,8 +503,13 @@ export class SimulationEngine {
 			collected.normal += normal;
 			collected.excited += taken - normal;
 		};
-		collect((gameManager.photonAutoClicksPer5Seconds / 5) * deltaSeconds, autoTargetsExcited);
-		collect(this.manualClicksThisTick(active), true);
+		const { autoLeft, manualLeft } = this.simulateChromatic(
+			deltaSeconds,
+			(gameManager.photonAutoClicksPer5Seconds / 5) * deltaSeconds,
+			this.manualClicksThisTick(active),
+		);
+		collect(autoLeft, autoTargetsExcited);
+		collect(manualLeft, true);
 
 		if (collected.normal > 0) {
 			const boost = gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.PHOTONS);
@@ -471,6 +519,41 @@ export class SimulationEngine {
 			const boost = gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.EXCITED_PHOTONS);
 			currenciesManager.add(CurrenciesTypes.EXCITED_PHOTONS, collected.excited * effects.excitedValue * boost);
 		}
+	}
+
+	/**
+	 * Colored photons as a pool of HP per color that spawns and expires like the circles, a Blue photon counting its two
+	 * halves. The auto-clicker gives them half its clicks, the player taps them before any circle since they pay far more.
+	 * Prism Excitation and Resonance are left out, they only trigger off Excited Photons. Returns the clicks left for circles.
+	 */
+	private simulateChromatic(deltaSeconds: number, autoClicks: number, manualClicks: number) {
+		if (gameManager.totalIonizesAllTime === 0) return { autoLeft: autoClicks, manualLeft: manualClicks };
+
+		const spawns = (deltaSeconds * 1000) / chromaticManager.spawnInterval / CHROMATIC_COLORS.length;
+		const autoPerColor = autoClicks / 2 / CHROMATIC_COLORS.length;
+		const kills = { ...chromaticManager.kills };
+		let manualLeft = manualClicks;
+		CHROMATIC_COLORS.forEach((color, index) => {
+			const blue = color === ChromaticColors.BLUE;
+			const hp = chromaticManager.maxHp(color) * (blue ? 1 + 2 * BLUE_HALF.hp : 1);
+			const lifetime = CHROMATIC[color].lifetime + (blue ? BLUE_HALF.lifetime : 0) + chromaticManager.lifetimeBonus;
+			const aged = this.chromaticHp[color] * (1 - Math.min(1, (deltaSeconds * 1000) / lifetime));
+			const pool = Math.min(aged + spawns * hp, (chromaticManager.maxOnScreen / CHROMATIC_COLORS.length) * hp);
+
+			const autoDamage = autoPerColor * chromaticManager.tapDamage(color, true);
+			const tap = chromaticManager.tapDamage(color, false);
+			const manualUsed = Math.min(manualLeft / (CHROMATIC_COLORS.length - index), Math.max(0, pool - autoDamage) / tap);
+			manualLeft -= manualUsed;
+			const damage = Math.min(pool, autoDamage + manualUsed * tap);
+			this.chromaticHp[color] = pool - damage;
+
+			const breaks = damage / hp;
+			currenciesManager.add(CHROMATIC[color].currency, breaks * chromaticManager.lightFor(color, blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop, gameManager.totalIonizesAllTime));
+			kills[color] += breaks;
+			gameManager.dailyStats.chromaticBreaks = (gameManager.dailyStats.chromaticBreaks ?? 0) + breaks;
+		});
+		chromaticManager.kills = kills;
+		return { autoLeft: autoClicks / 2, manualLeft };
 	}
 
 	/**

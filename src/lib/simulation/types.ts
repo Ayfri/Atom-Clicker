@@ -114,8 +114,10 @@ export interface SimulationSnapshot {
 
 export type SimulationActionType =
 	| 'achievement'
+	| 'chromatic_upgrade'
 	| 'generator'
 	| 'electronize'
+	| 'ionize'
 	| 'photon_upgrade'
 	| 'power_up'
 	| 'protonise'
