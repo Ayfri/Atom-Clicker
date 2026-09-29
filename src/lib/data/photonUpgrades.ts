@@ -190,7 +190,7 @@ export const EXCITED_PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	excited_stabilization: {
 		id: 'excited_stabilization',
 		name: 'Excited Stabilization',
-		description: (level: number) => `Increase Stabilization field capacity by ${200 * level}% but it now collapse also when you click on purple realm`,
+		description: (level: number) => `Increases Stability Field capacity by ${200 * level}%, but clicking photons now collapses it too`,
 		baseCost: 5000,
 		costMultiplier: 2,
 		currency: CurrenciesTypes.EXCITED_PHOTONS,
