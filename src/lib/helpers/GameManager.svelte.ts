@@ -392,11 +392,16 @@ export class GameManager {
 		return true;
 	}
 
-	/** Layer 4 prestige once the reactor held IONIZE_CPM for a minute, the core is emptied too since its state never resets by layer. */
+	/**
+	 * Layer 4 prestige once the reactor held IONIZE_CPM for a minute. The core and the electrons that fuel it are emptied too,
+	 * neither resets by layer, and a kept electron bank refuelled the reactor for another Ionize a minute later.
+	 */
 	ionize() {
 		if (!radiationManager.ionizeReady) return false;
 		this.totalIonizesAllTime++;
 		this.prestige(LAYERS.RADIATION_REALM);
+		currenciesManager.remove(CurrenciesTypes.ELECTRONS, this.electrons);
+		this.totalElectronizesRun = 0;
 		radiationManager.reset();
 		this.save();
 		return true;
