@@ -1,3 +1,6 @@
+import { CanvasLoop } from '$helpers/CanvasLoop';
+import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, spiralDirection, TAU, type Vector } from '$helpers/nucleus';
+
 export interface AtomShell {
 	color: string;
 	count: number;
@@ -23,23 +26,11 @@ interface ElectronBatch {
 	palette: Palette;
 }
 
-interface Packing {
-	/** Farthest nucleon edge from the center, in nucleon units. */
-	extent: number;
-	points: Vector[];
-}
-
 interface Palette {
 	core: string;
 	halo: string;
 	orbitBack: string;
 	orbitFront: string;
-}
-
-interface Vector {
-	x: number;
-	y: number;
-	z: number;
 }
 
 export const NUCLEON_RANGE = { max: 16, min: 1 } as const;
@@ -53,43 +44,12 @@ const DEPTH_BANDS = 4;
 /** Radii and sizes below are authored for a 450px wide atom and scale with the host. */
 const DESIGN_SIZE = 450;
 const FOCAL_LENGTH = 650;
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-const MAX_FRAME_S = 0.1;
 const MAX_PIXEL_RATIO = 2;
 const MAX_SPARKS = 12;
-const NEUTRON_COLOR = '#9aa3ad';
-const NUCLEON_RADIUS = 0.85;
 const NUCLEON_SHADES = 4;
-const PACKING_STEPS = 200;
-const NUCLEUS_SHADOW = '#0e1522';
 const ORBIT_SEGMENTS = 48;
 const SPARK_COLOR = '#8cc2ff';
 const SPARK_DURATION = 0.35;
-const SPRITE_SIZE = 128;
-const TAU = Math.PI * 2;
-
-function parseHex(hex: string): [number, number, number] {
-	const value = Number.parseInt(hex.slice(1, 7), 16);
-	return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-}
-
-/** Returns hex so mixes chain, an `rgb()` string fed back into `parseHex` reads as black. */
-function mix(hex: string, other: string, amount: number): string {
-	const a = parseHex(hex);
-	const b = parseHex(other);
-	return `#${a.map((channel, i) => Math.round(channel + (b[i] - channel) * amount).toString(16).padStart(2, '0')).join('')}`;
-}
-
-function rgba(hex: string, alpha: number): string {
-	return `rgb(${parseHex(hex).join(' ')} / ${alpha})`;
-}
-
-/** Evenly spread directions: a golden-angle spiral over a hemisphere (orbit normals) or over the full sphere (nucleons). */
-function spiralDirection(index: number, height: number): Vector {
-	const radius = Math.sqrt(1 - height * height);
-	return { x: radius * Math.cos(index * GOLDEN_ANGLE), y: height, z: radius * Math.sin(index * GOLDEN_ANGLE) };
-}
-
 function cross(a: Vector, b: Vector): Vector {
 	return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
 }
@@ -104,38 +64,28 @@ function normalize(v: Vector): Vector {
  * spread over every inclination so the shells outline a sphere. Electrons are filled as one path per shell and depth band:
  * a drawImage per electron cost ~5µs, 4.5ms a frame with every shell full. Nucleons are pre-rendered sprites.
  */
-export class AtomRenderer {
+export class AtomRenderer extends CanvasLoop {
 	scene: AtomScene;
 
 	private readonly appear = new Float32Array(NUCLEON_RANGE.max);
 	private readonly bases: { u: Vector; v: Vector }[];
 	private readonly ctx: CanvasRenderingContext2D;
-	private readonly packings = new Map<number, Packing>();
 	private readonly palettes = new Map<string, Palette>();
 	/** Electron batches in front of the nucleus, filled after it. */
 	private readonly front: ElectronBatch[] = [];
 	private readonly nucleonBases: Vector[];
 	private readonly nucleonOrder: number[] = [];
 	private readonly nucleonPoints = new Float32Array(NUCLEON_RANGE.max * 3);
-	private readonly observers: (IntersectionObserver | ResizeObserver)[];
 	private readonly orbitPoints: Float32Array[];
 	private readonly sparks: { age: number; x: number; y: number }[] = [];
-	private readonly sprites = new Map<string, HTMLCanvasElement>();
-	private active = true;
-	private frame = 0;
 	private impulse = 0;
-	private lastTime = 0;
 	private nucleusScale = 0;
 	private ratio = 1;
 	private size = 0;
 	private time = 0;
-	private visible = false;
 
-	constructor(
-		private readonly canvas: HTMLCanvasElement,
-		scene: AtomScene,
-		shellSlots: number,
-	) {
+	constructor(canvas: HTMLCanvasElement, scene: AtomScene, shellSlots: number) {
+		super(canvas);
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;
@@ -147,23 +97,9 @@ export class AtomRenderer {
 			return { u, v: cross(normal, u) };
 		});
 		this.orbitPoints = Array.from({ length: shellSlots }, () => new Float32Array((ORBIT_SEGMENTS + 1) * 3));
-		const packing = this.packing(scene.nucleons);
+		const packing = packNucleus(scene.nucleons);
 		this.nucleonBases = Array.from({ length: NUCLEON_RANGE.max }, (_, i) => ({ ...(packing.points[i] ?? { x: 0, y: 0, z: 0 }) }));
-
-		const resize = new ResizeObserver(() => this.resize());
-		resize.observe(canvas);
-		const intersection = new IntersectionObserver(([entry]) => {
-			this.visible = entry.isIntersecting;
-			this.update();
-		});
-		intersection.observe(canvas);
-		this.observers = [resize, intersection];
-		this.resize();
-	}
-
-	destroy() {
-		cancelAnimationFrame(this.frame);
-		for (const observer of this.observers) observer.disconnect();
+		this.observe();
 	}
 
 	/**
@@ -176,88 +112,11 @@ export class AtomRenderer {
 		if (this.sparks.length > MAX_SPARKS) this.sparks.shift();
 	}
 
-	/** The atom realm stays mounted behind the other realms, the loop only runs while it is selected and on screen. */
-	setActive(active: boolean) {
-		this.active = active;
-		this.update();
-	}
-
-	private update() {
-		const running = this.active && this.visible;
-		if (running && !this.frame) {
-			this.lastTime = performance.now();
-			this.frame = requestAnimationFrame(this.loop);
-		} else if (!running && this.frame) {
-			cancelAnimationFrame(this.frame);
-			this.frame = 0;
-		}
-	}
-
-	private resize() {
+	protected resize() {
 		this.size = this.canvas.clientWidth;
 		this.ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
 		this.canvas.width = Math.max(1, Math.round(this.size * this.ratio));
 		this.canvas.height = this.canvas.width;
-	}
-
-	private sprite(key: string, paint: (ctx: CanvasRenderingContext2D, half: number) => void): HTMLCanvasElement {
-		let sprite = this.sprites.get(key);
-		if (!sprite) {
-			sprite = document.createElement('canvas');
-			sprite.width = sprite.height = SPRITE_SIZE;
-			const ctx = sprite.getContext('2d');
-			if (ctx) paint(ctx, SPRITE_SIZE / 2);
-			this.sprites.set(key, sprite);
-		}
-		return sprite;
-	}
-
-	/** Settles `count` nucleons into a tight ball: every step pulls them toward the center, then pushes overlapping pairs apart. */
-	private packing(count: number): Packing {
-		let packing = this.packings.get(count);
-		if (packing) return packing;
-
-		const points = Array.from({ length: count }, (_, i) => {
-			const direction = spiralDirection(i, 1 - 2 * ((i * 0.618034 + 0.5) % 1));
-			const distance = i === 0 ? 0 : Math.cbrt(i);
-			return { x: direction.x * distance, y: direction.y * distance, z: direction.z * distance };
-		});
-		const spacing = 2 * NUCLEON_RADIUS * 0.9;
-		for (let step = 0; step < PACKING_STEPS; step++) {
-			if (step < PACKING_STEPS - 20) {
-				for (const point of points) {
-					point.x *= 0.97;
-					point.y *= 0.97;
-					point.z *= 0.97;
-				}
-			}
-			for (let a = 0; a < count; a++) {
-				for (let b = a + 1; b < count; b++) {
-					const dx = points[b].x - points[a].x;
-					const dy = points[b].y - points[a].y;
-					const dz = points[b].z - points[a].z;
-					const distance = Math.hypot(dx, dy, dz);
-					if (distance >= spacing || distance < 1e-6) continue;
-					const push = (spacing - distance) / (2 * distance);
-					points[a].x -= dx * push;
-					points[a].y -= dy * push;
-					points[a].z -= dz * push;
-					points[b].x += dx * push;
-					points[b].y += dy * push;
-					points[b].z += dz * push;
-				}
-			}
-		}
-
-		const centroid = points.reduce((sum, point) => ({ x: sum.x + point.x / count, y: sum.y + point.y / count, z: sum.z + point.z / count }), { x: 0, y: 0, z: 0 });
-		for (const point of points) {
-			point.x -= centroid.x;
-			point.y -= centroid.y;
-			point.z -= centroid.z;
-		}
-		packing = { extent: Math.max(...points.map(point => Math.hypot(point.x, point.y, point.z))) + NUCLEON_RADIUS, points };
-		this.packings.set(count, packing);
-		return packing;
 	}
 
 	private palette(color: string): Palette {
@@ -277,31 +136,12 @@ export class AtomRenderer {
 		this.ctx.fill(core);
 	}
 
-	/** Faint light on the upper left, faint shadow on the lower right, `shade` (0 front to 1 back) slightly dims the far nucleons. */
 	private ballSprite(color: string, shade: number): HTMLCanvasElement {
-		return this.sprite(`ball${color}${shade}`, (ctx, half) => {
-			const base = mix(mix(color, NEUTRON_COLOR, 0.18), NUCLEUS_SHADOW, (shade / (NUCLEON_SHADES - 1)) * 0.3);
-			// Centered up-left and wider than the disc, so only the bottom-right limb reaches the shadow stop.
-			const gradient = ctx.createRadialGradient(half * 0.72, half * 0.66, 0, half * 0.72, half * 0.66, half * 1.7);
-			gradient.addColorStop(0, mix(base, '#ffffff', 0.35));
-			gradient.addColorStop(0.3, base);
-			gradient.addColorStop(0.62, base);
-			gradient.addColorStop(1, mix(base, NUCLEUS_SHADOW, 0.35));
-			ctx.beginPath();
-			ctx.arc(half, half, half, 0, TAU);
-			ctx.fillStyle = gradient;
-			ctx.fill();
-		});
+		return this.sprite(`ball${color}${shade}`, (ctx, half) => paintNucleon(ctx, half, color, shade / (NUCLEON_SHADES - 1)));
 	}
 
-	private readonly loop = (now: number) => {
-		const dt = Math.min((now - this.lastTime) / 1000, MAX_FRAME_S);
-		this.lastTime = now;
-		this.draw(dt);
-		this.frame = requestAnimationFrame(this.loop);
-	};
-
-	private draw(dt: number) {
+	/** The atom never settles, it spins as long as it is on screen. */
+	protected draw(dt: number): boolean {
 		const { ctx, scene } = this;
 		const speed = (1 + 0.8 * scene.energy) * (scene.bonus ? 2 : 1);
 		this.time += dt * speed;
@@ -401,7 +241,7 @@ export class AtomRenderer {
 			this.front.push(...batches.slice(0, DEPTH_BANDS / 2));
 		}
 
-		this.drawNucleus(dt, nucleons, nucleusRadius / this.packing(nucleons).extent, center, time, scene);
+		this.drawNucleus(dt, nucleons, nucleusRadius / packNucleus(nucleons).extent, center, time, scene);
 
 		ctx.globalAlpha = 1;
 		for (const shell of scene.shells) {
@@ -413,6 +253,7 @@ export class AtomRenderer {
 
 		this.drawSparks(dt, center, unit);
 		ctx.globalAlpha = 1;
+		return true;
 	}
 
 	/** Strokes the orbit segments lying behind (`back`) or in front of the nucleus plane. */
@@ -438,7 +279,7 @@ export class AtomRenderer {
 		const sinB = Math.sin(time * 0.37);
 		const shake = 0.05 + 0.12 * scene.energy + 0.15 * this.impulse;
 
-		const packing = this.packing(nucleons);
+		const packing = packNucleus(nucleons);
 		const glide = Math.min(1, dt * 3);
 		nucleonOrder.length = 0;
 		for (let i = 0; i < NUCLEON_RANGE.max; i++) {
