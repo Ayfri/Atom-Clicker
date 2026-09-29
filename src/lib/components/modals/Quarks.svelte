@@ -5,7 +5,7 @@
 	import LeaderboardRow from '@components/ui/LeaderboardRow.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import QuarkLabel from '@components/ui/QuarkLabel.svelte';
-	import { getQuestTarget } from '$data/dailyQuests';
+	import { getQuestTarget, questAnchors } from '$data/dailyQuests';
 	import { CURRENCY_ICON_NAMES } from '$data/icons';
 	import { QUARK_SHOP } from '$data/quarkShop';
 	import { RealmTypes, type RealmType } from '$data/realms';
@@ -98,18 +98,7 @@
 		const frozen = gameManager.dailyStats.questTargets[quest.id];
 		return typeof frozen === 'number' ?
 			frozen
-		:	getQuestTarget(quest, {
-				achievementsUnlocked: 0,
-				atomsEarned: gameManager.highestAPS,
-				clicks: 0,
-				electronizes: 0,
-				generatorsPurchased: 0,
-				higgsBosonsCollected: 0,
-				otherDailyQuestsCompleted: 0,
-				powerUpsCollected: 0,
-				protonises: 0,
-				upgradesPurchased: 0,
-			});
+		:	getQuestTarget(quest, questAnchors(gameManager.highestAPS));
 	}
 </script>
 

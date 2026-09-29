@@ -51,6 +51,7 @@
 		const broken = chromatic.hit(photon, auto);
 		if (!broken) return;
 		chromaticManager.collect(broken, gameManager.totalIonizesAllTime);
+		if (!broken.half) gameManager.dailyStats.chromaticBreaks = (gameManager.dailyStats.chromaticBreaks ?? 0) + 1;
 		if (!visible || broken.drop === 0) return;
 
 		const rect = getContainerRect();

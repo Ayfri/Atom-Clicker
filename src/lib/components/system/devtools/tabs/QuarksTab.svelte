@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type DailyQuestAnchors, getQuestTarget, pickDailyQuests } from '$data/dailyQuests';
+	import { getQuestTarget, pickDailyQuests, questAnchors } from '$data/dailyQuests';
 	import { QUARK_SHOP } from '$data/quarkShop';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
@@ -14,18 +14,7 @@
 
 	let inspectorDate = $state(new Date().toISOString().slice(0, 10));
 	const inspectorQuests = $derived(pickDailyQuests(inspectorDate, quarksManager.dailyQuestCount, quarksManager.dailyQuestContext));
-	const inspectorAnchors = $derived<DailyQuestAnchors>({
-		achievementsUnlocked: 0,
-		atomsEarned: gameManager.highestAPS,
-		clicks: 0,
-		electronizes: 0,
-		generatorsPurchased: 0,
-		higgsBosonsCollected: 0,
-		otherDailyQuestsCompleted: 0,
-		powerUpsCollected: 0,
-		protonises: 0,
-		upgradesPurchased: 0,
-	});
+	const inspectorAnchors = $derived(questAnchors(gameManager.highestAPS));
 
 	function resetDailyStats() {
 		const { dayKey, questIds, questTargets } = gameManager.dailyStats;

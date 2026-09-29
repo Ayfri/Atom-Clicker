@@ -35,6 +35,7 @@ export const statsConfig = {
 		defaultValue: {
 			achievementsUnlocked: 0,
 			atomsEarned: 0,
+			chromaticBreaks: 0,
 			clicks: 0,
 			dayKey: '',
 			electronizes: 0,

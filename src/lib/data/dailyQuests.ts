@@ -4,6 +4,7 @@ import { simpleHash } from '$lib/utils/signing';
 export type DailyStatMetric =
 	| 'achievementsUnlocked'
 	| 'atomsEarned'
+	| 'chromaticBreaks'
 	| 'clicks'
 	| 'electronizes'
 	| 'generatorsPurchased'
@@ -16,6 +17,7 @@ export type DailyStatMetric =
 export interface DailyStats {
 	achievementsUnlocked: number;
 	atomsEarned: number;
+	chromaticBreaks: number;
 	clicks: number;
 	dayKey: string;
 	electronizes: number;
@@ -32,9 +34,25 @@ export interface DailyStats {
 
 export type DailyQuestAnchors = Record<DailyStatMetric, number>;
 
+/** Every target scales from its floor except atoms, which scale with the best production rate. */
+export const questAnchors = (highestAPS: number): DailyQuestAnchors => ({
+	achievementsUnlocked: 0,
+	atomsEarned: highestAPS,
+	chromaticBreaks: 0,
+	clicks: 0,
+	electronizes: 0,
+	generatorsPurchased: 0,
+	higgsBosonsCollected: 0,
+	otherDailyQuestsCompleted: 0,
+	powerUpsCollected: 0,
+	protonises: 0,
+	upgradesPurchased: 0,
+});
+
 export interface DailyQuestContext {
 	hasElectronized: boolean;
 	hasPhotonRealm: boolean;
+	hasPrism: boolean;
 	hasThirdQuestSlot: boolean;
 	remainingAchievements: number;
 }
@@ -71,6 +89,15 @@ export const QUEST_POOL: DailyQuest[] = [
 		metric: 'generatorsPurchased',
 		reward: 1,
 		scale: 2.5,
+	},
+	{
+		description: target => `Break ${target} colored photons today.`,
+		floor: 20,
+		id: 'chromatic_breaks',
+		isAvailable: context => context.hasPrism,
+		metric: 'chromaticBreaks',
+		reward: 1,
+		scale: 1,
 	},
 	{
 		description: target => `Click ${target} times today.`,

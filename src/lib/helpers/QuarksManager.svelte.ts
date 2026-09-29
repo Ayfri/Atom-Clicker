@@ -8,9 +8,11 @@ import {
 	getQuestTarget,
 	pickDailyQuests,
 	QUEST_POOL,
+	questAnchors,
 } from '$data/dailyQuests';
 import { getQuarkShopItem } from '$data/quarkShop';
 import { RealmTypes, type RealmType } from '$data/realms';
+import { statsConfig } from '$helpers/statConstants';
 import type { EffectSource } from '$lib/types';
 import { obfuscateClientData } from '$lib/utils/obfuscation';
 import { gameManager } from '$helpers/GameManager.svelte';
@@ -61,6 +63,7 @@ export class QuarksManager {
 	dailyQuestContext = $derived<DailyQuestContext>({
 		hasElectronized: gameManager.totalElectronizesAllTime > 0,
 		hasPhotonRealm: gameManager.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
+		hasPrism: gameManager.totalIonizesAllTime > 0,
 		hasThirdQuestSlot: this.dailyQuestCount > DAILY_QUEST_COUNT,
 		remainingAchievements: Object.keys(ACHIEVEMENTS).filter(id => !gameManager.achievements.includes(id)).length,
 	});
@@ -117,18 +120,7 @@ export class QuarksManager {
 		const frozen = gameManager.dailyStats.questTargets[quest.id];
 		if (typeof frozen === 'number') return frozen;
 		// Not frozen yet (e.g. before the first sync), fall back to a live estimate.
-		return getQuestTarget(quest, {
-			achievementsUnlocked: 0,
-			atomsEarned: gameManager.highestAPS,
-			clicks: 0,
-			electronizes: 0,
-			generatorsPurchased: 0,
-			higgsBosonsCollected: 0,
-			otherDailyQuestsCompleted: 0,
-			powerUpsCollected: 0,
-			protonises: 0,
-			upgradesPurchased: 0,
-		});
+		return getQuestTarget(quest, questAnchors(gameManager.highestAPS));
 	}
 
 	getProgress(quest: DailyQuest): number {
@@ -172,19 +164,10 @@ export class QuarksManager {
 		}
 
 		gameManager.dailyStats = {
-			achievementsUnlocked: 0,
-			atomsEarned: 0,
-			clicks: 0,
+			...statsConfig.dailyStats.defaultValue,
 			dayKey: serverDayKey,
-			electronizes: 0,
-			generatorsPurchased: 0,
-			higgsBosonsCollected: 0,
-			otherDailyQuestsCompleted: 0,
-			powerUpsCollected: 0,
-			protonises: 0,
 			questIds: this.quests.map(quest => quest.id),
 			questTargets,
-			upgradesPurchased: 0,
 		};
 	}
 
