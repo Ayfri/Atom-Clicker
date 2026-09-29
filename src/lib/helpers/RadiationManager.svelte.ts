@@ -13,7 +13,7 @@ import type { RadiationState } from '$lib/types';
 // Base decay rate: % of mass lost per second at 100% control
 const BASE_DECAY_PERCENT = 0.02; // 2% per second at max
 // Mass per electron spent
-const MASS_PER_ELECTRON = 0.1;
+export const MASS_PER_ELECTRON = 0.1;
 
 class RadiationManager {
 	// State

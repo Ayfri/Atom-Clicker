@@ -1,111 +1,76 @@
 <script lang="ts">
+	import HelpIcon from '@components/ui/HelpIcon.svelte';
+	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes } from '$data/currencies';
 	import { RADIATION_UPGRADES, getRadiationUpgradeCost } from '$data/radiationUpgrades';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import Value from '@components/ui/Value.svelte';
+	import { FlaskConical, Layers, Magnet, Recycle, Snowflake, Sparkles } from '@lucide/svelte';
+	import type { Component } from 'svelte';
 
-	const electronBalance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
-	const upgradeLevels = $derived(radiationManager.upgradeLevels);
+	const ICONS: Record<string, Component> = {
+		breeder_reactor: Recycle,
+		cherenkov_glow: Sparkles,
+		coolant_pumps: Snowflake,
+		graphite_moderators: Layers,
+		isotopic_enrichment: FlaskConical,
+		magnetic_confinement: Magnet,
+	};
 
-	// Sort upgrades alphabetically by name
-	const sortedUpgrades = Object.values(RADIATION_UPGRADES).sort((a, b) => a.name.localeCompare(b.name));
+	const balance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
+	const levels = $derived(radiationManager.upgradeLevels);
+
+	/** Cheapest first, the order players can afford them in. */
+	const upgrades = Object.values(RADIATION_UPGRADES).sort((a, b) => a.baseCost - b.baseCost);
 </script>
 
-<div class="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-radiation/20">
-	<h3 class="text-sm font-semibold text-radiation mb-3 flex items-center gap-2">
-		<svg
-			class="w-4 h-4"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<circle
-				cx="12"
-				cy="12"
-				r="10"
-			></circle>
-			<path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10"></path>
-			<path d="M12 2a15 15 0 0 0-4 10 15 15 0 0 0 4 10"></path>
-			<line
-				x1="2"
-				y1="12"
-				x2="22"
-				y2="12"
-			></line>
-		</svg>
-		Reactor Upgrades
+<section class="flex flex-col gap-3" data-hint="radiation-upgrades">
+	<div class="flex items-center gap-1.5">
+		<h2 class="text-lg">Reactor Upgrades</h2>
 		<HelpIcon position="bottom">
 			{#snippet content()}
-				<p class="text-xs text-white/80">
-					Reactor upgrades are bought with <CurrencyLabel name={CurrenciesTypes.ELECTRONS} /> and permanently improve the radiation
-					reactor: control rod efficiency, core fuel capacity, decay/regen rates, and more.
-				</p>
+				<p class="text-xs text-white/80">Bought with Electrons, they make the reactor stronger, cooler and longer lasting, and survive Protonize and Electronize.</p>
 			{/snippet}
 		</HelpIcon>
-		<Value
-			class="ml-auto text-xs text-white/40 font-normal"
-			value={electronBalance}
-			currency={CurrenciesTypes.ELECTRONS}
-		/>
-	</h3>
+		<Value class="ml-auto text-sm text-white/60" currency={CurrenciesTypes.ELECTRONS} value={balance} />
+	</div>
 
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-		{#each sortedUpgrades as upgrade (upgrade.id)}
-			{@const currentLevel = upgradeLevels[upgrade.id] || 0}
-			{@const cost = getRadiationUpgradeCost(upgrade, currentLevel)}
-			{@const canAfford = electronBalance >= cost}
-			{@const isMaxed = currentLevel >= upgrade.maxLevel}
-
+	<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
+		{#each upgrades as upgrade (upgrade.id)}
+			{@const level = levels[upgrade.id] ?? 0}
+			{@const cost = getRadiationUpgradeCost(upgrade, level)}
+			{@const maxed = level >= upgrade.maxLevel}
+			{@const affordable = !maxed && balance >= cost}
+			{@const Icon = ICONS[upgrade.id]}
 			<button
+				class="flex items-center gap-3 rounded-xl p-2.5 text-left transition-colors duration-200
+					{affordable ? 'cursor-pointer bg-radiation/8 hover:bg-radiation/15' : 'cursor-default bg-white/3'}"
+				disabled={!affordable}
 				onclick={() => radiationManager.purchaseUpgrade(upgrade.id)}
-				disabled={!canAfford || isMaxed}
-				class="group flex flex-col p-3 rounded-lg transition-all duration-200 text-left border
-					{isMaxed ? 'bg-radiation/10 border-radiation/30 cursor-default'
-				: canAfford ? 'bg-white/5 border-radiation/20 hover:bg-radiation/10 hover:border-radiation/40 cursor-pointer'
-				: 'bg-white/5 border-white/10 cursor-not-allowed opacity-60'}"
 			>
-				<!-- Header -->
-				<div class="flex items-center justify-between mb-1">
-					<span class="text-sm font-medium text-white">{upgrade.name}</span>
-					<span
-						class="text-xs font-mono px-1.5 py-0.5 rounded
-						{isMaxed ? 'bg-radiation/20 text-radiation' : 'bg-white/10 text-white/60'}"
-					>
-						{currentLevel}/{upgrade.maxLevel}
+				<span
+					class="grid size-10 shrink-0 place-items-center rounded-lg {affordable || maxed ? 'bg-radiation/15 text-radiation' : 'bg-white/5 text-white/30'}"
+				>
+					<Icon class="size-5" />
+				</span>
+				<span class="flex min-w-0 flex-1 flex-col gap-1">
+					<span class="flex items-baseline justify-between gap-2">
+						<span class="truncate text-sm font-semibold {affordable || maxed ? 'text-white' : 'text-white/60'}">{upgrade.name}</span>
+						{#if maxed}
+							<span class="text-xs font-bold uppercase tracking-wider text-radiation">Max</span>
+						{:else}
+							<Value class="shrink-0 text-xs font-mono {affordable ? 'text-radiation' : 'text-white/40'}" currency={CurrenciesTypes.ELECTRONS} value={cost} />
+						{/if}
 					</span>
-				</div>
-
-				<!-- Description -->
-				<p class="text-xs text-white/50 mb-2 line-clamp-2">
-					{upgrade.description(currentLevel + 1)}
-				</p>
-
-				<!-- Cost -->
-				<div class="flex items-center justify-between mt-auto">
-					{#if isMaxed}
-						<span class="text-xs text-radiation">MAXED</span>
-					{:else}
-						<span class="text-xs text-white/40">Cost:</span>
-						<Value
-							class="text-xs font-mono {canAfford ? 'text-radiation' : 'text-red-400'}"
-							value={cost}
-							currency={CurrenciesTypes.ELECTRONS}
-						/>
-					{/if}
-				</div>
-
-				<!-- Progress bar -->
-				<div class="mt-2 h-1 bg-black/30 rounded-full overflow-hidden">
-					<div
-						class="h-full bg-linear-to-r from-radiation/60 to-radiation transition-all duration-300"
-						style="width: {(currentLevel / upgrade.maxLevel) * 100}%"
-					></div>
-				</div>
+					<span class="truncate text-xs text-white/50" title={upgrade.description(maxed ? level : level + 1)}>{upgrade.description(maxed ? level : level + 1)}</span>
+					<span class="flex items-center gap-2">
+						<span class="h-1 flex-1 overflow-hidden rounded-full bg-black/40">
+							<span class="block h-full rounded-full bg-radiation" style:width="{(level / upgrade.maxLevel) * 100}%"></span>
+						</span>
+						<span class="font-mono text-[10px] tabular-nums text-white/40">{level}/{upgrade.maxLevel}</span>
+					</span>
+				</span>
 			</button>
 		{/each}
 	</div>
-</div>
+</section>
