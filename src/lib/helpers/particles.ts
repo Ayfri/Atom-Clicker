@@ -18,7 +18,6 @@ const MAX_TEXT_PARTICLES = 40;
 const MAX_ICON_PARTICLES = MAX_PARTICLES - MAX_TEXT_PARTICLES;
 const ICON_LAYER = 0;
 const TEXT_LAYER = 1;
-/** Matches the previous PixiJS text: 26px bold Arial drawn at a 0.5 scale. */
 const TEXT_FONT = 'bold 13px Arial, sans-serif';
 /** Line box of `TEXT_FONT` with room for descenders. */
 const TEXT_HEIGHT = 18;

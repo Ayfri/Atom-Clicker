@@ -4,7 +4,7 @@
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 	import { onDestroy, onMount } from 'svelte';
 
-	// PixiJS used to normalize deltas to 60fps frames and clamp long gaps, the particle math still expects that.
+	// The particle math expects deltas in 60fps frames, with long gaps clamped.
 	const FRAME_MS = 1000 / 60;
 	const MAX_FRAME_MS = 100;
 	// Cheap phones report a 3x ratio, which triples the fill cost of a fullscreen canvas for no visible gain.

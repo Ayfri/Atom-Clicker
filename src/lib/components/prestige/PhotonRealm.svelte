@@ -561,7 +561,7 @@
 					{#if excitedUnlocked}· {formatNumber(gameManager.excitedPhotonChance * 100)}% excited{/if}
 				</p>
 
-				<!-- `pointer-events-auto` opts out of the global `canvas` rule in app.css, which targets the PixiJS overlay. -->
+				<!-- `pointer-events-auto` opts out of the global `canvas` rule in app.css, which targets the particle overlay. -->
 				<canvas
 					bind:this={canvas}
 					class="absolute inset-0 w-full h-full pointer-events-auto"
