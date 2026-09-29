@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" module>
 	import {
 		BOOST_SPECTRUM,
 		CHROMATIC,
@@ -6,13 +6,22 @@
 		CHROMATIC_UPGRADES,
 		type ChromaticUpgrade,
 		getChromaticUpgradeCost,
+		KILLS_PER_SPECTRUM_LEVEL,
+		SPECTRUM_DROP_GROWTH,
+		SPECTRUM_HP_GROWTH,
 		WHITE_RECIPE,
 	} from '$data/chromatic';
+
+	export { spectrumHelp };
+</script>
+
+<script lang="ts">
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { reveal } from '$helpers/reveals.svelte';
+	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import Value from '@components/ui/Value.svelte';
 
 	const UPGRADES = Object.values(CHROMATIC_UPGRADES);
@@ -24,6 +33,13 @@
 
 	const whiteUnlocked = $derived(chromaticManager.recombinable > 0 || currenciesManager.getEarnedAllTime(CurrenciesTypes.WHITE_LIGHT) > 0);
 </script>
+
+{#snippet spectrumHelp()}
+	<p class="text-xs text-white/80">
+		Every {KILLS_PER_SPECTRUM_LEVEL} breaks of a color raise its Spectrum, which is never reset. Each level: +{Math.round((SPECTRUM_HP_GROWTH - 1) * 100)}% HP,
+		+{Math.round((SPECTRUM_DROP_GROWTH - 1) * 100)}% Light. Spectrum {BOOST_SPECTRUM} unlocks its boosts for the other realms.
+	</p>
+{/snippet}
 
 {#snippet item(upgrade: ChromaticUpgrade)}
 	{@const level = chromaticManager.level(upgrade.id)}
@@ -63,6 +79,7 @@
 		{#if whiteUnlocked}
 			<Value class="font-semibold" currency={CurrenciesTypes.WHITE_LIGHT} value={currenciesManager.getAmount(CurrenciesTypes.WHITE_LIGHT)} />
 		{/if}
+		<HelpIcon content={spectrumHelp} position="bottom" />
 	</div>
 
 	{#each CHROMATIC_COLORS as color (color)}

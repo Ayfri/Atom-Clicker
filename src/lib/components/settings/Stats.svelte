@@ -4,7 +4,9 @@
 	import PhotonIcon from '@components/icons/Photon.svelte';
 	import ProtonIcon from '@components/icons/Proton.svelte';
 	import QuarkIcon from '@components/icons/Quark.svelte';
+	import { spectrumHelp } from '@components/prestige/PrismUpgrades.svelte';
 	import Currency from '@components/ui/Currency.svelte';
+	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import { ACHIEVEMENTS } from '$data/achievements';
 	import { CHROMATIC, CHROMATIC_COLORS, KILLS_PER_SPECTRUM_LEVEL } from '$data/chromatic';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
@@ -18,7 +20,7 @@
 	import { formatDuration, formatNumber, formatNumberFull } from '$lib/utils';
 	import { CalendarDays, Factory, Flame, Hourglass, MousePointerClick, Package, Radiation, Rainbow, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
 	import { clock } from '$stores/clock.svelte';
-	import { type Component } from 'svelte';
+	import { type Component, type Snippet } from 'svelte';
 
 	type TitleIcon = Component<{ class?: string; color?: string; size?: number }>;
 
@@ -66,10 +68,13 @@
 	]);
 </script>
 
-{#snippet title(Icon: TitleIcon, text: string, color?: string)}
+{#snippet title(Icon: TitleIcon, text: string, color?: string, help?: Snippet)}
 	<h3 class="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wider text-white/40 uppercase">
 		<Icon class="text-accent-300" {color} size={16} />
 		{text}
+		{#if help}
+			<HelpIcon class="normal-case tracking-normal" content={help} />
+		{/if}
 	</h3>
 {/snippet}
 
@@ -218,7 +223,7 @@
 
 	{#if prismUnlocked}
 		<section>
-			{@render title(Rainbow, 'Prism')}
+			{@render title(Rainbow, 'Prism', undefined, spectrumHelp)}
 			<div class="grid gap-3 md:grid-cols-3">
 				{#each CHROMATIC_COLORS as color (color)}
 					{@const type = CHROMATIC[color].currency}
