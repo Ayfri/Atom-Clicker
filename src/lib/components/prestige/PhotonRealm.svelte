@@ -95,23 +95,62 @@
 		return Math.floor(gameManager.effects.value(stat, circle.photons, gameManager));
 	}
 
-	// Labels are redrawn every frame, so results are memoized until the effect sources change.
-	let labelCache = new Map<string, string>();
+	interface LabelSprite {
+		bitmap: ImageBitmap;
+		height: number;
+		width: number;
+	}
+
+	/** Shadowed text was ~70% of the frame, so each label is rasterized once until the effect sources or pixel ratio change. */
+	let labelCache = new Map<string, LabelSprite>();
 	let labelCacheKey: unknown = null;
+	let pixelRatio = 1;
+
+	function clearLabels() {
+		for (const label of labelCache.values()) label.bitmap.close();
+		labelCache.clear();
+	}
 
 	function getCircleLabel(circle: Circle) {
 		if (labelCacheKey !== gameManager.effects) {
 			labelCacheKey = gameManager.effects;
-			labelCache.clear();
+			clearLabels();
 		}
 
 		const key = `${circle.type}:${circle.photons}`;
 		let label = labelCache.get(key);
 		if (label === undefined) {
-			label = `+${formatNumber(getCircleValue(circle))}`;
+			label = rasterizeLabel(`+${formatNumber(getCircleValue(circle))}`, circle.type === 'excited');
 			labelCache.set(key, label);
 		}
 		return label;
+	}
+
+	function rasterizeLabel(text: string, excited: boolean): LabelSprite {
+		const font = `700 ${FONT_SIZE}px ${FONT_FAMILY}`;
+		const padding = LABEL_SHADOW_BLUR + 2;
+		const image = new OffscreenCanvas(1, 1);
+		const label = image.getContext('2d') as OffscreenCanvasRenderingContext2D;
+
+		label.font = font;
+		const width = Math.ceil(label.measureText(text).width) + padding * 2;
+		const height = FONT_SIZE + padding * 2;
+		// Resizing resets the context, so the text state is set afterwards.
+		image.width = Math.ceil(width * pixelRatio);
+		image.height = Math.ceil(height * pixelRatio);
+
+		label.scale(pixelRatio, pixelRatio);
+		label.font = font;
+		label.textAlign = 'center';
+		label.textBaseline = 'middle';
+		label.fillStyle = excited ? '#FFD700' : '#ffffff';
+		label.shadowColor = 'rgba(0, 0, 0, 0.8)';
+		// Shadow blur ignores the transform, so this matches the device-pixel blur the main canvas used.
+		label.shadowBlur = LABEL_SHADOW_BLUR;
+		label.fillText(text, width / 2, height / 2);
+
+		// An ImageBitmap blits ~10% faster than the OffscreenCanvas it comes from.
+		return { bitmap: image.transferToImageBitmap(), height, width };
 	}
 
 	function spawnCircle() {
@@ -259,6 +298,8 @@
 
 		cachedRect = null;
 		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		if (ratio !== pixelRatio) clearLabels();
+		pixelRatio = ratio;
 
 		canvasWidth = width;
 		canvasHeight = height;
@@ -301,14 +342,11 @@
 			ctx.arc(0, 0, size / 2 + RING_GAP, -Math.PI / 2, -Math.PI / 2 + alpha * Math.PI * 2);
 			ctx.stroke();
 
+			const label = getCircleLabel(circle);
+			const labelWidth = label.width * currentScale;
+			const labelHeight = label.height * currentScale;
 			ctx.globalAlpha = alpha;
-			ctx.font = `700 ${FONT_SIZE * currentScale}px ${FONT_FAMILY}`;
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle';
-			ctx.fillStyle = excited ? '#FFD700' : '#ffffff';
-			ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-			ctx.shadowBlur = LABEL_SHADOW_BLUR * currentScale;
-			ctx.fillText(getCircleLabel(circle), 0, 0);
+			ctx.drawImage(label.bitmap, -labelWidth / 2, -labelHeight / 2, labelWidth, labelHeight);
 
 			ctx.restore();
 		}
@@ -440,6 +478,7 @@
 
 	onMount(() => {
 		lastUpdateTime = Date.now();
+		return clearLabels;
 	});
 </script>
 
