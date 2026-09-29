@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { FeatureTypes } from '$data/features';
+	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
@@ -470,6 +472,31 @@
 		return () => cancelAnimationFrame(frame);
 	});
 
+	/**
+	 * An equipped Quark theme rebuilds the `realm-*` shades from its two colors, so every `realm-*` class below follows it.
+	 * The photons keep their currency color, a golden normal photon would pass for an excited one.
+	 */
+	const themePalette = $derived.by(() => {
+		const themeId = quarksManager.equippedThemes[RealmTypes.PHOTONS];
+		const theme = themeId ? getQuarkShopItem(themeId)?.theme : undefined;
+		if (!theme) return undefined;
+
+		const accent = theme.accent;
+		const secondary = theme.accentSecondary ?? accent;
+		const shades: [number, string][] = [
+			[200, `color-mix(in oklab, ${accent} 45%, white)`],
+			[300, `color-mix(in oklab, ${accent} 70%, white)`],
+			[400, accent],
+			[500, secondary],
+			[600, `color-mix(in oklab, ${secondary} 85%, black)`],
+			[700, `color-mix(in oklab, ${secondary} 70%, black)`],
+			[800, `color-mix(in oklab, ${secondary} 55%, black)`],
+			[900, `color-mix(in oklab, ${secondary} 45%, black)`],
+			[950, `color-mix(in oklab, ${secondary} 30%, black)`],
+		];
+		return shades.map(([shade, color]) => `--color-realm-${shade}: ${color};`).join(' ');
+	});
+
 	// Collecting by dragging over photons also has to suppress the page scroll on touch devices.
 	const hoverCollection = $derived(gameManager.features[FeatureTypes.HOVER_COLLECTION]);
 
@@ -501,7 +528,7 @@
 	});
 </script>
 
-<div class="relative pt-12 lg:pt-4 transition-all duration-1000 ease-in-out">
+<div class="relative pt-12 lg:pt-4 transition-all duration-1000 ease-in-out" style={themePalette}>
 	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. -->
 	<div class="h-full flex flex-col lg:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
 		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
