@@ -4,6 +4,7 @@
 - **Generators**: Buildings are now called Generators, and each one shows its share of your production and how many more you need for its next level, with a line that previews how far your next purchase takes it.
 - **The Atom**: The atom is now in 3D, with your generators' electrons orbiting a nucleus that grows as you progress and picks up the color of each prestige and realm you unlock.
 - **Skill Tree**: A redrawn, animated tree where energy flows into each skill you buy, whose skills now unlock new mechanics only, grouped by theme and kept through every prestige, while the production boosts moved to the Upgrades list and the photon shop.
+- **Photon Realm**: The photon field now glows with drifting light waves, and each photon shows a ring counting down its time left.
 - **Settings**: A cleaner menu on desktop and mobile with a more visual Profile and Stats, a Gameplay tab open to everyone, a Save tab comparing this device with your cloud save, and a Legal & Privacy tab where you can turn off Google Analytics.
 
 # What's new 19-09-2026
