@@ -1,4 +1,37 @@
 <script lang="ts" module>
+	import { skillLinkPath } from '@components/game/SkillEdge.svelte';
+	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '$data/skillTree';
+	import type { SkillUpgrade } from '$lib/types';
+
+	const SKILLS = Object.values(SKILL_UPGRADES);
+
+	const LINKS = SKILLS.flatMap(target =>
+		(target.requires ?? []).map(source => ({ id: `${source}-${target.id}`, path: skillLinkPath(SKILL_UPGRADES[source], target), source, target })),
+	);
+
+	const TREE_BOUNDS = {
+		maxX: Math.max(...SKILLS.map(({ position }) => position.x)) + SKILL_NODE_SIZE.width,
+		maxY: Math.max(...SKILLS.map(({ position }) => position.y)) + SKILL_NODE_SIZE.height,
+		minX: Math.min(...SKILLS.map(({ position }) => position.x)),
+		minY: Math.min(...SKILLS.map(({ position }) => position.y)),
+	};
+
+	const ROOT_CENTER = {
+		x: SKILL_UPGRADES.unlockLevels.position.x + SKILL_NODE_SIZE.width / 2,
+		y: SKILL_UPGRADES.unlockLevels.position.y + SKILL_NODE_SIZE.height / 2,
+	};
+
+	const depths = new Map<string, number>();
+	/** Distance from the root, so the tree lights up from its center outward when it opens. */
+	function depthOf(skill: SkillUpgrade): number {
+		let depth = depths.get(skill.id);
+		if (depth === undefined) {
+			depth = skill.requires?.length ? 1 + Math.max(...skill.requires.map(id => depthOf(SKILL_UPGRADES[id]))) : 0;
+			depths.set(skill.id, depth);
+		}
+		return depth;
+	}
+
 	/** Background stars stay fixed while the dot grid pans with the tree, which gives the view some depth. */
 	const STARS = Array.from({ length: 70 }, () => ({
 		delay: Math.random() * 6,
@@ -16,22 +49,21 @@
 </script>
 
 <script lang="ts">
-	import '@xyflow/svelte/dist/style.css';
-	import { Background, BackgroundVariant, Controls, type Edge, type Node, Position, SvelteFlow } from '@xyflow/svelte';
+	import { LocateFixed, Minus, Plus } from '@lucide/svelte';
 	import { dev } from '$app/environment';
-	import SkillEdge, { FILL_MS, type SkillEdgeData } from '@components/game/SkillEdge.svelte';
-	import SkillNode, { type SkillNodeData } from '@components/game/SkillNode.svelte';
+	import SkillEdge, { FILL_MS } from '@components/game/SkillEdge.svelte';
+	import SkillNode, { type SkillStatus } from '@components/game/SkillNode.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
 	import { RealmTypes } from '$data/realms';
-	import { SKILL_BRANCH_COLORS, SKILL_UPGRADES } from '$data/skillTree';
+	import { SKILL_BRANCH_COLORS } from '$data/skillTree';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { SkillUpgrade } from '$lib/types';
+	import { PanZoom } from '$helpers/PanZoom.svelte';
 	import { mobile } from '$stores/window.svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -39,161 +71,57 @@
 
 	let { onClose }: Props = $props();
 
+	const SKILL_CURRENCIES: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS];
+
+	const panZoom = new PanZoom({ bounds: TREE_BOUNDS, home: { ...ROOT_CENTER, zoom: mobile.current ? 0.6 : 0.8 }, maxZoom: 2, minZoom: 0.15 });
+
 	let showHiddenSkills = $state(false);
-
-	const edgeTypes = { skill: SkillEdge };
-	const nodeTypes = { skill: SkillNode };
-
-	const SKILL_CURRENCIES: CurrencyName[] = [
-		CurrenciesTypes.ATOMS,
-		CurrenciesTypes.PROTONS,
-		CurrenciesTypes.ELECTRONS,
-		CurrenciesTypes.PHOTONS,
-	];
-
-	const skillList = Object.values(SKILL_UPGRADES);
-
-	/** Distance from the roots, so the tree lights up from its center outward when it opens. */
-	const depths = new Map<string, number>();
-	function depthOf(skill: SkillUpgrade): number {
-		let depth = depths.get(skill.id);
-		if (depth === undefined) {
-			depth = skill.requires?.length ? 1 + Math.max(...skill.requires.map(req => depthOf(SKILL_UPGRADES[req]))) : 0;
-			depths.set(skill.id, depth);
-		}
-		return depth;
-	}
-
-	/** Nodes revealed by a purchase wait for the liquid to reach their parent before appearing. */
+	let statuses = $state.raw<Record<string, SkillStatus>>({});
+	/** Set when a skill first shows up: skills revealed by a purchase wait for the liquid to reach their parent. */
 	const enterDelays = new Map<string, number>();
 
-	function isCurrencyUnlocked(currency: CurrencyName): boolean {
+	function isCurrencyKnown(currency: CurrencyName): boolean {
 		return (
 			currency === CurrenciesTypes.ATOMS ||
 			(currency === CurrenciesTypes.PROTONS && gameManager.canProtonise) ||
 			(currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0) ||
-			(currency === CurrenciesTypes.PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
-			(currency === CurrenciesTypes.EXCITED_PHOTONS && gameManager.realms[RealmTypes.PHOTONS].unlocked) ||
-			(currency === CurrenciesTypes.HIGGS_BOSON && gameManager.realms[RealmTypes.PHOTONS].unlocked)
+			((currency === CurrenciesTypes.PHOTONS || currency === CurrenciesTypes.EXCITED_PHOTONS || currency === CurrenciesTypes.HIGGS_BOSON) &&
+				gameManager.realms[RealmTypes.PHOTONS].unlocked)
 		);
 	}
 
-	const balances = $derived(
-		SKILL_CURRENCIES.filter(isCurrencyUnlocked).map(currency => ({ amount: currenciesManager.getAmount(currency), currency })),
-	);
-	const ownedShare = $derived(gameManager.skillUpgrades.length / skillList.length);
+	const balances = $derived(SKILL_CURRENCIES.filter(isCurrencyKnown).map(currency => ({ amount: currenciesManager.getAmount(currency), currency })));
 
-	let ready = $state(false);
-	let nodes = $state.raw<Node[]>([]);
-	let edges = $state.raw<Edge[]>([]);
-
-	function canUnlockSkill(skill: SkillUpgrade): boolean {
-		if (!gameManager.skillUpgrades) return false;
-		if (gameManager.skillUpgrades.includes(skill.id)) return false;
-		if (skill.condition !== undefined && !skill.condition(gameManager)) return false;
-		if (skill.requires && !skill.requires.every((req) => gameManager.skillUpgrades?.includes(req))) return false;
-		return currenciesManager.getAmount(skill.cost.currency) >= skill.cost.amount;
+	function refresh() {
+		const owned = gameManager.skillUpgrades;
+		const firstRefresh = enterDelays.size === 0;
+		statuses = Object.fromEntries(
+			SKILLS.map(skill => {
+				const amount = currenciesManager.getAmount(skill.cost.currency);
+				const status: SkillStatus = {
+					affordable: amount >= skill.cost.amount,
+					available: gameManager.canPurchaseSkill(skill),
+					conditionMet: skill.condition?.(gameManager) ?? true,
+					currencyKnown: isCurrencyKnown(skill.cost.currency),
+					owned: owned.includes(skill.id),
+					progress: Math.min(1, amount / skill.cost.amount),
+					visible: (dev && showHiddenSkills) || owned.includes(skill.id) || !skill.requires?.length || skill.requires.some(id => owned.includes(id)),
+				};
+				if (status.visible && !enterDelays.has(skill.id)) enterDelays.set(skill.id, firstRefresh ? depthOf(skill) * 70 : FILL_MS + 250);
+				return [skill.id, status];
+			}),
+		);
 	}
 
-	function unlockSkill(skill: SkillUpgrade) {
-		if (!canUnlockSkill(skill)) return;
-		gameManager.purchaseSkill(skill.id);
-		updateTree();
+	function unlock(skill: SkillUpgrade) {
+		if (gameManager.purchaseSkill(skill.id)) refresh();
 	}
 
-	let interval: ReturnType<typeof setInterval>;
+	refresh();
 	onMount(() => {
-		updateTree();
-		requestAnimationFrame(() => {
-			ready = true;
-		});
-		interval = setInterval(updateTree, 1000);
+		const interval = setInterval(refresh, 1000);
+		return () => clearInterval(interval);
 	});
-	onDestroy(() => clearInterval(interval));
-
-	function updateTree() {
-		const unlockedSkills = gameManager.skillUpgrades;
-		const firstBuild = enterDelays.size === 0;
-
-		const visibleSkillIds = new Set(
-			skillList
-				.filter((skill) => {
-					if (dev && showHiddenSkills) return true;
-					if (unlockedSkills.includes(skill.id)) return true;
-					if (!skill.requires || skill.requires.length === 0) return true;
-					return skill.requires.some((req) => unlockedSkills.includes(req));
-				})
-				.map((s) => s.id)
-		);
-
-		for (const id of visibleSkillIds) {
-			if (!enterDelays.has(id)) enterDelays.set(id, firstBuild ? depthOf(SKILL_UPGRADES[id]) * 70 : FILL_MS + 250);
-		}
-
-		const srcHandles = new Map<string, Set<Position>>();
-		const tgtHandles = new Map<string, Set<Position>>();
-		for (const id of visibleSkillIds) {
-			srcHandles.set(id, new Set());
-			tgtHandles.set(id, new Set());
-		}
-
-		const edgeList: Edge[] = [];
-		for (const skill of skillList) {
-			if (!visibleSkillIds.has(skill.id)) continue;
-			for (const requireId of (skill.requires ?? [])) {
-				if (!visibleSkillIds.has(requireId)) continue;
-				const req = SKILL_UPGRADES[requireId];
-				const diff = { x: skill.position.x - req.position.x, y: skill.position.y - req.position.y };
-				const isHoriz = Math.abs(diff.x) > Math.abs(diff.y);
-				const [srcDir, tgtDir] = isHoriz
-					? diff.x > 0 ? [Position.Right, Position.Left] : [Position.Left, Position.Right]
-					: diff.y > 0 ? [Position.Bottom, Position.Top] : [Position.Top, Position.Bottom];
-
-				srcHandles.get(requireId)!.add(srcDir);
-				tgtHandles.get(skill.id)!.add(tgtDir);
-
-				edgeList.push({
-					data: {
-						color: SKILL_BRANCH_COLORS[skill.branch],
-						enterDelay: enterDelays.get(skill.id)!,
-						state: unlockedSkills.includes(skill.id) ? 'owned' : canUnlockSkill(skill) ? 'ready' : 'locked',
-					} satisfies SkillEdgeData,
-					id: `${requireId}-${skill.id}`,
-					source: requireId,
-					sourceHandle: `${requireId}-src-${srcDir}`,
-					target: skill.id,
-					targetHandle: `${skill.id}-tgt-${tgtDir}`,
-					type: 'skill',
-				});
-			}
-		}
-
-		nodes = skillList
-			.filter((skill) => visibleSkillIds.has(skill.id))
-			.map((skill) => ({
-				data: {
-					...skill,
-					affordable: currenciesManager.getAmount(skill.cost.currency) >= skill.cost.amount,
-					available: canUnlockSkill(skill),
-					color: SKILL_BRANCH_COLORS[skill.branch],
-					conditionMet: skill.condition === undefined || skill.condition(gameManager),
-					currencyUnlocked: isCurrencyUnlocked(skill.cost.currency),
-					enterDelay: enterDelays.get(skill.id)!,
-					onUnlock: () => unlockSkill(skill),
-					progress: Math.min(1, currenciesManager.getAmount(skill.cost.currency) / skill.cost.amount),
-					sourceHandles: Array.from(srcHandles.get(skill.id) ?? []),
-					targetHandles: Array.from(tgtHandles.get(skill.id) ?? []),
-					unlocked: unlockedSkills.includes(skill.id),
-				} satisfies SkillNodeData,
-				height: 160,
-				id: skill.id,
-				position: { ...skill.position },
-				type: 'skill',
-				width: 340,
-			}));
-
-		edges = edgeList;
-	}
 </script>
 
 <Modal {onClose} containerClass="m-2 !p-0 rounded-xl" width="lg">
@@ -214,10 +142,10 @@
 					<div class="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
 						<div
 							class="h-full origin-left rounded-full bg-yellow-400 transition-transform duration-700"
-							style:transform="scaleX({ownedShare})"
+							style:transform="scaleX({gameManager.skillUpgrades.length / SKILLS.length})"
 						></div>
 					</div>
-					{gameManager.skillUpgrades.length}/{skillList.length}
+					{gameManager.skillUpgrades.length}/{SKILLS.length}
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90">
@@ -230,7 +158,7 @@
 					class="rounded-lg bg-accent-800 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-700 active:bg-accent-600"
 					onclick={() => {
 						showHiddenSkills = !showHiddenSkills;
-						updateTree();
+						refresh();
 					}}
 				>
 					{showHiddenSkills ? 'Hide Hidden' : 'Show Hidden'} (Dev)
@@ -240,7 +168,8 @@
 	{/snippet}
 
 	<div
-		class="relative size-full overflow-hidden rounded-xl bg-[#0b0f14] bg-[radial-gradient(circle_at_50%_8%,rgb(74_144_226/0.16),transparent_45%),radial-gradient(circle_at_8%_55%,rgb(181_123_255/0.16),transparent_45%),radial-gradient(circle_at_50%_100%,rgb(251_146_60/0.12),transparent_45%),radial-gradient(circle_at_92%_40%,rgb(45_212_191/0.12),transparent_45%)]"
+		{@attach panZoom.attach}
+		class="relative size-full cursor-grab touch-none overflow-hidden rounded-xl bg-[#0b0f14] bg-[radial-gradient(circle_at_50%_8%,rgb(74_144_226/0.16),transparent_45%),radial-gradient(circle_at_8%_55%,rgb(181_123_255/0.16),transparent_45%),radial-gradient(circle_at_50%_100%,rgb(251_146_60/0.12),transparent_45%),radial-gradient(circle_at_92%_40%,rgb(45_212_191/0.12),transparent_45%)] active:cursor-grabbing"
 	>
 		<div class="pointer-events-none absolute inset-0" aria-hidden="true">
 			{#each STARS as { delay, duration, size, x, y }, i (i)}
@@ -264,52 +193,53 @@
 			{/each}
 		</div>
 
-		{#if ready}
-			<SvelteFlow
-				{edges}
-				{edgeTypes}
-				{nodes}
-				{nodeTypes}
-				colorMode="dark"
-				elementsSelectable={false}
-				initialViewport={{ x: mobile.current ? 100 : 500, y: 200, zoom: 0.8 }}
-				maxZoom={2}
-				minZoom={0.15}
-				nodesConnectable={false}
-				nodesDraggable={false}
-				panOnScroll={false}
-				preventScrolling={true}
-				translateExtent={[[-10000, -10000], [10000, 10000]]}
-				zoomOnPinch={true}
-				zoomOnScroll={true}
-			>
-				<Background bgColor="transparent" gap={40} patternColor="rgb(255 255 255 / 0.12)" size={1.5} variant={BackgroundVariant.Dots} />
-				{#if !mobile.current}
-					<Controls showZoom={true} showFitView={false} showLock={false} position="bottom-right" />
+		<!-- Dots shrink and fade out with the zoom, a dense grid at low zoom would outshine the tree. -->
+		<div
+			class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,rgb(255_255_255/0.12)_var(--dot),transparent_var(--dot))]"
+			style:--dot="{Math.max(0.75, 1.5 * panZoom.zoom)}px"
+			style:background-position="{panZoom.x}px {panZoom.y}px"
+			style:background-size="{40 * panZoom.zoom}px {40 * panZoom.zoom}px"
+			style:opacity={Math.min(1, Math.max(0, (panZoom.zoom - 0.2) / 0.6))}
+		></div>
+
+		<div class="absolute top-0 left-0 origin-top-left" style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})">
+			<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
+				{#each LINKS as { id, path, source, target } (id)}
+					{@const status = statuses[target.id]}
+					{#if statuses[source].visible && status.visible}
+						<SkillEdge
+							color={SKILL_BRANCH_COLORS[target.branch]}
+							enterDelay={enterDelays.get(target.id) ?? 0}
+							{path}
+							state={status.owned ? 'owned' : status.available ? 'ready' : 'locked'}
+						/>
+					{/if}
+				{/each}
+			</svg>
+			{#each SKILLS as skill (skill.id)}
+				{@const status = statuses[skill.id]}
+				{#if status.visible}
+					<SkillNode enterDelay={enterDelays.get(skill.id) ?? 0} onUnlock={() => unlock(skill)} {skill} {status} />
 				{/if}
-			</SvelteFlow>
-		{:else}
-			<div class="flex h-full min-h-96 items-center justify-center">
-				<div class="h-8 w-8 animate-spin rounded-full border-2 border-accent-400 border-t-transparent"></div>
-			</div>
-		{/if}
+			{/each}
+		</div>
+
+		<div class="absolute right-3 bottom-3 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-accent-900/90 text-white/80">
+			<button aria-label="Zoom in" class="grid size-10 place-items-center hover:bg-white/10" onclick={() => panZoom.zoomBy(1.25)}>
+				<Plus size={18} />
+			</button>
+			<button aria-label="Zoom out" class="grid size-10 place-items-center hover:bg-white/10" onclick={() => panZoom.zoomBy(0.8)}>
+				<Minus size={18} />
+			</button>
+			<button aria-label="Center the tree" class="grid size-10 place-items-center hover:bg-white/10" onclick={() => panZoom.recenter()}>
+				<LocateFixed size={18} />
+			</button>
+		</div>
 	</div>
 </Modal>
 
 <style>
-	:global(.svelte-flow) {
-		--xy-background-color: transparent;
-		--xy-controls-button-background-color: var(--color-accent-800);
-		--xy-controls-button-border-color: var(--color-accent-800);
-		--xy-controls-button-color: var(--color-accent-50);
-		--xy-attribution-background-color-default: transparent;
-	}
-
-	:global(.svelte-flow__attribution) {
-		display: none;
-	}
-
-	/* Global so the Tailwind `animate-[skill-*]` classes of the tree, its nodes and its edges can use them. */
+	/* Global so the Tailwind `animate-[skill-*]` classes of the tree, its nodes and its links can use them. */
 
 	@keyframes -global-skill-appear {
 		from {

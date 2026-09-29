@@ -5,10 +5,12 @@ import { GENERATOR_ICON_NAMES } from '$data/icons';
 import { add } from '$helpers/effects';
 import type { SkillBranch, SkillUpgrade } from '$lib/types';
 
-export const SKILL_GRID = {
+const SKILL_GRID = {
 	x: 550,
 	y: 264,
 };
+
+export const SKILL_NODE_SIZE = { height: 160, width: 340 };
 
 export const SKILL_BRANCH_COLORS: Record<SkillBranch, string> = {
 	automation: '#fb923c',

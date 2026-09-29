@@ -1,20 +1,16 @@
 <script lang="ts" module>
-	import type { Position } from '@xyflow/svelte';
-	import type { SkillUpgrade } from '$lib/types';
-
-	export interface SkillNodeData extends SkillUpgrade {
+	/** What the player can see and do with a skill, snapshotted once a second rather than following every currency tick. */
+	export interface SkillStatus {
 		affordable: boolean;
+		/** Purchasable right now: requirements owned, condition met and affordable. */
 		available: boolean;
-		color: string;
 		conditionMet: boolean;
-		currencyUnlocked: boolean;
-		enterDelay: number;
-		onUnlock: () => void;
+		/** The cost currency was earned before, otherwise the node stays a mystery. */
+		currencyKnown: boolean;
+		owned: boolean;
 		/** Share of the cost the player holds, drawn as the ring around the icon. */
 		progress: number;
-		sourceHandles: Position[];
-		targetHandles: Position[];
-		unlocked: boolean;
+		visible: boolean;
 	}
 
 	const SPARKS = Array.from({ length: 14 }, (_, i) => ({
@@ -28,54 +24,58 @@
 
 <script lang="ts">
 	import { Check, Lock } from '@lucide/svelte';
-	import { Handle, type NodeProps } from '@xyflow/svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { untrack } from 'svelte';
 	import { FILL_MS } from '@components/game/SkillEdge.svelte';
 	import Value from '@components/ui/Value.svelte';
 	import { ICONS } from '$data/icons';
+	import { SKILL_BRANCH_COLORS, SKILL_NODE_SIZE } from '$data/skillTree';
+	import type { SkillUpgrade } from '$lib/types';
 
-	let { data, id }: NodeProps = $props();
+	interface Props {
+		/** Delay before the node pops in, only read when it mounts. */
+		enterDelay: number;
+		onUnlock: () => void;
+		skill: SkillUpgrade;
+		status: SkillStatus;
+	}
 
-	const skill = $derived(data as unknown as SkillNodeData);
-	const enterDelay = untrack(() => skill.enterDelay);
+	let { enterDelay, onUnlock, skill, status }: Props = $props();
+
 	const Icon = $derived(ICONS[skill.icon]);
-	const isContentVisible = $derived(skill.currencyUnlocked || skill.unlocked);
-	const owned = $derived(skill.unlocked);
+	const isContentVisible = $derived(status.currencyKnown || status.owned);
+	const owned = $derived(status.owned);
 	const ownedAtMount = untrack(() => owned);
 	/** Bought while the tree is open: the node charges up while the liquid flows in, then bursts at `--burst`. */
 	const justUnlocked = $derived(owned && !ownedAtMount);
-	const available = $derived(skill.available && !owned && isContentVisible);
-	const ringProgress = $derived(owned || available ? 1 : isContentVisible ? skill.progress : 0);
+	const available = $derived(status.available && isContentVisible);
+	const ringProgress = $derived(owned || available ? 1 : isContentVisible ? status.progress : 0);
 	const animated = $derived(!prefersReducedMotion.current);
 </script>
-
-{#each skill.sourceHandles as pos (pos)}
-	<Handle id="{id}-src-{pos}" type="source" position={pos} class="opacity-0" style="inset: 50%; transform: none;" />
-{/each}
-{#each skill.targetHandles as pos (pos)}
-	<Handle id="{id}-tgt-{pos}" type="target" position={pos} class="opacity-0" style="inset: 50%; transform: none;" />
-{/each}
 
 <div
 	aria-label="Unlock {isContentVisible ? skill.name : '?????'}"
 	class={[
-		'relative flex h-40 w-[340px] items-center gap-4 rounded-2xl border px-4 transition-[background-color,border-color,translate] duration-500 delay-(--burst) motion-safe:animate-[skill-node-in_550ms_cubic-bezier(0.2,0.9,0.3,1.25)_var(--delay)_backwards]',
+		'absolute flex items-center gap-4 rounded-2xl border px-4 transition-[background-color,border-color,translate] duration-500 delay-(--burst) motion-safe:animate-[skill-node-in_550ms_cubic-bezier(0.2,0.9,0.3,1.25)_var(--delay)_backwards]',
 		!isContentVisible && 'border-white/5 bg-[#0d1117] text-white/35',
 		isContentVisible && !available && !owned && 'border-white/10 bg-[#0d1117] text-white',
 		available && 'cursor-pointer border-(color:--c)/55 bg-[#0d1117] text-white hover:-translate-y-1 hover:delay-0 hover:duration-200',
 		owned && 'border-(color:--c)/35 bg-[color-mix(in_oklab,var(--c)_12%,#0d1117)] text-white',
 		!available && 'pointer-events-none',
 	]}
-	onclick={() => available && skill.onUnlock()}
+	onclick={() => available && onUnlock()}
 	onkeydown={e => {
-		if (available && (e.key === 'Enter' || e.key === ' ')) skill.onUnlock();
+		if (available && (e.key === 'Enter' || e.key === ' ')) onUnlock();
 	}}
 	role="button"
 	style:--burst="{justUnlocked ? FILL_MS : 0}ms"
-	style:--c={skill.color}
+	style:--c={SKILL_BRANCH_COLORS[skill.branch]}
 	style:--delay="{enterDelay}ms"
 	style:--fill="{FILL_MS}ms"
+	style:height="{SKILL_NODE_SIZE.height}px"
+	style:left="{skill.position.x}px"
+	style:top="{skill.position.y}px"
+	style:width="{SKILL_NODE_SIZE.width}px"
 	tabindex={available ? 0 : -1}
 >
 	{#if available || owned}
@@ -180,10 +180,10 @@
 			{:else if owned}
 				<span class="animate-[skill-appear_300ms_var(--burst)_backwards] text-sm tracking-wide text-(--c) uppercase">Unlocked</span>
 			{:else}
-				<span class:text-red-300={!skill.affordable}>
+				<span class:text-red-300={!status.affordable}>
 					<Value currency={skill.cost.currency} currencyClass="h-5 w-5" value={skill.cost.amount} />
 				</span>
-				{#if !skill.conditionMet && skill.requirement}
+				{#if !status.conditionMet && skill.requirement}
 					<span class="text-xs text-amber-300">Requires: {skill.requirement}</span>
 				{/if}
 			{/if}
