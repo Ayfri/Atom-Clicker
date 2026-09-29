@@ -34,6 +34,7 @@
 		<button class={btn} onclick={() => toastStore.clearAll()}>Clear</button>
 		<button class="{btn} ml-auto" onclick={() => prestigeStore.trigger('protonise')}>Protonise anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('electronize')}>Electronize anim</button>
+		<button class={btn} onclick={() => prestigeStore.trigger('ionize')}>Ionize anim</button>
 	</div>
 </Section>
 

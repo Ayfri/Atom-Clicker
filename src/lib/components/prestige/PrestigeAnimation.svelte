@@ -1,9 +1,20 @@
 <script lang="ts">
+	import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
+	import { CURRENCIES } from '$data/currencies';
 	import type { PrestigeAnimationType as AnimationType } from '$stores/prestige.svelte';
 	import Electron from '@components/icons/Electron.svelte';
+	import Light from '@components/icons/Light.svelte';
 	import Proton from '@components/icons/Proton.svelte';
 	import { Radiation } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+
+	/** Each Light starts the Ionize symbol offset along its own direction, the three merge back into white. */
+	const LIGHTS = CHROMATIC_COLORS.map((color, i) => ({
+		color: CURRENCIES[CHROMATIC[color].currency].color,
+		dx: Math.round(14 * Math.cos((i * 2 * Math.PI) / 3 - Math.PI / 2)),
+		dy: Math.round(14 * Math.sin((i * 2 * Math.PI) / 3 - Math.PI / 2)),
+		facets: CHROMATIC[color].facets,
+	}));
 
 	interface Props {
 		animation: AnimationType | null;
@@ -147,6 +158,58 @@
 			</div>
 		{/if}
 
+		<!-- Ionize: electrons torn off their orbits, then a white beam split into the three Lights by the Prism -->
+		{#if currentAnimation === 'ionize'}
+			{#each Array(3) as _, i}
+				<div
+					class="ion-orbit"
+					style="--tilt: {i * 60}deg; --delay: {i * 0.08}s"
+				>
+					<div
+						class="ion-orbit-spin"
+						style="--duration: {0.5 + i * 0.12}s"
+					>
+						<div class="ion-electron"></div>
+					</div>
+				</div>
+			{/each}
+
+			<div class="white-ray"></div>
+			{#each LIGHTS as light, i (light.color)}
+				<div
+					class="color-ray"
+					style="--color: {light.color}; --angle: {(1 - i) * 7}deg; --delay: {1.6 + i * 0.08}s"
+				></div>
+			{/each}
+			<svg
+				class="prism"
+				viewBox="0 0 100 100"
+			>
+				<polygon points="50,8 94,86 6,86" />
+			</svg>
+
+			<div class="currency-splash">
+				{#each Array(45) as _, i}
+					{@const light = LIGHTS[i % LIGHTS.length]}
+					<div
+						class="currency-particle light-motion"
+						style="
+							--angle: {i * 8 + Math.random() * 8}deg;
+							--dist: {35 + Math.random() * 30}vmax;
+							--delay: {1.7 + Math.random() * 0.4}s;
+							--duration: {2 + Math.random() * 1}s;
+						"
+					>
+						<Light
+							color={light.color}
+							facets={light.facets}
+							size={28 + Math.random() * 28}
+						/>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
 		<!-- Shockwave -->
 		<div class="shockwave"></div>
 		<div class="shockwave shockwave-2"></div>
@@ -162,10 +225,19 @@
 					class="symbol-icon"
 				/>
 			{:else if currentAnimation === 'ionize'}
-				<Radiation
-					size={160}
-					class="symbol-icon text-(--primary)"
-				/>
+				<div class="chroma">
+					{#each LIGHTS as light (light.color)}
+						<span
+							class="chroma-layer"
+							style="--dx: {light.dx}px; --dy: {light.dy}px"
+						>
+							<Radiation
+								color={light.color}
+								size={160}
+							/>
+						</span>
+					{/each}
+				</div>
 			{:else}
 				<Electron
 					size={160}
@@ -557,6 +629,215 @@
 		}
 		to {
 			transform: translateY(-50%) scale(1.5);
+		}
+	}
+
+	/** Circles flattened into ellipses by rotateX, the inner spin runs in their plane so each electron follows its ellipse. */
+	.ion-orbit {
+		animation: ion-orbit-fling 1.8s ease-in forwards;
+		animation-delay: var(--delay);
+		height: 44vmin;
+		opacity: 0;
+		position: absolute;
+		transform: rotate(var(--tilt)) rotateX(72deg);
+		width: 44vmin;
+	}
+
+	@keyframes ion-orbit-fling {
+		0% {
+			opacity: 0;
+			scale: 0.4;
+		}
+		15%,
+		55% {
+			opacity: 1;
+			scale: 1;
+		}
+		100% {
+			opacity: 0;
+			scale: 4;
+		}
+	}
+
+	.ion-orbit-spin {
+		animation: orbit-spin var(--duration) linear infinite;
+		border: 1px solid var(--primary);
+		border-radius: 50%;
+		height: 100%;
+		position: relative;
+		width: 100%;
+	}
+
+	.ion-electron {
+		background: var(--accent);
+		border-radius: 50%;
+		box-shadow:
+			0 0 16px var(--glow),
+			0 0 32px var(--glow);
+		height: 14px;
+		left: -7px;
+		position: absolute;
+		top: calc(50% - 7px);
+		width: 14px;
+	}
+
+	.white-ray {
+		animation: white-ray 1.4s ease-out 1.2s forwards;
+		background: linear-gradient(90deg, transparent, var(--accent));
+		height: 4px;
+		left: 0;
+		opacity: 0;
+		position: absolute;
+		top: calc(50% - 2px);
+		transform: scaleX(0);
+		transform-origin: left center;
+		width: 50%;
+	}
+
+	@keyframes white-ray {
+		0% {
+			opacity: 1;
+			transform: scaleX(0);
+		}
+		30% {
+			opacity: 1;
+			transform: scaleX(1);
+		}
+		100% {
+			opacity: 0;
+			transform: scaleX(1);
+		}
+	}
+
+	/** A wedge widening away from the prism, grown with scaleX like the beams. */
+	.color-ray {
+		animation: color-ray 1.9s ease-out forwards;
+		animation-delay: var(--delay);
+		background: linear-gradient(90deg, var(--color), transparent);
+		clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
+		height: 16vmin;
+		left: 50%;
+		opacity: 0;
+		position: absolute;
+		top: calc(50% - 8vmin);
+		transform: rotate(var(--angle)) scaleX(0);
+		transform-origin: left center;
+		width: 60vmax;
+	}
+
+	@keyframes color-ray {
+		0% {
+			opacity: 0.9;
+			transform: rotate(var(--angle)) scaleX(0);
+		}
+		30% {
+			opacity: 0.9;
+			transform: rotate(var(--angle)) scaleX(1);
+		}
+		100% {
+			opacity: 0;
+			transform: rotate(var(--angle)) scaleX(1);
+		}
+	}
+
+	.prism {
+		animation: prism-appear 2.4s ease-out 1.2s forwards;
+		fill: color-mix(in srgb, var(--accent) 10%, transparent);
+		height: 20vmin;
+		opacity: 0;
+		position: absolute;
+		stroke: var(--accent);
+		stroke-linejoin: round;
+		stroke-width: 2.5;
+		width: 20vmin;
+		z-index: 6;
+	}
+
+	@keyframes prism-appear {
+		0% {
+			opacity: 0;
+			transform: scale(0.5) rotate(-60deg);
+		}
+		20% {
+			opacity: 1;
+			transform: scale(1) rotate(0deg);
+		}
+		75% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.15);
+		}
+	}
+
+	.light-motion {
+		animation: light-splash var(--duration) cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+		animation-delay: var(--delay);
+	}
+
+	@keyframes light-splash {
+		0% {
+			opacity: 0;
+			transform: translate(-50%, -50%) scale(0.3);
+		}
+		10% {
+			opacity: 1;
+			transform: translate(-50%, -50%) scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: translate(calc(cos(var(--angle)) * var(--dist) - 50%), calc(sin(var(--angle)) * var(--dist) - 50%)) scale(0.6);
+		}
+	}
+
+	/** The Ionize symbol is short-lived so the Prism takes the center right after it. */
+	.prestige-overlay[data-type='ionize'] .central-symbol {
+		animation: ionize-symbol 1.8s ease-out forwards;
+	}
+
+	@keyframes ionize-symbol {
+		0% {
+			opacity: 0;
+			transform: scale(0) rotate(-120deg);
+		}
+		25% {
+			opacity: 1;
+			transform: scale(1.15) rotate(0deg);
+		}
+		45% {
+			transform: scale(1);
+		}
+		75% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.8);
+		}
+	}
+
+	/** Screen-blended inside the symbol's filter group, the three colored copies add up to white once they overlap. */
+	.chroma {
+		display: grid;
+	}
+
+	.chroma-layer {
+		animation: chroma-merge 1.6s ease-out forwards;
+		grid-area: 1 / 1;
+		mix-blend-mode: screen;
+	}
+
+	@keyframes chroma-merge {
+		0% {
+			translate: calc(var(--dx) * 3) calc(var(--dy) * 3);
+		}
+		20% {
+			translate: var(--dx) var(--dy);
+		}
+		55%,
+		100% {
+			translate: 0 0;
 		}
 	}
 
