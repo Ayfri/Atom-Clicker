@@ -5,6 +5,7 @@
 	import Currency from '@components/ui/Currency.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { applyOfflineProgress } from '$helpers/offlineProgress';
+	import { IONIZE_HOLD_SECONDS, radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatDuration, formatNumber } from '$lib/utils';
 	import { toastStore } from '$stores/toasts.svelte';
 	import { ui } from '$stores/ui.svelte';
@@ -116,6 +117,16 @@
 		</button>
 		<button class={btnAccent} disabled={gameManager.electronizeElectronsGain <= 0} onclick={() => gameManager.electronize()}>
 			Electronize +{formatNumber(gameManager.electronizeElectronsGain)}
+		</button>
+		<!-- Skips the one-minute hold above IONIZE_CPM, so the Prism can be tested without a maxed reactor. -->
+		<button
+			class="{btnAccent} col-span-2"
+			onclick={() => {
+				radiationManager.ionizeHold = IONIZE_HOLD_SECONDS;
+				gameManager.ionize();
+			}}
+		>
+			Ionize ({gameManager.totalIonizesAllTime})
 		</button>
 	</div>
 </Section>
