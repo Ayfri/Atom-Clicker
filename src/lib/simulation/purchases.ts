@@ -146,7 +146,7 @@ export class PurchasePlanner {
 		const electrons = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
 		for (const { cost, entry: upgrade, id } of this.radiationLevels) {
 			if (cost > electrons) break;
-			if (upgrade.condition && !upgrade.condition(gameManager)) continue;
+			if (gameManager.totalIonizesAllTime < (upgrade.ionizes ?? 0)) continue;
 			return id;
 		}
 		return null;

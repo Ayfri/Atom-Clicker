@@ -28,7 +28,7 @@
 	/** Cheapest first, the order players can afford them in. The Ionize ones appear with the Ionize that unlocks them. */
 	const upgrades = $derived(
 		Object.values(RADIATION_UPGRADES)
-			.filter(upgrade => upgrade.condition?.(gameManager) ?? true)
+			.filter(upgrade => gameManager.totalIonizesAllTime >= (upgrade.ionizes ?? 0))
 			.sort((a, b) => a.baseCost - b.baseCost),
 	);
 </script>
