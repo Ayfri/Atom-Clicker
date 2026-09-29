@@ -113,9 +113,10 @@
 		width: number;
 	}
 
-	/** Shadowed text was ~70% of the frame, so each label is rasterized once until the effect sources or pixel ratio change. */
+	/** Shadowed text was ~70% of the frame, so each label is rasterized once until the values or pixel ratio change. */
 	let labelCache = new Map<string, LabelSprite>();
-	let labelCacheKey: unknown = null;
+	let labelEffects: unknown = null;
+	let labelStability = 1;
 	let pixelRatio = 1;
 
 	function clearLabels() {
@@ -123,12 +124,17 @@
 		labelCache.clear();
 	}
 
-	function getCircleLabel(circle: Circle) {
-		if (labelCacheKey !== gameManager.effects) {
-			labelCacheKey = gameManager.effects;
-			clearLabels();
-		}
+	/** Stable Photons scale the value with the live Stability Field, which moves every tick without rebuilding the effects. */
+	function syncLabels() {
+		const effects = gameManager.effects;
+		const stability = gameManager.stabilityMultiplier;
+		if (effects === labelEffects && stability === labelStability) return;
+		labelEffects = effects;
+		labelStability = stability;
+		clearLabels();
+	}
 
+	function getCircleLabel(circle: Circle) {
 		const key = `${circle.type}:${circle.photons}`;
 		let label = labelCache.get(key);
 		if (label === undefined) {
@@ -336,6 +342,7 @@
 
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 		const still = prefersReducedMotion.current;
+		syncLabels();
 
 		for (const circle of circles) {
 			const alpha = opacity(circle);
