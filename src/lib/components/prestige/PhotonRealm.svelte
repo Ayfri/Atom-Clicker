@@ -4,7 +4,7 @@
 	import { RealmTypes } from '$data/realms';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
+	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
 	import { formatNumber } from '$lib/utils';
@@ -234,11 +234,11 @@
 		return cachedRect;
 	}
 
-	// The slide-in transition lasts 300ms, so the rect is dropped again once the realm has settled.
+	// A rect measured during the swing-in is transformed, so it is dropped again once the realm has settled.
 	$effect(() => {
 		visible;
 		cachedRect = null;
-		const timeout = setTimeout(() => (cachedRect = null), 350);
+		const timeout = setTimeout(() => (cachedRect = null), REALM_SWITCH_MS + 50);
 		return () => clearTimeout(timeout);
 	});
 
@@ -252,17 +252,17 @@
 		};
 	});
 
-	function resizeCanvas() {
-		if (!canvas || !container || !ctx) return;
+	/** Takes the layout size from the ResizeObserver, a bounding rect taken mid-swing is projected by the 3D transform. */
+	function resizeCanvas({ height, width }: DOMRectReadOnly) {
+		if (!canvas || !ctx) return;
 
-		const rect = container.getBoundingClientRect();
-		cachedRect = visible ? rect : null;
+		cachedRect = null;
 		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
 
-		canvasWidth = rect.width;
-		canvasHeight = rect.height;
-		canvas.width = Math.max(1, Math.round(rect.width * ratio));
-		canvas.height = Math.max(1, Math.round(rect.height * ratio));
+		canvasWidth = width;
+		canvasHeight = height;
+		canvas.width = Math.max(1, Math.round(width * ratio));
+		canvas.height = Math.max(1, Math.round(height * ratio));
 		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 	}
 
@@ -383,9 +383,9 @@
 		if (!canvas) return;
 
 		ctx = canvas.getContext('2d');
-		resizeCanvas();
 
-		const observer = new ResizeObserver(resizeCanvas);
+		// The first observation fires right after `observe`, so it also sets the initial size.
+		const observer = new ResizeObserver(([entry]) => resizeCanvas(entry.contentRect));
 		if (container) observer.observe(container);
 
 		return () => observer.disconnect();

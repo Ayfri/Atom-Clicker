@@ -1,6 +1,6 @@
 <script lang="ts">
 	import {gameManager} from '$helpers/GameManager.svelte';
-	import {realmManager} from '$helpers/RealmManager.svelte';
+	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
 	import {REALMS, RealmTypes} from '$data/realms';
 	import {GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor} from '$data/generators';
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
@@ -63,6 +63,14 @@
 		if (!cachedRect && atomElement) cachedRect = atomElement.getBoundingClientRect();
 		return cachedRect;
 	}
+
+	// Auto-clicks keep measuring while the realm swings away or sits off screen, those rects are dropped once it settles back.
+	$effect(() => {
+		realmManager.selectedRealmId;
+		cachedRect = null;
+		const timeout = setTimeout(() => (cachedRect = null), REALM_SWITCH_MS + 50);
+		return () => clearTimeout(timeout);
+	});
 
 	$effect(() => {
 		const invalidate = () => (cachedRect = null);

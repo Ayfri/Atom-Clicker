@@ -257,7 +257,8 @@
 		{/if}
 
 		<!-- Realms sit side by side and swing in like the faces of a cube, the leaving one first, the arriving one after
-		     a short delay. `translateX(0)` at rest keeps the panel 2D and the containing block of its fixed children. -->
+		     a short delay adding up to REALM_SWITCH_MS. `translateX(0)` at rest keeps the panel 2D and the containing block
+		     of its fixed children. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
 			{@const RealmComponent = realmComponents[realm.componentId]}
 			{@const background = getRealmBackground(realm)}

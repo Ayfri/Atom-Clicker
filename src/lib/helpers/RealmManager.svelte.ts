@@ -4,6 +4,9 @@ import { gameManager } from '$helpers/GameManager.svelte';
 import { RealmTypes, type RealmType } from '$data/realms';
 import type { Currency } from '$lib/types';
 
+/** Delay plus duration of the arriving realm's swing in `+page.svelte`, rects measured before it ends are still transformed. */
+export const REALM_SWITCH_MS = 800;
+
 export interface RealmConfig {
 	background?: string;
 	/** Tint of the light sweep played when switching to this realm. */
