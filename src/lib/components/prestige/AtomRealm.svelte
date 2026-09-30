@@ -51,6 +51,7 @@
 	<Bonus />
 	<ActivePowerUps />
 
+	<!-- On desktop the side panels are 100dvh - 204px tall: this padding, the tabs row (or the generators' pt-12) and the footer. -->
 	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 lg:p-8 text-sm xl:max-w-360">
 		{#if tabs.length > 0}
 			<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">

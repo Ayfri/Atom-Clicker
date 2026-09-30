@@ -93,7 +93,7 @@
 	}
 </script>
 
-<div class="backdrop-blur-xs bg-black/10 p-3 rounded-lg h-150 lg:h-[calc(100vh-180px)] flex flex-col">
+<div class="backdrop-blur-xs bg-black/10 p-3 rounded-lg h-150 lg:h-[calc(100dvh-204px)] flex flex-col">
 	<div class="flex items-center gap-1.5">
 		<h2 class="font-semibold text-lg">Achievements</h2>
 		<span class="text-xs tabular-nums text-white/50">{gameManager.achievements.length}/{TOTAL_ACHIEVEMENTS}</span>

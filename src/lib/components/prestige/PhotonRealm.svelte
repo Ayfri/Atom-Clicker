@@ -607,14 +607,15 @@
 			<div class="absolute bg-[#4d8dff]/12 blur-[180px] bottom-[8%] h-80 left-[35%] rounded-full w-80"></div>
 		</div>
 	{/if}
-	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. -->
+	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. On desktop
+	     the upgrades panel is 100dvh - 150px (this padding, the realm's lg:pt-4 and the footer) and the photon field stretches to match it. -->
 	<div class="h-full flex flex-col lg:flex-row max-lg:landscape:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-12 max-lg:landscape:pt-2 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
 		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
 		<div class="flex-1 lg:w-2/3 flex flex-col items-center max-lg:landscape:sticky max-lg:landscape:top-0 max-lg:landscape:self-start">
 			<PhotonCounter />
 
 			<div
-				class="relative w-full {mobile.current ? 'h-[40vh] min-h-75 landscape:h-[max(10rem,100dvh-15rem)] landscape:min-h-0' : 'h-87.5 lg:h-162.5'} overflow-hidden"
+				class="relative w-full {mobile.current ? 'h-[40vh] min-h-75 landscape:h-[max(10rem,100dvh-15rem)] landscape:min-h-0' : 'flex-1 min-h-80'} overflow-hidden"
 				data-photon-realm
 				bind:this={container}
 			>

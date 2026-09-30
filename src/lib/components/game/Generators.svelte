@@ -80,7 +80,7 @@
 	});
 </script>
 
-<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100vh-180px)]">
+<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100dvh-204px)]">
 	<div class="flex items-center justify-between gap-2">
 		<div class="flex items-center gap-1.5">
 			<h2 class="text-lg">Generators</h2>
