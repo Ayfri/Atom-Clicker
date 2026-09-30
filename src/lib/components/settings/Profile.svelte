@@ -1,14 +1,13 @@
 <script lang="ts">
-	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '@components/modals/Login.svelte';
 	import AtomIcon from '@components/icons/Atom.svelte';
-	import ElectronizeIcon from '@components/icons/Electronize.svelte';
-	import PhotonIcon from '@components/icons/Photon.svelte';
-	import ProtoniseIcon from '@components/icons/Protonise.svelte';
 	import QuarkIcon from '@components/icons/Quark.svelte';
+	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '@components/modals/Login.svelte';
+	import Journey from '@components/profile/Journey.svelte';
+	import Lifetime from '@components/profile/Lifetime.svelte';
+	import StatTiles, { type StatTile } from '@components/profile/StatTiles.svelte';
 	import Avatar from '@components/ui/Avatar.svelte';
-	import Currency from '@components/ui/Currency.svelte';
 	import { ACHIEVEMENTS } from '$data/achievements';
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { CurrenciesTypes } from '$data/currencies';
 	import { REALMS } from '$data/realms';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
@@ -16,17 +15,9 @@
 	import { leaderboard } from '$stores/leaderboard.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
-	import { ChartLine, Clock, Cloud, Link as LinkIcon, Lock, LogOut, Medal, MousePointerClick, Pencil, Radiation, Trophy, User } from '@lucide/svelte';
-	import { onDestroy, onMount, type Component } from 'svelte';
+	import { ChartLine, Clock, Cloud, Link as LinkIcon, LogOut, Medal, MousePointerClick, Pencil, Trophy, User } from '@lucide/svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
-
-	interface Milestone {
-		color: string;
-		count: number | null;
-		icon: Component<{ color?: string; size?: number }>;
-		label: string;
-		reached: boolean;
-	}
 
 	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
 	const joined = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'long', year: 'numeric' }).format(gameManager.startDate);
@@ -42,7 +33,7 @@
 
 	const connection = $derived(getAuthConnection(supabaseAuth.user?.identities?.find(identity => AUTH_CONNECTIONS.some(c => c.provider === identity.provider))?.provider));
 	const name = $derived(supabaseAuth.displayName ?? 'Anonymous');
-	const tiles = $derived([
+	const tiles: StatTile[] = $derived([
 		{ icon: Trophy, label: 'Achievements', value: `${gameManager.achievements.length} / ${totalAchievements}` },
 		{ icon: Clock, label: 'Play time', value: formatDuration(gameManager.inGameTime) },
 		{ icon: AtomIcon, label: 'Atoms / s', value: formatNumber(gameManager.atomsPerSecond) },
@@ -54,14 +45,7 @@
 				]
 			: []),
 	]);
-	/** Locked milestones stay hidden behind `???` so the profile never spoils what comes next. */
-	const milestones: Milestone[] = $derived([
-		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: ProtoniseIcon, label: 'Protonized', reached: gameManager.totalProtonisesAllTime > 0 },
-		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: ElectronizeIcon, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
-		{ color: REALMS.photons.color, count: null, icon: PhotonIcon, label: 'Photon Realm', reached: REALMS.photons.condition(gameManager.features) },
-		{ color: REALMS.radiation.color, count: null, icon: Radiation, label: 'Radiation Realm', reached: REALMS.radiation.condition(gameManager.features) },
-	]);
-	const lifetime = $derived(Object.values(CurrenciesTypes).filter(type => gameManager.currencies[type]?.earnedAllTime > 0));
+	const lifetime = $derived(Object.fromEntries(Object.values(CurrenciesTypes).map(type => [type, gameManager.currencies[type]?.earnedAllTime ?? 0])));
 
 	onMount(() => leaderboard.ensureLoaded());
 	onDestroy(() => clearTimeout(previewTimer));
@@ -237,55 +221,16 @@
 		</div>
 	</section>
 
-	<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-		{#each tiles as tile (tile.label)}
-			<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
-				<span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-					<tile.icon size={18} />
-				</span>
-				<span class="flex min-w-0 flex-col">
-					<span class="truncate font-bold text-white">{tile.value}</span>
-					<span class="text-xs text-white/50">{tile.label}</span>
-				</span>
-			</div>
-		{/each}
-	</div>
+	<StatTiles {tiles} />
 
-	<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-		<h3 class="mb-3 text-xs font-semibold tracking-wider text-white/40 uppercase">Journey</h3>
-		<ol class="grid grid-cols-2 gap-3 md:grid-cols-4">
-			{#each milestones as milestone (milestone.label)}
-				<li class="flex flex-col items-center gap-2 rounded-xl p-3 text-center {milestone.reached ? 'bg-white/5' : 'border border-dashed border-white/10 opacity-50'}">
-					<span class="flex size-11 items-center justify-center rounded-full bg-black/40">
-						{#if milestone.reached}
-							<milestone.icon color={milestone.color} size={24} />
-						{:else}
-							<Lock class="text-white/50" size={16} />
-						{/if}
-					</span>
-					<span class="text-sm font-semibold text-white">{milestone.reached ? milestone.label : '???'}</span>
-					{#if milestone.reached && milestone.count}
-						<span class="text-xs text-white/50">{formatNumber(milestone.count, 0)} times</span>
-					{/if}
-				</li>
-			{/each}
-		</ol>
-	</section>
+	<Journey
+		electronizes={gameManager.totalElectronizesAllTime}
+		photonRealm={REALMS.photons.condition(gameManager.features)}
+		protonizes={gameManager.totalProtonisesAllTime}
+		radiationRealm={REALMS.radiation.condition(gameManager.features)}
+	/>
 
-	<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-		<h3 class="mb-3 text-xs font-semibold tracking-wider text-white/40 uppercase">Earned all time</h3>
-		<div class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-			{#each lifetime as type (type)}
-				<div class="flex items-center gap-2.5">
-					<Currency name={type} size={26} />
-					<span class="flex flex-col leading-tight">
-						<span class="text-lg font-bold tabular-nums" style:color={CURRENCIES[type].color}>{formatNumber(gameManager.currencies[type].earnedAllTime)}</span>
-						<span class="text-xs text-white/50">{type}</span>
-					</span>
-				</div>
-			{/each}
-		</div>
-	</section>
+	<Lifetime earned={lifetime} />
 
 	{#if !supabaseAuth.isAuthenticated}
 		<div class="grid gap-3 sm:grid-cols-3">
