@@ -263,8 +263,8 @@ function createProtoniseAchievements(): Achievement[] {
 		name: `${tier} Protonizes`,
 		description: `Protonize ${tier} times`,
 		iconStack: tierIconStack('proton', index, tier),
-		condition: (manager: GameManager) => manager.currencies[CurrenciesTypes.PROTONS].earnedAllTime >= tier,
-		hiddenCondition: (manager: GameManager) => manager.currencies[CurrenciesTypes.PROTONS].earnedAllTime === 0,
+		condition: (manager: GameManager) => manager.totalProtonisesAllTime >= tier,
+		hiddenCondition: (manager: GameManager) => manager.totalProtonisesAllTime === 0,
 	}));
 }
 
@@ -275,8 +275,8 @@ function createElectronizeAchievements(): Achievement[] {
 		name: `${tier} Electronizes`,
 		description: `Electronize ${tier} times`,
 		iconStack: tierIconStack('electron', index, tier),
-		condition: (manager: GameManager) => manager.currencies[CurrenciesTypes.ELECTRONS].earnedAllTime >= tier,
-		hiddenCondition: (manager: GameManager) => manager.currencies[CurrenciesTypes.ELECTRONS].earnedAllTime === 0,
+		condition: (manager: GameManager) => manager.totalElectronizesAllTime >= tier,
+		hiddenCondition: (manager: GameManager) => manager.totalElectronizesAllTime === 0,
 	}));
 }
 
