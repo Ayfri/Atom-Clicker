@@ -4,7 +4,6 @@
 	import Ambient from '@components/game/Ambient.svelte';
 	import Atom from '@components/game/Atom.svelte';
 	import Bonus from '@components/game/Bonus.svelte';
-	import Canvas from '@components/game/Canvas.svelte';
 	import Counter from '@components/game/Counter.svelte';
 	import Generators from '@components/game/Generators.svelte';
 	import Upgrades from '@components/game/Upgrades.svelte';
@@ -57,8 +56,6 @@
 </script>
 
 <div class="relative pt-12 transition-all duration-1000 ease-in-out lg:pt-8 max-lg:landscape:pt-2 {mobile.current ? 'min-h-screen pb-8' : ''}">
-	<Canvas />
-
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
 		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
 			{#if gameManager.totalProtonisesAllTime > 0}

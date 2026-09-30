@@ -5,6 +5,7 @@
 	import { RealmTypes } from '$data/realms';
 	import { AmbientField } from '$helpers/AmbientField';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { photonFieldCenter } from '$helpers/photonCanvas';
 	import type { PhotonUpgrade } from '$lib/types';
 
 	interface Props {
@@ -22,9 +23,7 @@
 
 	function onPurchase(event: MouseEvent) {
 		if (affordable && !isMaxed && gameManager.purchasePhotonUpgrade(upgrade.id)) {
-			const field = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
-			const target = field && { x: field.left + field.width / 2, y: field.top + field.height / 2 };
-			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[currency].color, surge: 6, target });
+			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[currency].color, surge: 6, target: photonFieldCenter() });
 		}
 	}
 </script>

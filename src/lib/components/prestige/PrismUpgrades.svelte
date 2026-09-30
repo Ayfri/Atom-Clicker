@@ -22,6 +22,7 @@
 	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { photonFieldCenter } from '$helpers/photonCanvas';
 	import { reveal } from '$helpers/reveals.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import Value from '@components/ui/Value.svelte';
@@ -58,9 +59,7 @@
 		in:reveal={{ y: 0 }}
 		onclick={event => {
 			if (!chromaticManager.purchaseUpgrade(upgrade.id)) return;
-			const field = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
-			const target = field && { x: field.left + field.width / 2, y: field.top + field.height / 2 };
-			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[upgrade.currencies[0]].color, surge: 6, target });
+			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[upgrade.currencies[0]].color, surge: 6, target: photonFieldCenter() });
 		}}
 	>
 		<div class="mb-0.5 flex items-start justify-between">

@@ -1,4 +1,4 @@
-import { CanvasLoop } from '$helpers/CanvasLoop';
+import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
 import { rgba, TAU } from '$helpers/nucleus';
 
 const BEAM_ACCELERATION = 22;
@@ -12,7 +12,6 @@ const DEBRIS = 44;
 const FIZZLE_DURATION = 0.4;
 const FLASH_DURATION = 0.35;
 const IMPACT_DURATION = 1.1;
-const MAX_PIXEL_RATIO = 2;
 const MAX_SPARKS = 96;
 const RING_RADIUS = 44;
 const SPARK_DRAG = 2.4;
@@ -89,7 +88,7 @@ export class ColliderRenderer extends CanvasLoop {
 	}
 
 	protected resize() {
-		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		const ratio = pixelRatio();
 		this.pixelWidth = this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * ratio));
 		this.pixelHeight = this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * ratio));
 		this.redraw();

@@ -1,4 +1,4 @@
-import { CanvasLoop } from '$helpers/CanvasLoop';
+import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
 import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, spiralDirection, TAU, type Vector } from '$helpers/nucleus';
 
 export interface AtomShell {
@@ -47,7 +47,6 @@ const FOCAL_LENGTH = 650;
 /** Aura sprites are baked at the brightest click impulse and dimmed with `globalAlpha`, which cannot go above 1. */
 const AURA_PEAK = 0.3;
 const AURA_REST = 0.22;
-const MAX_PIXEL_RATIO = 2;
 const MAX_SPARKS = 12;
 const NUCLEON_SHADES = 4;
 const ORBIT_SEGMENTS = 48;
@@ -202,7 +201,7 @@ export class AtomRenderer extends CanvasLoop {
 
 	protected resize() {
 		this.size = this.canvas.clientWidth;
-		this.ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		this.ratio = pixelRatio();
 		this.canvas.width = Math.max(1, Math.round(this.size * this.ratio));
 		this.canvas.height = this.canvas.width;
 	}

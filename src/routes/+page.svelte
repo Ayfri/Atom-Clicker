@@ -18,6 +18,7 @@
 	import { toastStore } from '$stores/toasts.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
+	import Canvas from '@components/game/Canvas.svelte';
 	import Levels from '@components/game/Levels.svelte';
 	import NavBar from '@components/layout/NavBar.svelte';
 	import RealmFooter from '@components/layout/RealmFooter.svelte';
@@ -227,6 +228,7 @@
 	<NavBar />
 	<Toaster />
 	<AutoSaveIndicator />
+	<Canvas />
 
 	{#if realmManager.availableRealms.length > 1}
 		<!-- The panel itself is click-through, so its padding never swallows taps meant for the realm underneath. On a

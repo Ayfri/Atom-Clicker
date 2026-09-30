@@ -5,17 +5,18 @@
 	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
 	import { AmbientField } from '$helpers/AmbientField';
+	import { CachedRect } from '$helpers/CachedRect.svelte';
+	import { pixelRatio } from '$helpers/CanvasLoop';
 	import { ChromaticField, type ChromaticPhoton } from '$helpers/chromaticField';
 	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
-	import { createClickParticleSync, type Particle } from '$helpers/particles';
+	import { realmManager } from '$helpers/RealmManager.svelte';
+	import { ClickParticles } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
 	import type { NumberNotation } from '$lib/types';
 	import { formatNumber } from '$lib/utils';
-	import { addParticles } from '$stores/canvas';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
 	import Ambient from '@components/game/Ambient.svelte';
@@ -41,7 +42,7 @@
 		// Hidden, the click spawns no particles, and measuring the translated realm forced a layout on every auto-click.
 		if (!visible) return clickCircle(randomCircle, 0, 0, true);
 
-		const rect = getContainerRect();
+		const rect = containerRect.current;
 		if (!rect) return;
 
 		clickCircle(randomCircle, rect.left + randomCircle.x, rect.top + randomCircle.y, true);
@@ -56,16 +57,8 @@
 		if (!broken) return;
 		chromaticManager.collect(broken, gameManager.totalIonizesAllTime);
 		if (!broken.half) gameManager.dailyStats.chromaticBreaks = (gameManager.dailyStats.chromaticBreaks ?? 0) + 1;
-		if (!visible || broken.drop === 0) return;
-
-		const rect = getContainerRect();
-		if (!rect) return;
-		const addedParticles: Particle[] = [];
-		for (let i = 0; i < 5; i++) {
-			const particle = createClickParticleSync(rect.left + broken.x, rect.top + broken.y, CHROMATIC[broken.color].currency);
-			if (particle) addedParticles.push(particle);
-		}
-		if (addedParticles.length > 0) addParticles(addedParticles);
+		const rect = broken.drop > 0 && containerRect.current;
+		if (rect) ClickParticles.emit(RealmTypes.PHOTONS, rect.left + broken.x, rect.top + broken.y, CHROMATIC[broken.color].currency, 5);
 	}
 
 	$effect(() => {
@@ -131,8 +124,6 @@
 	const FLOAT_PERIOD = 2600;
 	const MIN_SPIN = 10;
 	const MAX_SPIN = 30;
-	// Cheap phones often report a 3x ratio, which triples the fill cost for no visible gain here.
-	const MAX_PIXEL_RATIO = 2;
 
 	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', baseSizeMultiplier, gameManager));
 	const circleLifetime = $derived(baseCircleLifetime + gameManager.effects.value('photon_duration', 0, gameManager));
@@ -154,7 +145,7 @@
 	let labelEffects: unknown = null;
 	let labelNotation: NumberNotation = 'suffix';
 	let labelStability = 1;
-	let pixelRatio = 1;
+	let labelRatio = 1;
 
 	function clearLabels() {
 		for (const label of labelCache.values()) label.bitmap.close();
@@ -193,10 +184,10 @@
 		const width = Math.ceil(label.measureText(text).width) + padding * 2;
 		const height = FONT_SIZE + padding * 2;
 		// Resizing resets the context, so the text state is set afterwards.
-		image.width = Math.ceil(width * pixelRatio);
-		image.height = Math.ceil(height * pixelRatio);
+		image.width = Math.ceil(width * labelRatio);
+		image.height = Math.ceil(height * labelRatio);
 
-		label.scale(pixelRatio, pixelRatio);
+		label.scale(labelRatio, labelRatio);
 		label.font = font;
 		label.textAlign = 'center';
 		label.textBaseline = 'middle';
@@ -275,21 +266,9 @@
 		if (index !== -1) circles.splice(index, 1);
 		if (lastHoveredId === circle.id) lastHoveredId = null;
 
-		// The auto-clicker keeps collecting from another realm, but its particles must not float over that realm.
-		if (visible) {
-			const particleCount = Math.floor(circle.photons / 2) + 1;
-			const addedParticles: Particle[] = [];
-			const currencyType = circle.type === 'excited' ? CurrenciesTypes.EXCITED_PHOTONS : CurrenciesTypes.PHOTONS;
-
-			for (let i = 0; i < particleCount; i++) {
-				const particle = createClickParticleSync(x, y, currencyType);
-				if (particle) addedParticles.push(particle);
-			}
-			if (addedParticles.length > 0) {
-				addParticles(addedParticles);
-			}
-			AmbientField.emit(RealmTypes.PHOTONS, isAuto ? 'hum' : 'spark', { x, y }, { color: CURRENCIES[currencyType].color });
-		}
+		const currencyType = circle.type === 'excited' ? CurrenciesTypes.EXCITED_PHOTONS : CurrenciesTypes.PHOTONS;
+		ClickParticles.emit(RealmTypes.PHOTONS, x, y, currencyType, Math.floor(circle.photons / 2) + 1);
+		AmbientField.emit(RealmTypes.PHOTONS, isAuto ? 'hum' : 'spark', { x, y }, { color: CURRENCIES[currencyType].color });
 
 		// Excited stabilization: interacting with the realm resets/collapses it
 		const excitedStabilizationLevel = gameManager.photonUpgrades['excited_stabilization'] || 0;
@@ -331,44 +310,17 @@
 		return still ? 0 : Math.sin((circle.lifetime / FLOAT_PERIOD) * Math.PI * 2 + circle.phase) * FLOAT_AMPLITUDE;
 	}
 
-	// The canvas fills the container, so one rect serves both. getBoundingClientRect forces a synchronous layout, and this
-	// runs on every pointermove and every auto-click, so it is measured once and invalidated on scroll/resize.
-	let cachedRect: DOMRect | null = null;
-
-	function getContainerRect() {
-		if (!container) return null;
-		// Off-screen realms are translated sideways, a rect measured then would send every click past the photons.
-		if (!visible) return container.getBoundingClientRect();
-		if (!cachedRect) cachedRect = container.getBoundingClientRect();
-		return cachedRect;
-	}
-
-	// A rect measured during the swing-in is transformed, so it is dropped again once the realm has settled.
-	$effect(() => {
-		visible;
-		cachedRect = null;
-		const timeout = setTimeout(() => (cachedRect = null), REALM_SWITCH_MS + 50);
-		return () => clearTimeout(timeout);
-	});
-
-	$effect(() => {
-		const invalidate = () => (cachedRect = null);
-		window.addEventListener('resize', invalidate, { passive: true });
-		window.addEventListener('scroll', invalidate, { capture: true, passive: true });
-		return () => {
-			window.removeEventListener('resize', invalidate);
-			window.removeEventListener('scroll', invalidate, { capture: true });
-		};
-	});
+	/** The canvas fills the container, so one rect serves both, read on every pointer move and auto-click. */
+	const containerRect = new CachedRect(RealmTypes.PHOTONS, () => container);
 
 	/** Takes the layout size from the ResizeObserver, a bounding rect taken mid-swing is projected by the 3D transform. */
 	function resizeCanvas({ height, width }: DOMRectReadOnly) {
 		if (!canvas || !ctx) return;
 
-		cachedRect = null;
-		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
-		if (ratio !== pixelRatio) clearLabels();
-		pixelRatio = ratio;
+		containerRect.invalidate();
+		const ratio = pixelRatio();
+		if (ratio !== labelRatio) clearLabels();
+		labelRatio = ratio;
 
 		canvasWidth = width;
 		canvasHeight = height;
@@ -440,13 +392,13 @@
 	}
 
 	function circleFromEvent(event: MouseEvent) {
-		const rect = getContainerRect();
+		const rect = containerRect.current;
 		if (!rect) return null;
 		return circleAt(event.clientX - rect.left, event.clientY - rect.top);
 	}
 
 	function chromaticFromEvent(event: MouseEvent) {
-		const rect = getContainerRect();
+		const rect = containerRect.current;
 		if (!rect) return null;
 		return chromatic.at(event.clientX - rect.left, event.clientY - rect.top);
 	}

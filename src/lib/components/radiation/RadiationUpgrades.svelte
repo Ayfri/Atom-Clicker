@@ -63,7 +63,7 @@
 				disabled={!affordable}
 				in:reveal={{ y: 0 }}
 				onclick={event => {
-					if (radiationManager.purchaseUpgrade(upgrade.id)) AmbientField.emit(RealmTypes.RADIATION, 'bloom', event, { surge: 6, target: ReactorRenderer.mounted?.center });
+					if (radiationManager.purchaseUpgrade(upgrade.id)) AmbientField.emit(RealmTypes.RADIATION, 'bloom', event, { surge: 6, target: ReactorRenderer.current?.center });
 				}}
 			>
 				<span

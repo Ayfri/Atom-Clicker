@@ -4,6 +4,12 @@ import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 const ICON_VIEWBOX = 24;
 const PULSE_DURATION = 2000;
 
+/** Client center of the photon field, photon and prism purchases aim their background comets at it. */
+export function photonFieldCenter() {
+	const rect = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
+	return rect && { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
 /** Tailwind's `animate-pulse` timing function: cubic-bezier(0.4, 0, 0.6, 1). */
 function pulseEase(progress: number): number {
 	const x1 = 0.4;

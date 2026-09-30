@@ -29,7 +29,7 @@
 	function inject(event: MouseEvent) {
 		if (!radiationManager.unlocked) radiationManager.unlock();
 		radiationManager.bombardCore(electrons);
-		AmbientField.emit(RealmTypes.RADIATION, 'embers', event, { count: 8, surge: 6, target: ReactorRenderer.mounted?.center });
+		AmbientField.emit(RealmTypes.RADIATION, 'embers', event, { count: 8, surge: 6, target: ReactorRenderer.current?.center });
 	}
 </script>
 

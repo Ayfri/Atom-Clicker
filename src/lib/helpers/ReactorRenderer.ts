@@ -1,4 +1,4 @@
-import { CanvasLoop } from '$helpers/CanvasLoop';
+import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
 import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, TAU, type Vector } from '$helpers/nucleus';
 
 export interface ReactorScene {
@@ -27,7 +27,6 @@ const HEAT_STEPS_PER_UNIT = 4;
 const HOT_COLOR = '#fff1b8';
 const MAX_FUEL = 32;
 const MAX_NUCLEONS = 40;
-const MAX_PIXEL_RATIO = 2;
 const MAX_RAYS = 64;
 /** Nucleon units to view units, a constant so the ball grows with its nucleon count like a real nucleus. */
 const NUCLEUS_SCALE = 4.8;
@@ -53,8 +52,8 @@ function rodAngle(index: number): number {
  * nucleon sprites are rasterized at their on-screen size, and the loop parks itself once a frozen core has settled.
  */
 export class ReactorRenderer extends CanvasLoop {
-	/** The single mounted reactor, named apart from the instance `current` scene. */
-	static mounted: ReactorRenderer | null = null;
+	/** The single mounted reactor. */
+	static current: ReactorRenderer | null = null;
 
 	private readonly appear = new Float32Array(MAX_NUCLEONS);
 	private readonly ctx: CanvasRenderingContext2D;
@@ -72,7 +71,7 @@ export class ReactorRenderer extends CanvasLoop {
 	private readonly view: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
 	private accent = '';
 	private coreRadius = 0;
-	private current: ReactorScene;
+	private state: ReactorScene;
 	private flash = 0;
 	private heat = 0;
 	private output = 0;
@@ -93,10 +92,10 @@ export class ReactorRenderer extends CanvasLoop {
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;
-		this.current = scene;
+		this.state = scene;
 		this.power = scene.power;
 		this.output = scene.output;
-		ReactorRenderer.mounted = this;
+		ReactorRenderer.current = this;
 		this.observe();
 	}
 
@@ -108,16 +107,16 @@ export class ReactorRenderer extends CanvasLoop {
 
 	destroy() {
 		super.destroy();
-		if (ReactorRenderer.mounted === this) ReactorRenderer.mounted = null;
+		if (ReactorRenderer.current === this) ReactorRenderer.current = null;
 	}
 
 	get scene(): ReactorScene {
-		return this.current;
+		return this.state;
 	}
 
 	/** A new scene wakes a settled loop. */
 	set scene(scene: ReactorScene) {
-		this.current = scene;
+		this.state = scene;
 		this.update();
 	}
 
@@ -149,7 +148,7 @@ export class ReactorRenderer extends CanvasLoop {
 
 	protected resize() {
 		const cssSize = this.canvas.clientWidth;
-		this.pixelSize = Math.max(1, Math.round(cssSize * Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)));
+		this.pixelSize = Math.max(1, Math.round(cssSize * pixelRatio()));
 		this.canvas.width = this.canvas.height = this.vessel.width = this.vessel.height = this.pixelSize;
 		this.nucleonSprites.length = 0;
 		this.paintVessel();
@@ -188,7 +187,7 @@ export class ReactorRenderer extends CanvasLoop {
 	/** The vessel never moves: housing, bolts, rod sleeves, chamber and gauge track sit on the canvas behind, painted once per size and accent. */
 	private paintVessel() {
 		const { pixelSize } = this;
-		const accent = this.current.accent;
+		const accent = this.state.accent;
 		const ctx = this.vessel.getContext('2d');
 		if (!ctx) return;
 		const scale = pixelSize / VIEW_UNITS;
@@ -255,7 +254,7 @@ export class ReactorRenderer extends CanvasLoop {
 
 	/** Settles once a frozen or empty core has nothing left to animate, so an idle reactor costs no frames. */
 	protected draw(dt: number): boolean {
-		const { ctx, current: scene } = this;
+		const { ctx, state: scene } = this;
 		if (scene.accent !== this.accent) {
 			this.accent = scene.accent;
 			this.rayColor = mix(scene.accent, '#ffffff', 0.35);
@@ -548,7 +547,7 @@ export class ReactorRenderer extends CanvasLoop {
 	private drawGauge() {
 		const { ctx } = this;
 		if (this.output <= 0) return;
-		const capped = this.current.output >= 1;
+		const capped = this.state.output >= 1;
 		const color = capped ? CAPPED_COLOR : this.accent;
 		const end = GAUGE_START + GAUGE_SWEEP * Math.min(1, this.output);
 		ctx.lineCap = 'round';

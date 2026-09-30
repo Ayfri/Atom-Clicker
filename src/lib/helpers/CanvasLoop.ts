@@ -1,5 +1,13 @@
+import { prefersReducedMotion } from 'svelte/motion';
+
 const MAX_FRAME_S = 0.1;
 const SPRITE_SIZE = 128;
+
+/** Resolved once: the check is environment-level and runs on the click path. */
+export const particlesEnabled = typeof window !== 'undefined' && !/headless|phantom|selenium/.test(navigator.userAgent.toLowerCase());
+
+/** Cheap phones report a 3x ratio, which triples the fill cost of a canvas for no visible gain. */
+export const pixelRatio = (max = 2) => Math.min(window.devicePixelRatio || 1, max);
 
 /**
  * Lifecycle shared by the hand-drawn realm canvases: the frame loop only runs while the realm is selected and the canvas on screen,
@@ -30,6 +38,11 @@ export abstract class CanvasLoop {
 	protected abstract draw(dt: number): boolean;
 
 	protected abstract resize(): void;
+
+	/** Whether effects emitted now would be seen: a paused, hidden or reduced-motion canvas drops them instead of piling them up. */
+	protected get shown() {
+		return this.active && this.visible && !document.hidden && !prefersReducedMotion.current;
+	}
 
 	/** Called by the subclass constructor once its own fields exist, the first resize reads them. */
 	protected observe() {

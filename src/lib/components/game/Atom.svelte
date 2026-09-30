@@ -1,15 +1,15 @@
 <script lang="ts">
-	import {gameManager} from '$helpers/GameManager.svelte';
-	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
-	import {REALMS, RealmTypes} from '$data/realms';
-	import {GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor} from '$data/generators';
-	import { AmbientField } from '$helpers/AmbientField';
-	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
-	import {formatNumber} from '$lib/utils';
-	import { addParticles, particlesEnabled } from '$stores/canvas';
-	import { ui } from '$stores/ui.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor } from '$data/generators';
+	import { REALMS, RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '$helpers/AtomRenderer';
+	import { CachedRect } from '$helpers/CachedRect.svelte';
+	import { gameManager } from '$helpers/GameManager.svelte';
+	import { ClickParticles } from '$helpers/particles';
+	import { realmManager } from '$helpers/RealmManager.svelte';
+	import { formatNumber } from '$lib/utils';
+	import { ui } from '$stores/ui.svelte';
 	import { untrack } from 'svelte';
 
 	const prestigeColors = $derived([
@@ -58,38 +58,16 @@
 		renderer.setActive(realmManager.selectedRealmId === RealmTypes.ATOMS && !ui.covered);
 	});
 
-	// getBoundingClientRect forces a synchronous reflow, so the auto-clicker reuses the last measurement instead of taking one per click.
-	let cachedRect: DOMRect | null = null;
-
-	function getRect() {
-		if (!cachedRect && atomElement) cachedRect = atomElement.getBoundingClientRect();
-		return cachedRect;
-	}
-
-	// Auto-clicks keep measuring while the realm swings away or sits off screen, those rects are dropped once it settles back.
-	$effect(() => {
-		realmManager.selectedRealmId;
-		cachedRect = null;
-		const timeout = setTimeout(() => (cachedRect = null), REALM_SWITCH_MS + 50);
-		return () => clearTimeout(timeout);
-	});
-
-	$effect(() => {
-		const invalidate = () => (cachedRect = null);
-		window.addEventListener('resize', invalidate, { passive: true });
-		window.addEventListener('scroll', invalidate, { capture: true, passive: true });
-		return () => {
-			window.removeEventListener('resize', invalidate);
-			window.removeEventListener('scroll', invalidate, { capture: true });
-		};
-	});
+	const atomRect = new CachedRect(RealmTypes.ATOMS, () => atomElement);
+	/** Click power only changes on purchases, so the label isn't formatted again on every auto-click. */
+	const clickLabel = $derived(`+${formatNumber(gameManager.clickPower)}`);
 
 	/**
 	 * Auto-clickers tick at up to 50 Hz, faster ones are batched: one timer, reactive flush and particle burst per click
 	 * cost more than the rest of the game at 70 clicks/s on a phone. One burst per tick already saturates the particle caps.
 	 */
 	const MIN_AUTO_CLICK_INTERVAL_MS = 20;
-	const MAX_BURSTS_PER_BATCH = 1;
+	const CLICK_ICONS = 5;
 
 	$effect(() => {
 		const value = gameManager.autoClicksPerSecond;
@@ -106,11 +84,16 @@
 
 			// Auto-click atoms are credited with production by the commit loop in +page.svelte, this interval only drives the counters and the visuals.
 			gameManager.incrementClicks(true, count);
-			const rect = getRect();
+			const rect = atomRect.current;
 			if (!rect) return;
-			for (let i = 0; i < Math.min(count, MAX_BURSTS_PER_BATCH); i++) {
-				spawnParticles(rect.left + Math.random() * rect.width, rect.top + Math.random() * rect.height);
-			}
+			ClickParticles.emit(
+				RealmTypes.ATOMS,
+				rect.left + Math.random() * rect.width,
+				rect.top + Math.random() * rect.height,
+				CurrenciesTypes.ATOMS,
+				CLICK_ICONS,
+				clickLabel,
+			);
 			const angle = Math.random() * Math.PI * 2;
 			const radius = rect.width * 0.4;
 			AmbientField.emit(
@@ -126,26 +109,10 @@
 	function click(x: number, y: number) {
 		gameManager.addAtoms(gameManager.clickPower);
 		gameManager.incrementClicks();
-		spawnParticles(x, y);
+		ClickParticles.emit(RealmTypes.ATOMS, x, y, CurrenciesTypes.ATOMS, CLICK_ICONS, clickLabel);
 		AmbientField.emit(RealmTypes.ATOMS, 'spark', { x, y });
-		const rect = getRect();
+		const rect = atomRect.current;
 		if (rect) renderer?.pulse(x - rect.left - rect.width / 2, y - rect.top - rect.height / 2);
-	}
-
-	function spawnParticles(x: number, y: number) {
-		// The atom realm stays mounted while another one is on screen, so its auto-click particles would drift over that realm.
-		if (!particlesEnabled || realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
-
-		const newParticles: Particle[] = [];
-		const textParticle = createClickTextParticleSync(x + Math.random() * 10, y + Math.random() * 10, `+${formatNumber(gameManager.clickPower)}`);
-		if (textParticle) newParticles.push(textParticle);
-
-		for (let i = 0; i < 5; i++) {
-			const particle = createClickParticleSync(x + Math.random() * 10, y + Math.random() * 10, CurrenciesTypes.ATOMS);
-			if (particle) newParticles.push(particle);
-		}
-
-		if (newParticles.length > 0) addParticles(newParticles);
 	}
 
 	/** Every finger fires its own pointerdown, where a click only fires once per tap gesture. Keyboard activation still comes through click with detail 0. */
@@ -156,7 +123,7 @@
 
 	function handleClick(event: MouseEvent) {
 		if (event.detail !== 0) return;
-		const rect = getRect();
+		const rect = atomRect.current;
 		if (rect) click(rect.left + rect.width / 2, rect.top + rect.height / 2);
 	}
 </script>

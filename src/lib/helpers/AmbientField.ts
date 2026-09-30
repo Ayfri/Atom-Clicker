@@ -1,5 +1,5 @@
 import type { RealmType } from '$data/realms';
-import { CanvasLoop } from '$helpers/CanvasLoop';
+import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
 import { REALM_SWITCH_MS } from '$helpers/RealmManager.svelte';
 import { prefersReducedMotion } from 'svelte/motion';
 
@@ -64,7 +64,8 @@ const PRESETS = {
 const IMPACT: Preset = { alpha: 1, cooldown: 0, count: 5, drag: 0.05, life: [0.3, 0.6], lift: 0, ring: true, size: [3, 5], speed: [80, 160], spread: TAU, stretch: true };
 const COMET_LIFE: readonly [number, number] = [0.7, 1];
 /** Flight of a comet carrying a new electron, the shell waits for it before growing one. */
-export const ELECTRON_FLIGHT = 0.8;const COMET_SIZE: readonly [number, number] = [5, 7];
+export const ELECTRON_FLIGHT = 0.8;
+const COMET_SIZE: readonly [number, number] = [5, 7];
 /** Sideways bend of a comet path, as a share of its length. */
 const COMET_BEND: readonly [number, number] = [0.15, 0.35];
 
@@ -196,7 +197,7 @@ export class AmbientField extends CanvasLoop {
 	/** Drops bursts for a realm or tab that is not on screen, so callers never have to check. */
 	static emit(realm: RealmType, preset: AmbientPreset, origin: Origin, burst: AmbientBurst = {}): number[] {
 		const field = AmbientField.current;
-		return field?.realm === realm && !document.hidden && !prefersReducedMotion.current ? field.burst(preset, origin, burst) : [];
+		return field?.realm === realm && field.shown ? field.burst(preset, origin, burst) : [];
 	}
 
 	destroy() {
@@ -312,7 +313,7 @@ export class AmbientField extends CanvasLoop {
 	}
 
 	protected resize() {
-		this.ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		this.ratio = pixelRatio(MAX_PIXEL_RATIO);
 		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
 		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
 		// Resizing resets the context state and clears the canvas.
