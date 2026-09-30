@@ -231,10 +231,10 @@
 	<Canvas />
 
 	{#if realmManager.availableRealms.length > 1}
-		<!-- The panel itself is click-through, so its padding never swallows taps meant for the realm underneath. On a
-		     portrait phone it sits below the realm headers, which span most of the width. -->
+		<!-- The panel itself is click-through, so its padding never swallows taps meant for the realm underneath. On phones
+		     it sits just under the level bar, beside the realm headers. -->
 		<div
-			class="fixed right-4 top-[calc(var(--banner-height)+5rem)] max-lg:top-[calc(var(--banner-height)+14rem)] max-lg:landscape:top-[calc(var(--banner-height)+3.75rem)] z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
+			class="fixed right-4 top-[calc(var(--banner-height)+5rem)] z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
 			in:reveal
 		>
 			<div class="flex flex-col gap-1">
