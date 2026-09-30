@@ -1,17 +1,26 @@
 {
-	"background_color": "#0f172a",
+	"background_color": "#1a1a1a",
 	"categories": ["games", "entertainment"],
-	"description": "Free incremental game. Click atoms, buy buildings and upgrades, prestige through protons, electrons and photons, and climb the leaderboard.",
+	"description": "Free incremental game. Click atoms, buy generators and upgrades, prestige through protons, electrons and photons, and climb the leaderboard.",
+	"dir": "ltr",
 	"display": "standalone",
 	"icons": [
-		{ "purpose": "any", "sizes": "any", "src": "/currencies/atom.svg", "type": "image/svg+xml" }
+		{ "purpose": "any", "sizes": "any", "src": "/currencies/atom.svg", "type": "image/svg+xml" },
+		{ "purpose": "any", "sizes": "192x192", "src": "/icons/icon-192.png", "type": "image/png" },
+		{ "purpose": "any", "sizes": "512x512", "src": "/icons/icon-512.png", "type": "image/png" },
+		{ "purpose": "maskable", "sizes": "512x512", "src": "/icons/icon-maskable-512.png", "type": "image/png" }
 	],
+	"id": "/",
+	"lang": "en",
+	"launch_handler": { "client_mode": "focus-existing" },
 	"name": "Atom Clicker",
 	"screenshots": [
-		{ "form_factor": "wide", "sizes": "1920x911", "src": "/ingame-screenshot2.png", "type": "image/png" },
-		{ "form_factor": "wide", "sizes": "1404x862", "src": "/ingame-screenshot.png", "type": "image/png" }
+		{ "form_factor": "wide", "sizes": "1920x1080", "src": "/ingame-screenshot2.png", "type": "image/png" },
+		{ "form_factor": "wide", "sizes": "1920x1080", "src": "/ingame-screenshot.png", "type": "image/png" },
+		{ "form_factor": "wide", "sizes": "1920x1080", "src": "/ingame-screenshot3.png", "type": "image/png" }
 	],
+	"scope": "/",
 	"short_name": "Atom Clicker",
 	"start_url": "/",
-	"theme_color": "#4a90e2"
+	"theme_color": "#1a1a1a"
 }

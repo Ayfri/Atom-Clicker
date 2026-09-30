@@ -44,12 +44,12 @@
 		content="atom clicker,incremental game,clicker game,idle game,free online game,browser game,prestige game,atom game,physics game,particle clicker"
 	/>
 	<meta name="author" content={author} />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta name="generator" content={`SvelteKit ${VERSION}`} />
-	<meta name="theme-color" content="#4a90e2" />
+	<meta name="theme-color" content="#1a1a1a" />
 
 	<link rel="icon" type="image/svg+xml" href={absoluteImageLink} />
-	<link rel="apple-touch-icon" href={absoluteImageLink} />
+	<!-- iOS ignores manifest icons and SVG touch icons, it screenshots the page instead -->
+	<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 	<link rel="manifest" href="/manifest.webmanifest" />
 
 	<meta property="og:title" content={name} />
