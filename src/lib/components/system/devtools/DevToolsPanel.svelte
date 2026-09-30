@@ -90,7 +90,7 @@
 {:else}
 	<button
 		aria-label="Open DevTools"
-		class="fixed right-3 bottom-3 z-60 flex size-9 cursor-pointer items-center justify-center rounded-full border border-accent-500/30 bg-accent-950/80 text-accent-200/70 shadow-lg backdrop-blur transition-colors hover:text-white"
+		class="fixed right-3 bottom-[calc(var(--mobile-nav-height,0px)+0.75rem)] z-60 flex size-9 cursor-pointer items-center justify-center rounded-full border border-accent-500/30 bg-accent-950/80 text-accent-200/70 shadow-lg backdrop-blur transition-colors hover:text-white"
 		onclick={() => (prefs.open = true)}
 		title="DevTools (² or `)"
 	>

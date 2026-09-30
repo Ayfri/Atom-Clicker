@@ -131,7 +131,7 @@
 				targetRect
 			) ?
 				''
-			:	'bottom-6 left-1/2 -translate-x-1/2'}"
+			:	'bottom-[calc(var(--mobile-nav-height,0px)+1.5rem)] left-1/2 -translate-x-1/2'}"
 			style={position ? `left: ${position.left}px; top: ${position.top}px;` : targetRect ? 'visibility: hidden;' : ''}
 			in:fly={{ ...flyFrom, duration: 350 }}
 			out:fly={{ ...flyFrom, duration: 200 }}

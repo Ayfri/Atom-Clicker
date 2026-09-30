@@ -205,11 +205,10 @@
 	<AutoSaveIndicator />
 
 	{#if realmManager.availableRealms.length > 1}
-		<!-- The panel itself is click-through: at phone widths it sits over the top of the nav grid, and its
-		     own padding would otherwise swallow taps meant for the button underneath. -->
+		<!-- The panel itself is click-through, so its padding never swallows taps meant for the realm underneath. On a
+		     portrait phone it sits below the realm headers, which span most of the width. -->
 		<div
-			class="fixed right-4 z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
-			style="top: {mobile.current ? 'calc(var(--mobile-nav-bottom, 33vh) + 1rem)' : 'calc(var(--banner-height) + 5rem)'}"
+			class="fixed right-4 top-[calc(var(--banner-height)+5rem)] max-lg:top-[calc(var(--banner-height)+14rem)] max-lg:landscape:top-[calc(var(--banner-height)+3.75rem)] z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
 			in:reveal
 		>
 			<div class="flex flex-col gap-1">
@@ -279,7 +278,7 @@
 				) ?
 					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
 				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
-				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; transform: {side ?
+				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
 					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`
 				:	'translateX(0)'}; {background ? `background-image: ${background};` : ''}"
 			>

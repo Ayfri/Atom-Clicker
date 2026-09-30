@@ -35,7 +35,7 @@
 </script>
 
 {#if isSaving}
-	<div class="fixed bottom-4 right-4 z-50 pointer-events-none">
+	<div class="fixed bottom-[calc(var(--mobile-nav-height,0px)+1rem)] right-4 z-50 pointer-events-none">
 		<div class="animate-bounce">
 			<CloudUpload
 				size={28}

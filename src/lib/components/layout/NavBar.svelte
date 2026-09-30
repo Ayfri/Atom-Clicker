@@ -1,24 +1,30 @@
 <script lang="ts">
-	import QuarkIcon from '@components/icons/Quark.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { SKILL_UPGRADES } from '$data/skillTree';
-	import NotificationDot from '@components/ui/NotificationDot.svelte';
-	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
+	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
-	import { Atom, Medal, Network, Orbit, Settings as SettingsIcon, Sun, Zap } from '@lucide/svelte';
-	import { onDestroy, onMount, type Component } from 'svelte';
+	import ElectronizeIcon from '@components/icons/Electronize.svelte';
+	import IonizeIcon from '@components/icons/Ionize.svelte';
+	import ProtoniseIcon from '@components/icons/Protonise.svelte';
+	import QuarkIcon from '@components/icons/Quark.svelte';
+	import NotificationDot from '@components/ui/NotificationDot.svelte';
+	import { Medal, Network, Settings as SettingsIcon, Zap } from '@lucide/svelte';
+	import { onMount, type Component } from 'svelte';
 
-	type NavBarIcon = Component<{ class?: string; size?: number }>;
+	type NavBarIcon = Component<{ class?: string; size?: number; style?: string }>;
 	type ModalLoader = () => Promise<{ default: Component<{ onClose: () => void }> }>;
 
 	interface Link {
 		condition?: () => boolean;
+		/** Prestige actions are tinted and glow in this color when ready, and sit in their own group after the menus. */
+		glow?: string;
 		icon: NavBarIcon;
 		iconProps?: Record<string, unknown>;
 		id: string;
@@ -31,6 +37,9 @@
 	const settingsLoader: ModalLoader = () => import('@components/modals/Settings.svelte');
 
 	const SKILL_TREE_ROOTS = Object.values(SKILL_UPGRADES).filter(skill => !skill.requires || skill.requires.length === 0);
+	const PROTON_COLOR = CURRENCIES[CurrenciesTypes.PROTONS].color;
+	const ELECTRON_COLOR = CURRENCIES[CurrenciesTypes.ELECTRONS].color;
+	const WHITE_LIGHT_COLOR = CURRENCIES[CurrenciesTypes.WHITE_LIGHT].color;
 
 	const links: Link[] = [
 		{
@@ -58,7 +67,7 @@
 		},
 		{
 			icon: QuarkIcon,
-			iconProps: { color: 'white', mono: true },
+			iconProps: { mono: true },
 			id: 'quarks',
 			label: 'Quarks',
 			load: () => import('@components/modals/Quarks.svelte'),
@@ -66,7 +75,9 @@
 			notification: () => supabaseAuth.isAuthenticated && quarksManager.hasSynced && quarksManager.hasClaimableQuest,
 		},
 		{
-			icon: Atom,
+			glow: PROTON_COLOR,
+			icon: ProtoniseIcon,
+			iconProps: { color: PROTON_COLOR },
 			id: 'protonise',
 			label: 'Protonise',
 			load: () => import('@components/prestige/Protonise.svelte'),
@@ -74,7 +85,9 @@
 			notification: () => gameManager.protoniseProtonsGain > gameManager.protons,
 		},
 		{
-			icon: Orbit,
+			glow: ELECTRON_COLOR,
+			icon: ElectronizeIcon,
+			iconProps: { color: ELECTRON_COLOR },
 			id: 'electronize',
 			label: 'Electronize',
 			load: () => import('@components/prestige/Electronize.svelte'),
@@ -82,7 +95,9 @@
 			notification: () => gameManager.electronizeElectronsGain > 0,
 		},
 		{
-			icon: Sun,
+			glow: WHITE_LIGHT_COLOR,
+			icon: IonizeIcon,
+			iconProps: { color: WHITE_LIGHT_COLOR },
 			id: 'ionize',
 			label: 'Ionize',
 			load: () => import('@components/prestige/Ionize.svelte'),
@@ -93,6 +108,7 @@
 
 	const settingsLink: Link = {
 		icon: SettingsIcon,
+		iconProps: { class: 'transition-transform duration-500 group-hover:rotate-90' },
 		id: 'settings',
 		label: 'Settings',
 		load: settingsLoader,
@@ -100,10 +116,12 @@
 
 	/**
 	 * The conditions read live currencies, so the mask is re-evaluated on every atom commit, but as a string it only
-	 * invalidates the link list, and re-renders the nav, when a link actually appears or disappears.
+	 * invalidates the link lists, and re-renders the nav, when a link actually appears or disappears.
 	 */
 	const visibleMask = $derived(links.map(link => (!link.condition || link.condition() ? '1' : '0')).join(''));
-	const visibleComponents = $derived(links.filter((_, i) => visibleMask[i] === '1'));
+	const visibleLinks = $derived(links.filter((_, i) => visibleMask[i] === '1'));
+	const menuLinks = $derived(visibleLinks.filter(link => !link.glow));
+	const prestigeLinks = $derived(visibleLinks.filter(link => link.glow));
 
 	onMount(() => {
 		ui.registerSettings(settingsLoader);
@@ -113,108 +131,64 @@
 		if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 5000 });
 		else setTimeout(warm, 2000);
 	});
-
-	onDestroy(() => {
-		document.documentElement.style.removeProperty('--mobile-nav-bottom');
-	});
-
-	// The phone nav floats over the realm, so anything else floating there reads this to dock below it instead of on top of it.
-	let mobileNavHeight = $state(0);
-	$effect(() => {
-		if (!mobile.current) {
-			document.documentElement.style.removeProperty('--mobile-nav-bottom');
-			return;
-		}
-		document.documentElement.style.setProperty('--mobile-nav-bottom', `calc(33vh + ${mobileNavHeight / 2}px)`);
-	});
 </script>
 
-{#if mobile.current}
-	<div
-		class="absolute top-[33vh] -translate-y-1/2 z-10 grid gap-3.5 pointer-events-none"
-		class:grid-cols-2={visibleComponents.length + 1 >= 5}
-		class:inset-x-0={visibleComponents.length + 1 >= 5}
-		class:justify-between={visibleComponents.length + 1 >= 5}
-		class:left-4={visibleComponents.length + 1 < 5}
-		class:px-4={visibleComponents.length + 1 >= 5}
-		class:w-full={visibleComponents.length + 1 >= 5}
-		style:grid-template-columns={visibleComponents.length + 1 >= 5 ? 'auto auto' : 'auto'}
-		bind:clientHeight={mobileNavHeight}
+{#snippet navButton(link: Link)}
+	{const notification = $derived(link.notification?.() ?? false)}
+	<button
+		aria-label={link.label}
+		class={[
+			'group relative flex shrink-0 items-center justify-center rounded-xl transition-colors',
+			mobile.current ? 'h-12 max-w-16 min-w-0 flex-1' : 'size-12',
+			ui.activeModalId === link.id ? 'bg-white/10 text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
+		]}
+		id="nav-{link.id}"
+		in:reveal={{ y: 0 }}
+		onclick={() => ui.openModalLazy(link.id, link.load)}
 	>
-		{#each visibleComponents as link (link.id)}
-			<NotificationDot hasNotification={link.notification ? link.notification() : false}>
-				<button
-					aria-label={link.label}
-					class="flex items-center justify-center rounded-lg p-2 text-white/85 transition-all hover:text-white pointer-events-auto"
-					id="nav-{link.label.toLowerCase().replace(/\s+/g, '-')}"
-					in:reveal|global={{ y: 0 }}
-					onclick={() => ui.openModalLazy(link.id, link.load)}
-				>
-					<link.icon size={30} {...link.iconProps} />
-				</button>
-			</NotificationDot>
-		{/each}
-
-		<!-- Mobile Settings (add to grid or place separately? User said bottom of navbar, which implies desktop mostly, but let's add it here too if space permits or just keep it in flow) -->
-		<!-- For mobile, just append it to the list effectively -->
-		<NotificationDot>
-			<button
-				aria-label={settingsLink.label}
-				class="flex items-center justify-center rounded-lg p-2 text-white/85 transition-all hover:text-white pointer-events-auto"
-				id="nav-{settingsLink.label.toLowerCase().replace(/\s+/g, '-')}"
-				onclick={() => ui.openModalLazy(settingsLink.id, settingsLink.load)}
-			>
-				<settingsLink.icon size={30} />
-			</button>
+		<NotificationDot class="relative flex" color={link.glow} hasNotification={notification}>
+			<link.icon
+				size={mobile.current ? 26 : 30}
+				style={link.glow && notification ? `filter: drop-shadow(0 0 6px ${link.glow})` : undefined}
+				{...link.iconProps}
+			/>
 		</NotificationDot>
-	</div>
-{:else}
-	<nav
-		class="fixed left-0 z-50 flex h-full flex-col items-center gap-5 bg-black/20 px-3 py-6 backdrop-blur-xs transition-all duration-300"
-		style="top: var(--banner-height)"
-	>
-		{#each visibleComponents as link (link.id)}
-			<NotificationDot hasNotification={link.notification ? link.notification() : false}>
-				<button
-					class="group relative flex h-12 w-12 items-center justify-center rounded-lg text-white/85 transition-all hover:text-white"
-					id="nav-{link.label.toLowerCase().replace(/\s+/g, '-')}"
-					in:reveal|global={{ y: 0 }}
-					onclick={() => ui.openModalLazy(link.id, link.load)}
-				>
-					<link.icon size={32} {...link.iconProps} />
-					<span
-						class="label invisible absolute left-[calc(100%+1.25rem)] whitespace-nowrap rounded-xl bg-accent-950/95 backdrop-blur-md px-3 py-2 text-sm text-white/90 opacity-0 transition-all group-hover:visible group-hover:opacity-100 border border-white/10 shadow-2xl z-50"
-					>
-						{link.label}
-					</span>
-				</button>
-			</NotificationDot>
-		{/each}
-
-		<div class="flex-1"></div>
-
-		<NotificationDot>
-			<button
-				class="group relative flex h-12 w-12 items-center justify-center rounded-lg text-white/85 transition-all hover:text-white"
-				id="nav-{settingsLink.label.toLowerCase().replace(/\s+/g, '-')}"
-				onclick={() => ui.openModalLazy(settingsLink.id, settingsLink.load)}
+		{#if !mobile.current}
+			<span
+				class="label invisible absolute left-[calc(100%+1.25rem)] z-50 whitespace-nowrap rounded-xl border border-white/10 bg-accent-950/95 px-3 py-2 text-sm text-white/90 opacity-0 shadow-2xl backdrop-blur-md transition-all group-hover:visible group-hover:opacity-100"
 			>
-				<div class="transition-transform duration-500 group-hover:rotate-90">
-					<settingsLink.icon size={32} />
-				</div>
-				<span
-					class="label invisible absolute left-[calc(100%+1.25rem)] whitespace-nowrap rounded-xl bg-accent-950/95 backdrop-blur-md px-3 py-2 text-sm text-white/90 opacity-0 transition-all group-hover:visible group-hover:opacity-100 border border-white/10 shadow-2xl z-50"
-				>
-					{settingsLink.label}
-				</span>
-			</button>
-		</NotificationDot>
-	</nav>
-{/if}
+				{link.label}
+			</span>
+		{/if}
+	</button>
+{/snippet}
+
+<!-- A single nav restyled between the phone dock and the desktop rail, so rotating a tablet never remounts its buttons. -->
+<nav
+	class={[
+		'fixed bottom-0 flex',
+		mobile.current ?
+			'inset-x-0 z-40 h-(--mobile-nav-height) items-center justify-center gap-0.5 border-t border-white/10 bg-accent-950/95 px-1'
+		:	'left-0 z-50 w-18 flex-col items-center gap-2 border-r border-white/5 bg-black/25 py-4 backdrop-blur-xs',
+	]}
+	style:top={mobile.current ? undefined : 'var(--banner-height)'}
+>
+	{#each menuLinks as link (link.id)}
+		{@render navButton(link)}
+	{/each}
+	{#if menuLinks.length > 0 && prestigeLinks.length > 0}
+		<div class={['shrink-0 bg-white/10', mobile.current ? 'mx-1 h-7 w-px' : 'my-2 h-px w-8']}></div>
+	{/if}
+	{#each prestigeLinks as link (link.id)}
+		{@render navButton(link)}
+	{/each}
+	<div class={mobile.current ? 'mx-1 h-7 w-px shrink-0 bg-white/10' : 'flex-1'}></div>
+	{@render navButton(settingsLink)}
+</nav>
 
 {#if ui.activeModal}
-	{@const SvelteComponent = ui.activeModal}
-	<SvelteComponent onClose={() => ui.closeModal()} />
+	{const ActiveModal = $derived(ui.activeModal)}
+	<ActiveModal onClose={() => ui.closeModal()} />
 {/if}
 
 <style>

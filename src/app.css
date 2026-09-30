@@ -50,6 +50,13 @@
 		touch-action: manipulation;
 	}
 
+	/* Height of the phone nav dock, which the realms and everything floating at the bottom sit above. Mirrors MOBILE_QUERY. */
+	@media (width < 64rem) {
+		:root {
+			--mobile-nav-height: 3.5rem;
+		}
+	}
+
 	* {
 		box-sizing: border-box;
 		user-select: none;
