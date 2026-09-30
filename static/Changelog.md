@@ -1,22 +1,25 @@
 # Unreleased
 
-- **Tutorial**: No more popups, small tips now point right at what to do next and vanish once you do it, while the interface grows panel by panel as you unlock things (turn tips off or replay them in Settings).
-- **Generators**: Buildings are now called Generators, and each one shows its share of your production and how many more you need for its next level, with a line that previews how far your next purchase takes it.
-- **The Atom**: The atom is now in 3D, with your generators' electrons orbiting a nucleus that grows as you progress and picks up the color of each prestige and realm you unlock.
-- **Counters**: Bolder atom and photon counters with your other currencies and Lights at a glance, and a Stability Field gauge that fills while you leave the game alone.
-- **Skill Tree**: A redrawn, animated tree where energy flows into each skill you buy, whose skills now unlock new mechanics only, grouped by theme and kept through every prestige, while the production boosts moved to the Upgrades list and the photon shop.
-- **Photon Realm**: The photon field now glows with drifting light waves, and each photon shows a ring counting down its time left.
-- **Radiation Realm**: The reactor is redrawn in 3D with control rods that pull out as you raise the power lever and a core that grows with your fuel and burns white-hot at full power, with fuel, power and output gathered around it.
-- **Living Backgrounds**: Every realm fills with drifting motes that thicken as you unlock things, turn gold during a Higgs power-up, and light up with each click and purchase, which sends a comet to the part of the atom or reactor it powers.
-- **Protonize & Electronize**: Redesigned menus that show your gain, when it next jumps, what the next run brings and exactly what each reset clears or keeps.
-- **Ionize & the Prism**: Holding your reactor above 10K CPM for a minute unlocks Ionize, a deeper prestige with its own milestones that installs a Prism sending tough Red, Green and Blue photons into the Photon Realm, whose Light boosts every realm and recombines into White Light.
+## New
+
+- **Ionize & the Prism**: Run your reactor above 10K CPM for a minute to unlock Ionize, a deeper prestige whose Prism sends Red, Green and Blue photons into the Photon Realm, their Light boosting every realm.
+- **Collider**: A particle ring shared by every player, where each signed-in player injects a particle a minute and every 1,000 particles boost everyone's production.
+- **Living Backgrounds**: Every realm fills with drifting motes that thicken as you progress, and each click or purchase sends a comet to what it powers.
+- **Tutorial**: Small tips replace the popups and point at what to do next, while the interface opens up panel by panel as you unlock things.
 - **Quark Shop**: A Prism theme for the Photon Realm and a banner for each colored Light.
-- **Collider**: A new skill opens a particle ring shared by every player, where each signed-in player injects one particle a minute and every 1,000 particles boost everyone's production by 0.1%.
-- **Achievements**: The list is grouped by theme with your progress in each, and every series only shows your latest tier and the next one to reach until you expand it.
-- **Offline Progress**: Coming back now greets you with a Welcome Back screen where your loot counts up, showing how much offline time counted and what your automation did while you were away.
-- **Settings**: A cleaner menu on desktop and mobile with a more visual Profile and Stats, a Gameplay tab open to everyone, a Save tab comparing this device with your cloud save, and a Legal & Privacy tab where you can turn off Google Analytics.
-- **Navigation**: Protonize, Electronize and Ionize get their own colored icons, grouped apart from the menus, that glow when a reset is ready.
-- **Mobile**: A bottom bar replaces the floating icons, the game now fits your phone in landscape, and rotating it no longer leaves the page shrunk.
+
+## Redesigned
+
+- **The Atom**: Now in 3D, with your generators' electrons orbiting a nucleus that grows and takes the color of each realm you unlock.
+- **Counters**: Bolder atom and photon counters with all your currencies at a glance, and a Stability Field gauge that fills while you idle.
+- **Generators**: Buildings are now Generators, each showing its share of your production and how close it is to its next level.
+- **Skill Tree**: An animated tree whose skills unlock new mechanics and stay through every prestige, while production boosts moved to Upgrades.
+- **Realms**: The photon field glows with light waves, and the reactor is now in 3D with rods and a core that react to your power lever.
+- **Prestige**: Protonize and Electronize show your gain and what each reset keeps, and every reset gets its own icon that glows when ready.
+- **Achievements**: Grouped by theme, each series showing only your latest tier and the next one.
+- **Offline Progress**: A Welcome Back screen counts up your loot and shows what your automation did while you were away.
+- **Settings**: A cleaner menu with a visual Profile, a Save tab comparing this device with your cloud save, and a way to turn off Google Analytics.
+- **Mobile**: A bottom bar replaces the floating icons, and the game fits your phone in landscape.
 
 # What's new 19-09-2026
 
