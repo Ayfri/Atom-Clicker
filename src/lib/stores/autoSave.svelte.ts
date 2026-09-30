@@ -1,11 +1,13 @@
 import { browser } from '$app/environment';
 import { gameManager } from '$helpers/GameManager.svelte';
 import { getItem, setItem } from '$lib/utils/safeLocalStorage';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+import { supabaseAuth, type CloudSaveInfo } from '$stores/supabaseAuth.svelte';
 
 class AutoSaveStore {
 	enabled = $state(browser && getItem('cloudAutoSaveEnabled') === 'true');
 	isSaving = $state(false);
+	/** What the last auto-save uploaded, so the Cloud Save tab shows it without downloading it back. */
+	lastSaved = $state.raw<CloudSaveInfo | null>(null);
 	lastSaveTime = $state(0);
 
 	shouldAutoSave = $derived(this.enabled && supabaseAuth.isAuthenticated);
@@ -31,7 +33,7 @@ class AutoSaveStore {
 		this.isSaving = true;
 
 		try {
-			await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
+			this.lastSaved = await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
 			this.lastSaveTime = Date.now();
 		} catch (error) {
 			console.warn('Auto-save failed:', error);

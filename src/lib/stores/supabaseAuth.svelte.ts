@@ -14,6 +14,8 @@ export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
 type AccountProfile = Pick<Profile, 'id' | 'picture' | 'username'>;
 const PROFILE_COLUMNS = 'id, picture, username';
 
+export type CloudSaveInfo = GameState & { lastSaveDate: number | null };
+
 export class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
@@ -307,27 +309,25 @@ export class SupabaseAuth {
 		}
 	}
 
-	async saveGameToCloud(currentState: GameState) {
-		if (!browser || !this.supabase) return;
+	/** Returns what now sits in the cloud, a snapshot so it stops following the live game state. */
+	async saveGameToCloud(currentState: GameState): Promise<CloudSaveInfo | null> {
+		if (!browser || !this.supabase) return null;
 
 		try {
 			if (!this.user) throw new Error('No authenticated user');
 
-			const saveData = {
-				...currentState,
-				version: SAVE_VERSION,
-				lastSaveDate: Date.now(),
-			} as unknown as Json;
+			const saveData: CloudSaveInfo = $state.snapshot({ ...currentState, lastSaveDate: Date.now(), version: SAVE_VERSION });
 
 			const { error } = await this.supabase
 				.from('profiles')
 				.update({
-					save: saveData,
+					save: saveData as unknown as Json,
 					updated_at: new Date().toISOString(),
 				})
 				.eq('id', this.user.id);
 
 			if (error) throw error;
+			return saveData;
 		} catch (err) {
 			console.error('Error saving game to cloud:', err);
 			throw err;
@@ -373,7 +373,7 @@ export class SupabaseAuth {
 		}
 	}
 
-	async getCloudSaveInfo() {
+	async getCloudSaveInfo(): Promise<CloudSaveInfo | null> {
 		if (!browser || !this.supabase || !this.user) return null;
 
 		try {

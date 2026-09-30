@@ -8,10 +8,9 @@
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { levelFromTotalXP } from '$helpers/xp';
-	import type { GameState } from '$lib/types';
 	import { formatDuration } from '$lib/utils';
 	import { autoSave } from '$stores/autoSave.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import { supabaseAuth, type CloudSaveInfo } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
 	import { ArrowLeft, ArrowRight, Cloud, HardDrive, RotateCcw, TriangleAlert, type LucideIcon } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -30,21 +29,21 @@
 
 	let { onClose = () => {} }: Props = $props();
 
-	type CloudSaveInfo = {
-		lastSaveDate: number | null;
-	} & GameState;
-
 	const AHEAD_THRESHOLD_MS = 5_000;
 	const SAVE_COOLDOWN = 30_000;
 
-	let cloudSaveInfo = $state.raw<CloudSaveInfo | null>(null);
 	let confirmLoad = $state(false);
+	let fetchedCloudSave = $state.raw<CloudSaveInfo | null>(null);
 	let lastManualSaveTime = $state(0);
 	let loading = $state(false);
 	let now = $state(Date.now());
 	let showHardReset = $state(false);
 	let showLoginModal = $state(false);
 
+	/** An auto-save while the tab is open is newer than the fetched copy and already known, without downloading it back. */
+	const cloudSaveInfo = $derived(
+		(autoSave.lastSaved?.lastSaveDate ?? 0) > (fetchedCloudSave?.lastSaveDate ?? 0) ? autoSave.lastSaved : fetchedCloudSave,
+	);
 	/** Auto-saves share the manual upload cooldown so the two never hit Supabase back to back. */
 	const cooldownEnd = $derived(Math.max(lastManualSaveTime, autoSave.lastSaveTime) + SAVE_COOLDOWN);
 	const cooldownLeft = $derived(Math.max(0, Math.ceil((cooldownEnd - now) / 1000)));
@@ -73,7 +72,7 @@
 
 	async function refreshCloudSaveInfo() {
 		if (!supabaseAuth.isAuthenticated) return;
-		cloudSaveInfo = await supabaseAuth.getCloudSaveInfo();
+		fetchedCloudSave = await supabaseAuth.getCloudSaveInfo();
 	}
 
 	const dateFormat = new Intl.DateTimeFormat('en-US', { day: '2-digit', hour: '2-digit', minute: '2-digit', month: 'short', year: 'numeric' });
@@ -83,8 +82,7 @@
 	async function handleUpload() {
 		loading = true;
 		try {
-			await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
-			await refreshCloudSaveInfo();
+			fetchedCloudSave = await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
 			toastStore.info({ title: 'Success', message: 'Game saved to cloud' });
 			lastManualSaveTime = Date.now();
 		} catch (e) {
