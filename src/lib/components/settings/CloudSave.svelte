@@ -13,8 +13,9 @@
 	import { autoSave } from '$stores/autoSave.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
-	import { ArrowLeft, ArrowRight, Cloud, HardDrive, RotateCcw, TriangleAlert } from '@lucide/svelte';
-	import { onMount, type Component } from 'svelte';
+	import { ArrowLeft, ArrowRight, Cloud, HardDrive, RotateCcw, TriangleAlert, type LucideIcon } from '@lucide/svelte';
+	import { onMount } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 
 	interface Props {
 		onClose?: () => void;
@@ -36,7 +37,7 @@
 	const AHEAD_THRESHOLD_MS = 5_000;
 	const SAVE_COOLDOWN = 30_000;
 
-	let cloudSaveInfo = $state<CloudSaveInfo | null>(null);
+	let cloudSaveInfo = $state.raw<CloudSaveInfo | null>(null);
 	let confirmLoad = $state(false);
 	let lastManualSaveTime = $state(0);
 	let loading = $state(false);
@@ -45,8 +46,30 @@
 	let showLoginModal = $state(false);
 
 	/** Auto-saves share the manual upload cooldown so the two never hit Supabase back to back. */
-	const cooldownProgress = $derived(Math.min(1, (now - Math.max(lastManualSaveTime, autoSave.lastSaveTime)) / SAVE_COOLDOWN));
-	const autoSaveProgress = $derived(autoSave.shouldAutoSave && autoSave.lastSaveTime > 0 ? Math.min(1, (now - autoSave.lastSaveTime) / SAVE_COOLDOWN) : 0);
+	const cooldownEnd = $derived(Math.max(lastManualSaveTime, autoSave.lastSaveTime) + SAVE_COOLDOWN);
+	const cooldownLeft = $derived(Math.max(0, Math.ceil((cooldownEnd - now) / 1000)));
+
+	/** Wakes up on each whole second of the cooldown only, and not at all once it is over. */
+	$effect(() => {
+		const end = cooldownEnd;
+		let timer: ReturnType<typeof setTimeout>;
+		const tick = () => {
+			const time = Date.now();
+			now = time;
+			if (time < end) timer = setTimeout(tick, (end - time) % 1000 || 1000);
+		};
+		tick();
+		return () => clearTimeout(timer);
+	});
+
+	/** Fills the auto-save bar on the compositor, restarted by each save instead of re-rendered by a clock. */
+	const autoSaveBar =
+		(lastSaveTime: number): Attachment<HTMLElement> =>
+		node => {
+			const animation = node.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: SAVE_COOLDOWN, fill: 'forwards' });
+			animation.currentTime = Date.now() - lastSaveTime;
+			return () => animation.cancel();
+		};
 
 	async function refreshCloudSaveInfo() {
 		if (!supabaseAuth.isAuthenticated) return;
@@ -55,25 +78,7 @@
 
 	const dateFormat = new Intl.DateTimeFormat('en-US', { day: '2-digit', hour: '2-digit', minute: '2-digit', month: 'short', year: 'numeric' });
 
-	onMount(() => {
-		refreshCloudSaveInfo();
-
-		const handleBeforeUnload = async () => {
-			if (!autoSave.enabled || !supabaseAuth.isAuthenticated) return;
-			try {
-				await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
-			} catch (e) {
-				console.warn('Save on exit failed:', e);
-			}
-		};
-
-		const clock = setInterval(() => (now = Date.now()), 100);
-		window.addEventListener('beforeunload', handleBeforeUnload);
-		return () => {
-			clearInterval(clock);
-			window.removeEventListener('beforeunload', handleBeforeUnload);
-		};
-	});
+	onMount(refreshCloudSaveInfo);
 
 	async function handleUpload() {
 		loading = true;
@@ -125,10 +130,9 @@
 	);
 	const cloudAhead = $derived(!!cloud && cloud.time > local.time + AHEAD_THRESHOLD_MS);
 	const localAhead = $derived(!!cloud && local.time > cloud.time + AHEAD_THRESHOLD_MS);
-	const cooldownLeft = $derived(Math.ceil((SAVE_COOLDOWN * (1 - cooldownProgress)) / 1000));
 </script>
 
-{#snippet card(title: string, Icon: Component<{ class?: string; size?: number }>, snapshot: Snapshot | null, ahead: boolean)}
+{#snippet card(title: string, Icon: LucideIcon, snapshot: Snapshot | null, ahead: boolean)}
 	<div class="flex flex-col gap-3 rounded-xl border p-4 {ahead ? 'border-accent/50 bg-accent/10' : 'border-white/10 bg-black/20'}">
 		<div class="flex items-center gap-2">
 			<Icon class="text-accent" size={18} />
@@ -168,12 +172,12 @@
 				<div class="flex flex-wrap items-center justify-center gap-2 md:flex-col">
 					<button
 						class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:not-disabled:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50 max-md:flex-1 max-md:justify-center md:w-full"
-						disabled={loading || cooldownProgress < 1}
+						disabled={loading || cooldownLeft > 0}
 						onclick={handleUpload}
 						title="Replace the cloud save with this device's progress"
 					>
 						<ArrowRight class="max-md:rotate-90" size={18} />
-						{cooldownProgress < 1 ? `Wait ${cooldownLeft}s` : 'Save to cloud'}
+						{cooldownLeft > 0 ? `Wait ${cooldownLeft}s` : 'Save to cloud'}
 					</button>
 					<button
 						class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-md:flex-1 max-md:justify-center md:w-full
@@ -199,8 +203,8 @@
 
 		<SettingRow description="Uploads your progress every 30 seconds while you play." title="Auto-save to cloud">
 			<Switch bind:checked={autoSave.enabled} label="Auto-save to cloud" />
-			{#if autoSave.shouldAutoSave}
-				<span class="absolute bottom-0 left-0 h-0.5 bg-accent-500 transition-[width] duration-100 ease-linear" style:width="{autoSaveProgress * 100}%"></span>
+			{#if autoSave.shouldAutoSave && autoSave.lastSaveTime > 0}
+				<span {@attach autoSaveBar(autoSave.lastSaveTime)} class="absolute bottom-0 left-0 h-0.5 w-full origin-left bg-accent-500"></span>
 			{/if}
 		</SettingRow>
 	{:else}
