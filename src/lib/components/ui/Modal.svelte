@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { X } from '@lucide/svelte';
+	import { ui } from '$stores/ui.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -28,6 +29,23 @@
 		xl: 'max-w-7xl'
 	}[width]);
 
+	/** Phones show the modal fullscreen, the desktop one leaves the game visible around it. */
+	function trackCoverage(element: HTMLElement) {
+		let release: (() => void) | undefined;
+		const observer = new ResizeObserver(() => {
+			const { clientHeight, clientWidth } = document.documentElement;
+			const covers = element.offsetWidth >= clientWidth && element.offsetHeight >= clientHeight;
+			if (covers === !!release) return;
+			release?.();
+			release = covers ? ui.cover() : undefined;
+		});
+		observer.observe(element);
+		return () => {
+			observer.disconnect();
+			release?.();
+		};
+	}
+
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			onClose();
@@ -47,6 +65,7 @@
 	transition:fade={{ duration: 200 }}
 >
 	<div
+		{@attach trackCoverage}
 		class="modal flex h-dvh w-screen md:h-[85vh] md:w-[85vw] {widthClasses} flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={onKeydown}

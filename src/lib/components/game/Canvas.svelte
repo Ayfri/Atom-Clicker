@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { loadParticleAssets, ParticleEngine } from '$helpers/particles';
 	import { particlesEnabled, setParticleSink } from '$stores/canvas';
+	import { ui } from '$stores/ui.svelte';
 	import { onDestroy, onMount } from 'svelte';
 
 	// The particle math expects deltas in 60fps frames, with long gaps clamped.
@@ -66,6 +67,7 @@
 		document.body.appendChild(canvas);
 		engine = new ParticleEngine();
 		setParticleSink(particles => {
+			if (ui.covered) return;
 			engine?.add(particles);
 			start();
 		});

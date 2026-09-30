@@ -7,6 +7,7 @@ class UIStore {
 	#activeModal = $state<ModalComponent | null>(null);
 	#activeModalId = $state<string | null>(null);
 	#activeTab = $state<string | null>(null);
+	#covers = $state(0);
 	#loaded = new Map<string, ModalComponent>();
 	#settingsLoader: ModalLoader | null = null;
 
@@ -29,6 +30,20 @@ class UIStore {
 
 	set activeTab(value: string | null) {
 		this.#activeTab = value;
+	}
+
+	/**
+	 * A modal fills the whole viewport, so the realm canvases behind it pause: an IntersectionObserver doesn't see an overlay,
+	 * and a loop left running forces a main frame per vsync that also restyles every animation of the modal.
+	 */
+	get covered() {
+		return this.#covers > 0;
+	}
+
+	/** Registers a viewport-filling overlay, returns its release. */
+	cover() {
+		this.#covers++;
+		return () => this.#covers--;
 	}
 
 	openModal(component: ModalComponent, tab: string | null = null, id: string | null = null) {

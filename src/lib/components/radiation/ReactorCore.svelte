@@ -5,6 +5,7 @@
 	import { ReactorRenderer, type ReactorScene } from '$helpers/ReactorRenderer';
 	import { realmManager } from '$helpers/RealmManager.svelte';
 	import { formatNumber } from '$lib/utils';
+	import { ui } from '$stores/ui.svelte';
 	import { untrack } from 'svelte';
 
 	interface Props {
@@ -40,7 +41,7 @@
 	$effect(() => {
 		if (!renderer) return;
 		renderer.scene = scene;
-		renderer.setActive(realmManager.selectedRealmId === RealmTypes.RADIATION);
+		renderer.setActive(realmManager.selectedRealmId === RealmTypes.RADIATION && !ui.covered);
 	});
 
 	/** A running reactor sheds a slow mote from its rim, more often the closer its output is to the cap. */

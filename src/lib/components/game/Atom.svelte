@@ -7,6 +7,7 @@
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
 	import {formatNumber} from '$lib/utils';
 	import { addParticles, particlesEnabled } from '$stores/canvas';
+	import { ui } from '$stores/ui.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '$helpers/AtomRenderer';
 	import { untrack } from 'svelte';
@@ -54,7 +55,7 @@
 	$effect(() => {
 		if (!renderer) return;
 		renderer.scene = scene;
-		renderer.setActive(realmManager.selectedRealmId === RealmTypes.ATOMS);
+		renderer.setActive(realmManager.selectedRealmId === RealmTypes.ATOMS && !ui.covered);
 	});
 
 	// getBoundingClientRect forces a synchronous reflow, so the auto-clicker reuses the last measurement instead of taking one per click.

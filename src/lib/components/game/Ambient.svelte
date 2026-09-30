@@ -2,6 +2,7 @@
 	import type { RealmType } from '$data/realms';
 	import { AmbientField, type Ambience } from '$helpers/AmbientField';
 	import { particlesEnabled } from '$stores/canvas';
+	import { ui } from '$stores/ui.svelte';
 	import { untrack } from 'svelte';
 
 	interface Props {
@@ -28,6 +29,7 @@
 		if (!field) return;
 		field.accent = accent;
 		field.setAmbience(ambience);
+		field.setActive(!ui.covered);
 	});
 </script>
 

@@ -16,6 +16,7 @@
 	import type { NumberNotation } from '$lib/types';
 	import { formatNumber } from '$lib/utils';
 	import { addParticles } from '$stores/canvas';
+	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
 	import Ambient from '@components/game/Ambient.svelte';
 	import PhotonCounter from '@components/prestige/PhotonCounter.svelte';
@@ -515,11 +516,13 @@
 	// Every realm stays mounted, the hidden ones are only translated off screen, so the canvas has to know.
 	const visible = $derived(realmManager.selectedRealmId === RealmTypes.PHOTONS);
 
-	/** Visible circles age in the render loop. Hidden ones only need to expire, a 60 Hz timer there woke the phone for nothing. */
+	const drawn = $derived(visible && !ui.covered);
+
+	/** Drawn circles age in the render loop. Hidden ones only need to expire, a 60 Hz timer there woke the phone for nothing. */
 	const HIDDEN_UPDATE_INTERVAL_MS = 250;
 
 	$effect(() => {
-		if (visible) return;
+		if (drawn) return;
 		const interval = setInterval(updateCircles, HIDDEN_UPDATE_INTERVAL_MS);
 		return () => clearInterval(interval);
 	});
@@ -536,9 +539,9 @@
 		return () => observer.disconnect();
 	});
 
-	// Draw on the browser's own frame cadence, and not at all while the tab or the realm is hidden.
+	// Draw on the browser's own frame cadence, and not at all while the tab or the realm is hidden or a modal covers it.
 	$effect(() => {
-		if (!canvas || !visible) return;
+		if (!canvas || !drawn) return;
 
 		let frame = requestAnimationFrame(function loop() {
 			frame = requestAnimationFrame(loop);
