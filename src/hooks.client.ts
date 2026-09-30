@@ -4,6 +4,11 @@ import { getItem, setItem } from '$lib/utils/safeLocalStorage';
 
 initGlobalErrorHandlers();
 
+/** A first visit loads its chunks before the service worker takes over, so their URLs are handed to it to make the game playable offline. */
+if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
+	navigator.serviceWorker.ready.then(({ active }) => active?.postMessage(performance.getEntriesByType('resource').map(({ name }) => name)));
+}
+
 /** Cloudflare Workers serves only the current build, so a tab left open across a deploy asks for a chunk that is gone. */
 const STALE_CHUNK_PATTERN = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i;
 const RELOAD_GUARD_KEY = 'stale-chunk-reload';
