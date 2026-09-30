@@ -116,10 +116,10 @@
 	{/if}
 
 	{#if gameManager.features[FeatureTypes.STABILITY_FIELD]}
-		<div class="mt-4 w-full max-w-72" in:reveal>
-			<div class="mb-1.5 flex items-end justify-between gap-2">
+		<div class="mt-3 w-full max-w-60 sm:mt-4 sm:max-w-72" in:reveal>
+			<div class="mb-1 flex items-end justify-between gap-2 sm:mb-1.5">
 				<span class="flex flex-col items-start leading-tight">
-					<span class="flex items-center gap-1.5 text-xs font-bold tracking-[0.2em] text-yellow-100 uppercase">
+					<span class="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.15em] text-yellow-100 uppercase sm:text-xs sm:tracking-[0.2em]">
 						Stability Field
 						<HelpIcon position="bottom">
 							{#snippet content()}
@@ -131,10 +131,10 @@
 							{/snippet}
 						</HelpIcon>
 					</span>
-					<span class="text-[10px] tracking-wider text-yellow-200/60 uppercase">Idle bonus</span>
+					<span class="text-[10px] tracking-wider text-yellow-200/60 uppercase max-sm:hidden">Idle bonus</span>
 				</span>
 				<span
-					class="inline-block font-mono text-xl font-bold tabular-nums {stabilityPaused ? 'text-white/40' : 'text-yellow-300'}"
+					class="inline-block font-mono text-base font-bold tabular-nums sm:text-xl {stabilityPaused ? 'text-white/40' : 'text-yellow-300'}"
 					{@attach flashOnReset}
 				>
 					×{formatNumber(gameManager.stabilityMultiplier)}
@@ -142,7 +142,7 @@
 			</div>
 			<!-- A parent filter glows the segments after the mask cuts them, a shadow on the bar itself would be masked away. -->
 			<div class="transition-[filter] duration-500 {stabilityFull ? 'drop-shadow-[0_0_6px_rgb(234_179_8/0.8)]' : ''}">
-				<div class="h-2.5 overflow-hidden rounded-xs bg-yellow-500/15 [mask-image:repeating-linear-gradient(90deg,#000_0_7px,transparent_7px_9px)]">
+				<div class="h-2 overflow-hidden sm:h-2.5 rounded-xs bg-yellow-500/15 [mask-image:repeating-linear-gradient(90deg,#000_0_7px,transparent_7px_9px)]">
 					<!-- Moves once per game tick, a sub-pixel step on this width, so no transition is needed to look smooth. -->
 					<div
 						class="h-full origin-left {stabilityPaused ? 'bg-white/30' : 'bg-linear-to-r from-yellow-600 to-yellow-300'}"
@@ -150,7 +150,7 @@
 					></div>
 				</div>
 			</div>
-			<div class="mt-1 flex justify-between gap-2 text-xs">
+			<div class="mt-1 flex justify-between gap-2 text-[11px] sm:text-xs">
 				{#if stabilityPaused}
 					<span class="text-red-300">Paused during power-up</span>
 				{:else if stabilityFull}
