@@ -79,6 +79,15 @@ function spin(line: number, time: number) {
 }
 
 /**
+ * Angle of electron `k` past electron 0 with `shown` electrons: whole ones spread by the fractional count, so they make room
+ * smoothly, while a growing one sits in its final slot. Growing from 1 to 2, the second appears straight across from the first.
+ */
+function slot(k: number, shown: number) {
+	const whole = Math.floor(shown);
+	return (k * TAU) / (k < whole ? shown : whole + 1);
+}
+
+/**
  * Draws the clickable atom on a Canvas2D: a spinning ball of nucleons wrapped in one tilted orbit per generator,
  * spread over every inclination so the shells outline a sphere. Electrons are filled as one path per shell and depth band:
  * a drawImage per electron cost ~5µs, 4.5ms a frame with every shell full. Nucleons are pre-rendered sprites.
@@ -152,10 +161,7 @@ export class AtomRenderer extends CanvasLoop {
 		if (seconds > 0 && line in this.holds) this.holds[line] = Math.max(this.holds[line], performance.now() + seconds * 1000);
 	}
 
-	/**
-	 * Client position where shell `line` grows its next electron in `seconds`: a joining electron emerges on electron 0, so this
-	 * predicts electron 0. Without a line, the nucleus.
-	 */
+	/** Client position of the slot where shell `line` grows its next electron, as it will be in `seconds`. Without a line, the nucleus. */
 	target(line = -1, seconds = 0): { x: number; y: number } {
 		const rect = this.canvas.getBoundingClientRect();
 		const scale = this.size > 0 ? rect.width / this.size : 1;
@@ -167,9 +173,12 @@ export class AtomRenderer extends CanvasLoop {
 		const unit = this.size / (DESIGN_SIZE * CANVAS_OVERFLOW);
 		const focal = FOCAL_LENGTH * unit;
 		const radius = unit * (78 + line * 18);
+		// The electron growing now, if any, is not the next one: the next takes the slot after it.
+		const next = Math.ceil(this.shown[line] - 0.001);
+		const angle = spin(line, time) + slot(next, next);
 		this.orbitPlane(line, time);
-		const cos = Math.cos(spin(line, time)) * radius;
-		const sin = Math.sin(spin(line, time)) * radius;
+		const cos = Math.cos(angle) * radius;
+		const sin = Math.sin(angle) * radius;
 		const depth = focal / (focal + this.u.z * cos + this.v.z * sin);
 		return {
 			x: rect.left + (center + (this.u.x * cos + this.v.x * sin) * depth) * scale,
@@ -319,14 +328,12 @@ export class AtomRenderer extends CanvasLoop {
 			ctx.strokeStyle = palette.orbitBack;
 			this.strokeOrbit(points, true, presence);
 
-			// A fractional count spaces the electrons by it, so the newest one grows out of electron 0 as the rest spread.
 			const count = Math.ceil(shown);
-			const spacing = TAU / Math.max(1, shown);
 			const start = spin(line, time);
 			const electronRadius = unit * (2.3 + line * 0.12);
 			const data = this.electrons[line];
 			for (let k = 0; k < count; k++) {
-				const angle = start + k * spacing;
+				const angle = start + slot(k, shown);
 				const cos = Math.cos(angle) * radius;
 				const sin = Math.sin(angle) * radius;
 				const z = u.z * cos + v.z * sin;
