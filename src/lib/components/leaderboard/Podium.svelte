@@ -48,7 +48,7 @@
 						<span class="absolute right-0.5 bottom-0.5 size-3.5 rounded-full bg-green-500 ring-2 ring-black" title="Online"></span>
 					{/if}
 				</span>
-				<span class="w-full truncate text-sm font-bold text-white capitalize sm:text-base" class:text-accent-200={entry.self}>{entry.username}</span>
+				<span class={['w-full truncate text-sm font-bold capitalize sm:text-base', entry.self ? 'text-accent-200' : 'text-white']}>{entry.username}</span>
 				<LevelChip level={entry.level} />
 				<Value class="text-xs font-bold text-white/80 tabular-nums sm:text-sm" currency={CurrenciesTypes.ATOMS} value={entry.atoms} />
 				<span class="pedestal relative isolate mt-1 flex w-full items-start justify-center overflow-hidden rounded-t-xl bg-white/5 pt-1 {step.pedestal}" style:--delay="{step.delay}ms">

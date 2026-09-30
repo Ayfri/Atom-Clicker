@@ -294,13 +294,7 @@
 									</span>
 								</div>
 							{/if}
-							<div
-								class="flex flex-col gap-2"
-								class:blur-md={!unlocked}
-								class:pointer-events-none={!unlocked}
-								class:select-none={!unlocked}
-								aria-hidden={!unlocked}
-							>
+							<div class={['flex flex-col gap-2', !unlocked && 'pointer-events-none blur-md select-none']} aria-hidden={!unlocked}>
 								<h4 class="flex items-center gap-1.5 text-sm font-semibold text-white/60">
 									{#if currency}
 										<IconStack color={currency.color} icon={CURRENCY_ICON_NAMES[currency.name]} size={16} />

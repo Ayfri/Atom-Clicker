@@ -44,8 +44,7 @@
 		{/if}
 		<input
 			aria-label="Reactor power"
-			class="lever absolute inset-0 size-full cursor-grab active:cursor-grabbing"
-			class:vertical
+			class={['lever absolute inset-0 size-full cursor-grab active:cursor-grabbing', { vertical }]}
 			max="1"
 			min="0"
 			oninput={event => radiationManager.setControlRodLevel(event.currentTarget.valueAsNumber)}

@@ -1,16 +1,17 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { ClassValue } from 'svelte/elements';
 
 	interface Props {
 		children: Snippet;
-		class?: string;
+		class?: ClassValue;
 		disabled?: boolean;
 		holdDuration?: number;
 		onHoldComplete: () => void;
 		style?: string;
 	}
 
-	let { children, class: className = '', disabled = false, holdDuration = 2000, onHoldComplete, style = '' }: Props = $props();
+	let { children, class: className, disabled = false, holdDuration = 2000, onHoldComplete, style = '' }: Props = $props();
 
 	let progress = $state(0);
 	let holding = $state(false);
@@ -59,8 +60,7 @@
 </script>
 
 <button
-	class="hold-button relative overflow-hidden {className}"
-	class:holding
+	class={['hold-button relative overflow-hidden', className, { holding }]}
 	{disabled}
 	{style}
 	style:box-shadow={boxShadow}

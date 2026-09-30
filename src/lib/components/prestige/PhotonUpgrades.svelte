@@ -65,8 +65,7 @@
 
 	<div class="currency-tabs flex gap-1 mb-1">
 		<button
-			class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
-			class:active={selectedCurrency === CurrenciesTypes.PHOTONS}
+			class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]', selectedCurrency === CurrenciesTypes.PHOTONS && 'active']}
 			onclick={() => photonUpgradesTab.selected = CurrenciesTypes.PHOTONS}
 			title={CURRENCIES[CurrenciesTypes.PHOTONS].name}
 		>
@@ -74,8 +73,7 @@
 		</button>
 		{#if showExcitedTab}
 			<button
-				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
-				class:active={selectedCurrency === CurrenciesTypes.EXCITED_PHOTONS}
+				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]', selectedCurrency === CurrenciesTypes.EXCITED_PHOTONS && 'active']}
 				data-hint="excited-photons-tab"
 				in:reveal={{ y: 0 }}
 				onclick={() => photonUpgradesTab.selected = CurrenciesTypes.EXCITED_PHOTONS}
@@ -86,8 +84,7 @@
 		{/if}
 		{#if showPrismTab}
 			<button
-				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 text-realm-200 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
-				class:active={selectedCurrency === 'prism'}
+				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 text-realm-200 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]', selectedCurrency === 'prism' && 'active']}
 				data-hint="prism-tab"
 				in:reveal={{ y: 0 }}
 				onclick={() => photonUpgradesTab.selected = 'prism'}

@@ -169,9 +169,7 @@
 			{#each series as s (s.label)}
 				<button
 					onclick={() => toggleSeries(s.label)}
-					class="flex gap-2 group items-center text-xs transition-all"
-					class:opacity-40={hiddenLabels.has(s.label)}
-					class:grayscale={hiddenLabels.has(s.label)}
+					class={['flex gap-2 group items-center text-xs transition-all', hiddenLabels.has(s.label) && 'opacity-40 grayscale']}
 					aria-label="Toggle {s.label}"
 				>
 					<span

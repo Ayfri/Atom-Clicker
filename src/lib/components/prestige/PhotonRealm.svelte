@@ -629,8 +629,7 @@
 				<!-- `pointer-events-auto` opts out of the global `canvas` rule in app.css, which targets the particle overlay. -->
 				<canvas
 					bind:this={canvas}
-					class="absolute inset-0 w-full h-full pointer-events-auto"
-					class:cursor-pointer={hovering}
+					class={['absolute inset-0 w-full h-full pointer-events-auto', hovering && 'cursor-pointer']}
 					onclick={handleClick}
 					onpointercancel={handlePointerUp}
 					onpointerdown={handlePointerDown}

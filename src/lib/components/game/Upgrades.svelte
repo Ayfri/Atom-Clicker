@@ -135,8 +135,7 @@
 
 	<div class="currency-tabs flex gap-1">
 		<button
-			class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
-			class:active={selectedCurrency === CurrenciesTypes.ATOMS}
+			class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.ATOMS && 'active']}
 			onclick={() => selectedCurrency = CurrenciesTypes.ATOMS}
 			title={CURRENCIES[CurrenciesTypes.ATOMS].name}
 		>
@@ -144,8 +143,7 @@
 		</button>
 		{#if showProtons}
 			<button
-				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
-				class:active={selectedCurrency === CurrenciesTypes.PROTONS}
+				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.PROTONS && 'active']}
 				in:reveal={{ y: 0 }}
 				onclick={() => selectedCurrency = CurrenciesTypes.PROTONS}
 				title={CURRENCIES[CurrenciesTypes.PROTONS].name}
@@ -155,8 +153,7 @@
 		{/if}
 		{#if showElectrons}
 			<button
-				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
-				class:active={selectedCurrency === CurrenciesTypes.ELECTRONS}
+				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.ELECTRONS && 'active']}
 				in:reveal={{ y: 0 }}
 				onclick={() => selectedCurrency = CurrenciesTypes.ELECTRONS}
 				title={CURRENCIES[CurrenciesTypes.ELECTRONS].name}

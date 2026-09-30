@@ -95,13 +95,13 @@
 				<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
 				<div class="mt-1">
 					{#if reveals.upgrades}
-						<div class="rounded-lg" class:hidden={shownTab !== 'upgrades'} in:reveal><Upgrades /></div>
+						<div class={['rounded-lg', shownTab !== 'upgrades' && 'hidden']} in:reveal><Upgrades /></div>
 					{/if}
 					{#if reveals.achievements}
-						<div class="rounded-lg" class:hidden={shownTab !== 'achievements'} in:reveal><Achievements /></div>
+						<div class={['rounded-lg', shownTab !== 'achievements' && 'hidden']} in:reveal><Achievements /></div>
 					{/if}
 					{#if mobile.current && reveals.generators}
-						<div class="rounded-lg" class:hidden={shownTab !== 'generators'} in:reveal><Generators /></div>
+						<div class={['rounded-lg', shownTab !== 'generators' && 'hidden']} in:reveal><Generators /></div>
 					{/if}
 				</div>
 			</div>

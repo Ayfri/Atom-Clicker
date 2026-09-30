@@ -180,7 +180,7 @@
 			{:else if owned}
 				<span class="animate-[skill-appear_300ms_var(--burst)_backwards] text-sm tracking-wide text-(--c) uppercase">Unlocked</span>
 			{:else}
-				<span class:text-red-300={!status.affordable}>
+				<span class={{ 'text-red-300': !status.affordable }}>
 					<Value currency={skill.cost.currency} currencyClass="h-5 w-5" value={skill.cost.amount} />
 				</span>
 				{#if !status.conditionMet && skill.requirement}

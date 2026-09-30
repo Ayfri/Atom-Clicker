@@ -166,7 +166,7 @@
 			{#if rows.length > 0}
 				<VList bind:this={list} class="min-h-0 flex-1" data={rows}>
 					{#snippet children(row: Row, index: number)}
-						<div class="px-1 py-1" class:row-intro={intro} style:--i={Math.min(index, 10)}>
+						<div class={['px-1 py-1', intro && 'row-intro']} style:--i={Math.min(index, 10)}>
 							{#if Array.isArray(row)}
 								<Podium entries={row} onselect={openProfile} />
 							{:else}
