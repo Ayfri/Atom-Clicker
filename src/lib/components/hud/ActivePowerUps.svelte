@@ -35,33 +35,30 @@
 </script>
 
 {#if active.length > 0}
-	<div class="flex flex-col gap-2 w-72 md:w-96 pointer-events-none select-none mt-8">
+	<!-- Pinned to the bottom of the realm panel (its transform is the containing block) so new cards never grow the page. -->
+	<div
+		class="fixed bottom-4 inset-x-0 z-20 flex flex-col items-center gap-2 pointer-events-none select-none max-lg:landscape:right-1/2"
+	>
 		{#each active as powerUp (powerUp.id)}
 			{@const remaining = Math.max(0, powerUp.startTime + powerUp.duration - now)}
 
 			<div
-				class="bg-zinc-900/80 backdrop-blur-md border border-white/10 p-3 rounded-lg shadow-xl relative overflow-hidden"
-				in:fly|global={{ duration: 350, easing: backOut, y: -16 }}
+				class="bg-zinc-900/80 backdrop-blur-md border border-white/10 px-3 py-2.5 rounded-lg shadow-xl relative overflow-hidden w-72 md:w-96"
+				in:fly|global={{ duration: 350, easing: backOut, y: 16 }}
 				out:scale|global={{ duration: 250, start: 0.9 }}
 			>
 				<div
-					class="absolute bottom-0 left-0 h-0.5 w-full origin-left md:h-1 bg-amber-400 shadow-[0_0_10px_rgb(251_191_36/0.6)]"
+					class="absolute bottom-0 left-0 h-0.5 w-full origin-left bg-amber-400 shadow-[0_0_10px_rgb(251_191_36/0.6)]"
 					{@attach drain(powerUp)}
 				></div>
 
-				<div class="flex items-center gap-3 relative z-10">
-					<HiggsBoson class="shrink-0" size={28} />
-
-					<div class="flex-1 min-w-0">
-						<div class="flex justify-between items-baseline mb-0.5">
-							<span class="font-bold text-sm text-white truncate pr-2">{powerUp.name || 'Higgs Boson'}</span>
-							<span class="text-xs text-amber-300 font-mono font-bold whitespace-nowrap">×{formatNumber(powerUp.multiplier)} atoms</span>
-						</div>
-						<div class="flex justify-between items-center text-[10px] md:text-xs text-zinc-400">
-							<span class="truncate pr-2">Higgs Boson power-up</span>
-							<span class={['font-mono tabular-nums', remaining < 3000 ? 'text-amber-300' : 'text-zinc-300']}>{(remaining / 1000).toFixed(1)}s</span>
-						</div>
-					</div>
+				<div class="flex items-center gap-2.5 relative z-10 text-xs">
+					<HiggsBoson class="shrink-0" size={22} />
+					<span class="flex-1 font-bold text-sm text-white truncate">{powerUp.name || 'Higgs Boson'}</span>
+					<span class="text-amber-300 font-mono font-bold whitespace-nowrap">×{formatNumber(powerUp.multiplier)} atoms</span>
+					<span class={['font-mono tabular-nums w-10 text-right', remaining < 3000 ? 'text-amber-300' : 'text-zinc-300']}
+						>{(remaining / 1000).toFixed(1)}s</span
+					>
 				</div>
 			</div>
 		{/each}

@@ -49,6 +49,7 @@
 		</div>
 	{/if}
 	<Bonus />
+	<ActivePowerUps />
 
 	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 lg:p-8 text-sm xl:max-w-360">
 		{#if tabs.length > 0}
@@ -88,7 +89,6 @@
 		<div class="grid-area-[atom] relative z-0 flex flex-col items-center justify-start max-lg:landscape:sticky max-lg:landscape:top-0">
 			<Counter />
 			<Atom />
-			<ActivePowerUps />
 		</div>
 		{#if !mobile.current && reveals.generators}
 			<div class="grid-area-[generators] pt-12">
