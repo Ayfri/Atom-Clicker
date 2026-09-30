@@ -44,8 +44,9 @@ export class ColliderManager {
 		}
 	}
 
-	async inject() {
-		if (this.pending || !this.ready || !supabaseAuth.isAuthenticated) return;
+	/** Returns whether the particle went in. */
+	async inject(): Promise<boolean> {
+		if (this.pending || !this.ready || !supabaseAuth.isAuthenticated) return false;
 		this.pending = true;
 		try {
 			const response = await fetch('/api/collider', {
@@ -56,11 +57,13 @@ export class ColliderManager {
 			if (!response.ok) {
 				const { error }: { error?: string } = await response.json();
 				toastStore.error({ message: error ?? 'Request failed.', title: 'Collider' });
-				return;
+				return false;
 			}
 			this.apply(await response.json());
+			return true;
 		} catch {
 			toastStore.error({ message: 'Network error while talking to the Collider.', title: 'Collider' });
+			return false;
 		} finally {
 			this.pending = false;
 		}
