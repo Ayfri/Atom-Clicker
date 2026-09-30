@@ -10,6 +10,7 @@
 - **Ionize & the Prism**: Holding your reactor above 10K CPM for a minute unlocks Ionize, a deeper prestige with its own milestones that installs a Prism sending tough Red, Green and Blue photons into the Photon Realm, whose Light boosts every realm and recombines into White Light.
 - **Quark Shop**: A Prism theme for the Photon Realm and a banner for each colored Light.
 - **Collider**: A new skill opens a particle ring shared by every player, where each signed-in player injects one particle a minute and every 1,000 particles boost everyone's production by 0.1%.
+- **Achievements**: The list is grouped by theme with your progress in each, and every series only shows your latest tier and the next one to reach until you expand it.
 - **Offline Progress**: Coming back now greets you with a Welcome Back screen where your loot counts up, showing how much time was stored and what your automation did while you were away.
 - **Settings**: A cleaner menu on desktop and mobile with a more visual Profile and Stats, a Gameplay tab open to everyone, a Save tab comparing this device with your cloud save, and a Legal & Privacy tab where you can turn off Google Analytics.
 - **Navigation**: Protonise, Electronize and Ionize get their own colored icons, grouped apart from the menus, that glow when a reset is ready.
