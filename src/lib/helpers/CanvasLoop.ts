@@ -81,8 +81,9 @@ export abstract class CanvasLoop {
 		return sprite;
 	}
 
+	/** The rAF timestamp is the frame start, it can precede the `performance.now()` taken in `update`, so dt is clamped at 0. */
 	private readonly loop = (now: number) => {
-		const dt = this.lastTime ? Math.min((now - this.lastTime) / 1000, MAX_FRAME_S) : 0;
+		const dt = this.lastTime ? Math.min(Math.max(0, (now - this.lastTime) / 1000), MAX_FRAME_S) : 0;
 		this.lastTime = now;
 		this.frame = this.draw(dt) && this.active && this.visible ? requestAnimationFrame(this.loop) : 0;
 	};
