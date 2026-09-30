@@ -28,7 +28,7 @@
 	const earnedCurrencies = $derived(boostableCurrencies.filter(currency => currenciesManager.getEarnedAllTime(currency) > 0));
 </script>
 
-<Modal {onClose} title="Currency Boost" width="sm">
+<Modal {onClose} title="Currency Boosts"width="sm">
 	<div class="flex flex-col gap-4">
 		<!-- Header info -->
 		<div class="rounded-lg bg-black/20 p-4">

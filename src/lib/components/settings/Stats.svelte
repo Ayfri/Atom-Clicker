@@ -2,7 +2,6 @@
 	import AtomIcon from '@components/icons/Atom.svelte';
 	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
 	import PhotonIcon from '@components/icons/Photon.svelte';
-	import ProtonIcon from '@components/icons/Proton.svelte';
 	import QuarkIcon from '@components/icons/Quark.svelte';
 	import { spectrumHelp } from '@components/prestige/PrismUpgrades.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -18,7 +17,7 @@
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatDuration, formatNumber, formatNumberFull } from '$lib/utils';
-	import { CalendarDays, Factory, Flame, Hourglass, MousePointerClick, Package, Radiation, Rainbow, Repeat, RotateCcw, TrendingUp, Trophy, Zap } from '@lucide/svelte';
+	import { CalendarDays, CircleArrowUp, Clock, Factory, MousePointerClick, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
 	import { clock } from '$stores/clock.svelte';
 	import { type Component, type Snippet } from 'svelte';
 
@@ -35,9 +34,9 @@
 
 	const highlights = $derived([
 		{ icon: AtomIcon, label: 'Atoms / s', value: gameManager.atomsPerSecond },
-		{ icon: Flame, label: 'Best atoms / s', value: gameManager.highestAPS },
+		{ icon: AtomIcon, label: 'Best atoms / s', value: gameManager.highestAPS },
 		{ icon: MousePointerClick, label: 'Click power', value: gameManager.clickPower },
-		{ icon: Repeat, label: 'Auto clicks / s', value: gameManager.autoClicksPerSecond },
+		{ icon: MousePointerClick, label: 'Auto clicks / s', value: gameManager.autoClicksPerSecond },
 	]);
 
 	/** The stability field drops back to ×1 on every click, so it stays pinned once unlocked instead of blinking with auto-clicks. */
@@ -60,8 +59,8 @@
 		{ icon: AtomIcon, label: 'Atoms earned', value: formatNumber(gameManager.dailyStats.atomsEarned) },
 		{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(gameManager.dailyStats.clicks, 0) },
 		{ icon: Factory, label: 'Generators bought', value: formatNumber(gameManager.dailyStats.generatorsPurchased, 0) },
-		{ icon: Package, label: 'Upgrades bought', value: formatNumber(gameManager.dailyStats.upgradesPurchased, 0) },
-		{ icon: Zap, label: 'Power-ups', value: formatNumber(gameManager.dailyStats.powerUpsCollected, 0) },
+		{ icon: CircleArrowUp, label: 'Upgrades bought', value: formatNumber(gameManager.dailyStats.upgradesPurchased, 0) },
+		{ icon: HiggsBosonIcon, label: 'Power-ups', value: formatNumber(gameManager.dailyStats.powerUpsCollected, 0) },
 		{ icon: HiggsBosonIcon, label: 'Higgs bosons', value: formatNumber(gameManager.dailyStats.higgsBosonsCollected, 0) },
 		{ icon: Trophy, label: 'Achievements', value: gameManager.dailyStats.achievementsUnlocked.toString() },
 		{ icon: RotateCcw, label: 'Prestiges', value: (gameManager.dailyStats.protonises + gameManager.dailyStats.electronizes).toString() },
@@ -144,7 +143,7 @@
 	</section>
 
 	<section>
-		{@render title(Hourglass, 'Progress')}
+		{@render title(Clock, 'Progress')}
 		<div class="grid items-center gap-6 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[1fr_auto]">
 			<div class="grid gap-x-6 sm:grid-cols-2">
 				{@render row('Since you started', formatDuration(clock.now - gameManager.startDate))}
@@ -191,7 +190,7 @@
 
 	{#if hasEarned(CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS)}
 		<section>
-			{@render title(ProtonIcon, 'Prestige')}
+			{@render title(RotateCcw, 'Prestige')}
 			<div class="grid gap-3 md:grid-cols-2">
 				{#if hasEarned(CurrenciesTypes.PROTONS)}
 					{@render currency(CurrenciesTypes.PROTONS, [['Protonised this run', gameManager.totalProtonisesRun], ['Protonised all time', gameManager.totalProtonisesAllTime]])}

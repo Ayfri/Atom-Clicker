@@ -59,7 +59,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	electron_boost: {
 		id: 'electron_boost',
 		name: 'Electron Amplifier',
-		description: (level: number) => `${formatNumber(25 * level)}% more electrons from electronize`,
+		description: (level: number) => `${formatNumber(25 * level)}% more electrons from Electronize`,
 		baseCost: 2500,
 		costMultiplier: 4,
 		maxLevel: 8,
@@ -69,7 +69,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	electron_super_boost: {
 		id: 'electron_super_boost',
 		name: 'Electron Overdrive',
-		description: (level: number) => `${formatNumber(50 * level)}% more electrons from electronize`,
+		description: (level: number) => `${formatNumber(50 * level)}% more electrons from Electronize`,
 		baseCost: 25000,
 		costMultiplier: 6,
 		maxLevel: 5,
@@ -99,7 +99,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	photon_proton_boost: {
 		id: 'photon_proton_boost',
 		name: 'Photon Proton Boost',
-		description: () => '+1% protons from protonise per photon upgrade level owned',
+		description: () => '+1% protons from Protonise per photon upgrade level owned',
 		baseCost: 10_000,
 		costMultiplier: 1,
 		maxLevel: 1,
@@ -136,7 +136,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	proton_boost: {
 		id: 'proton_boost',
 		name: 'Proton Multiplier',
-		description: (level: number) => `${formatNumber(15 * level)}% more protons from protonise`,
+		description: (level: number) => `${formatNumber(15 * level)}% more protons from Protonise`,
 		baseCost: 5000,
 		costMultiplier: 5,
 		maxLevel: 6,
@@ -146,7 +146,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	proton_super_boost: {
 		id: 'proton_super_boost',
 		name: 'Proton Overdrive',
-		description: (level: number) => `${formatNumber(40 * level)}% more protons from protonise`,
+		description: (level: number) => `${formatNumber(40 * level)}% more protons from Protonise`,
 		baseCost: 50000,
 		costMultiplier: 7,
 		maxLevel: 4,

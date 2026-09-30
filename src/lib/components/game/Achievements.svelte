@@ -108,7 +108,7 @@
 			>
 				<!-- Hidden achievements fall back to a neutral icon, otherwise the stack would spoil what they are about. -->
 				{#if hidden}
-					<IconStack color="rgba(255, 255, 255, 0.35)" icon="award" label="?" size={34} />
+					<IconStack color="rgba(255, 255, 255, 0.35)" icon="trophy" label="?" size={34} />
 				{:else if achievement.iconStack}
 					<IconStack
 						color={achievement.iconStack.color}

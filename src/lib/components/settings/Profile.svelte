@@ -1,9 +1,7 @@
 <script lang="ts">
 	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '@components/modals/Login.svelte';
 	import AtomIcon from '@components/icons/Atom.svelte';
-	import ElectronIcon from '@components/icons/Electron.svelte';
 	import PhotonIcon from '@components/icons/Photon.svelte';
-	import ProtonIcon from '@components/icons/Proton.svelte';
 	import QuarkIcon from '@components/icons/Quark.svelte';
 	import Avatar from '@components/ui/Avatar.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -16,7 +14,7 @@
 	import { leaderboard } from '$stores/leaderboard.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
-	import { ChartLine, Clock, Cloud, Link as LinkIcon, Lock, LogOut, Medal, MousePointerClick, Pencil, Radiation, Trophy, User } from '@lucide/svelte';
+	import { Atom, ChartLine, Clock, Cloud, Link as LinkIcon, Lock, LogOut, Medal, MousePointerClick, Orbit, Pencil, Radiation, Trophy, User } from '@lucide/svelte';
 	import { onDestroy, onMount, type Component } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -56,8 +54,8 @@
 	]);
 	/** Locked milestones stay hidden behind `???` so the profile never spoils what comes next. */
 	const milestones: Milestone[] = $derived([
-		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: ProtonIcon, label: 'Protonised', reached: gameManager.totalProtonisesAllTime > 0 },
-		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: ElectronIcon, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
+		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: Atom, label: 'Protonised', reached: gameManager.totalProtonisesAllTime > 0 },
+		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: Orbit, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
 		{ color: REALMS.photons.color, count: null, icon: PhotonIcon, label: 'Photon Realm', reached: REALMS.photons.condition(gameManager.features) },
 		{ color: REALMS.radiation.color, count: null, icon: Radiation, label: 'Radiation Realm', reached: REALMS.radiation.condition(gameManager.features) },
 	]);
@@ -289,7 +287,7 @@
 
 	{#if !supabaseAuth.isAuthenticated}
 		<div class="grid gap-3 sm:grid-cols-3">
-			{#each [{ icon: Cloud, text: 'Back up your save and play on any device' }, { icon: Trophy, text: 'Climb the global leaderboard' }, { icon: QuarkIcon, text: 'Earn Quarks for themes and banners' }] as perk (perk.text)}
+			{#each [{ icon: Cloud, text: 'Back up your save and play on any device' }, { icon: Medal, text: 'Climb the global leaderboard' }, { icon: QuarkIcon, text: 'Earn Quarks for themes and banners' }] as perk (perk.text)}
 				<div class="flex items-center gap-3 rounded-xl border border-dashed border-accent/30 bg-accent/5 p-4 text-sm text-white/70">
 					<perk.icon class="shrink-0 text-accent" size={20} />
 					{perk.text}

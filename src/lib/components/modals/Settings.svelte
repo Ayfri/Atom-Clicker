@@ -9,7 +9,7 @@
 	import GlobalStats from '@components/settings/Stats.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import { ui } from '$stores/ui.svelte';
-	import { Activity, ChevronLeft, ChevronRight, Cloud, FileText, Info, MessageSquare, Scale, SlidersHorizontal, User } from '@lucide/svelte';
+	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, SlidersHorizontal, User } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 
@@ -39,7 +39,7 @@
 			label: 'Game',
 			tabs: [
 				{ component: Gameplay, description: 'Offline progress and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
-				{ component: GlobalStats, description: 'Your progress in numbers', icon: Activity, id: 'stats', label: 'Stats' },
+				{ component: GlobalStats, description: 'Your progress in numbers', icon: ChartLine, id: 'stats', label: 'Stats' },
 				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog' },
 			],
 		},
@@ -47,8 +47,8 @@
 			label: 'About',
 			tabs: [
 				{ component: FeedbackForm, description: 'Report a bug or share an idea', icon: MessageSquare, id: 'feedback', label: 'Feedback' },
-				{ component: Credits, description: 'Creator, links and thanks', icon: Info, id: 'credits', label: 'Credits' },
-				{ component: Legal, description: 'Legal notice, privacy and terms', icon: Scale, id: 'legal', label: 'Legal & Privacy' },
+				{ component: Credits, description: 'Creator, links and thanks', icon: Heart, id: 'credits', label: 'Credits' },
+				{ component: Legal, description: 'Legal notice, privacy and terms', icon: Gavel, id: 'legal', label: 'Legal & Privacy' },
 			],
 		},
 	];

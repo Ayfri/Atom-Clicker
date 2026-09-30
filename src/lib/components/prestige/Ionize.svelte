@@ -9,7 +9,7 @@
 	import Currency from '@components/ui/Currency.svelte';
 	import HoldButton from '@components/ui/HoldButton.svelte';
 	import Modal from '@components/ui/Modal.svelte';
-	import { Check, Radiation, Rainbow, RotateCcw, ShieldCheck, X } from '@lucide/svelte';
+	import { Check, Rainbow, RotateCcw, Sun, Vault, X } from '@lucide/svelte';
 
 	interface ListItem {
 		currencies: CurrencyName[];
@@ -47,7 +47,7 @@
 		{ currencies: [CurrenciesTypes.ATOMS], label: 'Atoms, generators and upgrades' },
 		{ currencies: [CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS], label: 'Protons and Electrons' },
 		{ currencies: [CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS], label: 'Photons and Excited Photons' },
-		{ currencies: [], label: 'Radiation upgrades and the reactor core' },
+		{ currencies: [], label: 'Reactor Upgrades and the reactor core' },
 	];
 
 	const ionizes = $derived(gameManager.totalIonizesAllTime);
@@ -131,7 +131,7 @@
 						stroke-width="4"
 					/>
 				</svg>
-				<Radiation
+				<Sun
 					class="text-radiation transition-opacity {radiationManager.ionizeReady
 						? 'animate-[spin_8s_linear_infinite] drop-shadow-[0_0_10px_var(--color-radiation)]'
 						: aboveThreshold
@@ -240,7 +240,7 @@
 			</div>
 			<div class="flex flex-col gap-2 border-l border-white/10 pl-4">
 				<h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-radiation/80">
-					<ShieldCheck size={13} />
+					<Vault size={13} />
 					Keeps
 				</h3>
 				<ul class="flex flex-col gap-1.5 text-white/85">

@@ -4,8 +4,9 @@
 	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { formatDuration, formatNumber } from '$lib/utils';
+	import PhotonIcon from '@components/icons/Photon.svelte';
 	import Currency from '@components/ui/Currency.svelte';
-	import { ArrowBigUp, ChevronsUp, Factory, Hourglass, MousePointerClick, Radiation, Sparkles, Zap } from '@lucide/svelte';
+	import { ArrowBigUp, CircleArrowUp, Factory, Hourglass, MousePointerClick, Radiation, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion, Tween } from 'svelte/motion';
@@ -104,7 +105,7 @@
 				<div
 					class="flex items-center gap-2 text-xl font-black tracking-wider text-yellow-300 uppercase [text-shadow:0_0_20px_rgb(250_204_21/0.6)] motion-safe:animate-[offline-pop_600ms_cubic-bezier(.34,1.56,.64,1)_1.6s_backwards]"
 				>
-					<ChevronsUp size={24} />
+					<ArrowBigUp size={24} />
 					Level up! +{summary.levelsGained}
 				</div>
 			{/if}
@@ -140,7 +141,7 @@
 							>
 								<div class="relative grid size-10 place-items-center">
 									<span class="absolute inset-1 rounded-full opacity-40 blur-lg" style:background={XP_COLOR}></span>
-									<ChevronsUp class="relative" color={XP_COLOR} size={30} strokeWidth={2.5} />
+									<ArrowBigUp class="relative" color={XP_COLOR} size={30} strokeWidth={2.5} />
 								</div>
 								<span class="text-xl font-black text-white tabular-nums" style:text-shadow="0 0 16px {XP_COLOR}">
 									+{formatNumber(summary.xpGained * reveal.current)}
@@ -181,7 +182,7 @@
 						{/if}
 						{#if summary.autoUpgradePurchases > 0}
 							<li class="flex items-center gap-2">
-								<ArrowBigUp class="shrink-0 text-accent-300" size={16} />
+								<CircleArrowUp class="shrink-0 text-accent-300" size={16} />
 								<span><b class="text-white">{formatNumber(summary.autoUpgradePurchases)}</b> upgrades bought</span>
 							</li>
 						{/if}
@@ -193,7 +194,7 @@
 						{/if}
 						{#if summary.photonAutoClicks >= 1}
 							<li class="flex items-center gap-2">
-								<Zap class="shrink-0 text-realm-400" size={16} />
+								<PhotonIcon class="shrink-0" size={16} />
 								<span>
 									<b class="text-white">{formatNumber(Math.floor(summary.photonAutoClicks))}</b> photons caught,
 									{formatNumber(summary.photonClickExpectedTotal, 1)} each

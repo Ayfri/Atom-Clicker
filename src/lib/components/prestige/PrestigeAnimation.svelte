@@ -5,7 +5,7 @@
 	import Electron from '@components/icons/Electron.svelte';
 	import Light from '@components/icons/Light.svelte';
 	import Proton from '@components/icons/Proton.svelte';
-	import { Radiation } from '@lucide/svelte';
+	import { Sun } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	/** Each Light starts the Ionize symbol offset along its own direction, the three merge back into white. */
@@ -231,7 +231,7 @@
 							class="chroma-layer"
 							style="--dx: {light.dx}px; --dy: {light.dy}px"
 						>
-							<Radiation
+							<Sun
 								color={light.color}
 								size={160}
 							/>

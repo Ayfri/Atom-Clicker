@@ -14,7 +14,7 @@
 	import HoldButton from '@components/ui/HoldButton.svelte';
 	import Modal from '@components/ui/Modal.svelte';
 	import Tooltip from '@components/ui/Tooltip.svelte';
-	import { Check, Info, RotateCcw, ShieldCheck, Sparkles, X } from '@lucide/svelte';
+	import { Check, Info, RotateCcw, Sparkles, Vault, X } from '@lucide/svelte';
 
 	interface Props {
 		animation: 'electronize' | 'protonise';
@@ -279,7 +279,7 @@
 					class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
 					style:color
 				>
-					<ShieldCheck size={13} />
+					<Vault size={13} />
 					Keeps
 				</h3>
 				<ul class="flex flex-col gap-1.5 text-white/85">

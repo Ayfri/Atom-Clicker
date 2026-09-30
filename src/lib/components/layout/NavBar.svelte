@@ -11,7 +11,7 @@
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
-	import { Atom, Network, Orbit, Radiation, Settings as SettingsIcon, Trophy, Zap } from '@lucide/svelte';
+	import { Atom, Medal, Network, Orbit, Settings as SettingsIcon, Sun, Zap } from '@lucide/svelte';
 	import { onDestroy, onMount, type Component } from 'svelte';
 
 	type NavBarIcon = Component<{ class?: string; size?: number }>;
@@ -34,7 +34,7 @@
 
 	const links: Link[] = [
 		{
-			icon: Trophy,
+			icon: Medal,
 			id: 'leaderboard',
 			label: 'Leaderboard',
 			load: () => import('@components/modals/Leaderboard.svelte'),
@@ -82,7 +82,7 @@
 			notification: () => gameManager.electronizeElectronsGain > 0,
 		},
 		{
-			icon: Radiation,
+			icon: Sun,
 			id: 'ionize',
 			label: 'Ionize',
 			load: () => import('@components/prestige/Ionize.svelte'),
@@ -94,7 +94,7 @@
 	const settingsLink: Link = {
 		icon: SettingsIcon,
 		id: 'settings',
-		label: 'Parameters',
+		label: 'Settings',
 		load: settingsLoader,
 	};
 

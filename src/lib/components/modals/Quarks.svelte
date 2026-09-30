@@ -1,4 +1,6 @@
 <script lang="ts">
+	import AtomIcon from '@components/icons/Atom.svelte';
+	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
 	import Quark from '@components/icons/Quark.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import IconStack from '@components/ui/IconStack.svelte';
@@ -6,7 +8,7 @@
 	import Modal from '@components/ui/Modal.svelte';
 	import QuarkLabel from '@components/ui/QuarkLabel.svelte';
 	import { getQuestTarget, questAnchors } from '$data/dailyQuests';
-	import { CURRENCY_ICON_NAMES } from '$data/icons';
+	import { CURRENCY_ICON_NAMES, type IconComponent } from '$data/icons';
 	import { QUARK_SHOP } from '$data/quarkShop';
 	import { RealmTypes, type RealmType } from '$data/realms';
 	import { gameManager } from '$helpers/GameManager.svelte';
@@ -16,8 +18,9 @@
 	import { createCurrentPlayerPreview } from '$lib/utils/leaderboard-preview';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import {
-		ArrowUpCircle,
+		Atom,
 		Check,
+		CircleArrowUp,
 		Clock,
 		Factory,
 		Flag,
@@ -25,11 +28,9 @@
 		MousePointerClick,
 		Orbit,
 		Palette,
-		RotateCcw,
 		ShoppingBag,
-		Sparkles,
 		Target,
-		Zap,
+		Undo2,
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -65,16 +66,16 @@
 		return gameManager.realms[realmId]?.unlocked ?? false;
 	}
 
-	const QUEST_ICONS: Record<string, typeof Target> = {
-		atoms_earned: Zap,
+	const QUEST_ICONS: Record<string, IconComponent> = {
+		atoms_earned: AtomIcon,
 		buildings_purchased: Factory,
 		clicks_100: MousePointerClick,
 		clicks_250: MousePointerClick,
 		electronize_three_times: Orbit,
-		higgs_bosons_collected: Sparkles,
-		power_ups_collected: Sparkles,
-		protonise_once: Orbit,
-		upgrades_purchased: ArrowUpCircle,
+		higgs_bosons_collected: HiggsBosonIcon,
+		power_ups_collected: HiggsBosonIcon,
+		protonise_once: Atom,
+		upgrades_purchased: CircleArrowUp,
 	};
 
 	const resetIn = $derived.by(() => {
@@ -254,7 +255,7 @@
 									class="cursor-pointer flex items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1 text-sm text-white/70 transition-colors hover:bg-white/20"
 									onclick={() => quarksManager.refund(item.id)}
 								>
-									<RotateCcw size={14} /> Refund
+									<Undo2 size={14} /> Refund
 								</button>
 							{:else}
 								<button

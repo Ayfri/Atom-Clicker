@@ -88,7 +88,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 			cost: { amount: 5_000_000 * 30 ** index, currency: CurrenciesTypes.ATOMS },
 			description: `+10% ${generator.name} production per 25 ${generator.name} levels`,
 			effects: [mul('generator', manager => 1 + Math.floor(levels(manager) / 25) * 0.1, generatorType)],
-			icon: 'generatorLevel',
+			icon: 'generator',
 			id: `${id}_level_mastery`,
 			name: `${generator.name} Level Mastery`,
 		},
@@ -277,8 +277,8 @@ function createPowerUpIntervalUpgrades() {
 		icon: 'higgsBoson',
 		id: 'power_up_interval',
 		count: 15,
-		name: i => `Power Up Interval ${i + 1}`,
-		description: i => `${i > 5 ? '0.9x' : '0.8x'} power up interval`,
+		name: i => `Power-up Interval ${i + 1}`,
+		description: i => `${i > 5 ? '0.9x' : '0.8x'} power-up interval`,
 		cost: i => {
 			const baseCost = 15_000 * 2 ** (i * 10);
 			return i > 5 ? baseCost * i ** 3 * 1.1 : baseCost * 1.1;
@@ -320,7 +320,7 @@ function createProtonUpgrades(): Upgrade[] {
 		{
 			id: 'proton_electron_boost_1',
 			name: 'Double Electrons',
-			description: '2x electrons gained from electronize',
+			description: '2x electrons gained from Electronize',
 			icon: 'electron',
 			cost: {
 				amount: 8_000_000_000,
@@ -331,7 +331,7 @@ function createProtonUpgrades(): Upgrade[] {
 		{
 			id: 'proton_electron_boost_2',
 			name: 'Double Electrons II',
-			description: '2x electrons gained from electronize',
+			description: '2x electrons gained from Electronize',
 			condition: state => state.upgrades.includes('proton_electron_boost_1'),
 			icon: 'electron',
 			cost: {
@@ -343,7 +343,7 @@ function createProtonUpgrades(): Upgrade[] {
 		{
 			id: 'proton_electron_boost_3',
 			name: 'Triple Electrons',
-			description: '3x electrons gained from electronize',
+			description: '3x electrons gained from Electronize',
 			icon: 'electron',
 			cost: {
 				amount: 20_000_000_000_000,
@@ -354,7 +354,7 @@ function createProtonUpgrades(): Upgrade[] {
 		{
 			id: 'proton_electron_boost_total_protonises',
 			name: 'Total Protonises',
-			description: '+1 electron per protonise',
+			description: '+1 electron per Protonise',
 			icon: 'electron',
 			cost: {
 				amount: 125_000_000_000_000,
@@ -368,7 +368,7 @@ function createProtonUpgrades(): Upgrade[] {
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'proton',
 			name: i => `Protonise Master ${i}`,
-			description: i => `+${25 * i}% production per protonise`,
+			description: i => `+${25 * i}% production per Protonise`,
 			cost: i => {
 				const baseCost = Math.ceil(5 * 3 ** (i + 2.1));
 				return i > 3 ? baseCost * i ** 5.1 : baseCost;
@@ -381,7 +381,7 @@ function createProtonUpgrades(): Upgrade[] {
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'atom',
 			name: i => `Quick Start ${i}`,
-			description: i => `Start with ${formatNumber(10 ** (3 + i))} atoms after protonising`,
+			description: i => `Start with ${formatNumber(10 ** (3 + i))} atoms after a Protonise`,
 			cost: i => {
 				const baseCost = Math.ceil(3 * 2 ** (i + 1.1));
 				return i > 2 ? baseCost * i ** 3.1 : baseCost;
@@ -405,13 +405,13 @@ function createProtonUpgrades(): Upgrade[] {
 			cost: { amount: 1_000, currency: CurrenciesTypes.PROTONS },
 			description: '+1% production per thousand registered players',
 			effects: [mul('global', manager => 1 + manager.totalUsers / 100_000)],
-			icon: 'globe',
+			icon: 'players',
 			id: 'proton_community_power',
 			name: 'Community Power',
 		},
 		{
 			cost: { amount: 2_500, currency: CurrenciesTypes.PROTONS },
-			description: '2x electrons gained from electronize',
+			description: '2x electrons gained from Electronize',
 			effects: [mul('electron_gain', 2)],
 			icon: 'electron',
 			id: 'proton_electron_harvester',
@@ -419,7 +419,7 @@ function createProtonUpgrades(): Upgrade[] {
 		},
 		{
 			cost: { amount: 25_000, currency: CurrenciesTypes.PROTONS },
-			description: '1.5x protons gained from protonise',
+			description: '1.5x protons gained from Protonise',
 			effects: [mul('proton_gain', 1.5)],
 			icon: 'proton',
 			id: 'proton_collector',
@@ -427,7 +427,7 @@ function createProtonUpgrades(): Upgrade[] {
 		},
 		{
 			cost: { amount: 250_000, currency: CurrenciesTypes.PROTONS },
-			description: '+1% production per electronize',
+			description: '+1% production per Electronize',
 			effects: [mul('global', manager => 1 + manager.totalElectronizesAllTime * 0.01)],
 			icon: 'electron',
 			id: 'proton_prestige_bonus',
@@ -437,7 +437,7 @@ function createProtonUpgrades(): Upgrade[] {
 			cost: { amount: 2_500_000, currency: CurrenciesTypes.PROTONS },
 			description: '+20% production per 100 generators owned',
 			effects: [mul('global', manager => 1 + Math.floor(manager.generatorTotals.count / 100) * 0.2)],
-			icon: 'generatorLevel',
+			icon: 'generator',
 			id: 'proton_quantum_resonance',
 			name: 'Quantum Resonance',
 		},
@@ -452,7 +452,7 @@ function createProtonUpgrades(): Upgrade[] {
 		},
 		{
 			cost: { amount: 250_000_000, currency: CurrenciesTypes.PROTONS },
-			description: '+25% production per protonise',
+			description: '+25% production per Protonise',
 			effects: [mul('global', manager => 1 + manager.totalProtonisesRun * 0.25)],
 			icon: 'proton',
 			id: 'proton_particle_accelerator',
@@ -462,9 +462,9 @@ function createProtonUpgrades(): Upgrade[] {
 			id: 'stability_boost',
 			count: 5,
 			currency: CurrenciesTypes.PROTONS,
-			icon: 'stabilityMeter',
+			icon: 'stabilityField',
 			name: i => `Stable Resonance ${i}`,
-			description: i => `+${25 * i}% effect from Stability Meter`,
+			description: i => `+${25 * i}% effect from the Stability Field`,
 			condition: isStabilityUnlocked,
 			cost: i => Math.ceil(140 * 2.05 ** i),
 			effects: () => [add('stability_boost', 0.25)],
@@ -473,9 +473,9 @@ function createProtonUpgrades(): Upgrade[] {
 			id: 'stability_speed',
 			count: 10,
 			currency: CurrenciesTypes.PROTONS,
-			icon: 'stabilityMeter',
+			icon: 'stabilityField',
 			name: i => `Field Coherence ${i}`,
-			description: () => `Stability grows 10% faster`,
+			description: () => `The Stability Field grows 10% faster`,
 			condition: isStabilityUnlocked,
 			cost: i => Math.ceil(100 * 2.25 ** i),
 			effects: () => [add('stability_speed', 0.1)],
@@ -484,9 +484,9 @@ function createProtonUpgrades(): Upgrade[] {
 			id: 'stability_expansion',
 			count: 5,
 			currency: CurrenciesTypes.PROTONS,
-			icon: 'stabilityMeter',
+			icon: 'stabilityField',
 			name: i => `Temporal Expansion ${i}`,
-			description: () => `Extends stability capacity and max bonus`,
+			description: () => `Extends the Stability Field capacity and max bonus`,
 			condition: isStabilityUnlocked,
 			cost: i => Math.ceil(500 * 3 ** i),
 			effects: () => [add('stability_capacity', 2.2)],
@@ -539,7 +539,7 @@ function createElectronUpgrades(): Upgrade[] {
 			cost: { amount: 10, currency: CurrenciesTypes.ELECTRONS },
 			description: '+5% production per generator type owned',
 			effects: [mul('global', manager => 1 + GENERATOR_TYPES.filter(type => (manager.generators[type]?.count ?? 0) > 0).length * 0.05)],
-			icon: 'sparkles',
+			icon: 'generator',
 			id: 'electron_cosmic_synergy',
 			name: 'Cosmic Synergy',
 		},

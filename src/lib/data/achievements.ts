@@ -40,49 +40,49 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		id: 'play_time_10min',
 		name: 'Getting Started',
 		description: 'Play for 10 minutes',
-		iconStack: { count: 1, icon: 'award' },
+		iconStack: { count: 1, icon: 'playTime' },
 		condition: (manager: GameManager) => manager.inGameTime >= 600000, // 10 minutes in ms
 	},
 	{
 		id: 'play_time_2h',
 		name: 'Dedicated Player',
 		description: 'Play for 2 hours',
-		iconStack: { count: 2, icon: 'award' },
+		iconStack: { count: 2, icon: 'playTime' },
 		condition: (manager: GameManager) => manager.inGameTime >= 7200000, // 2 hours in ms
 	},
 	{
 		id: 'play_time_30h',
 		name: 'Atomic Addict',
 		description: 'Play for 30 hours',
-		iconStack: { count: 3, icon: 'award' },
+		iconStack: { count: 3, icon: 'playTime' },
 		condition: (manager: GameManager) => manager.inGameTime >= 108000000, // 30 hours in ms
 	},
 	{
 		id: 'play_time_123h',
 		name: 'Time Lord',
 		description: 'Play for 123 hours',
-		iconStack: { count: 3, icon: 'award', label: '123h' },
+		iconStack: { count: 3, icon: 'playTime', label: '123h' },
 		condition: (manager: GameManager) => manager.inGameTime >= 442800000, // 123 hours in ms
 	},
 	{
 		id: 'time_since_start_10d',
 		name: 'Decade Player',
 		description: 'Play for 10 days total',
-		iconStack: { count: 3, icon: 'award', label: '10d' },
+		iconStack: { count: 3, icon: 'playTime', label: '10d' },
 		condition: (manager: GameManager) => Date.now() - manager.startDate >= 864000000, // 10 days in ms
 	},
 	{
 		id: 'time_since_start_123d',
 		name: 'Century Gamer',
 		description: 'Play for 123 days total',
-		iconStack: { count: 3, icon: 'award', label: '123d' },
+		iconStack: { count: 3, icon: 'playTime', label: '123d' },
 		condition: (manager: GameManager) => Date.now() - manager.startDate >= 10627200000, // 123 days in ms
 	},
 	{
 		id: 'website_click',
 		name: 'Website Visitor',
 		description: "Visited the creator's website",
-		iconStack: { count: 1, icon: 'globe' },
+		iconStack: { count: 1, icon: 'website' },
 		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('website_click'),
 		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('website_click'),
 	},
@@ -182,7 +182,7 @@ function createGeneratorTotalAchievements(): Achievement[] {
 			id: `total_${count}`,
 			name: `${count} Generators`,
 			description: `Own a total of ${count} generators`,
-			iconStack: tierIconStack('layers', tierIndex, count),
+			iconStack: tierIconStack('generator', tierIndex, count),
 			hiddenCondition: (manager: GameManager) => manager.generatorTotals.count === 0,
 			condition: (manager: GameManager) => manager.generatorTotals.count >= count,
 		};
@@ -198,7 +198,7 @@ function createGeneratorLevelsAchievements(): Achievement[] {
 			id: `buildings_levels_${level}`,
 			name: `Levels ${level}`,
 			description: `Have a total of ${level} generator levels`,
-			iconStack: tierIconStack('generatorLevel', tierIndex, level),
+			iconStack: tierIconStack('generator', tierIndex, level),
 			hiddenCondition: (manager: GameManager) => manager.generatorTotals.levels === 0,
 			condition: (manager: GameManager) => manager.generatorTotals.levels >= level,
 		};
@@ -362,8 +362,8 @@ function createCurrencyBoostAchievements(): Achievement[] {
 		{
 			id: 'first_boost',
 			name: 'Power Amplifier',
-			description: 'Allocate your first skill point to a currency boost',
-			iconStack: { count: 1, icon: 'upgrade' },
+			description: 'Allocate your first boost point to a currency boost',
+			iconStack: { count: 1, icon: 'currencyBoost' },
 			condition: (manager: GameManager) => {
 				const totalBoosts = Object.values(manager.currencyBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
 				return totalBoosts >= 1;
@@ -374,7 +374,7 @@ function createCurrencyBoostAchievements(): Achievement[] {
 			id: 'max_single_boost',
 			name: 'Laser Focus',
 			description: 'Maximize a single currency boost (20 points)',
-			iconStack: { count: 3, icon: 'upgrade', label: '20' },
+			iconStack: { count: 3, icon: 'currencyBoost', label: '20' },
 			condition: (manager: GameManager) => {
 				const boosts = Object.values(manager.currencyBoosts || {});
 				return boosts.some(points => (points ?? 0) >= 20);
@@ -412,7 +412,7 @@ function createRadiationAchievements(): Achievement[] {
 		{
 			id: 'radiation_upgrades_20',
 			name: 'Nuclear Engineer',
-			description: 'Purchase 20 radiation upgrades',
+			description: 'Purchase 20 Reactor Upgrades',
 			iconStack: { count: 3, icon: 'upgrade', label: '20' },
 			condition: (manager: GameManager) => {
 				const upgrades = manager.radiationUpgrades || {};
