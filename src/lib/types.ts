@@ -22,6 +22,13 @@ export interface Achievement {
 	name: string;
 }
 
+export interface AchievementGroup {
+	achievements: Achievement[];
+	name: string;
+	/** Ordered tiers of one goal, the list only shows the unlocked ones and the next target until expanded. */
+	tiered: boolean;
+}
+
 export interface ChromaticState {
 	kills: Record<ChromaticColor, number>;
 }

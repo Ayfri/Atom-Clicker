@@ -1,4 +1,4 @@
-import type { Achievement } from '$lib/types';
+import type { Achievement, AchievementGroup } from '$lib/types';
 import type { GameManager } from '$helpers/GameManager.svelte';
 import { tierIconStack } from '$helpers/iconStacks';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
@@ -280,11 +280,13 @@ function createElectronizeAchievements(): Achievement[] {
 	}));
 }
 
-function createCurrencyAchievements(): Achievement[] {
+function createCurrencyAchievements(): AchievementGroup[] {
 	return Object.values(CURRENCIES)
 		.filter(c => c.achievementTiers && c.stat)
-		.flatMap(currency => {
-			return currency.achievementTiers!.map((tier, index) => {
+		.map(currency => ({
+			name: currency.name,
+			tiered: true,
+			achievements: currency.achievementTiers!.map((tier, index) => {
 				let name = `${formatNumber(tier)} ${currency.name}`;
 				let description = `Collect ${formatNumber(tier)} ${currency.name.toLowerCase()}`;
 
@@ -331,8 +333,8 @@ function createCurrencyAchievements(): Achievement[] {
 						return (currencyData?.earnedAllTime || 0) === 0;
 					},
 				};
-			});
-		});
+			}),
+		}));
 }
 
 function createPhotonUpgradeAchievements(): Achievement[] {
@@ -424,23 +426,23 @@ function createRadiationAchievements(): Achievement[] {
 	];
 }
 
-const achievementsArray: Achievement[] = [
-	...GENERATOR_TYPES.map(createGeneratorAchievements).flat(),
-	...createGeneratorTotalAchievements(),
-	...createGeneratorLevelsAchievements(),
-	...createAtomsPerSecondAchievements(),
-	...createTotalClicksAchievements(),
-	...createTotalLevelsAchievements(),
-	...createProtoniseAchievements(),
-	...createElectronizeAchievements(),
+export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
+	...GENERATOR_TYPES.map(type => ({ achievements: createGeneratorAchievements(type), name: GENERATORS[type].name, tiered: true })),
+	{ achievements: createGeneratorTotalAchievements(), name: 'Generators Owned', tiered: true },
+	{ achievements: createGeneratorLevelsAchievements(), name: 'Generator Levels', tiered: true },
+	{ achievements: createAtomsPerSecondAchievements(), name: 'Atoms per Second', tiered: true },
+	{ achievements: createTotalClicksAchievements(), name: 'Clicks', tiered: true },
+	{ achievements: createTotalLevelsAchievements(), name: 'Player Level', tiered: true },
+	{ achievements: createProtoniseAchievements(), name: 'Protonises', tiered: true },
+	{ achievements: createElectronizeAchievements(), name: 'Electronizes', tiered: true },
 	...createCurrencyAchievements(),
-	...createCurrencyBoostAchievements(),
-	...createPhotonUpgradeAchievements(),
-	...createRadiationAchievements(),
-	...SPECIAL_ACHIEVEMENTS,
+	{ achievements: createCurrencyBoostAchievements(), name: 'Currency Boosts', tiered: false },
+	{ achievements: createPhotonUpgradeAchievements(), name: 'Photon Upgrades', tiered: false },
+	{ achievements: createRadiationAchievements(), name: 'Reactor', tiered: false },
+	{ achievements: SPECIAL_ACHIEVEMENTS, name: 'Special', tiered: false },
 ];
 
-export const ACHIEVEMENTS = Object.fromEntries(achievementsArray.map(achievement => [achievement.id, achievement]));
+export const ACHIEVEMENTS = Object.fromEntries(ACHIEVEMENT_GROUPS.flatMap(group => group.achievements).map(achievement => [achievement.id, achievement]));
 
 /** Pre-built so the per-tick achievement sweep does not rebuild an entries array every second. */
 export const ACHIEVEMENT_ENTRIES = Object.entries(ACHIEVEMENTS);
