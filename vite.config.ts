@@ -1,7 +1,11 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
+import { readFileSync } from 'node:fs';
 import { loadEnv, defineConfig, type Plugin } from 'vite';
+
+/** The newest changelog heading, so the Settings dot knows about unread changes without fetching the file. */
+const changelogVersion = readFileSync('static/Changelog.md', 'utf8').match(/^# (.+)$/m)?.[1].trim() ?? '';
 
 /**
  * Workaround for https://github.com/sveltejs/kit/issues/12394.
@@ -38,6 +42,7 @@ function skitWorkerShim(publicEnv: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
+		define: { __CHANGELOG_VERSION__: JSON.stringify(changelogVersion) },
 		plugins: [tailwindcss(), sveltekit()],
 		worker: {
 			// `svelte()` is also needed here so .svelte files pulled in transitively (e.g. icon

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { changelog } from '$stores/changelog.svelte';
 	import { ChevronDown, Paintbrush, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -59,6 +60,7 @@
 
 	onMount(async () => {
 		gameManager.unlockAchievement('changelog_modal_opener');
+		changelog.markSeen();
 		try {
 			releases = parse(await (await fetch('/Changelog.md')).text());
 		} catch (error) {

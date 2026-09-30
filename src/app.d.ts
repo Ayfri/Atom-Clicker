@@ -1,5 +1,7 @@
 // See https://kit.svelte.dev/docs/types#app
 declare global {
+	const __CHANGELOG_VERSION__: string;
+
 	namespace App {
 		interface Platform {
 			context: {

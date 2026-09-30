@@ -8,6 +8,8 @@
 	import Profile from '@components/settings/Profile.svelte';
 	import GlobalStats from '@components/settings/Stats.svelte';
 	import Modal from '@components/ui/Modal.svelte';
+	import NotificationDot from '@components/ui/NotificationDot.svelte';
+	import { changelog } from '$stores/changelog.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, SlidersHorizontal, User } from '@lucide/svelte';
 	import type { Component } from 'svelte';
@@ -23,6 +25,7 @@
 		icon: typeof User;
 		id: string;
 		label: string;
+		notification?: () => boolean;
 	}
 
 	let { onClose }: Props = $props();
@@ -40,7 +43,7 @@
 			tabs: [
 				{ component: Gameplay, description: 'Offline progress and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
 				{ component: GlobalStats, description: 'Your progress in numbers', icon: ChartLine, id: 'stats', label: 'Stats' },
-				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog' },
+				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog', notification: () => changelog.unread },
 			],
 		},
 		{
@@ -86,7 +89,9 @@
 							{shownTab === tab.id ? 'border-accent/30 bg-accent/20 text-accent' : 'border-transparent text-white/60 hover:bg-white/5 hover:text-white'}"
 							onclick={() => (ui.activeTab = tab.id)}
 						>
-							<tab.icon class={shownTab === tab.id ? 'text-accent' : 'text-white/40 group-hover:text-white'} size={18} />
+							<NotificationDot class="relative flex" hasNotification={tab.notification?.() ?? false}>
+								<tab.icon class={shownTab === tab.id ? 'text-accent' : 'text-white/40 group-hover:text-white'} size={18} />
+							</NotificationDot>
 							<span class="font-medium">{tab.label}</span>
 						</button>
 					{/each}
@@ -106,9 +111,9 @@
 								<div class="divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10 bg-black/20">
 									{#each group.tabs as tab (tab.id)}
 										<button class="flex w-full items-center gap-4 p-4 text-left transition-colors active:bg-white/10" onclick={() => (ui.activeTab = tab.id)}>
-											<span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+											<NotificationDot class="relative flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent" hasNotification={tab.notification?.() ?? false}>
 												<tab.icon size={20} />
-											</span>
+											</NotificationDot>
 											<span class="flex min-w-0 flex-1 flex-col">
 												<span class="font-semibold text-white">{tab.label}</span>
 												<span class="truncate text-sm text-white/50">{tab.description}</span>

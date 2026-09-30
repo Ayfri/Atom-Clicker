@@ -9,6 +9,7 @@
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
+	import { changelog } from '$stores/changelog.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { mobile } from '$stores/window.svelte';
@@ -31,7 +32,7 @@
 		iconProps?: Record<string, unknown>;
 		id: string;
 		label: string;
-		/** Modals are code-split: none of their chunks (xyflow, virtua) sit in the initial bundle. */
+		/** Modals are code-split: none of their chunks (virtua) sit in the initial bundle. */
 		load: ModalLoader;
 		notification?: () => boolean;
 	}
@@ -122,6 +123,7 @@
 		id: 'settings',
 		label: 'Settings',
 		load: settingsLoader,
+		notification: () => changelog.unread,
 	};
 
 	/**
