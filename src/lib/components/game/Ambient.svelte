@@ -29,8 +29,9 @@
 		if (!field) return;
 		field.accent = accent;
 		field.setAmbience(ambience);
-		field.setActive(!ui.covered);
 	});
+
+	$effect(() => field?.setActive(!ui.covered));
 </script>
 
 <!-- Fixed inside the transformed realm panel, so it stays put while the realm scrolls, under everything but the realm backdrop. -->

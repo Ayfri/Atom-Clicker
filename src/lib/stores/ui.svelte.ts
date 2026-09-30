@@ -1,4 +1,4 @@
-import type { Component } from 'svelte';
+import { type Component, untrack } from 'svelte';
 
 type ModalComponent = Component<{ onClose: () => void }>;
 type ModalLoader = () => Promise<{ default: ModalComponent }>;
@@ -40,10 +40,10 @@ class UIStore {
 		return this.#covers > 0;
 	}
 
-	/** Registers a viewport-filling overlay, returns its release. */
+	/** Registers a viewport-filling overlay, returns its release. Untracked, so an effect calling it doesn't depend on the count it changes. */
 	cover() {
-		this.#covers++;
-		return () => this.#covers--;
+		untrack(() => this.#covers++);
+		return () => untrack(() => this.#covers--);
 	}
 
 	openModal(component: ModalComponent, tab: string | null = null, id: string | null = null) {

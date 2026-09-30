@@ -3,6 +3,7 @@
 	import { X } from '@lucide/svelte';
 	import { ui } from '$stores/ui.svelte';
 	import type { Snippet } from 'svelte';
+	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 
 	interface Props {
 		children?: Snippet;
@@ -29,22 +30,14 @@
 		xl: 'max-w-7xl'
 	}[width]);
 
+	let modalHeight = $state(0);
+	let modalWidth = $state(0);
 	/** Phones show the modal fullscreen, the desktop one leaves the game visible around it. */
-	function trackCoverage(element: HTMLElement) {
-		let release: (() => void) | undefined;
-		const observer = new ResizeObserver(() => {
-			const { clientHeight, clientWidth } = document.documentElement;
-			const covers = element.offsetWidth >= clientWidth && element.offsetHeight >= clientHeight;
-			if (covers === !!release) return;
-			release?.();
-			release = covers ? ui.cover() : undefined;
-		});
-		observer.observe(element);
-		return () => {
-			observer.disconnect();
-			release?.();
-		};
-	}
+	const covers = $derived(modalWidth >= (innerWidth.current ?? Infinity) && modalHeight >= (innerHeight.current ?? Infinity));
+
+	$effect(() => {
+		if (covers) return ui.cover();
+	});
 
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
@@ -65,7 +58,8 @@
 	transition:fade={{ duration: 200 }}
 >
 	<div
-		{@attach trackCoverage}
+		bind:offsetHeight={modalHeight}
+		bind:offsetWidth={modalWidth}
 		class="modal flex h-dvh w-screen md:h-[85vh] md:w-[85vw] {widthClasses} flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={onKeydown}
