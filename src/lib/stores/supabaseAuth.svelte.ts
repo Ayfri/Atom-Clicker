@@ -10,10 +10,14 @@ import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$he
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
 export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
 
+/** The profile columns the client reads, the save blob stays out of it and is only fetched by the cloud save calls. */
+type AccountProfile = Pick<Profile, 'id' | 'picture' | 'username'>;
+const PROFILE_COLUMNS = 'id, picture, username';
+
 export class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
-	profile = $state<Profile | null>(null);
+	profile = $state.raw<AccountProfile | null>(null);
 	/** The profile row wins over the OAuth provider metadata, which only seeds it. */
 	avatarUrl = $derived<string | null>(this.profile?.picture || this.user?.user_metadata?.avatar_url || this.user?.user_metadata?.picture || null);
 	displayName = $derived<string | null>(
@@ -105,13 +109,13 @@ export class SupabaseAuth {
 
 				console.log('Auth state change for user:', user.id);
 
-				let { data: profile, error } = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
+				let { data: profile, error } = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 
 				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
 				if (error && error.code === 'PGRST116') {
 					console.log('Profile not found yet, retrying in 1s...');
 					await new Promise(resolve => setTimeout(resolve, 1000));
-					const retry = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
+					const retry = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 					profile = retry.data;
 					error = retry.error;
 				}
@@ -257,17 +261,14 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (user) {
+			if (this.user) {
 				await this.supabase
 					.from('profiles')
 					.update({
 						is_online: false,
 						updated_at: new Date().toISOString(),
 					})
-					.eq('id', user.id);
+					.eq('id', this.user.id);
 			}
 
 			const { error } = await this.supabase.auth.signOut();
@@ -281,14 +282,11 @@ export class SupabaseAuth {
 		}
 	}
 
-	async updateProfile(updates: Partial<Profile>) {
+	async updateProfile(updates: Partial<Pick<Profile, 'picture' | 'username'>>) {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) throw new Error('No authenticated user');
+			if (!this.user) throw new Error('No authenticated user');
 
 			const { error } = await this.supabase
 				.from('profiles')
@@ -296,7 +294,7 @@ export class SupabaseAuth {
 					...updates,
 					updated_at: new Date().toISOString(),
 				})
-				.eq('id', user.id);
+				.eq('id', this.user.id);
 
 			if (error) throw error;
 
@@ -313,10 +311,7 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) throw new Error('No authenticated user');
+			if (!this.user) throw new Error('No authenticated user');
 
 			const saveData = {
 				...currentState,
@@ -330,17 +325,9 @@ export class SupabaseAuth {
 					save: saveData,
 					updated_at: new Date().toISOString(),
 				})
-				.eq('id', user.id);
+				.eq('id', this.user.id);
 
 			if (error) throw error;
-
-			if (this.profile) {
-				this.profile = {
-					...this.profile,
-					save: saveData,
-					updated_at: new Date().toISOString(),
-				};
-			}
 		} catch (err) {
 			console.error('Error saving game to cloud:', err);
 			throw err;
@@ -351,12 +338,9 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return null;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) throw new Error('No authenticated user');
+			if (!this.user) throw new Error('No authenticated user');
 
-			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', user.id).single();
+			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
 
 			if (error) throw error;
 			if (!profile?.save) return null;
@@ -393,8 +377,7 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase || !this.user) return null;
 
 		try {
-			const user = this.user;
-			const { data: profile, error } = await this.supabase.from('profiles').select('save, last_updated').eq('id', user.id).single();
+			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
 
 			if (error) throw error;
 			if (!profile?.save) return null;
