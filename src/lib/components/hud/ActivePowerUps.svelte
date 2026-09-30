@@ -35,7 +35,7 @@
 </script>
 
 {#if active.length > 0}
-	<!-- Pinned to the bottom of the realm panel (its transform is the containing block) so new cards never grow the page. -->
+	<!-- Pinned to the bottom of the realm panel (its layout containment makes it the containing block) so new cards never grow the page. -->
 	<div
 		class="fixed bottom-4 inset-x-0 z-20 flex flex-col items-center gap-2 pointer-events-none select-none max-lg:landscape:right-1/2"
 	>

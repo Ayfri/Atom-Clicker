@@ -288,8 +288,8 @@
 		{/if}
 
 		<!-- Realms sit side by side and swing in like the faces of a cube, the leaving one first, the arriving one after
-		     a short delay adding up to REALM_SWITCH_MS. `translateX(0)` at rest keeps the panel 2D and the containing block
-		     of its fixed children. -->
+		     a short delay adding up to REALM_SWITCH_MS. Layout containment makes the panel the containing block of its fixed
+		     children, even with reduced motion where it has no transform. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
 			{@const RealmComponent = realmComponents[realm.componentId]}
 			{@const background = getRealmBackground(realm)}
@@ -299,7 +299,7 @@
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
 			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
 			<div
-				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
+				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
 					side
 				) ?
 					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
