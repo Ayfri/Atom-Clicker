@@ -28,6 +28,8 @@
 	const prestigeCurrencies = $derived([CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS].filter(type => gameManager.currencies[type].amount > 0));
 	const stabilityPaused = $derived(gameManager.activePowerUps.length > 0);
 	const stabilityFull = $derived(!stabilityPaused && gameManager.stabilityProgress >= 1);
+	/** Unprotected auto-clicks empty the field on every tick, a countdown would only flicker around its full duration. */
+	const stabilityHeld = $derived(gameManager.autoClicksPerSecond > 0 && !gameManager.features[FeatureTypes.STABLE_ATOM_AUTO_CLICK]);
 
 	let lastStability = gameManager.stabilityProgress;
 
@@ -153,6 +155,8 @@
 					<span class="text-red-300">Paused during power-up</span>
 				{:else if stabilityFull}
 					<span class="font-medium text-yellow-200">Maximum stability reached</span>
+				{:else if stabilityHeld}
+					<span class="text-red-300">Auto-clicks keep it empty</span>
 				{:else}
 					<span class="text-yellow-100/70">
 						Full in <span class="font-mono tabular-nums">{formatDuration(gameManager.stabilityTimeRequired * (1 - gameManager.stabilityProgress))}</span>
