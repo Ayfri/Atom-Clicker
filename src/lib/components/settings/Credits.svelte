@@ -56,8 +56,8 @@
 	{/if}
 {/snippet}
 
-<div class="mx-auto flex max-w-3xl flex-col gap-10">
-	<section class="flex items-center gap-4 py-2">
+<div class="mx-auto flex max-w-3xl flex-col gap-7">
+	<section class="flex items-center gap-4">
 		<AtomIcon class="shrink-0 drop-shadow-[0_0_12px_var(--color-accent-400)]" size={52} />
 		<div class="flex flex-col gap-1">
 			<h3 class="flex items-center gap-1 text-2xl font-bold text-white">Atom Clicker {@render hiddenAtom(0)}</h3>
@@ -68,12 +68,12 @@
 		</div>
 	</section>
 
-	<section class="flex flex-col gap-3">
+	<section class="flex flex-col gap-2">
 		<h4 class="text-xs font-semibold tracking-wider text-white/40 uppercase">Links</h4>
 		<div class="grid gap-2 sm:grid-cols-2">
 			{#each links as link (link.name)}
 				<a
-					class="group flex items-center gap-3 rounded-xl border border-white/10 p-3 transition-colors hover:bg-white/5"
+					class="group flex items-center gap-3 rounded-xl border border-white/10 px-3 py-2.5 transition-colors hover:bg-white/5"
 					href={link.url}
 					onclick={() => gameManager.unlockAchievement(link.achievement)}
 					rel="noopener noreferrer"
@@ -90,7 +90,7 @@
 		</div>
 	</section>
 
-	<section class="flex flex-col gap-3">
+	<section class="flex flex-col gap-2">
 		<h4 class="flex items-center gap-1 text-xs font-semibold tracking-wider text-white/40 uppercase">Contributors {@render hiddenAtom(1)}</h4>
 		<p class="text-sm leading-relaxed text-white/70 select-text">
 			Code from <span class="font-semibold text-white">ZRunner</span> and <span class="font-semibold text-white">Arslan-TR</span>, and ideas and bug reports from every player on Discord.
@@ -98,9 +98,9 @@
 		</p>
 	</section>
 
-	<section class="flex flex-col gap-3">
+	<section class="flex flex-col gap-2">
 		<h4 class="text-xs font-semibold tracking-wider text-white/40 uppercase">Built with</h4>
-		<ul class="flex flex-col gap-3 text-sm">
+		<ul class="flex flex-col gap-2 text-sm">
 			{#each technologies as tech (tech.name)}
 				<li class="grid grid-cols-[1fr_auto] items-baseline gap-x-6 sm:grid-cols-[12rem_1fr_auto]">
 					<a class="font-medium text-white transition-colors hover:text-accent" href={tech.url} rel="noopener noreferrer" target="_blank">{tech.name}</a>
