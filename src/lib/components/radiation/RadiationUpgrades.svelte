@@ -52,11 +52,11 @@
 
 	<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
 		{#each upgrades as upgrade (upgrade.id)}
-			{@const level = levels[upgrade.id] ?? 0}
-			{@const cost = getRadiationUpgradeCost(upgrade, level)}
-			{@const maxed = level >= upgrade.maxLevel}
-			{@const affordable = !maxed && balance >= cost}
-			{@const Icon = ICONS[upgrade.id]}
+			{const level = $derived(levels[upgrade.id] ?? 0)}
+			{const cost = $derived(getRadiationUpgradeCost(upgrade, level))}
+			{const maxed = $derived(level >= upgrade.maxLevel)}
+			{const affordable = $derived(!maxed && balance >= cost)}
+			{const Icon = $derived(ICONS[upgrade.id])}
 			<button
 				class="flex items-center gap-3 rounded-xl p-2.5 text-left transition-colors duration-200
 					{affordable ? 'cursor-pointer bg-radiation/8 hover:bg-radiation/15' : 'cursor-default bg-white/3'}"

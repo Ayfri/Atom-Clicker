@@ -45,10 +45,10 @@
 {/snippet}
 
 {#snippet item(upgrade: ChromaticUpgrade)}
-	{@const level = chromaticManager.level(upgrade.id)}
-	{@const maxed = level >= upgrade.maxLevel}
-	{@const cost = getChromaticUpgradeCost(upgrade, level)}
-	{@const affordable = chromaticManager.canAfford(upgrade)}
+	{const level = $derived(chromaticManager.level(upgrade.id))}
+	{const maxed = $derived(level >= upgrade.maxLevel)}
+	{const cost = $derived(getChromaticUpgradeCost(upgrade, level))}
+	{const affordable = $derived(chromaticManager.canAfford(upgrade))}
 	<button
 		class={[
 			'rounded-sm border border-realm-500/20 bg-realm-900/20 p-2 text-start transition-all duration-200',
@@ -89,7 +89,7 @@
 	</div>
 
 	{#each CHROMATIC_COLORS as color (color)}
-		{@const spectrum = chromaticManager.spectrumLevel(color)}
+		{const spectrum = $derived(chromaticManager.spectrumLevel(color))}
 		<section class="flex flex-col gap-1.5">
 			<h3 class="flex items-baseline justify-between text-xs">
 				<span class="font-semibold" style:color={CURRENCIES[CHROMATIC[color].currency].color}>{CHROMATIC[color].name}</span>

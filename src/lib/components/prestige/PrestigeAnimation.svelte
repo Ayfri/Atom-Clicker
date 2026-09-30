@@ -50,7 +50,7 @@
 		<div class="core-flash"></div>
 
 		<!-- Expanding rings -->
-		{#each Array(5) as _, i}
+		{#each { length: 5 }, i}
 			<div
 				class="ring"
 				style="--delay: {i * 0.2}s; --scale: {1 + i * 0.4}"
@@ -58,7 +58,7 @@
 		{/each}
 
 		<!-- Energy beam rays -->
-		{#each Array(12) as _, i}
+		{#each { length: 12 }, i}
 			<div
 				class="beam"
 				style="--rotation: {i * 30}deg; --delay: {i * 0.07}s"
@@ -66,7 +66,7 @@
 		{/each}
 
 		<!-- Background Dust Particles -->
-		{#each Array(40) as _, i}
+		{#each { length: 40 }, i}
 			<div
 				class="particle"
 				style="
@@ -82,7 +82,7 @@
 		<!-- Hexagonal grid for protonise -->
 		{#if currentAnimation === 'protonise'}
 			<div class="hex-grid">
-				{#each Array(20) as _, i}
+				{#each { length: 20 }, i}
 					<div
 						class="hex"
 						style="
@@ -97,7 +97,7 @@
 
 			<!-- Proton Splash -->
 			<div class="currency-splash">
-				{#each Array(60) as _, i}
+				{#each { length: 60 }, i}
 					<div
 						class="currency-particle proton-motion"
 						style="
@@ -121,7 +121,7 @@
 				viewBox="0 0 100 100"
 				preserveAspectRatio="none"
 			>
-				{#each Array(8) as _, i}
+				{#each { length: 8 }, i}
 					<path
 						class="lightning-bolt"
 						style="--delay: {i * 0.25}s; --duration: {1 + Math.random() * 0.5}s"
@@ -129,7 +129,7 @@
 				{/each}
 			</svg>
 			<div class="electron-orbits fade-out-early">
-				{#each Array(4) as _, i}
+				{#each { length: 4 }, i}
 					<div
 						class="orbit"
 						style="--size: {30 + i * 20}vmin; --duration: {1.5 + i * 0.4}s; --delay: {i * 0.1}s"
@@ -141,7 +141,7 @@
 
 			<!-- Electron Splash -->
 			<div class="currency-splash">
-				{#each Array(80) as _, i}
+				{#each { length: 80 }, i}
 					<div
 						class="currency-particle electron-motion"
 						style="
@@ -160,7 +160,7 @@
 
 		<!-- Ionize: electrons torn off their orbits, then a white beam split into the three Lights by the Prism -->
 		{#if currentAnimation === 'ionize'}
-			{#each Array(3) as _, i}
+			{#each { length: 3 }, i}
 				<div
 					class="ion-orbit"
 					style="--tilt: {i * 60}deg; --delay: {i * 0.08}s"
@@ -189,8 +189,8 @@
 			</svg>
 
 			<div class="currency-splash">
-				{#each Array(45) as _, i}
-					{@const light = LIGHTS[i % LIGHTS.length]}
+				{#each { length: 45 }, i}
+					{const light = $derived(LIGHTS[i % LIGHTS.length])}
 					<div
 						class="currency-particle light-motion"
 						style="

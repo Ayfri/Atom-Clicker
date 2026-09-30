@@ -86,7 +86,7 @@
 	</div>
 
 	{#each visibleGroups as group (group.key)}
-		{@const onCount = group.chips.filter(chip => ownedSet.has(chip.item.id)).length}
+		{const onCount = $derived(group.chips.filter(chip => ownedSet.has(chip.item.id)).length)}
 		<div class="flex flex-col gap-1.5">
 			<button
 				class="w-fit cursor-pointer text-left text-[11px] font-bold tracking-wider text-white/35 uppercase hover:text-white/70"
@@ -97,7 +97,7 @@
 			</button>
 			<div class="flex flex-wrap gap-1.5">
 				{#each group.chips as { item, label } (item.id)}
-					{@const on = ownedSet.has(item.id)}
+					{const on = $derived(ownedSet.has(item.id))}
 					<button
 						class="h-7 min-w-7 cursor-pointer rounded-md border px-2 text-[11px] font-semibold transition-colors {on ?
 							'border-accent-400/60 bg-accent-500/25 text-accent-100'

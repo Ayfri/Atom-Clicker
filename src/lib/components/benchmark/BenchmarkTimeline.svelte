@@ -66,8 +66,8 @@
 			></div>
 
 			{#each groupedMilestones as group, idx (group.items[0].milestone.id)}
-				{@const isCluster = group.items.length > 1}
-				{@const tooltipVisible = hoveredIdx === idx}
+				{const isCluster = $derived(group.items.length > 1)}
+				{const tooltipVisible = $derived(hoveredIdx === idx)}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="-translate-x-1/2 absolute top-0 z-10 cursor-default"

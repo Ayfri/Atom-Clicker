@@ -56,7 +56,7 @@
 		{/each}
 		<span class="mx-1 h-8 w-px bg-white/10"></span>
 		{#each TIERS as tier, index (tier)}
-			{@const stack = tierIconStack(icon, index, tier, color)}
+			{const stack = $derived(tierIconStack(icon, index, tier, color))}
 			<div class="flex flex-col items-center gap-0.5">
 				<IconStack color={stack.color} count={stack.count} icon={stack.icon} label={stack.label} {size} />
 				<span class="font-mono text-[9px] text-white/30">{tier}</span>
@@ -88,7 +88,7 @@
 <Section collapsed title="Icon registry ({ICON_NAMES.length})">
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1">
 		{#each ICON_NAMES as name (name)}
-			{@const Icon = ICONS[name]}
+			{const Icon = $derived(ICONS[name])}
 			<button class="flex cursor-pointer flex-col items-center gap-1 rounded bg-white/5 p-1.5 hover:bg-white/10" onclick={() => (icon = name)} title="Use in icon stacks">
 				<Icon {color} size={size * 0.6} />
 				<span class="w-full truncate text-center font-mono text-[9px] text-white/40">{name}</span>

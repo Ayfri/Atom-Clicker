@@ -234,7 +234,7 @@
 			</svg>
 			{#if !prefersReducedMotion.current}
 				{#each LINKS as link (link.id)}
-					{@const state = linkState(link.target)}
+					{const state = $derived(linkState(link.target))}
 					{#if statuses[link.source].visible && state !== 'locked'}
 						{#each state === 'owned' ? [0, 0.5] : [0] as phase (phase)}
 							<span
@@ -250,7 +250,7 @@
 				{/each}
 			{/if}
 			{#each SKILLS as skill (skill.id)}
-				{@const status = statuses[skill.id]}
+				{const status = $derived(statuses[skill.id])}
 				{#if status.visible}
 					<SkillNode enterDelay={enterDelays.get(skill.id) ?? 0} onUnlock={() => unlock(skill)} {skill} {status} />
 				{/if}

@@ -22,7 +22,7 @@
 <Section title="Realms">
 	<div class="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1.5 text-xs text-white/70">
 		{#each realms as realm (realm)}
-			{@const hintCount = HINTS.filter(hint => hint.realm === realm).length}
+			{const hintCount = $derived(HINTS.filter(hint => hint.realm === realm).length)}
 			<label class="flex items-center gap-2 capitalize">
 				<input bind:checked={gameManager.realms[realm].unlocked} class={checkbox} type="checkbox" />
 				{realm}

@@ -136,7 +136,7 @@
 				{/if}
 				<g class="orbit transition-opacity duration-300 {charging ? 'opacity-0' : ''}">
 					{#each { length: PARTICLES }, i (i)}
-						{@const angle = (i / PARTICLES) * 2 * Math.PI}
+						{const angle = $derived((i / PARTICLES) * 2 * Math.PI)}
 						<circle class="fill-white/70" cx={50 + 44 * Math.cos(angle)} cy={50 + 44 * Math.sin(angle)} r="1.2" />
 					{/each}
 				</g>

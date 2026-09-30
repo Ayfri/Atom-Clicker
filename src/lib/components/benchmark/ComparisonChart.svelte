@@ -230,20 +230,20 @@
 			<rect width="100%" height="100%" fill="url(#cmpBg)"></rect>
 
 			<g font-family="'Inter', system-ui, sans-serif" font-size="10">
-				{#each Array(6) as _, i (i)}
-					{@const y = padding.top + (chartHeight * i) / 5}
-					{@const valRatio = 1 - i / 5}
-					{@const valRaw = useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio}
-					{@const text = formatNumber(valRaw < 0.0001 ? 0 : valRaw)}
+				{#each { length: 6 }, i}
+					{const y = $derived(padding.top + (chartHeight * i) / 5)}
+					{const valRatio = $derived(1 - i / 5)}
+					{const valRaw = $derived(useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio)}
+					{const text = $derived(formatNumber(valRaw < 0.0001 ? 0 : valRaw))}
 					<line x1={padding.left} y1={y} x2={containerWidth - padding.right} y2={y} stroke={i === 5 ? '#475569' : '#334155'} stroke-width="1"></line>
 					<text x={padding.left - 10} {y} text-anchor="end" dominant-baseline="middle" fill="#64748b">{text}{yAxisSuffix}</text>
 				{/each}
 			</g>
 
 			<g font-family="'Inter', system-ui, sans-serif" font-size="10">
-				{#each Array(7) as _, i (i)}
-					{@const x = padding.left + (chartWidth * i) / 6}
-					{@const hour = (effectiveTotalHours * i) / 6}
+				{#each { length: 7 }, i}
+					{const x = $derived(padding.left + (chartWidth * i) / 6)}
+					{const hour = $derived((effectiveTotalHours * i) / 6)}
 					<text {x} y={height - 12} text-anchor="middle" dominant-baseline="auto" fill="#64748b">{hour.toFixed(1)}h</text>
 				{/each}
 			</g>
@@ -277,7 +277,7 @@
 					{/each}
 
 					{#if comparisonDurationHours < totalHours}
-						{@const markerX = chartWidth * comparisonScale}
+						{const markerX = $derived(chartWidth * comparisonScale)}
 						<line x1={markerX} y1="0" x2={markerX} y2={chartHeight} stroke="#475569" stroke-width="1" stroke-dasharray="3 3"></line>
 						<text x={markerX + 4} y="10" font-size="9" fill="#64748b" font-family="'Inter', system-ui, sans-serif">end</text>
 					{/if}
@@ -289,16 +289,16 @@
 
 				{#if primaryDotX !== null}
 					{#each primaryTooltipData as { color, label, val } (label)}
-						{@const v = Math.max(0, transformValue(val))}
-						{@const y = chartHeight - chartHeight * (v / maxVal)}
+						{const v = $derived(Math.max(0, transformValue(val)))}
+						{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 						<circle cx={primaryDotX} cy={y} r="5" fill={color} stroke="#0f172a" stroke-width="2"></circle>
 					{/each}
 				{/if}
 
 				{#if comparisonDotX !== null}
 					{#each comparisonTooltipData as { color, label, val } (label)}
-						{@const v = Math.max(0, transformValue(val))}
-						{@const y = chartHeight - chartHeight * (v / maxVal)}
+						{const v = $derived(Math.max(0, transformValue(val)))}
+						{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 						<circle cx={comparisonDotX} cy={y} r="5" fill="#0f172a" stroke={color} stroke-width="2" stroke-dasharray="3 2"></circle>
 					{/each}
 				{/if}
@@ -323,7 +323,7 @@
 					</div>
 					<div class="flex flex-col gap-1">
 						{#each primaryTooltipData as { color, label, val }, i (label)}
-							{@const cmpVal = comparisonTooltipData[i]?.val}
+							{const cmpVal = $derived(comparisonTooltipData[i]?.val)}
 							<div class="grid items-center" style="grid-template-columns: 1fr auto auto; gap: 0.5rem;">
 								<div class="flex gap-1.5 items-center min-w-0">
 									<span class="h-2 rounded-full shrink-0 w-2" style="background-color: {color}"></span>

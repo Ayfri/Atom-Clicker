@@ -117,7 +117,7 @@
 </script>
 
 {#if visible}
-	{@const hint = visible}
+	{const hint = $derived(visible)}
 	{#key hint.id}
 		{#if targetRect}
 			<div

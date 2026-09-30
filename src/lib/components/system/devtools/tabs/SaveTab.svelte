@@ -138,7 +138,7 @@
 	<input bind:value={query} class="{field} mb-1.5" placeholder="Filter keys" type="search" />
 	<div class="flex flex-col">
 		{#each keys as key (key)}
-			{@const value = read(key)}
+			{const value = $derived(read(key))}
 			<div class="grid grid-cols-[10rem_1fr] items-center gap-2 border-b border-white/5 py-0.5 text-xs last:border-0">
 				<span class="truncate font-mono text-[11px] text-white/50" title={key}>{key}</span>
 				{#if typeof value === 'number'}

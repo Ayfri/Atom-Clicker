@@ -124,9 +124,9 @@
 		</div>
 	{:then profile}
 		{#if profile?.stats}
-			{@const stats = profile.stats}
-			{@const owned = GENERATOR_TYPES.filter(type => (stats.generators[type] ?? 0) > 0)}
-			{@const totalGenerators = owned.reduce((sum, type) => sum + (stats.generators[type] ?? 0), 0)}
+			{const stats = $derived(profile.stats)}
+			{const owned = $derived(GENERATOR_TYPES.filter(type => (stats.generators[type] ?? 0) > 0))}
+			{const totalGenerators = $derived(owned.reduce((sum, type) => sum + (stats.generators[type] ?? 0), 0))}
 			<StatTiles tiles={tilesOf(stats)} />
 
 			<Journey

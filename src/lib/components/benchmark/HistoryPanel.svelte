@@ -220,7 +220,7 @@
 	<div class="flex-1 overflow-y-auto px-3 py-3">
 		{#if loading}
 			<div class="flex flex-col gap-2 pt-2">
-				{#each Array(3) as _}
+				{#each { length: 3 }}
 					<div class="animate-pulse bg-white/5 h-28 rounded-xl"></div>
 				{/each}
 			</div>
@@ -240,10 +240,10 @@
 		{:else}
 			<div class="flex flex-col gap-2">
 				{#each filteredReports as report (report.id)}
-					{@const isLoaded = loadedId === report.id}
-					{@const isCompared = comparisonId === report.id}
-					{@const isDeleting = deletingId === report.id}
-					{@const isEditing = editingId === report.id}
+					{const isLoaded = $derived(loadedId === report.id)}
+					{const isCompared = $derived(comparisonId === report.id)}
+					{const isDeleting = $derived(deletingId === report.id)}
+					{const isEditing = $derived(editingId === report.id)}
 					<div
 						class="border flex flex-col gap-3 group/card p-3 rounded-xl transition-colors {isLoaded
 							? 'bg-amber-500/8 border-amber-500/40'

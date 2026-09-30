@@ -119,7 +119,7 @@
 				{#if loot.length > 0 || summary.xpGained > 0}
 					<div class="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-2 gap-y-3">
 						{#each loot as { amount, currency }, i (currency)}
-							{@const color = CURRENCIES[currency].color}
+							{const color = $derived(CURRENCIES[currency].color)}
 							<div
 								class="flex flex-col items-center gap-0.5 motion-safe:animate-[offline-pop_500ms_cubic-bezier(.34,1.56,.64,1)_backwards]"
 								style:animation-delay="{250 + i * 120}ms"
@@ -171,7 +171,7 @@
 								</span>
 								<span class="flex flex-wrap gap-x-3 gap-y-1 pl-6 text-xs text-white/55">
 									{#each autoBuys as { count, type } (type)}
-										{@const Icon = ICONS[GENERATOR_ICON_NAMES[type]]}
+										{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
 										<span class="flex items-center gap-1" title={GENERATORS[type].name}>
 											<Icon color="currentColor" size={14} />
 											{formatNumber(count)}

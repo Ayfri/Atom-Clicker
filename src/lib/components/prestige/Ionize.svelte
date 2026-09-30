@@ -182,8 +182,8 @@
 					style:grid-template-columns="repeat({MILESTONES.length}, minmax(0, 1fr))"
 				>
 					{#each MILESTONES as milestone, i (milestone.count)}
-						{@const done = i <= reached}
-						{@const upcoming = i === reached + 1}
+						{const done = $derived(i <= reached)}
+						{const upcoming = $derived(i === reached + 1)}
 						<li
 							class="flex flex-col items-center gap-1"
 							title="{milestone.count} Ionizes: {milestone.reward}"

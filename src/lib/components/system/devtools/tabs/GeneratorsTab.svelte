@@ -36,9 +36,9 @@
 		<span class="text-right text-[10px] text-white/30">Atoms/s</span>
 		<span class="text-[10px] text-white/30" title="Auto-buy">Auto</span>
 		{#each GENERATOR_TYPES as type (type)}
-			{@const generator = gameManager.generators[type]}
-			{@const Icon = ICONS[GENERATOR_ICON_NAMES[type]]}
-			{@const interval = intervals[type]}
+			{const generator = $derived(gameManager.generators[type])}
+			{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
+			{const interval = $derived(intervals[type])}
 			<span class="flex min-w-0 items-center gap-1.5 {generator?.count ? 'text-white' : 'text-white/40'}">
 				<Icon color={getGeneratorColor(generator?.level ?? 0)} size={16} />
 				<span class="truncate">{GENERATORS[type].name}</span>
@@ -95,7 +95,7 @@
 	{/snippet}
 	<div class="grid grid-cols-[1fr_auto_1.5rem_auto_3rem] items-center gap-x-2 gap-y-1.5 text-xs">
 		{#each BOOSTABLE as currency (currency)}
-			{@const points = gameManager.currencyBoosts[currency] ?? 0}
+			{const points = $derived(gameManager.currencyBoosts[currency] ?? 0)}
 			<span class="flex items-center gap-1.5 text-white/70"><Currency name={currency} size={14} />{currency}</span>
 			<button class={btn} disabled={points <= 0} onclick={() => gameManager.removeCurrencyBoost(currency)}>-</button>
 			<span class="text-center font-mono text-white">{points}</span>

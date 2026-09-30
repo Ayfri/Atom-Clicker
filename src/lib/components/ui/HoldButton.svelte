@@ -78,7 +78,7 @@
 
 	{#if holding}
 		<div class="hold-button-sparks absolute inset-0">
-			{#each Array(10) as _, i}
+			{#each { length: 10 }, i}
 				<span
 					class="hold-spark"
 					style="--i: {i}; --left: {8 + Math.random() * 84}%; --delay: {Math.random() * 0.6}s; --duration: {0.7 + Math.random() * 0.5}s;"

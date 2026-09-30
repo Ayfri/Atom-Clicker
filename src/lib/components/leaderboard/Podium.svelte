@@ -32,10 +32,10 @@
 
 <div class="podium grid grid-cols-3 items-end gap-2 px-1 pt-4 pb-2 sm:gap-4">
 	{#each STEPS as step (step.index)}
-		{@const entry = entries[step.index]}
+		{const entry = $derived(entries[step.index])}
 		{#if entry}
-			{@const metal = podiumColor(entry.rank) ?? 'white'}
-			{@const banner = bannerOf(entry)}
+			{const metal = $derived(podiumColor(entry.rank) ?? 'white')}
+			{const banner = $derived(bannerOf(entry))}
 			<button class="group flex min-w-0 flex-col items-center gap-1.5 text-center" onclick={() => onselect(entry)} type="button">
 				<span class="relative">
 					{#if entry.rank === 1}

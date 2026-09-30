@@ -173,13 +173,13 @@
 				</div>
 
 				{#each quarksManager.quests as quest (quest.id)}
-					{@const target = questTarget(quest)}
-					{@const progress = quarksManager.getProgress(quest)}
-					{@const claimed = quarksManager.claimedQuestIds.includes(quest.id)}
-					{@const complete = progress >= target}
-					{@const pending = quarksManager.isActionPending(`claim-quest:${quest.id}`)}
-					{@const pct = Math.min(100, (progress / target) * 100)}
-					{@const QuestIcon = QUEST_ICONS[quest.id] ?? Target}
+					{const target = $derived(questTarget(quest))}
+					{const progress = $derived(quarksManager.getProgress(quest))}
+					{const claimed = $derived(quarksManager.claimedQuestIds.includes(quest.id))}
+					{const complete = $derived(progress >= target)}
+					{const pending = $derived(quarksManager.isActionPending(`claim-quest:${quest.id}`))}
+					{const pct = $derived(Math.min(100, (progress / target) * 100))}
+					{const QuestIcon = $derived(QUEST_ICONS[quest.id] ?? Target)}
 					<div
 						class="flex flex-col gap-3 rounded-xl border p-4 transition-colors {claimed
 							? 'border-white/5 bg-accent-800/30'
@@ -238,7 +238,7 @@
 				</h3>
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{#each boostItems as item (item.id)}
-						{@const owned = quarksManager.entitlements.includes(item.id)}
+						{const owned = $derived(quarksManager.entitlements.includes(item.id))}
 						<div class="flex flex-col gap-2 rounded-lg bg-accent-800/50 p-3">
 							<div class="flex items-center justify-between">
 								<span class="flex items-center gap-2 font-medium text-white">
@@ -282,10 +282,10 @@
 					</HelpIcon>
 				</h3>
 				{#each REALM_ORDER as realmId (realmId)}
-					{@const realmThemes = themesForRealm(realmId)}
+					{const realmThemes = $derived(themesForRealm(realmId))}
 					{#if realmThemes.length > 0}
-						{@const unlocked = isRealmUnlocked(realmId)}
-						{@const currency = realmCurrency(realmId)}
+						{const unlocked = $derived(isRealmUnlocked(realmId))}
+						{const currency = $derived(realmCurrency(realmId))}
 						<div class="relative">
 							{#if !unlocked}
 								<div class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/30 p-4 text-center">
@@ -310,10 +310,10 @@
 								</h4>
 								<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
 									{#each realmThemes as item (item.id)}
-										{@const owned = quarksManager.entitlements.includes(item.id)}
-										{@const equipped = quarksManager.equippedThemes[realmId] === item.id}
-										{@const purchasePending = quarksManager.isActionPending(`purchase:${item.id}`)}
-										{@const equipPending = quarksManager.isActionPending(`equip-theme:${realmId}`)}
+										{const owned = $derived(quarksManager.entitlements.includes(item.id))}
+										{const equipped = $derived(quarksManager.equippedThemes[realmId] === item.id)}
+										{const purchasePending = $derived(quarksManager.isActionPending(`purchase:${item.id}`))}
+										{const equipPending = $derived(quarksManager.isActionPending(`equip-theme:${realmId}`))}
 										<div
 											class="flex flex-col gap-2 rounded-lg border p-3 transition-colors {equipped
 												? 'border-emerald-300 bg-emerald-500/15 ring-1 ring-emerald-300/30'
@@ -376,10 +376,10 @@
 				</h3>
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{#each bannerItems as item (item.id)}
-						{@const owned = quarksManager.entitlements.includes(item.id)}
-						{@const equipped = quarksManager.equippedBanner === item.id}
-							{@const purchasePending = quarksManager.isActionPending(`purchase:${item.id}`)}
-							{@const equipPending = quarksManager.isActionPending('equip-banner')}
+						{const owned = $derived(quarksManager.entitlements.includes(item.id))}
+						{const equipped = $derived(quarksManager.equippedBanner === item.id)}
+						{const purchasePending = $derived(quarksManager.isActionPending(`purchase:${item.id}`))}
+						{const equipPending = $derived(quarksManager.isActionPending('equip-banner'))}
 							<div
 								class="flex flex-col gap-2 rounded-lg border p-3 transition-colors {equipped
 									? 'border-emerald-300 bg-emerald-500/15 ring-1 ring-emerald-300/30'

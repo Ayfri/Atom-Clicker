@@ -178,10 +178,10 @@
 	<div id="upgrades-list" class="flex-1 overflow-y-auto px-1 custom-scrollbar">
 		<div class="grid gap-1.5">
 			{#each availableUpgrades as upgrade (upgrade.id)}
-				{@const isBought = boughtUpgrades.has(upgrade.id)}
-				{@const affordable = gameManager.canAfford(upgrade.cost) && !isBought}
-				{@const wasAutoPurchased = autoUpgradeManager.recentlyAutoPurchased.has(upgrade.id)}
-				{@const Icon = upgrade.icon ? ICONS[upgrade.icon] : null}
+				{const isBought = $derived(boughtUpgrades.has(upgrade.id))}
+				{const affordable = $derived(gameManager.canAfford(upgrade.cost) && !isBought)}
+				{const wasAutoPurchased = $derived(autoUpgradeManager.recentlyAutoPurchased.has(upgrade.id))}
+				{const Icon = $derived(upgrade.icon ? ICONS[upgrade.icon] : null)}
 				<button
 					class="relative text-start rounded-lg p-2 transition-all duration-200 border
 					{isBought

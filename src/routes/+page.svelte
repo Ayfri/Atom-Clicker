@@ -291,9 +291,9 @@
 		     a short delay adding up to REALM_SWITCH_MS. Layout containment makes the panel the containing block of its fixed
 		     children, even with reduced motion where it has no transform. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
-			{@const RealmComponent = realmComponents[realm.componentId]}
-			{@const background = getRealmBackground(realm)}
-			{@const side = Math.sign(i - selectedIndex)}
+			{const RealmComponent = $derived(realmComponents[realm.componentId])}
+			{const background = $derived(getRealmBackground(realm))}
+			{const side = $derived(Math.sign(i - selectedIndex))}
 
 			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is

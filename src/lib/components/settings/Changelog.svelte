@@ -89,7 +89,7 @@
 				{#each release.groups as group, g (g)}
 					<div class="flex flex-col gap-3">
 						{#if group.label}
-							{@const Icon = GROUP_ICONS[group.label]}
+							{const Icon = $derived(GROUP_ICONS[group.label])}
 							<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-white/50 uppercase">
 								{#if Icon}<Icon class="text-accent" size={14} />{/if}
 								{group.label}

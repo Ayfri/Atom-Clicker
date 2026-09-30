@@ -206,8 +206,8 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#each Object.entries(groupedActions) as [type, items]}
-			{@const Icon = TYPE_ICONS[type]}
+		{#each Object.entries(groupedActions) as [type, items] (type)}
+			{const Icon = $derived(TYPE_ICONS[type])}
 			<div class="flex flex-col gap-1.5">
 				<div class="flex gap-2 items-center">
 					<span class="border flex gap-1 items-center font-medium px-2 py-0.5 rounded text-xs {TYPE_COLORS[type] ?? 'text-gray-400 bg-white/5 border-white/10'}">
@@ -220,10 +220,10 @@
 				</div>
 				<div class="gap-1.5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pl-2">
 					{#each items as item (item.key)}
-						{@const generatorType = item.raw.type === 'generator' ? item.raw.details?.split(' ')[0] : null}
-						{@const GeneratorIcon = generatorType ? GENERATOR_ICONS[generatorType] : null}
-						{@const generatorColorIdx = generatorType ? GENERATOR_TYPE_ORDER.indexOf(generatorType) : -1}
-						{@const generatorColor = generatorColorIdx >= 0 ? GENERATOR_COLORS[generatorColorIdx] : null}
+						{const generatorType = $derived(item.raw.type === 'generator' ? item.raw.details?.split(' ')[0] : null)}
+						{const GeneratorIcon = $derived(generatorType ? GENERATOR_ICONS[generatorType] : null)}
+						{const generatorColorIdx = $derived(generatorType ? GENERATOR_TYPE_ORDER.indexOf(generatorType) : -1)}
+						{const generatorColor = $derived(generatorColorIdx >= 0 ? GENERATOR_COLORS[generatorColorIdx] : null)}
 						<div class="bg-black/20 border-l-2 flex flex-col gap-0.5 min-w-0 px-2.5 py-1.5 rounded-r-lg {item.isApsBooster ? 'border-amber-500/60' : 'border-white/10'}">
 							<div class="flex gap-1.5 items-center">
 								{#if GeneratorIcon && generatorColor}

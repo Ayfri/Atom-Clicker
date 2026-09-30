@@ -40,7 +40,7 @@
 		class="fixed bottom-4 inset-x-0 z-20 flex flex-col items-center gap-2 pointer-events-none select-none max-lg:landscape:right-1/2"
 	>
 		{#each active as powerUp (powerUp.id)}
-			{@const remaining = Math.max(0, powerUp.startTime + powerUp.duration - now)}
+			{const remaining = $derived(Math.max(0, powerUp.startTime + powerUp.duration - now))}
 
 			<div
 				class="bg-zinc-900/80 backdrop-blur-md border border-white/10 px-3 py-2.5 rounded-lg shadow-xl relative overflow-hidden w-72 md:w-96"

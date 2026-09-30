@@ -72,8 +72,8 @@
 		<!-- Currency list -->
 		<div class="flex flex-col gap-2">
 			{#each boostableCurrencies as currencyName (currencyName)}
-				{@const points = gameManager.currencyBoosts[currencyName] ?? 0}
-				{@const multiplier = gameManager.getCurrencyBoostMultiplier(currencyName)}
+				{const points = $derived(gameManager.currencyBoosts[currencyName] ?? 0)}
+				{const multiplier = $derived(gameManager.getCurrencyBoostMultiplier(currencyName))}
 				<div class="flex items-center justify-between gap-3 rounded-lg bg-accent-800/50 p-3 transition hover:bg-accent-800/70">
 					<div class="flex items-center gap-3">
 						<Currency name={currencyName} class="h-8 w-8" />

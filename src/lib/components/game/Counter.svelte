@@ -77,7 +77,7 @@
 					<Tooltip position="bottom" size="md">
 						<Info class="cursor-help text-white/45 transition-colors hover:text-white/80" size={15} />
 						{#snippet content()}
-							{@const { base, multipliers } = productionBreakdown()}
+							{const { base, multipliers } = $derived(productionBreakdown())}
 							<div class="flex flex-col gap-1 text-xs">
 								<span class="mb-1 text-[11px] font-bold tracking-wider text-accent-300 uppercase">Production</span>
 								<div class="flex justify-between gap-4">

@@ -77,7 +77,7 @@
 {/snippet}
 
 {#snippet ring(value: number, max: number, label: string, color = 'var(--color-accent)')}
-	{@const ratio = max > 0 ? Math.min(1, value / max) : 0}
+	{const ratio = $derived(max > 0 ? Math.min(1, value / max) : 0)}
 	<div class="flex flex-col items-center gap-1.5 text-center">
 		<div class="relative size-20">
 			<svg class="size-full -rotate-90" viewBox="0 0 36 36">
@@ -110,7 +110,7 @@
 {/snippet}
 
 {#snippet amount(type: CurrencyName)}
-	{@const value = gameManager.currencies[type].amount}
+	{const value = $derived(gameManager.currencies[type].amount)}
 	<div class="flex items-center gap-3">
 		<Currency name={type} size={28} />
 		<span class="flex flex-col leading-tight">
@@ -121,7 +121,7 @@
 {/snippet}
 
 {#snippet currency(type: CurrencyName, extra: [string, number][])}
-	{@const data = gameManager.currencies[type]}
+	{const data = $derived(gameManager.currencies[type])}
 	<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
 		{@render amount(type)}
 		{@render bar('Earned this run', data.earnedRun, data.earnedAllTime, CURRENCIES[type].color)}
@@ -224,9 +224,9 @@
 			{@render title(Rainbow, 'Prism', undefined, spectrumHelp)}
 			<div class="grid gap-3 md:grid-cols-3">
 				{#each CHROMATIC_COLORS as color (color)}
-					{@const type = CHROMATIC[color].currency}
-					{@const kills = chromaticManager.kills[color]}
-					{@const earned = gameManager.currencies[type].earnedAllTime}
+					{const type = $derived(CHROMATIC[color].currency)}
+					{const kills = $derived(chromaticManager.kills[color])}
+					{const earned = $derived(gameManager.currencies[type].earnedAllTime)}
 					<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
 						{@render amount(type)}
 						{@render bar(
@@ -242,7 +242,7 @@
 				{/each}
 			</div>
 			{#if whiteUnlocked}
-				{@const earned = gameManager.currencies[CurrenciesTypes.WHITE_LIGHT].earnedAllTime}
+				{const earned = $derived(gameManager.currencies[CurrenciesTypes.WHITE_LIGHT].earnedAllTime)}
 				<div class="mt-3 grid items-center gap-x-8 gap-y-2 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[auto_1fr_1fr]">
 					{@render amount(CurrenciesTypes.WHITE_LIGHT)}
 					{@render row('Light earned', formatNumber(earned), formatNumberFull(earned))}

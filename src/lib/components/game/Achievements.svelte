@@ -128,9 +128,9 @@
 	<!-- Collapsed series render two rows each instead of every tier, which keeps the always-mounted panel light. -->
 	<div class="mt-1 flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar px-1 pb-1">
 		{#each visibleGroups as group (group.name)}
-			{@const unlockedIds = gameManager.unlockedAchievementIds}
-			{@const unlockedCount = group.achievements.filter(achievement => unlockedIds.has(achievement.id)).length}
-			{@const shown = shownAchievements(group, unlockedIds)}
+			{const unlockedIds = $derived(gameManager.unlockedAchievementIds)}
+			{const unlockedCount = $derived(group.achievements.filter(achievement => unlockedIds.has(achievement.id)).length)}
+			{const shown = $derived(shownAchievements(group, unlockedIds))}
 			<section class="mt-2">
 				<div class="flex items-baseline gap-2 px-1 pb-1 text-[11px] font-semibold tracking-wide text-white/45 uppercase">
 					<h3 class="truncate">{group.name}</h3>
@@ -140,8 +140,8 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					{#each shown as achievement (achievement.id)}
-						{@const unlocked = unlockedIds.has(achievement.id)}
-						{@const hidden = !unlocked && achievement.hiddenCondition?.(gameManager) === true}
+						{const unlocked = $derived(unlockedIds.has(achievement.id))}
+						{const hidden = $derived(!unlocked && achievement.hiddenCondition?.(gameManager) === true)}
 						<div class="flex items-center gap-2.5 rounded-md px-2 py-1.5 {unlocked ? 'bg-accent-500/20' : 'bg-white/3'}">
 							<!-- Hidden achievements fall back to a neutral icon, otherwise the stack would spoil what they are about. -->
 							{#if hidden}

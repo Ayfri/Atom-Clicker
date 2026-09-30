@@ -64,8 +64,8 @@
 <Section title="Today's quests">
 	<div class="flex flex-col gap-1">
 		{#each quarksManager.quests as quest (quest.id)}
-			{@const target = quarksManager.getTarget(quest)}
-			{@const progress = Math.min(quarksManager.getProgress(quest), target)}
+			{const target = $derived(quarksManager.getTarget(quest))}
+			{const progress = $derived(Math.min(quarksManager.getProgress(quest), target))}
 			<div class="flex items-center gap-2 text-xs">
 				<div class="min-w-0 flex-1">
 					<p class="truncate text-white/70">{quest.description(target)}</p>
@@ -92,7 +92,7 @@
 <Section title="Shop ({quarksManager.entitlements.length}/{shopItems.length} owned)">
 	<div class="flex flex-col gap-1">
 		{#each shopItems as item (item.id)}
-			{@const owned = quarksManager.entitlements.includes(item.id)}
+			{const owned = $derived(quarksManager.entitlements.includes(item.id))}
 			<div class="flex items-center gap-2 text-xs">
 				{#if item.theme}
 					<span class="size-4 shrink-0 rounded border border-white/20" style:background-image={item.theme.background}></span>
@@ -103,11 +103,11 @@
 					{item.name} <span class="text-[10px] text-white/30 uppercase">{item.type} {item.cost}q</span>
 				</span>
 				{#if item.theme}
-					{@const realmId = item.theme.realmId}
-					{@const previewing = quarksManager.equippedThemes[realmId] === item.id}
+					{const realmId = $derived(item.theme.realmId)}
+					{const previewing = $derived(quarksManager.equippedThemes[realmId] === item.id)}
 					<button class={btn} onclick={() => quarksManager.previewTheme(realmId, previewing ? null : item.id)}>{previewing ? 'Unpreview' : 'Preview'}</button>
 				{:else if item.type === 'banner'}
-					{@const previewing = quarksManager.equippedBanner === item.id}
+					{const previewing = $derived(quarksManager.equippedBanner === item.id)}
 					<button class={btn} onclick={() => quarksManager.previewBanner(previewing ? null : item.id)}>{previewing ? 'Unpreview' : 'Preview'}</button>
 				{/if}
 				<button class="{btn} w-14" onclick={() => (quarksManager.entitlements = toggled(quarksManager.entitlements, item.id))}>

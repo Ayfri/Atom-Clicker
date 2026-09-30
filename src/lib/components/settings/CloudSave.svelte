@@ -150,7 +150,7 @@
 			</dl>
 			<div class="flex flex-wrap gap-x-4 gap-y-1 border-t border-white/10 pt-3 text-sm">
 				{#each Object.values(CurrenciesTypes) as type (type)}
-					{@const amount = snapshot.amount(type)}
+					{const amount = $derived(snapshot.amount(type))}
 					{#if amount > 0 || type === CurrenciesTypes.ATOMS}
 						<Value class="font-semibold text-white" currency={type} currencyClass="size-4" value={amount} />
 					{/if}

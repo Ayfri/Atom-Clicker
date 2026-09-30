@@ -244,12 +244,12 @@
 				font-family="'Inter', system-ui, sans-serif"
 				font-size="10"
 			>
-				{#each Array(6) as _, i}
-					{@const y = padding.top + (chartHeight * i) / 5}
-					{@const valRatio = 1 - i / 5}
-					{@const valRaw = useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio}
-					{@const val = valRaw < 0.0001 ? 0 : valRaw}
-					{@const text = formatNumber(val).length > 8 ? val.toExponential(1) : formatNumber(val)}
+				{#each { length: 6 }, i}
+					{const y = $derived(padding.top + (chartHeight * i) / 5)}
+					{const valRatio = $derived(1 - i / 5)}
+					{const valRaw = $derived(useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio)}
+					{const val = $derived(valRaw < 0.0001 ? 0 : valRaw)}
+					{const text = $derived(formatNumber(val).length > 8 ? val.toExponential(1) : formatNumber(val))}
 
 					<line
 						x1={padding.left}
@@ -275,9 +275,9 @@
 				font-family="'Inter', system-ui, sans-serif"
 				font-size="10"
 			>
-				{#each Array(7) as _, i}
-					{@const x = padding.left + (chartWidth * i) / 6}
-					{@const hour = (totalHours * i) / 6}
+				{#each { length: 7 }, i}
+					{const x = $derived(padding.left + (chartWidth * i) / 6)}
+					{const hour = $derived((totalHours * i) / 6)}
 					<text
 						{x}
 						y={height - 10}
@@ -320,8 +320,8 @@
 									stroke-linejoin="round"
 								></path>
 							{:else}
-								{@const val = Math.max(0, transformValue(s.data[0]))}
-								{@const y = chartHeight - chartHeight * (val / maxVal)}
+								{const val = $derived(Math.max(0, transformValue(s.data[0])))}
+								{const y = $derived(chartHeight - chartHeight * (val / maxVal))}
 								<circle
 									cx="0"
 									cy={y}
@@ -344,8 +344,8 @@
 						></line>
 
 						{#each tooltipData as { s, val } (s.label)}
-							{@const v = Math.max(0, transformValue(val))}
-							{@const y = chartHeight - chartHeight * (v / maxVal)}
+							{const v = $derived(Math.max(0, transformValue(val)))}
+							{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 							<circle
 								cx={tooltipX}
 								cy={y}

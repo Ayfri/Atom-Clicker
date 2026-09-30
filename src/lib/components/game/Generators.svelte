@@ -149,25 +149,25 @@
 
 	<div id="generators-list" class="flex flex-col gap-1.5 overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each GENERATOR_TYPES as type (type)}
-			{@const generator = GENERATORS[type]}
-			{@const saveData = gameManager.generators[type]}
-			{@const count = saveData?.count ?? 0}
-			{@const affordable = affordableGenerators.has(type)}
-			{@const obfuscated = obfuscatedGenerators.has(type)}
-			{@const level = saveData?.level ?? 0}
-			{@const color = getGeneratorColor(level)}
-			{@const nextColor = getGeneratorColor(level + 1)}
-			{@const levelProgress = count % GENERATOR_LEVEL_UP_COST}
-			{@const purchaseAmount = purchaseAmounts[type]}
-			{@const previewProgress = affordable ? Math.min(GENERATOR_LEVEL_UP_COST, levelProgress + purchaseAmount) : levelProgress}
-			{@const production = gameManager.generatorProductions[type]}
-			{@const isAutomated = gameManager.settings.automation.generators.includes(type)}
-			{@const autoPurchasedCount = autoBuyManager.recentlyAutoPurchasedGenerators.get(type) ?? 0}
-			{@const Icon = ICONS[GENERATOR_ICON_NAMES[type]]}
+			{const generator = $derived(GENERATORS[type])}
+			{const saveData = $derived(gameManager.generators[type])}
+			{const count = $derived(saveData?.count ?? 0)}
+			{const affordable = $derived(affordableGenerators.has(type))}
+			{const obfuscated = $derived(obfuscatedGenerators.has(type))}
+			{const level = $derived(saveData?.level ?? 0)}
+			{const color = $derived(getGeneratorColor(level))}
+			{const nextColor = $derived(getGeneratorColor(level + 1))}
+			{const levelProgress = $derived(count % GENERATOR_LEVEL_UP_COST)}
+			{const purchaseAmount = $derived(purchaseAmounts[type])}
+			{const previewProgress = $derived(affordable ? Math.min(GENERATOR_LEVEL_UP_COST, levelProgress + purchaseAmount) : levelProgress)}
+			{const production = $derived(gameManager.generatorProductions[type])}
+			{const isAutomated = $derived(gameManager.settings.automation.generators.includes(type))}
+			{const autoPurchasedCount = $derived(autoBuyManager.recentlyAutoPurchasedGenerators.get(type) ?? 0)}
+			{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
 
 			{#snippet autoBuyTooltip()}
-				{@const interval = gameManager.autoBuyIntervals[type]}
-				{@const nextFire = autoBuyManager.nextFireTimes.get(type)}
+				{const interval = $derived(gameManager.autoBuyIntervals[type])}
+				{const nextFire = $derived(autoBuyManager.nextFireTimes.get(type))}
 				<div class="flex flex-col gap-1">
 					<p class="text-xs text-white/80">Automatically buys 1 {generator.name} whenever you can afford it.</p>
 					{#if isAutomated && interval}
