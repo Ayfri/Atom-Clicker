@@ -8,6 +8,7 @@
 - **Tutorial**: Small tips replace the popups and point at what to do next, while the interface opens up panel by panel as you unlock things.
 - **Quark Shop**: A Prism theme for the Photon Realm and a banner for each colored Light.
 - **Player Profiles**: Tap anyone on the leaderboard to see their journey, stats and generators.
+- **Install the Game**: Add Atom Clicker to your home screen or desktop as an app, and keep playing even without a connection.
 
 ## Redesigned
 
