@@ -258,7 +258,7 @@
 		</div>
 
 		<HoldButton
-			class="ionize-button w-full rounded-lg py-4 text-lg font-bold uppercase tracking-wide text-white transition-transform [text-shadow:0_1px_3px_rgb(0_0_0/0.6)] hover:enabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+			class="ionize-button w-full rounded-lg py-4 text-lg font-bold uppercase tracking-wide text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)] hover:enabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
 			disabled={!radiationManager.ionizeReady}
 			onHoldComplete={handleIonize}
 			style="background-image: {BUTTON_GRADIENT}; --hold-color: #ffffff; --hold-color-2: #f5f7ff; --hold-glow: rgba(245, 247, 255, 0.6);"

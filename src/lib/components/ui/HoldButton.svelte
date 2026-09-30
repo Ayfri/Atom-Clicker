@@ -95,7 +95,9 @@
 
 <style>
 	.hold-button {
-		transition: box-shadow 0.15s ease-out;
+		transition:
+			box-shadow 0.15s ease-out,
+			translate 0.2s ease-out;
 		touch-action: none;
 	}
 
