@@ -27,4 +27,11 @@ declare global {
 	}
 }
 
+declare module 'svelte/elements' {
+	interface SvelteWindowAttributes {
+		/** Dispatched by the dev tools to spawn a Higgs Boson right away. */
+		'onforce-bonus'?: (event: Event) => void;
+	}
+}
+
 export {};

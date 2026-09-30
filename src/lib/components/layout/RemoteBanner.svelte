@@ -1,16 +1,15 @@
 <script lang="ts">
 	import { remoteMessage } from '$stores/remoteMessage.svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { X, Megaphone } from '@lucide/svelte';
 
 	onMount(() => {
 		remoteMessage.startPolling();
-	});
-
-	onDestroy(() => {
-		remoteMessage.stopPolling();
-		document.documentElement.style.removeProperty('--banner-height');
+		return () => {
+			remoteMessage.stopPolling();
+			document.documentElement.style.removeProperty('--banner-height');
+		};
 	});
 
 	// Single source of truth for the offset: everything sitting under the banner reads --banner-height in plain CSS.

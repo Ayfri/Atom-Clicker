@@ -31,7 +31,7 @@
 	import RadiationRealm from '@components/prestige/RadiationRealm.svelte';
 	import AutoSaveIndicator from '@components/system/AutoSaveIndicator.svelte';
 	import Currency from '@components/ui/Currency.svelte';
-	import { onDestroy, onMount, untrack, type Component } from 'svelte';
+	import { onMount, untrack, type Component } from 'svelte';
 
 	// Realm component mapping
 	const realmComponents: Record<string, Component> = {
@@ -94,8 +94,6 @@
 	 * frame at the display rate (179 per second on a 179 Hz screen), while the counters only change at 50 Hz.
 	 */
 	const COMMIT_INTERVAL_MS = 20;
-	let saveLoop: ReturnType<typeof setInterval>;
-	let commitLoop: ReturnType<typeof setInterval>;
 	let hasCheckedCloudSaveOnLoad = false;
 	let accountBootstrapped = $state(false);
 	let lastUpdateTime = 0;
@@ -199,11 +197,11 @@
 		reveals.arm();
 
 		lastUpdateTime = performance.now();
-		commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
+		const commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
 
 		setGlobals();
 
-		saveLoop = setInterval(() => {
+		const saveLoop = setInterval(() => {
 			try {
 				commitPendingAtoms();
 				gameManager.save();
@@ -213,13 +211,13 @@
 		}, SAVE_INTERVAL);
 
 		bootstrapAccount();
-	});
 
-	onDestroy(() => {
-		if (saveLoop) clearInterval(saveLoop);
-		clearInterval(commitLoop);
-		commitPendingAtoms();
-		gameManager.cleanup();
+		return () => {
+			clearInterval(saveLoop);
+			clearInterval(commitLoop);
+			commitPendingAtoms();
+			gameManager.cleanup();
+		};
 	});
 </script>
 

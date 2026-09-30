@@ -10,7 +10,7 @@
 	import { leaderboard, REFRESH_INTERVAL } from '$stores/leaderboard.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ArrowLeft, Crosshair, Crown, Search, Trophy, Users } from '@lucide/svelte';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { VList, type VListHandle } from 'virtua/svelte';
 
 	interface Props {
@@ -26,10 +26,8 @@
 	let { onClose }: Props = $props();
 
 	let intro = $state(true);
-	let introTimer: ReturnType<typeof setTimeout>;
 	let list = $state<VListHandle>();
 	let listOffset = 0;
-	let refreshInterval: ReturnType<typeof setInterval>;
 	let searchQuery = $state('');
 	let selectedId = $state<string | null>(null);
 	let showLoginModal = $state(false);
@@ -38,14 +36,13 @@
 	onMount(() => {
 		leaderboard.startVisit();
 		leaderboard.fetchLeaderboard();
-		refreshInterval = setInterval(() => leaderboard.fetchLeaderboard(), REFRESH_INTERVAL);
-		introTimer = setTimeout(() => (intro = false), 800);
-	});
-
-	onDestroy(() => {
-		clearInterval(refreshInterval);
-		clearTimeout(introTimer);
-		leaderboard.endVisit();
+		const refreshInterval = setInterval(() => leaderboard.fetchLeaderboard(), REFRESH_INTERVAL);
+		const introTimer = setTimeout(() => (intro = false), 800);
+		return () => {
+			clearInterval(refreshInterval);
+			clearTimeout(introTimer);
+			leaderboard.endVisit();
+		};
 	});
 
 	const me = $derived(leaderboard.playerIndex >= 0 ? leaderboard.entries[leaderboard.playerIndex] : null);

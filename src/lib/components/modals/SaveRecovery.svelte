@@ -15,7 +15,6 @@
 
 	let loading = $state(false);
 	let showLoginModal = $state(false);
-	let isAlreadyUnlocked = $state(false); // Is achievement unlocked
 
 	const errorMessages: Record<string, string> = {
 		corrupted: 'Your save file appears to be corrupted.',
@@ -28,6 +27,7 @@
 	async function handleLoadFromCloud() {
 		if (!supabaseAuth.isAuthenticated) {
 			showLoginModal = true;
+			gameManager.unlockAchievement('reset_modal_opener');
 			return;
 		}
 
@@ -69,14 +69,6 @@
 		saveRecovery.clearError();
 		onClose();
 	}
-
-	// Unlock achievement when modal opens
-	$effect(() => {
-		if (showLoginModal && !isAlreadyUnlocked) {
-			gameManager.unlockAchievement('reset_modal_opener');
-			isAlreadyUnlocked = true; // Mark as unlocked to prevent repeated notifications
-		}
-	});
 </script>
 
 <Modal

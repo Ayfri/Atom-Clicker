@@ -9,7 +9,7 @@
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import type { PowerUp } from '$lib/types';
 	import { formatNumber, randomBetween, randomValue } from '$lib/utils';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
 	const VISIBLE_DURATION = 25000;
 	const FADE_OUT_DURATION = 30000;
@@ -108,15 +108,15 @@
 
 	onMount(() => {
 		scheduleNextSpawn();
-		window.addEventListener('force-bonus', forceSpawn);
-	});
-	onDestroy(() => {
-		if (spawnTimeout) clearTimeout(spawnTimeout);
-		if (fadeTimeout) clearTimeout(fadeTimeout);
-		if (disappearTimeout) clearTimeout(disappearTimeout);
-		if (typeof window !== 'undefined') window.removeEventListener('force-bonus', forceSpawn);
+		return () => {
+			if (spawnTimeout) clearTimeout(spawnTimeout);
+			if (fadeTimeout) clearTimeout(fadeTimeout);
+			if (disappearTimeout) clearTimeout(disappearTimeout);
+		};
 	});
 </script>
+
+<svelte:window onforce-bonus={forceSpawn} />
 
 {#if showBonus}
 	<button

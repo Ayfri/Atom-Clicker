@@ -16,7 +16,7 @@
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
 	import { ChartLine, Clock, Cloud, Link as LinkIcon, LogOut, Medal, MousePointerClick, Pencil, Trophy, User } from '@lucide/svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
@@ -47,8 +47,10 @@
 	]);
 	const lifetime = $derived(Object.fromEntries(Object.values(CurrenciesTypes).map(type => [type, gameManager.currencies[type]?.earnedAllTime ?? 0])));
 
-	onMount(() => leaderboard.ensureLoaded());
-	onDestroy(() => clearTimeout(previewTimer));
+	onMount(() => {
+		leaderboard.ensureLoaded();
+		return () => clearTimeout(previewTimer);
+	});
 
 	function startEditing() {
 		editError = null;
