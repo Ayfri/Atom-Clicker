@@ -71,6 +71,7 @@
 	import { PanZoom } from '$helpers/PanZoom.svelte';
 	import { mobile } from '$stores/window.svelte';
 	import { onMount } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { prefersReducedMotion } from 'svelte/motion';
 
 	interface Props {
@@ -82,6 +83,14 @@
 	const SKILL_CURRENCIES: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS];
 
 	const panZoom = new PanZoom({ bounds: TREE_BOUNDS, home: { ...ROOT_CENTER, zoom: mobile.current ? 0.6 : 0.8 }, maxZoom: 2, minZoom: 0.15 });
+
+	/** Each gesture move is a main-thread frame that restyles and relayerizes every running animation, ~90 on a full tree, so they hold still meanwhile. */
+	const freezeWhileMoving: Attachment<HTMLElement> = element => {
+		if (!panZoom.moving) return;
+		const running = element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running');
+		for (const animation of running) animation.pause();
+		return () => running.forEach(animation => animation.play());
+	};
 
 	let showHiddenSkills = $state(false);
 	let statuses = $state.raw<Record<string, SkillStatus>>({});
@@ -182,6 +191,7 @@
 
 	<div
 		{@attach panZoom.attach}
+		{@attach freezeWhileMoving}
 		class="relative size-full cursor-grab touch-none overflow-hidden rounded-xl bg-[#0b0f14] bg-[radial-gradient(circle_at_50%_8%,rgb(74_144_226/0.16),transparent_45%),radial-gradient(circle_at_8%_55%,rgb(181_123_255/0.16),transparent_45%),radial-gradient(circle_at_50%_100%,rgb(251_146_60/0.12),transparent_45%),radial-gradient(circle_at_92%_40%,rgb(45_212_191/0.12),transparent_45%)] active:cursor-grabbing"
 	>
 		<div class="pointer-events-none absolute inset-0" aria-hidden="true">
