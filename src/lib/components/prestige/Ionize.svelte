@@ -6,10 +6,11 @@
 	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { prestigeStore } from '$stores/prestige.svelte';
+	import IonizeIcon from '@components/icons/Ionize.svelte';
 	import Currency from '@components/ui/Currency.svelte';
 	import HoldButton from '@components/ui/HoldButton.svelte';
 	import Modal from '@components/ui/Modal.svelte';
-	import { Check, Rainbow, RotateCcw, Sun, Vault, X } from '@lucide/svelte';
+	import { Check, Rainbow, RotateCcw, Vault, X } from '@lucide/svelte';
 
 	interface ListItem {
 		currencies: CurrencyName[];
@@ -131,7 +132,7 @@
 						stroke-width="4"
 					/>
 				</svg>
-				<Sun
+				<IonizeIcon
 					class="text-radiation transition-opacity {radiationManager.ionizeReady
 						? 'animate-[spin_8s_linear_infinite] drop-shadow-[0_0_10px_var(--color-radiation)]'
 						: aboveThreshold

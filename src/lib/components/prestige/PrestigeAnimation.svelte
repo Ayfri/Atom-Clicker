@@ -3,9 +3,9 @@
 	import { CURRENCIES } from '$data/currencies';
 	import type { PrestigeAnimationType as AnimationType } from '$stores/prestige.svelte';
 	import Electron from '@components/icons/Electron.svelte';
+	import IonizeIcon from '@components/icons/Ionize.svelte';
 	import Light from '@components/icons/Light.svelte';
 	import Proton from '@components/icons/Proton.svelte';
-	import { Sun } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	/** Each Light starts the Ionize symbol offset along its own direction, the three merge back into white. */
@@ -231,8 +231,9 @@
 							class="chroma-layer"
 							style="--dx: {light.dx}px; --dy: {light.dy}px"
 						>
-							<Sun
+							<IonizeIcon
 								color={light.color}
+								mono
 								size={160}
 							/>
 						</span>

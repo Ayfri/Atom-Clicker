@@ -1,7 +1,9 @@
 <script lang="ts">
 	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '@components/modals/Login.svelte';
 	import AtomIcon from '@components/icons/Atom.svelte';
+	import ElectronizeIcon from '@components/icons/Electronize.svelte';
 	import PhotonIcon from '@components/icons/Photon.svelte';
+	import ProtoniseIcon from '@components/icons/Protonise.svelte';
 	import QuarkIcon from '@components/icons/Quark.svelte';
 	import Avatar from '@components/ui/Avatar.svelte';
 	import Currency from '@components/ui/Currency.svelte';
@@ -14,7 +16,7 @@
 	import { leaderboard } from '$stores/leaderboard.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { ui } from '$stores/ui.svelte';
-	import { Atom, ChartLine, Clock, Cloud, Link as LinkIcon, Lock, LogOut, Medal, MousePointerClick, Orbit, Pencil, Radiation, Trophy, User } from '@lucide/svelte';
+	import { ChartLine, Clock, Cloud, Link as LinkIcon, Lock, LogOut, Medal, MousePointerClick, Pencil, Radiation, Trophy, User } from '@lucide/svelte';
 	import { onDestroy, onMount, type Component } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -54,8 +56,8 @@
 	]);
 	/** Locked milestones stay hidden behind `???` so the profile never spoils what comes next. */
 	const milestones: Milestone[] = $derived([
-		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: Atom, label: 'Protonised', reached: gameManager.totalProtonisesAllTime > 0 },
-		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: Orbit, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
+		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: ProtoniseIcon, label: 'Protonised', reached: gameManager.totalProtonisesAllTime > 0 },
+		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: ElectronizeIcon, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
 		{ color: REALMS.photons.color, count: null, icon: PhotonIcon, label: 'Photon Realm', reached: REALMS.photons.condition(gameManager.features) },
 		{ color: REALMS.radiation.color, count: null, icon: Radiation, label: 'Radiation Realm', reached: REALMS.radiation.condition(gameManager.features) },
 	]);

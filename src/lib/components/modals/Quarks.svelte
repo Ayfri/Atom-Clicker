@@ -1,6 +1,8 @@
 <script lang="ts">
 	import AtomIcon from '@components/icons/Atom.svelte';
+	import ElectronizeIcon from '@components/icons/Electronize.svelte';
 	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
+	import ProtoniseIcon from '@components/icons/Protonise.svelte';
 	import Quark from '@components/icons/Quark.svelte';
 	import HelpIcon from '@components/ui/HelpIcon.svelte';
 	import IconStack from '@components/ui/IconStack.svelte';
@@ -18,7 +20,6 @@
 	import { createCurrentPlayerPreview } from '$lib/utils/leaderboard-preview';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import {
-		Atom,
 		Check,
 		CircleArrowUp,
 		Clock,
@@ -26,7 +27,6 @@
 		Flag,
 		Lock,
 		MousePointerClick,
-		Orbit,
 		Palette,
 		ShoppingBag,
 		Target,
@@ -71,10 +71,10 @@
 		buildings_purchased: Factory,
 		clicks_100: MousePointerClick,
 		clicks_250: MousePointerClick,
-		electronize_three_times: Orbit,
+		electronize_three_times: ElectronizeIcon,
 		higgs_bosons_collected: HiggsBosonIcon,
 		power_ups_collected: HiggsBosonIcon,
-		protonise_once: Atom,
+		protonise_once: ProtoniseIcon,
 		upgrades_purchased: CircleArrowUp,
 	};
 
