@@ -2,6 +2,7 @@
 	/** Two runs overlaid, each scaled to its actual duration. */
 	import type { ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
 	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
+	import type { Attachment } from 'svelte/attachments';
 
 	interface Props {
 		comparisonDurationHours?: number;
@@ -36,15 +37,14 @@
 
 	const padding = { bottom: 35, left: 70, right: 20, top: 25 };
 
-	function resize(node: HTMLElement) {
-		const observer = new ResizeObserver(entries => {
-			for (const entry of entries) {
-				if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
-			}
+	/** Skips the 0 width of a hidden chart, where `bind:clientWidth` would collapse it. */
+	const resize: Attachment<HTMLElement> = node => {
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
 		});
 		observer.observe(node);
-		return { destroy() { observer.disconnect(); } };
-	}
+		return () => observer.disconnect();
+	};
 
 	const chartWidth = $derived(Math.max(0, containerWidth - padding.left - padding.right));
 	const chartHeight = $derived(Math.max(0, height - padding.top - padding.bottom));
@@ -207,7 +207,7 @@
 	</div>
 
 	<div
-		use:resize
+		{@attach resize}
 		class="bg-black/20 border border-white/5 overflow-hidden relative rounded-xl select-none w-full"
 		style="height: {height}px;"
 		onpointermove={handlePointerMove}

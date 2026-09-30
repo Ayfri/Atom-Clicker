@@ -9,6 +9,8 @@
 		type BenchmarkReportSummary,
 	} from '$lib/stores/benchmarkHistory.svelte';
 	import { Check, Eye, GitCompare, History, Pencil, Search, SlidersHorizontal, Trash2, X } from '@lucide/svelte';
+	import { onMount } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 
 	interface Props {
 		comparisonId: string | null;
@@ -38,9 +40,7 @@
 	let deletingId = $state<string | null>(null);
 	let clearConfirm = $state(false);
 
-	$effect(() => {
-		loadReports();
-	});
+	onMount(loadReports);
 
 	async function loadReports() {
 		loading = true;
@@ -118,10 +118,10 @@
 		else if (e.key === 'Escape') editingId = null;
 	}
 
-	function focusOnMount(node: HTMLInputElement) {
+	const focusOnMount: Attachment<HTMLInputElement> = node => {
 		node.focus();
 		node.select();
-	}
+	};
 
 	function formatRelativeTime(ts: number): string {
 		const diff = ts - Date.now();
@@ -258,7 +258,7 @@
 										bind:value={editingName}
 										onkeydown={onEditKeydown}
 										onblur={commitEdit}
-										use:focusOnMount
+										{@attach focusOnMount}
 										class="bg-white/10 border border-white/20 flex-1 min-w-0 outline-none px-2 py-0.5 rounded text-gray-100 text-sm"
 									/>
 									<button
