@@ -13,7 +13,7 @@
 	import { autoSave } from '$stores/autoSave.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
-	import { ArrowDown, ArrowUp, Cloud, HardDrive, RotateCcw, TriangleAlert } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Cloud, HardDrive, RotateCcw, TriangleAlert } from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 
 	interface Props {
@@ -165,26 +165,26 @@
 		<section class="flex flex-col gap-3">
 			<div class="grid items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
 				{@render card('This device', HardDrive, local, localAhead)}
-				<div class="flex items-center justify-center gap-2 md:flex-col">
+				<div class="flex flex-wrap items-center justify-center gap-2 md:flex-col">
 					<button
-						class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:not-disabled:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50 max-md:flex-1 max-md:justify-center"
+						class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:not-disabled:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50 max-md:flex-1 max-md:justify-center md:w-full"
 						disabled={loading || cooldownProgress < 1}
 						onclick={handleUpload}
 						title="Replace the cloud save with this device's progress"
 					>
-						<ArrowUp class="md:rotate-90" size={18} />
-						{cooldownProgress < 1 ? `Wait ${cooldownLeft}s` : 'Upload'}
+						<ArrowRight class="max-md:rotate-90" size={18} />
+						{cooldownProgress < 1 ? `Wait ${cooldownLeft}s` : 'Save to cloud'}
 					</button>
 					<button
-						class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-md:flex-1 max-md:justify-center
+						class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-md:flex-1 max-md:justify-center md:w-full
 						{confirmLoad ? 'bg-red-600 text-white hover:bg-red-500' : 'bg-white/10 text-white hover:not-disabled:bg-white/15'}"
 						disabled={loading || !cloud}
 						onblur={() => (confirmLoad = false)}
 						onclick={handleDownload}
 						title="Replace this device's progress with the cloud save"
 					>
-						<ArrowDown class="md:rotate-90" size={18} />
-						{confirmLoad ? 'Overwrite?' : 'Download'}
+						<ArrowLeft class="max-md:rotate-90" size={18} />
+						{confirmLoad ? 'Overwrite?' : 'Load from cloud'}
 					</button>
 				</div>
 				{@render card('Cloud', Cloud, cloud, cloudAhead)}
