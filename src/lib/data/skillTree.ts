@@ -2,7 +2,7 @@ import { CurrenciesTypes } from '$data/currencies';
 import { FeatureTypes } from '$data/features';
 import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '$data/generators';
 import { GENERATOR_ICON_NAMES } from '$data/icons';
-import { add } from '$helpers/effects';
+import { add, mul } from '$helpers/effects';
 import type { SkillBranch, SkillUpgrade } from '$lib/types';
 
 const SKILL_GRID = {
@@ -77,6 +77,19 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		name: 'Boost Balancer',
 		position: gridPos(0.35, -1.1),
 		requires: ['boostAssignAll'],
+	},
+
+	collider: {
+		branch: 'boosts',
+		cost: { amount: 1_000_000, currency: CurrenciesTypes.PROTONS },
+		description: 'Unlock the Collider, shared by every player: inject a particle once a minute, every 1,000 injected boosts production by 0.1%',
+		effects: [mul('global', manager => 1 + manager.colliderBonus)],
+		feature: FeatureTypes.COLLIDER,
+		icon: 'collider',
+		id: 'collider',
+		name: 'Collider',
+		position: gridPos(0, -1.85),
+		requires: ['boostEvenSplit'],
 	},
 
 	// REALMS (west)

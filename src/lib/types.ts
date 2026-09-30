@@ -26,6 +26,13 @@ export interface ChromaticState {
 	kills: Record<ChromaticColor, number>;
 }
 
+/** `injections` and `readyInMs` stay at 0 for a signed-out player. */
+export interface ColliderState {
+	injections: number;
+	readyInMs: number;
+	total: number;
+}
+
 export interface Currency {
 	achievementTiers?: number[];
 	color: string;

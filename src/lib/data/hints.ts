@@ -1,5 +1,6 @@
 import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
 import { CurrenciesTypes } from '$data/currencies';
+import { FeatureTypes } from '$data/features';
 import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 import { RealmTypes, type RealmType } from '$data/realms';
 import { SKILL_UPGRADES } from '$data/skillTree';
@@ -106,6 +107,16 @@ export const HINTS: Hint[] = [
 		targets: ['#nav-boosts'],
 		text: 'Every generator level earns a boost point, spend them here to boost a currency until your next reset.',
 		title: 'Boosts',
+	},
+	{
+		done: () => ui.activeModalId === 'collider',
+		id: 'atoms:collider',
+		placement: 'right',
+		realm: RealmTypes.ATOMS,
+		show: () => gameManager.features[FeatureTypes.COLLIDER],
+		targets: ['#nav-collider'],
+		text: 'Every player feeds this ring. Inject a particle once a minute to raise the production of everyone, you included.',
+		title: 'The Collider',
 	},
 	{
 		done: () => ui.activeModalId === 'electronize' || gameManager.totalElectronizesAllTime > 0,

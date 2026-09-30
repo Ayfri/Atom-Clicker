@@ -57,6 +57,8 @@ export class GameManager {
 	applyingOfflineProgress = false;
 	/** The simulation swaps this for its own clock, a 24h benchmark run finishes in seconds of wall time. */
 	clock: () => number = () => Date.now();
+	/** Pushed in by ColliderManager, it stays at 0 in the simulation, which has no server to read the shared counter from. */
+	colliderBonus = $state(0);
 	currencyBoosts = $state.raw<CurrencyBoosts>({});
 	dailyStats = $state<DailyStats>(structuredClone(statsConfig.dailyStats.defaultValue));
 	featuresManager = new FeaturesManager();

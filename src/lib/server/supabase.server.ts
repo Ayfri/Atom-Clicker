@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { COLLIDER_COOLDOWN_SECONDS } from '$data/collider'
+import type { ColliderState } from '$lib/types'
 import type { Database } from '$lib/types/supabase'
 import { PUBLIC_SUPABASE_URL } from '$env/static/public'
 import { SUPABASE_SECRET_KEY } from '$env/static/private'
@@ -74,6 +76,36 @@ export const leaderboardService = {
 
 		return data
 	}
+}
+
+export const colliderService = {
+	async get(userId: string | null): Promise<ColliderState> {
+		const { data, error } = await supabaseAdmin.rpc('get_collider', {
+			p_cooldown_seconds: COLLIDER_COOLDOWN_SECONDS,
+			p_user_id: userId ?? undefined,
+		});
+
+		if (error) {
+			console.error('Error fetching collider:', error);
+			throw error;
+		}
+
+		return data as unknown as ColliderState;
+	},
+
+	async inject(userId: string): Promise<ColliderState & { status: 'cooldown' | 'ok' }> {
+		const { data, error } = await supabaseAdmin.rpc('inject_collider', {
+			p_cooldown_seconds: COLLIDER_COOLDOWN_SECONDS,
+			p_user_id: userId,
+		});
+
+		if (error) {
+			console.error('Error injecting into the collider:', error);
+			throw error;
+		}
+
+		return data as unknown as ColliderState & { status: 'cooldown' | 'ok' };
+	},
 }
 
 interface QuarkGrantResult {

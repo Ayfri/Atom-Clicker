@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { COLLIDER_REFRESH_MS } from '$data/collider';
 	import { FeatureTypes } from '$data/features';
 	import { getQuarkShopItem } from '$data/quarkShop';
 	import type { RealmConfig } from '$helpers/RealmManager.svelte';
+	import { colliderManager } from '$helpers/ColliderManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
@@ -166,6 +168,16 @@
 			}
 			if (authenticated) checkCloudSaveOnLoad();
 		});
+	});
+
+	/** Signing in or out swaps the player half of the Collider state, so it re-syncs on each change. */
+	$effect(() => {
+		if (!accountBootstrapped || !gameManager.features[FeatureTypes.COLLIDER]) return;
+
+		const signedIn = supabaseAuth.isAuthenticated;
+		untrack(() => colliderManager.sync(signedIn));
+		const interval = setInterval(() => colliderManager.sync(), COLLIDER_REFRESH_MS);
+		return () => clearInterval(interval);
 	});
 
 	onMount(() => {

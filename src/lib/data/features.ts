@@ -3,6 +3,7 @@ import type { FeatureState } from '$lib/types';
 export const FeatureTypes = {
 	BOOST_ASSIGN_ALL: 'boost_assign_all',
 	BOOST_EVEN_SPLIT: 'boost_even_split',
+	COLLIDER: 'collider',
 	HOVER_COLLECTION: 'hover_collection',
 	LEVELS: 'levels',
 	OFFLINE_AUTO_CLICK: 'offline_auto_click',

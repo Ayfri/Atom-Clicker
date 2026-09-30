@@ -219,6 +219,13 @@ export type Database = {
 			[_ in never]: never
 		}
 		Functions: {
+			get_collider: {
+				Args: {
+					p_cooldown_seconds: number
+					p_user_id?: string
+				}
+				Returns: Json
+			}
 			get_leaderboard: {
 				Args: { p_limit?: number }
 				Returns: {
@@ -251,6 +258,13 @@ export type Database = {
 					p_delta: number
 					p_reason: string
 					p_ref: string
+					p_user_id: string
+				}
+				Returns: Json
+			}
+			inject_collider: {
+				Args: {
+					p_cooldown_seconds: number
 					p_user_id: string
 				}
 				Returns: Json

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { FeatureTypes } from '$data/features';
 	import { SKILL_UPGRADES } from '$data/skillTree';
+	import { colliderManager } from '$helpers/ColliderManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
@@ -15,7 +17,7 @@
 	import ProtoniseIcon from '@components/icons/Protonise.svelte';
 	import QuarkIcon from '@components/icons/Quark.svelte';
 	import NotificationDot from '@components/ui/NotificationDot.svelte';
-	import { Medal, Network, Settings as SettingsIcon, Zap } from '@lucide/svelte';
+	import { Medal, Network, Orbit, Settings as SettingsIcon, Zap } from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 
 	type NavBarIcon = Component<{ class?: string; size?: number; style?: string }>;
@@ -73,6 +75,14 @@
 			load: () => import('@components/modals/Quarks.svelte'),
 			condition: () => quarksManager.balance > 0,
 			notification: () => supabaseAuth.isAuthenticated && quarksManager.hasSynced && quarksManager.hasClaimableQuest,
+		},
+		{
+			icon: Orbit,
+			id: 'collider',
+			label: 'Collider',
+			load: () => import('@components/modals/Collider.svelte'),
+			condition: () => gameManager.features[FeatureTypes.COLLIDER],
+			notification: () => supabaseAuth.isAuthenticated && colliderManager.ready,
 		},
 		{
 			glow: PROTON_COLOR,
