@@ -385,6 +385,15 @@ export class GameManager {
 		if (this.gameInterval) clearInterval(this.gameInterval);
 	}
 
+	/** Pays away time at the offline rates, since the last save on load or `awayMs` of a frozen tab, and returns whether any was paid. */
+	catchUpOffline(awayMs?: number): boolean {
+		this.applyingOfflineProgress = true;
+		const summary = applyOfflineProgress(this, awayMs);
+		this.applyingOfflineProgress = false;
+		if (summary) this.offlineProgressSummary = summary;
+		return summary !== null;
+	}
+
 	clearOfflineProgressSummary() {
 		this.offlineProgressSummary = null;
 	}
@@ -513,9 +522,7 @@ export class GameManager {
 				title: 'Save check',
 			});
 		}
-		this.applyingOfflineProgress = true;
-		this.offlineProgressSummary = applyOfflineProgress(this);
-		this.applyingOfflineProgress = false;
+		this.catchUpOffline();
 		this.save();
 	}
 

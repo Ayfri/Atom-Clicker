@@ -81,10 +81,11 @@
 
 	const SAVE_INTERVAL = 1000;
 	const CLOUD_PULL_WARNING_THRESHOLD_MS = 5_000;
-	// Long gaps (background tab, stalled frame) are clamped so production never jumps, offline progress handles those.
-	const MAX_FRAME_MS = 100;
-	/** Auto-clicks are capped at a full second, so a background tab, whose timers are throttled to 1 Hz, still pays them in full. */
-	const MAX_AUTO_CLICK_FRAME_MS = 1000;
+	/**
+	 * Gaps up to a second are paid in full at the online rate, covering stalled frames and background tabs, whose timers
+	 * run at 1 Hz. Anything longer means the tab was frozen or throttled to one timer per minute, see `awayMs`.
+	 */
+	const MAX_ONLINE_GAP_MS = 1000;
 	/**
 	 * Production is committed on a timer at this rate, not from a rAF loop: a pending rAF makes Chrome run a full main
 	 * frame at the display rate (179 per second on a 179 Hz screen), while the counters only change at 50 Hz.
@@ -96,6 +97,8 @@
 	let accountBootstrapped = $state(false);
 	let lastUpdateTime = 0;
 	let pendingAtoms = 0;
+	/** Time past `MAX_ONLINE_GAP_MS`, piled up while hidden and paid at the offline rates once the player is back. */
+	let awayMs = 0;
 	let quarkUserId: string | null = null;
 
 	function commitPendingAtoms() {
@@ -107,12 +110,15 @@
 	function update() {
 		const now = performance.now();
 		const elapsed = now - lastUpdateTime;
-		pendingAtoms +=
-			(gameManager.atomsPerSecond * Math.min(elapsed, MAX_FRAME_MS) +
-				gameManager.clickPower * gameManager.autoClicksPerSecond * Math.min(elapsed, MAX_AUTO_CLICK_FRAME_MS)) /
-			1000;
+		const paidMs = Math.min(elapsed, MAX_ONLINE_GAP_MS);
+		pendingAtoms += ((gameManager.atomsPerSecond + gameManager.clickPower * gameManager.autoClicksPerSecond) * paidMs) / 1000;
 		lastUpdateTime = now;
 		commitPendingAtoms();
+
+		awayMs += elapsed - paidMs;
+		if (document.hidden) return;
+		if (awayMs > 0 && gameManager.catchUpOffline(awayMs) && !ui.activeModal) ui.openModal(OfflineProgress);
+		awayMs = 0;
 	}
 
 	async function checkCloudSaveOnLoad() {
