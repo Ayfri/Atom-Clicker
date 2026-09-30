@@ -13,6 +13,7 @@
 	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
 	import { createClickParticleSync, type Particle } from '$helpers/particles';
 	import { drawPhotonIcon, pulseOpacity } from '$helpers/photonCanvas';
+	import type { NumberNotation } from '$lib/types';
 	import { formatNumber } from '$lib/utils';
 	import { addParticles } from '$stores/canvas';
 	import { mobile } from '$stores/window.svelte';
@@ -150,6 +151,7 @@
 	/** Shadowed text was ~70% of the frame, so each label is rasterized once until the values or pixel ratio change. */
 	let labelCache = new Map<string, LabelSprite>();
 	let labelEffects: unknown = null;
+	let labelNotation: NumberNotation = 'suffix';
 	let labelStability = 1;
 	let pixelRatio = 1;
 
@@ -161,9 +163,11 @@
 	/** Stable Photons scale the value with the live Stability Field, which moves every tick without rebuilding the effects. */
 	function syncLabels() {
 		const effects = gameManager.effects;
+		const { notation } = gameManager.settings.display;
 		const stability = gameManager.stabilityMultiplier;
-		if (effects === labelEffects && stability === labelStability) return;
+		if (effects === labelEffects && notation === labelNotation && stability === labelStability) return;
 		labelEffects = effects;
+		labelNotation = notation;
 		labelStability = stability;
 		clearLabels();
 	}

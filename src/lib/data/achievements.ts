@@ -209,11 +209,15 @@ function createGeneratorLevelsAchievements(): Achievement[] {
 
 function createAtomsPerSecondAchievements(): Achievement[] {
 	function createAtomsPerSecondAchievement(count: number, tierIndex: number): Achievement {
-		const formattedCount = formatNumber(count);
 		return {
-			id: `aps_${formattedCount.toLowerCase()}`,
-			name: `${formattedCount} Atoms per Second`,
-			description: `Produce ${formattedCount} atoms per second`,
+			/** Quark claims store this id server-side, so it stays in suffix notation whatever the player picks. */
+			id: `aps_${formatNumber(count, 2, 'suffix').toLowerCase()}`,
+			get name() {
+				return `${formatNumber(count)} Atoms per Second`;
+			},
+			get description() {
+				return `Produce ${formatNumber(count)} atoms per second`;
+			},
 			iconStack: tierIconStack('speed', tierIndex, count),
 			condition: (manager: GameManager) => manager.atomsPerSecond >= count,
 		};
@@ -229,8 +233,12 @@ function createTotalClicksAchievements(): Achievement[] {
 	function createTotalClicksAchievement(count: number, tierIndex: number): Achievement {
 		return {
 			id: `clicks_${count}`,
-			name: `${formatNumber(count)} Clicks`,
-			description: `Click ${formatNumber(count)} times`,
+			get name() {
+				return `${formatNumber(count)} Clicks`;
+			},
+			get description() {
+				return `Click ${formatNumber(count)} times`;
+			},
 			iconStack: tierIconStack('click', tierIndex, count),
 			hiddenCondition: (manager: GameManager) => manager.totalClicksAllTime === 0,
 			condition: (manager: GameManager) => manager.totalClicksAllTime >= count,
@@ -246,8 +254,12 @@ function createTotalLevelsAchievements(): Achievement[] {
 	function createTotalLevelsAchievement(count: number, tierIndex: number): Achievement {
 		return {
 			id: `levels_${count}`,
-			name: `Level ${formatNumber(count, 0)}`,
-			description: `Be at least ${formatNumber(count, 0)} xp level`,
+			get name() {
+				return `Level ${formatNumber(count, 0)}`;
+			},
+			get description() {
+				return `Be at least ${formatNumber(count, 0)} xp level`;
+			},
 			iconStack: tierIconStack('level', tierIndex, count),
 			condition: (manager: GameManager) => manager.playerLevel >= count,
 		};
@@ -287,8 +299,8 @@ function createCurrencyAchievements(): AchievementGroup[] {
 			name: currency.name,
 			tiered: true,
 			achievements: currency.achievementTiers!.map((tier, index) => {
-				let name = `${formatNumber(tier)} ${currency.name}`;
-				let description = `Collect ${formatNumber(tier)} ${currency.name.toLowerCase()}`;
+				let name = () => `${formatNumber(tier)} ${currency.name}`;
+				let description = () => `Collect ${formatNumber(tier)} ${currency.name.toLowerCase()}`;
 
 				if (currency.name === CurrenciesTypes.HIGGS_BOSON) {
 					const countNames: Record<number, string> = {
@@ -298,10 +310,10 @@ function createCurrencyAchievements(): AchievementGroup[] {
 						512: '512',
 						4096: '4096',
 					};
-					name = `${countNames[tier] || tier} Bonus Higgs Boson`;
-					description = `Click ${formatNumber(tier, 0)} bonus higgs boson${tier === 1 ? '' : 's'}`;
+					name = () => `${countNames[tier] || tier} Bonus Higgs Boson`;
+					description = () => `Click ${formatNumber(tier, 0)} bonus higgs boson${tier === 1 ? '' : 's'}`;
 				} else if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) {
-					name = `Excited ${
+					name = () => `Excited ${
 						tier >= 1000 ?
 							tier >= 400000 ?
 								'4'
@@ -309,7 +321,7 @@ function createCurrencyAchievements(): AchievementGroup[] {
 						: tier >= 20 ? '2'
 						: ''
 					}`;
-					description = `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
+					description = () => `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
 				}
 
 				// Prefix mapping for backward compatibility and cleanliness
@@ -321,8 +333,12 @@ function createCurrencyAchievements(): AchievementGroup[] {
 
 				return {
 					id: `${prefix}_${tier}`,
-					name,
-					description,
+					get name() {
+						return name();
+					},
+					get description() {
+						return description();
+					},
 					iconStack: tierIconStack(CURRENCY_ICON_NAMES[currency.name as CurrencyName], index, tier),
 					condition: (manager: GameManager) => {
 						const currencyData = manager.currencies[currency.stat as CurrencyName];

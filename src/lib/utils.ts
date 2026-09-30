@@ -1,3 +1,5 @@
+import type { NumberNotation } from '$lib/types';
+
 export const SUFFIXES = [
 	'',
 	'K',
@@ -114,7 +116,13 @@ export const SUFFIXES = [
 
 const EPSILON = 0.0001;
 
-export function formatNumber(num: number, precision = 2): string {
+/** GameManager points `read` at its reactive settings, so every formatted value in a template rerenders when the player switches notation. */
+export const numberNotation: { read: () => NumberNotation } = { read: () => 'suffix' };
+
+/**
+ * @example formatNumber(1.5e15) // '1.50Qa', or '1.50e15' with the scientific notation
+ */
+export function formatNumber(num: number, precision = 2, notation = numberNotation.read()): string {
 	if (!Number.isFinite(num)) {
 		return '∞';
 	}
@@ -130,6 +138,8 @@ export function formatNumber(num: number, precision = 2): string {
 			return `${num.toFixed(precision)}`;
 		}
 	}
+
+	if (notation === 'scientific') return num.toExponential(precision).replace('+', '');
 
 	const exponent = Math.floor(Math.log(absNum) / Math.log(1000));
 	const suffixIndex = Math.min(exponent, SUFFIXES.length - 1);

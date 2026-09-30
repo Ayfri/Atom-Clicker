@@ -76,6 +76,7 @@ export const statsConfig = {
 	settings: {
 		defaultValue: {
 			automation: { autoClick: false, autoClickPhotons: false, generators: [], upgrades: false },
+			display: { notation: 'suffix' },
 			gameplay: { offlineProgressEnabled: true },
 			upgrades: { displayAlreadyBought: false },
 		} satisfies Settings,

@@ -24,6 +24,7 @@ import type {
 	Settings,
 	SkillUpgrade,
 } from '$lib/types';
+import { numberNotation } from '$lib/utils';
 import { setItem } from '$lib/utils/safeLocalStorage';
 import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
@@ -557,6 +558,7 @@ export class GameManager {
 						...defaults,
 						...saved,
 						automation: { ...defaults.automation, ...saved?.automation },
+						display: { ...defaults.display, ...saved?.display },
 						gameplay: { ...defaults.gameplay, ...saved?.gameplay },
 						upgrades: { ...defaults.upgrades, ...saved?.upgrades },
 					};
@@ -825,3 +827,4 @@ export class GameManager {
 }
 
 export const gameManager = new GameManager();
+numberNotation.read = () => gameManager.settings.display.notation;

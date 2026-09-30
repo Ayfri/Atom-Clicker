@@ -234,12 +234,17 @@ export interface RealmState {
 	unlocked: boolean;
 }
 
+export type NumberNotation = 'scientific' | 'suffix';
+
 export interface Settings {
 	automation: {
 		autoClick: boolean;
 		autoClickPhotons: boolean;
 		generators: GeneratorType[];
 		upgrades: boolean;
+	};
+	display: {
+		notation: NumberNotation;
 	};
 	gameplay: {
 		offlineProgressEnabled: boolean;

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { gameManager } from '$helpers/GameManager.svelte';
-	import { formatDuration } from '$lib/utils';
+	import { formatDuration, formatNumber } from '$lib/utils';
 	import { autoSave } from '$stores/autoSave.svelte';
 	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 	import { toastStore } from '$stores/toasts.svelte';
@@ -18,7 +18,7 @@
 
 	const losses = $derived([
 		['Play time', formatDuration(gameManager.inGameTime)],
-		['Level', gameManager.playerLevel.toString()],
+		['Level', formatNumber(gameManager.playerLevel)],
 		['Achievements', gameManager.achievements.length.toString()],
 	]);
 

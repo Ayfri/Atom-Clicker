@@ -41,7 +41,7 @@
 		{
 			label: 'Game',
 			tabs: [
-				{ component: Gameplay, description: 'Offline progress and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
+				{ component: Gameplay, description: 'Offline progress, numbers and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
 				{ component: GlobalStats, description: 'Your progress in numbers', icon: ChartLine, id: 'stats', label: 'Stats' },
 				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog', notification: () => changelog.unread },
 			],

@@ -29,7 +29,9 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 				amount: options.cost(i),
 				currency: options.currency ?? CurrenciesTypes.ATOMS,
 			},
-			description: options.description(i),
+			get description() {
+				return options.description(i);
+			},
 			effects: options.effects(i),
 			icon: options.icon,
 			id: options.idForIndex?.(i) ?? `${options.id}_${i}`,
