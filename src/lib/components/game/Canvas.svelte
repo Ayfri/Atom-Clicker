@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { loadParticleAssets, ParticleEngine } from '$helpers/particles';
 	import { particlesEnabled, setParticleSink } from '$stores/canvas';
-	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 	import { onDestroy, onMount } from 'svelte';
 
 	// The particle math expects deltas in 60fps frames, with long gaps clamped.
@@ -15,6 +14,7 @@
 	let engine: ParticleEngine | null = null;
 	let frame = 0;
 	let lastTime = 0;
+	let observer: ResizeObserver | null = null;
 	let ratio = 1;
 
 	/** The loop only runs while particles are alive: an idle pending rAF still costs Chrome a full main frame per vsync. */
@@ -37,25 +37,12 @@
 		frame = engine.count > 0 ? requestAnimationFrame(loop) : 0;
 	}
 
-	function resize() {
-		if (!canvas || !ctx) return;
-
-		const width = innerWidth.current ?? window.innerWidth;
-		const height = innerHeight.current ?? window.innerHeight;
+	function resize({ height, width }: DOMRectReadOnly) {
+		if (!canvas) return;
 		ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
-
-		canvas.style.width = `${width}px`;
-		canvas.style.height = `${height}px`;
 		canvas.width = Math.max(1, Math.round(width * ratio));
 		canvas.height = Math.max(1, Math.round(height * ratio));
 	}
-
-	// Responsive resize
-	$effect(() => {
-		innerWidth.current;
-		innerHeight.current;
-		resize();
-	});
 
 	onMount(async () => {
 		if (!particlesEnabled) {
@@ -69,7 +56,13 @@
 		ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		resize();
+		/**
+		 * Fixed and sized by CSS: a pixel width taken from innerWidth in landscape kept the page that wide after rotating
+		 * back, phones then zoomed out to fit it and innerWidth never shrank again.
+		 */
+		canvas.style.cssText = 'height: 100%; inset: 0; position: fixed; width: 100%;';
+		observer = new ResizeObserver(([entry]) => resize(entry.contentRect));
+		observer.observe(canvas);
 		document.body.appendChild(canvas);
 		engine = new ParticleEngine();
 		setParticleSink(particles => {
@@ -81,6 +74,7 @@
 	onDestroy(() => {
 		setParticleSink(null);
 		cancelAnimationFrame(frame);
+		observer?.disconnect();
 		engine?.destroy();
 		canvas?.remove();
 		canvas = null;

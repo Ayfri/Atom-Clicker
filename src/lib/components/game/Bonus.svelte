@@ -6,7 +6,6 @@
 	import type { PowerUp } from '$lib/types';
 	import { formatNumber, randomBetween, randomValue } from '$lib/utils';
 	import { onDestroy, onMount } from 'svelte';
-	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 
 	const VISIBLE_DURATION = 25000;
 	const FADE_OUT_DURATION = 30000;
@@ -31,10 +30,12 @@
 	let messageShown = $state(false);
 	/** The label never outlives the boost it announces. */
 	const messageDuration = $derived(Math.min(MESSAGE_DURATION, powerUp.duration));
+	/** Fractions of the screen rather than pixels, so a bonus spawned in landscape stays on screen after a rotation. */
 	let x = $state(0);
 	let y = $state(0);
 
-	const labelX = $derived(Math.min(Math.max(x, LABEL_HALF_WIDTH), (innerWidth.current ?? 0) - LABEL_HALF_WIDTH));
+	const left = $derived(`calc(${MARGIN}px + ${x} * (100% - ${MARGIN * 2}px))`);
+	const top = $derived(`calc(${MARGIN}px + ${y} * (100dvh - ${MARGIN * 2}px))`);
 
 	let spawnTimeout: ReturnType<typeof setTimeout> | null = null;
 	let fadeTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -44,8 +45,8 @@
 		if (fadeTimeout) clearTimeout(fadeTimeout);
 		if (disappearTimeout) clearTimeout(disappearTimeout);
 
-		x = Math.random() * ((innerWidth.current ?? window.innerWidth) - MARGIN * 2) + MARGIN;
-		y = Math.random() * ((innerHeight.current ?? window.innerHeight) - MARGIN * 2) + MARGIN;
+		x = Math.random();
+		y = Math.random();
 
 		const randomPowerUp = randomValue(POWER_UPS);
 		powerUp.multiplier = randomPowerUp.multiplier * gameManager.powerUpEffectMultiplier;
@@ -119,8 +120,8 @@
 			phase === 'fading' && 'animate-[higgs-fade_5s_ease-in_forwards]',
 			phase === 'collected' && 'pointer-events-none',
 		]}
-		style:left="{x}px"
-		style:top="{y}px"
+		style:left={left}
+		style:top={top}
 		aria-label="Collect the Higgs Boson"
 		onclick={onClick}
 	>
@@ -168,8 +169,8 @@
 	<div
 		class="pointer-events-none absolute z-20 w-75 -translate-1/2 text-center drop-shadow-lg motion-safe:animate-[higgs-label_ease-out_forwards]"
 		style:animation-duration="{messageDuration}ms"
-		style:left="{labelX}px"
-		style:top="{y}px"
+		style:left="clamp({LABEL_HALF_WIDTH}px, {left}, 100% - {LABEL_HALF_WIDTH}px)"
+		style:top={top}
 	>
 		<p class="font-bold text-amber-300 text-xs tracking-[0.2em] uppercase">{powerUp.name}</p>
 		<p class="font-bold text-lg text-white">{powerUp.description}</p>
