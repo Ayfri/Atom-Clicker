@@ -39,7 +39,7 @@
 
 	let { animation, base, count, currency, formula, gain, layer, next, onClose, onPrestige, perks, required, source, stat, tagline }: Props = $props();
 
-	const title = $derived(animation[0].toUpperCase() + animation.slice(1));
+	const title = $derived(animation === 'protonise' ? 'Protonize' : 'Electronize');
 	const color = $derived(CURRENCIES[currency].color);
 	const shade = (percent: number) => `color-mix(in oklab, ${color} ${percent}%, black)`;
 	const buttonStyle = $derived(
@@ -64,7 +64,7 @@
 		...(gameManager.features[FeatureTypes.LEVELS] ? [{ label: 'Levels and XP' }] : []),
 		...(gameManager.boostPointsUsed > 0 && !keepBoosts ? [{ label: 'Currency boosts' }] : []),
 		...(layer >= LAYERS.ELECTRONIZE && gameManager.totalProtonisesRun > 0
-			? [{ label: `Protonise count (${formatNumber(gameManager.totalProtonisesRun, 0)}) of per-Protonise upgrades` }]
+			? [{ label: `Protonize count (${formatNumber(gameManager.totalProtonisesRun, 0)}), which powers per-Protonize upgrades` }]
 			: []),
 		...(gameManager.features[FeatureTypes.STABILITY_FIELD] ? [{ label: `Stability Field, now x${formatNumber(gameManager.stabilityMultiplier)}` }] : []),
 		...(gameManager.activePowerUps.length > 0 ? [{ label: 'Active power-ups' }] : []),

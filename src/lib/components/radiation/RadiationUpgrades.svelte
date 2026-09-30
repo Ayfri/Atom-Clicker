@@ -39,7 +39,7 @@
 		<HelpIcon position="bottom">
 			{#snippet content()}
 				<p class="text-xs text-white/80">
-					Bought with Electrons, they make the reactor stronger, cooler and longer lasting. They survive Protonise and Electronize, Ionize resets them and
+					Bought with Electrons, they make the reactor stronger, cooler and longer lasting. They survive Protonize and Electronize, Ionize resets them and
 					unlocks new ones.
 				</p>
 			{/snippet}

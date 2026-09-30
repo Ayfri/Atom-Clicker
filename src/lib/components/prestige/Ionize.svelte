@@ -213,7 +213,7 @@
 						class="shrink-0 text-white/50"
 						size={16}
 					/>
-					<span class="flex-1">Colored Light, +x0.5 each Ionize</span>
+					<span class="flex-1">Light multiplier, +0.5 per Ionize</span>
 					<span class="font-mono tabular-nums text-white/50">x{formatNumber(ionizeLightMultiplier(ionizes))}</span>
 					<span class="text-white/30">→</span>
 					<span class="font-mono font-semibold tabular-nums text-white">x{formatNumber(ionizeLightMultiplier(ionizes + 1))}</span>

@@ -87,7 +87,7 @@
 
 			<div class="flex w-full flex-col gap-1.5">
 				<div class="flex items-center justify-between text-xs font-bold tracking-widest text-white/50 uppercase">
-					<span class="flex items-center gap-1.5"><Hourglass size={13} /> Time stored</span>
+					<span class="flex items-center gap-1.5"><Hourglass size={13} /> Offline time</span>
 					<span class="tabular-nums">{formatDuration(summary.appliedMs * reveal.current)} / {formatDuration(summary.capMs)}</span>
 				</div>
 				<div class="h-2.5 w-full overflow-hidden rounded-full bg-black/40">
@@ -97,7 +97,7 @@
 					></div>
 				</div>
 				{#if summary.awayMs > summary.capMs}
-					<p class="text-left text-xs text-amber-300/80">Storage full, the last {formatDuration(summary.awayMs - summary.capMs)} were not counted.</p>
+					<p class="text-left text-xs text-amber-300/80">Offline cap reached, the last {formatDuration(summary.awayMs - summary.capMs)} were not counted.</p>
 				{/if}
 			</div>
 

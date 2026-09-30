@@ -260,8 +260,8 @@ function createProtoniseAchievements(): Achievement[] {
 	const tiers = [1, 2, 3, 5, 10, 20, 50, 100, 250, 500, 1000];
 	return tiers.map((tier, index) => ({
 		id: `protonises_${tier}`,
-		name: `${tier} Protonises`,
-		description: `Protonise ${tier} times`,
+		name: `${tier} Protonizes`,
+		description: `Protonize ${tier} times`,
 		iconStack: tierIconStack('proton', index, tier),
 		condition: (manager: GameManager) => manager.currencies[CurrenciesTypes.PROTONS].earnedAllTime >= tier,
 		hiddenCondition: (manager: GameManager) => manager.currencies[CurrenciesTypes.PROTONS].earnedAllTime === 0,
@@ -433,7 +433,7 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
 	{ achievements: createAtomsPerSecondAchievements(), name: 'Atoms per Second', tiered: true },
 	{ achievements: createTotalClicksAchievements(), name: 'Clicks', tiered: true },
 	{ achievements: createTotalLevelsAchievements(), name: 'Player Level', tiered: true },
-	{ achievements: createProtoniseAchievements(), name: 'Protonises', tiered: true },
+	{ achievements: createProtoniseAchievements(), name: 'Protonizes', tiered: true },
 	{ achievements: createElectronizeAchievements(), name: 'Electronizes', tiered: true },
 	...createCurrencyAchievements(),
 	{ achievements: createCurrencyBoostAchievements(), name: 'Currency Boosts', tiered: false },

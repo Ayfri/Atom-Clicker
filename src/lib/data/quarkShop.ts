@@ -106,7 +106,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	convenience_keep_currency_boosts: {
 		cost: 60,
-		description: 'Keeps your Currency Boosts through Protonise and Electronize.',
+		description: 'Keeps your Currency Boosts through Protonize and Electronize.',
 		iconStack: { icon: 'currencyBoost' },
 		id: 'convenience_keep_currency_boosts',
 		name: 'Lasting Currency Boosts',

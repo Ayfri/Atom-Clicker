@@ -13,7 +13,7 @@ const stabilityShare = (level: number) => (manager: GameManager) =>
 export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	auto_clicker: {
 		id: 'auto_clicker',
-		name: 'Auto Clicker',
+		name: 'Photon Auto Clicker',
 		description: (level: number) => `Auto-click ${level} circle${level > 1 ? 's' : ''} every 5 seconds`,
 		baseCost: 500,
 		costMultiplier: 3,
@@ -78,7 +78,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	},
 	offline_progress: {
 		id: 'offline_progress',
-		name: 'Offline Resonance',
+		name: 'Offline Photons',
 		description: () => 'Enable offline Photon Realm clicks and offline auto-buy',
 		baseCost: 1000,
 		costMultiplier: 1,
@@ -98,8 +98,8 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	},
 	photon_proton_boost: {
 		id: 'photon_proton_boost',
-		name: 'Photon Proton Boost',
-		description: () => '+1% protons from Protonise per photon upgrade level owned',
+		name: 'Photon Catalyst',
+		description: () => '+1% protons from Protonize per photon upgrade level owned',
 		baseCost: 10_000,
 		costMultiplier: 1,
 		maxLevel: 1,
@@ -136,7 +136,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	proton_boost: {
 		id: 'proton_boost',
 		name: 'Proton Multiplier',
-		description: (level: number) => `${formatNumber(15 * level)}% more protons from Protonise`,
+		description: (level: number) => `${formatNumber(15 * level)}% more protons from Protonize`,
 		baseCost: 5000,
 		costMultiplier: 5,
 		maxLevel: 6,
@@ -146,7 +146,7 @@ export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	proton_super_boost: {
 		id: 'proton_super_boost',
 		name: 'Proton Overdrive',
-		description: (level: number) => `${formatNumber(40 * level)}% more protons from Protonise`,
+		description: (level: number) => `${formatNumber(40 * level)}% more protons from Protonize`,
 		baseCost: 50000,
 		costMultiplier: 7,
 		maxLevel: 4,
@@ -189,8 +189,9 @@ export const EXCITED_PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	},
 	excited_stabilization: {
 		id: 'excited_stabilization',
-		name: 'Excited Stabilization',
-		description: (level: number) => `Increases Stability Field capacity by ${200 * level}%, but clicking photons now collapses it too`,
+		name: 'Field Overcharge',
+		description: (level: number) =>
+			`+${200 * level}% Stability Field max bonus, ${Math.round(((1 + 2 * level) / (1 + level) - 1) * 100)}% longer to fill, and clicking photons now resets it`,
 		baseCost: 5000,
 		costMultiplier: 2,
 		currency: CurrenciesTypes.EXCITED_PHOTONS,
@@ -199,7 +200,7 @@ export const EXCITED_PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	},
 	excited_photon_stability: {
 		id: 'excited_photon_stability',
-		name: 'Excited Stability',
+		name: 'Stable Excited Photons',
 		description: (level: number) => `Excited Photons gain ${[20, 50, 100][level - 1] || 20}% of Stability Field bonus`,
 		baseCost: 1500,
 		costMultiplier: 2.5,
@@ -209,7 +210,7 @@ export const EXCITED_PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
 	},
 	excited_yield: {
 		id: 'excited_yield',
-		name: 'Excited Yield',
+		name: 'Double Excited Photons',
 		description: (level: number) => `${8 * level}% chance to get double Excited Photons`,
 		baseCost: 50,
 		costMultiplier: 1.65,

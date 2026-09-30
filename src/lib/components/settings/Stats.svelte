@@ -43,9 +43,9 @@
 	const multipliers = $derived(
 		[
 			{ label: 'Global', value: gameManager.globalMultiplier },
-			{ label: 'Active bonus', value: gameManager.bonusMultiplier },
+			{ label: 'Power-ups', value: gameManager.bonusMultiplier },
 			{ label: 'XP', value: gameManager.xpGainMultiplier },
-			{ label: 'Stability field', pinned: gameManager.features[FeatureTypes.STABILITY_FIELD], value: gameManager.stabilityMultiplier },
+			{ label: 'Stability Field', pinned: gameManager.features[FeatureTypes.STABILITY_FIELD], value: gameManager.stabilityMultiplier },
 			{ label: 'Power-up duration', value: gameManager.powerUpDurationMultiplier },
 			{ label: 'Power-up effect', value: gameManager.powerUpEffectMultiplier },
 			...[CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS].map(type => ({
@@ -60,7 +60,6 @@
 		{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(gameManager.dailyStats.clicks, 0) },
 		{ icon: Factory, label: 'Generators bought', value: formatNumber(gameManager.dailyStats.generatorsPurchased, 0) },
 		{ icon: CircleArrowUp, label: 'Upgrades bought', value: formatNumber(gameManager.dailyStats.upgradesPurchased, 0) },
-		{ icon: HiggsBosonIcon, label: 'Power-ups', value: formatNumber(gameManager.dailyStats.powerUpsCollected, 0) },
 		{ icon: HiggsBosonIcon, label: 'Higgs bosons', value: formatNumber(gameManager.dailyStats.higgsBosonsCollected, 0) },
 		{ icon: Trophy, label: 'Achievements', value: gameManager.dailyStats.achievementsUnlocked.toString() },
 		{ icon: RotateCcw, label: 'Prestiges', value: (gameManager.dailyStats.protonises + gameManager.dailyStats.electronizes).toString() },
@@ -175,13 +174,13 @@
 
 	<section class="grid gap-x-8 gap-y-4 md:grid-cols-2">
 		<div class="flex flex-col gap-3">
-			{@render title(MousePointerClick, 'This run out of all time')}
+			{@render title(MousePointerClick, 'This run / all time')}
 			{@render bar('Clicks', gameManager.totalClicksRun, gameManager.totalClicksAllTime)}
 			{@render bar('Atoms earned', gameManager.currencies[CurrenciesTypes.ATOMS].earnedRun, gameManager.currencies[CurrenciesTypes.ATOMS].earnedAllTime, CURRENCIES.Atoms.color)}
 			{@render bar('Higgs bosons', gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedRun, gameManager.currencies[CurrenciesTypes.HIGGS_BOSON].earnedAllTime, CURRENCIES['Higgs Boson'].color)}
 		</div>
 		<div class="flex flex-col gap-3">
-			{@render title(Factory, 'Owned out of ever bought')}
+			{@render title(Factory, 'Owned / ever bought')}
 			{@render bar('Generators', gameManager.generatorTotals.count, gameManager.totalGeneratorsPurchasedAllTime)}
 			{@render bar('Upgrades', gameManager.upgrades.length, gameManager.totalUpgradesPurchasedAllTime)}
 			{@render bar('Boost points left', gameManager.boostPointsAvailable, gameManager.boostPointsTotal)}
@@ -193,7 +192,7 @@
 			{@render title(RotateCcw, 'Prestige')}
 			<div class="grid gap-3 md:grid-cols-2">
 				{#if hasEarned(CurrenciesTypes.PROTONS)}
-					{@render currency(CurrenciesTypes.PROTONS, [['Protonised this run', gameManager.totalProtonisesRun], ['Protonised all time', gameManager.totalProtonisesAllTime]])}
+					{@render currency(CurrenciesTypes.PROTONS, [['Protonized this run', gameManager.totalProtonisesRun], ['Protonized all time', gameManager.totalProtonisesAllTime]])}
 				{/if}
 				{#if hasEarned(CurrenciesTypes.ELECTRONS)}
 					{@render currency(CurrenciesTypes.ELECTRONS, [['Electronized this run', gameManager.totalElectronizesRun], ['Electronized all time', gameManager.totalElectronizesAllTime]])}
@@ -259,13 +258,13 @@
 			<div class="grid gap-x-8 gap-y-3 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-2">
 				<div class="flex flex-col gap-3">
 					{@render bar('Reactor output', radiationManager.currentCpm, radiationManager.maxCpm, REALMS.radiation.color, `${formatNumber(radiationManager.currentCpm)} / ${formatNumber(radiationManager.maxCpm)} CPM`)}
-					{@render bar('Control rods', radiationManager.controlRodLevel * 100, 100, REALMS.radiation.color, `${(radiationManager.controlRodLevel * 100).toFixed(0)}%`)}
+					{@render bar('Power', radiationManager.controlRodLevel * 100, 100, REALMS.radiation.color, `${(radiationManager.controlRodLevel * 100).toFixed(0)}%`)}
 				</div>
 				<div>
-					{@render row('Core mass', formatNumber(radiationManager.mass), formatNumberFull(radiationManager.mass))}
-					{@render row('Mass / s', `${radiationManager.netMassChange > 0 ? '+' : ''}${formatNumber(radiationManager.netMassChange)}`)}
+					{@render row('Fuel', `${formatNumber(radiationManager.mass)} u`, formatNumberFull(radiationManager.mass))}
+					{@render row('Fuel / s', `${radiationManager.netMassChange > 0 ? '+' : ''}${formatNumber(radiationManager.netMassChange)} u`)}
 					{@render row('Empty in', Number.isFinite(radiationManager.timeToEmpty) ? formatDuration(radiationManager.timeToEmpty * 1000) : 'Never')}
-					{@render row('Multiplier', `×${formatNumber(radiationManager.radiationMultiplier)}`)}
+					{@render row('Production multiplier',`×${formatNumber(radiationManager.radiationMultiplier)}`)}
 				</div>
 			</div>
 		</section>

@@ -26,7 +26,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	cherenkov_glow: {
 		baseCost: 100,
 		costMultiplier: 1.6,
-		description: level => `+${(level * 5).toFixed(0)}% production bonus`,
+		description: level => `+${(level * 5).toFixed(0)}% reactor multiplier`,
 		id: 'cherenkov_glow',
 		maxLevel: 10,
 		name: 'Cherenkov Glow',
@@ -59,7 +59,7 @@ export const RADIATION_UPGRADES: Record<string, RadiationUpgrade> = {
 	ion_lattice: {
 		baseCost: 2000,
 		costMultiplier: 1.6,
-		description: level => `+${(level * 20).toFixed(0)}% radiation multiplier`,
+		description: level => `+${(level * 20).toFixed(0)}% reactor multiplier`,
 		id: 'ion_lattice',
 		ionizes: 2,
 		maxLevel: 10,

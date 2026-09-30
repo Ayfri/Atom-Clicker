@@ -98,7 +98,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 /** Boosts shared by a few neighbouring generator tiers, shown once the first tier they boost is unlocked. */
 function createGeneratorGroupUpgrades(): Upgrade[] {
 	const groups: { amount: number; cost: number; id: string; name: string; targets: GeneratorType[] }[] = [
-		{ amount: 1.5, cost: 100_000, id: 'atomic_stability', name: 'Atomic Stability', targets: ['molecule', 'crystal', 'nanostructure'] },
+		{ amount: 1.5, cost: 100_000, id: 'atomic_stability', name: 'Atomic Bonding', targets: ['molecule', 'crystal', 'nanostructure'] },
 		{ amount: 3, cost: 1_000_000, id: 'molecular_boost', name: 'Molecular Boost', targets: ['molecule', 'crystal'] },
 		{ amount: 2.5, cost: 2_500_000, id: 'nano_enhancement', name: 'Nano Enhancement', targets: ['nanostructure'] },
 		{ amount: 2.5, cost: 5_000_000, id: 'biological_amplifier', name: 'Biological Amplifier', targets: ['microorganism'] },
@@ -309,7 +309,7 @@ function createProtonUpgrades(): Upgrade[] {
 			count: 10,
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'proton',
-			name: i => `Proton Boost ${i}`,
+			name: i => `Proton Power ${i}`,
 			description: i => `${2 + i}x all production`,
 			cost: i => {
 				const baseCost = Math.ceil(2 ** (i * 2.1));
@@ -353,8 +353,8 @@ function createProtonUpgrades(): Upgrade[] {
 		},
 		{
 			id: 'proton_electron_boost_total_protonises',
-			name: 'Total Protonises',
-			description: '+1 electron per Protonise',
+			name: 'Electron Residue',
+			description: '+1 electron per Protonize',
 			icon: 'electron',
 			cost: {
 				amount: 125_000_000_000_000,
@@ -367,8 +367,8 @@ function createProtonUpgrades(): Upgrade[] {
 			count: 5,
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'proton',
-			name: i => `Protonise Master ${i}`,
-			description: i => `+${25 * i}% production per Protonise`,
+			name: i => `Protonize Master ${i}`,
+			description: i => `+${25 * i}% production per Protonize`,
 			cost: i => {
 				const baseCost = Math.ceil(5 * 3 ** (i + 2.1));
 				return i > 3 ? baseCost * i ** 5.1 : baseCost;
@@ -381,7 +381,7 @@ function createProtonUpgrades(): Upgrade[] {
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'atom',
 			name: i => `Quick Start ${i}`,
-			description: i => `Start with ${formatNumber(10 ** (3 + i))} atoms after a Protonise`,
+			description: i => `Start with ${formatNumber(10 ** (3 + i))} atoms after a Protonize`,
 			cost: i => {
 				const baseCost = Math.ceil(3 * 2 ** (i + 1.1));
 				return i > 2 ? baseCost * i ** 3.1 : baseCost;
@@ -396,7 +396,7 @@ function createProtonUpgrades(): Upgrade[] {
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'click',
 			idForIndex: i => `proton_auto_click_${i + 1}`,
-			name: i => `Auto Clicker ${i + 1}`,
+			name: i => `Auto Clicker Speed ${i + 1}`,
 			description: i => `Automatically clicks ${Math.ceil((i + 1) / 2)} more time${Math.ceil((i + 1) / 2) > 1 ? 's' : ''} per second`,
 			cost: i => Math.ceil(3 * 3 ** (i + 2.1)) * (i + 1) ** 4.1,
 			effects: i => [add('auto_click', Math.ceil((i + 1) / 2))],
@@ -419,7 +419,7 @@ function createProtonUpgrades(): Upgrade[] {
 		},
 		{
 			cost: { amount: 25_000, currency: CurrenciesTypes.PROTONS },
-			description: '1.5x protons gained from Protonise',
+			description: '1.5x protons gained from Protonize',
 			effects: [mul('proton_gain', 1.5)],
 			icon: 'proton',
 			id: 'proton_collector',
@@ -452,7 +452,7 @@ function createProtonUpgrades(): Upgrade[] {
 		},
 		{
 			cost: { amount: 250_000_000, currency: CurrenciesTypes.PROTONS },
-			description: '+25% production per Protonise',
+			description: '+25% production per Protonize',
 			effects: [mul('global', manager => 1 + manager.totalProtonisesRun * 0.25)],
 			icon: 'proton',
 			id: 'proton_particle_accelerator',
@@ -463,8 +463,8 @@ function createProtonUpgrades(): Upgrade[] {
 			count: 5,
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'stabilityField',
-			name: i => `Stable Resonance ${i}`,
-			description: i => `+${25 * i}% effect from the Stability Field`,
+			name: i => `Field Strength ${i}`,
+			description: i => `+${25 * i}% Stability Field bonus`,
 			condition: isStabilityUnlocked,
 			cost: i => Math.ceil(140 * 2.05 ** i),
 			effects: () => [add('stability_boost', 0.25)],
@@ -486,7 +486,7 @@ function createProtonUpgrades(): Upgrade[] {
 			currency: CurrenciesTypes.PROTONS,
 			icon: 'stabilityField',
 			name: i => `Temporal Expansion ${i}`,
-			description: () => `Extends the Stability Field capacity and max bonus`,
+			description: () => `+220% Stability Field max bonus, but it takes 220% longer to fill`,
 			condition: isStabilityUnlocked,
 			cost: i => Math.ceil(500 * 3 ** i),
 			effects: () => [add('stability_capacity', 2.2)],

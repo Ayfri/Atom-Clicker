@@ -89,7 +89,7 @@
 			icon: ProtoniseIcon,
 			iconProps: { color: PROTON_COLOR },
 			id: 'protonise',
-			label: 'Protonise',
+			label: 'Protonize',
 			load: () => import('@components/prestige/Protonise.svelte'),
 			condition: () => gameManager.atoms >= PROTONS_ATOMS_REQUIRED || gameManager.totalProtonisesAllTime > 0,
 			notification: () => gameManager.protoniseProtonsGain > gameManager.protons,

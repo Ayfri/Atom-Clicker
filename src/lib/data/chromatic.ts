@@ -183,7 +183,7 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 		}),
 		colorBoost(ChromaticColors.GREEN, {
 			baseCost: 100,
-			description: level => `x${formatNumber(1 + 0.1 * level, 1)} protons from Protonise`,
+			description: level => `x${formatNumber(1 + 0.1 * level, 1)} protons from Protonize`,
 			effects: level => [mul('proton_gain', 1 + 0.1 * level)],
 			id: 'green_bloom',
 			name: 'Green Bloom',

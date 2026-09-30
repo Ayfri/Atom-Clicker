@@ -51,5 +51,5 @@
 	required={PROTONS_ATOMS_REQUIRED}
 	source={CurrenciesTypes.ATOMS}
 	stat="proton_gain"
-	tagline="Trade this run for Protons, spent on upgrades and skills that stay with you through every Protonise."
+	tagline="Trade this run for Protons, spent on upgrades and skills that stay with you through every Protonize."
 />

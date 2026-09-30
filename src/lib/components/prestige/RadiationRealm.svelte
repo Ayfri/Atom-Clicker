@@ -65,7 +65,8 @@
 					<HelpIcon class="self-center" position="bottom">
 						{#snippet content()}
 							<div class="flex flex-col gap-1 text-left text-xs text-white/70">
-								<p><span class="text-radiation">Fuel</span> x <span class="text-radiation">Power</span> makes the output (CPM), the output multiplies all your production.</p>
+								<p><span class="text-radiation">Fuel</span> x <span class="text-radiation">Power</span> makes the output, the output multiplies all your production.</p>
+								<p>Output is counted in CPM, counts per minute, like a Geiger counter.</p>
 								<p>Double the power: double the output, four times the fuel burn.</p>
 								<p>The ∞ mark on the lever is the highest power your fuel regen keeps up with forever.</p>
 								<p class="text-white/50">The ring around the reactor is the output, it has a cap that Coolant Pumps raise.</p>

@@ -200,7 +200,7 @@
 			{/each}
 			{#if gatedBoostTiers > 0}
 				<p class="rounded-lg border border-dashed border-white/10 p-2 text-center text-xs text-white/50">
-					{gatedBoostTiers} more Boost tiers unlock after your next Protonise
+					{gatedBoostTiers} more Boost tiers unlock after your next Protonize
 				</p>
 			{/if}
 		</div>

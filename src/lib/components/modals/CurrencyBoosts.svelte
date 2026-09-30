@@ -28,24 +28,24 @@
 	const earnedCurrencies = $derived(boostableCurrencies.filter(currency => currenciesManager.getEarnedAllTime(currency) > 0));
 </script>
 
-<Modal {onClose} title="Currency Boosts"width="sm">
+<Modal {onClose} title="Currency Boosts" width="sm">
 	<div class="flex flex-col gap-4">
 		<!-- Header info -->
 		<div class="rounded-lg bg-black/20 p-4">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<Zap size={20} class="text-yellow-400" />
-					<span class="font-bold text-white">Currency Boost</span>
+					<span class="font-bold text-white">Boost points</span>
 				</div>
 				<span class="font-mono text-xl font-bold text-yellow-400">
 					{gameManager.boostPointsAvailable} / {gameManager.boostPointsTotal}
 				</span>
 			</div>
 			<p class="mt-2 text-sm text-white/60">
-				Every generator level (each {GENERATOR_LEVEL_UP_COST} of the same generator) earns a boost point. Each point adds <span class="font-bold text-yellow-300">+10%</span> production to a currency (max {MAX_BOOST_POINTS} points per currency).
+				Every generator level (each {GENERATOR_LEVEL_UP_COST} of the same generator) earns a boost point. Each point gives <span class="font-bold text-yellow-300">+10%</span> of that currency gained (max {MAX_BOOST_POINTS} points per currency).
 			</p>
 			<p class="mt-1 text-xs text-red-400/80">
-				Currency boost allocations reset on Protonise or Electronize.
+				Currency boost allocations reset on Protonize or Electronize.
 			</p>
 			<div class="mt-3 flex gap-2">
 				<button

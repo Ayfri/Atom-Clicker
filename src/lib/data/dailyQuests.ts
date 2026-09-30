@@ -160,7 +160,7 @@ export const QUEST_POOL: DailyQuest[] = [
 		scale: 1,
 	},
 	{
-		description: () => `Protonise at least once today.`,
+		description: () => `Protonize at least once today.`,
 		floor: 1,
 		id: 'protonise_once',
 		metric: 'protonises',

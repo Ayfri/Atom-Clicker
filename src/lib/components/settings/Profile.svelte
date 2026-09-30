@@ -56,7 +56,7 @@
 	]);
 	/** Locked milestones stay hidden behind `???` so the profile never spoils what comes next. */
 	const milestones: Milestone[] = $derived([
-		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: ProtoniseIcon, label: 'Protonised', reached: gameManager.totalProtonisesAllTime > 0 },
+		{ color: CURRENCIES.Protons.color, count: gameManager.totalProtonisesAllTime, icon: ProtoniseIcon, label: 'Protonized', reached: gameManager.totalProtonisesAllTime > 0 },
 		{ color: CURRENCIES.Electrons.color, count: gameManager.totalElectronizesAllTime, icon: ElectronizeIcon, label: 'Electronized', reached: gameManager.totalElectronizesAllTime > 0 },
 		{ color: REALMS.photons.color, count: null, icon: PhotonIcon, label: 'Photon Realm', reached: REALMS.photons.condition(gameManager.features) },
 		{ color: REALMS.radiation.color, count: null, icon: Radiation, label: 'Radiation Realm', reached: REALMS.radiation.condition(gameManager.features) },

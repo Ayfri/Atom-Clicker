@@ -58,7 +58,7 @@
 							<span class="text-xs text-amber-300 font-mono font-bold whitespace-nowrap">×{formatNumber(powerUp.multiplier)} atoms</span>
 						</div>
 						<div class="flex justify-between items-center text-[10px] md:text-xs text-zinc-400">
-							<span class="truncate pr-2">Higgs Boson bonus</span>
+							<span class="truncate pr-2">Higgs Boson power-up</span>
 							<span class={['font-mono tabular-nums', remaining < 3000 ? 'text-amber-300' : 'text-zinc-300']}>{(remaining / 1000).toFixed(1)}s</span>
 						</div>
 					</div>

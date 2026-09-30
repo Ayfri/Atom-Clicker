@@ -86,7 +86,7 @@ export const HINTS: Hint[] = [
 		show: () => gameManager.atoms >= PROTONS_ATOMS_REQUIRED,
 		targets: ['#nav-protonise'],
 		text: 'Reset this run in exchange for Protons, a permanent boost to every future run.',
-		title: 'Time to Protonise',
+		title: 'Time to Protonize',
 	},
 	{
 		done: () => ui.activeModalId === 'skill-tree' || gameManager.skillUpgrades.length > 0,
