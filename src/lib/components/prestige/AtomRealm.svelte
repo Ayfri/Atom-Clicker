@@ -55,7 +55,7 @@
 	});
 </script>
 
-<div class="relative pt-2 transition-all duration-1000 ease-in-out lg:pt-8 {mobile.current ? 'min-h-screen pb-8' : ''}">
+<div class={['relative transition-all duration-1000 ease-in-out lg:pt-8', mobile.current && 'min-h-screen pb-8']}>
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
 		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
 			{#if gameManager.totalProtonisesAllTime > 0}
@@ -71,7 +71,7 @@
 	<ActivePowerUps />
 
 	<!-- On desktop the side panels are 100dvh - 204px tall: this padding, the tabs row (or the generators' pt-12) and the footer. -->
-	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 lg:p-8 text-sm xl:max-w-360">
+	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 max-lg:pt-1 lg:p-8 text-sm xl:max-w-360">
 		{#if tabs.length > 0}
 			<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
 				{#if tabs.length > 1}
