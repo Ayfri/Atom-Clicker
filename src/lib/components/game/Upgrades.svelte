@@ -1,8 +1,12 @@
 <script lang="ts">
 	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '$data/currencies';
+	import { AmbientField } from '$helpers/AmbientField';
+	import { AtomRenderer } from '$helpers/AtomRenderer';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '$data/upgrades';
 	import { ICONS } from '$data/icons';
+	import { RealmTypes } from '$data/realms';
+	import type { Upgrade } from '$lib/types';
 	import AutoButton from '@components/ui/AutoButton.svelte';
 	import Currency from '@components/ui/Currency.svelte';
 	import Value from '@components/ui/Value.svelte';
@@ -49,9 +53,24 @@
 
 	const affordableCount = $derived(availableUpgrades.filter(upgrade => !boughtUpgrades.has(upgrade.id) && gameManager.canAfford(upgrade.cost)).length);
 
-	function buyAll() {
+	function buyAll(event: MouseEvent) {
 		// availableUpgrades is sorted cheapest first, so this drains the balance into as many upgrades as possible.
-		for (const upgrade of availableUpgrades) gameManager.purchaseUpgrade(upgrade.id);
+		let bought = 0;
+		for (const upgrade of availableUpgrades) if (gameManager.purchaseUpgrade(upgrade.id)) bought++;
+		if (bought > 0) {
+			AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, {
+				color: CURRENCIES[selectedCurrency].color,
+				count: 10 + Math.min(14, bought),
+				surge: Math.min(10, 2 + bought),
+				target: AtomRenderer.current?.target(),
+			});
+		}
+	}
+
+	function buy(upgrade: Upgrade, event: MouseEvent) {
+		if (!gameManager.purchaseUpgrade(upgrade.id)) return;
+		// Upgrades boost the whole atom, so the comet lands on the nucleus.
+		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[upgrade.cost.currency].color, surge: 3, target: AtomRenderer.current?.target() });
 	}
 </script>
 
@@ -167,8 +186,8 @@
 						? 'bg-green-300/3 cursor-default'
 						: `bg-white/5 hover:bg-white/10 cursor-pointer ${affordable ? 'opacity-100 border-white/10' : 'opacity-45 cursor-not-allowed border-transparent'}`
 					}"
-					onclick={() => {
-						if (affordable && !isBought) gameManager.purchaseUpgrade(upgrade.id);
+					onclick={event => {
+						if (affordable && !isBought) buy(upgrade, event);
 					}}
 					disabled={isBought}
 				>

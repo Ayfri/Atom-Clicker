@@ -17,6 +17,8 @@
 
 <script lang="ts">
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
@@ -54,7 +56,12 @@
 		]}
 		disabled={maxed}
 		in:reveal={{ y: 0 }}
-		onclick={() => chromaticManager.purchaseUpgrade(upgrade.id)}
+		onclick={event => {
+			if (!chromaticManager.purchaseUpgrade(upgrade.id)) return;
+			const field = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
+			const target = field && { x: field.left + field.width / 2, y: field.top + field.height / 2 };
+			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[upgrade.currencies[0]].color, surge: 3, target });
+		}}
 	>
 		<div class="mb-0.5 flex items-start justify-between">
 			<h4 class="text-xs font-medium leading-tight text-realm-200">{upgrade.name}</h4>

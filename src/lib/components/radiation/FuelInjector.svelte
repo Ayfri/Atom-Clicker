@@ -1,7 +1,10 @@
 <script lang="ts">
 	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes } from '$data/currencies';
+	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
+	import { ReactorRenderer } from '$helpers/ReactorRenderer';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { Fuel } from '@lucide/svelte';
@@ -23,9 +26,10 @@
 	);
 	const affordable = $derived(balance >= electrons);
 
-	function inject() {
+	function inject(event: MouseEvent) {
 		if (!radiationManager.unlocked) radiationManager.unlock();
 		radiationManager.bombardCore(electrons);
+		AmbientField.emit(RealmTypes.RADIATION, 'embers', event, { count: 8, surge: 3, target: ReactorRenderer.mounted?.center });
 	}
 </script>
 

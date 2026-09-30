@@ -1,7 +1,9 @@
 <script lang="ts">
 	import Value from '@components/ui/Value.svelte';
-	import type { CurrencyName } from '$data/currencies';
+	import { CURRENCIES, type CurrencyName } from '$data/currencies';
 	import { getPhotonUpgradeCost, canAffordPhotonUpgrade } from '$data/photonUpgrades';
+	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import type { PhotonUpgrade } from '$lib/types';
 
@@ -18,9 +20,11 @@
 	const isMaxed = $derived(currentLevel >= upgrade.maxLevel);
 	const affordable = $derived(canAffordPhotonUpgrade(upgrade, currentLevel, gameManager) && !isMaxed);
 
-	function onPurchase() {
-		if (affordable && !isMaxed) {
-			gameManager.purchasePhotonUpgrade(upgrade.id);
+	function onPurchase(event: MouseEvent) {
+		if (affordable && !isMaxed && gameManager.purchasePhotonUpgrade(upgrade.id)) {
+			const field = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
+			const target = field && { x: field.left + field.width / 2, y: field.top + field.height / 2 };
+			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[currency].color, surge: 3, target });
 		}
 	}
 </script>

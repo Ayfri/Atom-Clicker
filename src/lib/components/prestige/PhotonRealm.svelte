@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { CHROMATIC } from '$data/chromatic';
+	import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
 	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { FeatureTypes } from '$data/features';
 	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { ChromaticField, type ChromaticPhoton } from '$helpers/chromaticField';
 	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
@@ -15,6 +16,7 @@
 	import { formatNumber } from '$lib/utils';
 	import { addParticles } from '$stores/canvas';
 	import { mobile } from '$stores/window.svelte';
+	import Ambient from '@components/game/Ambient.svelte';
 	import PhotonCounter from '@components/prestige/PhotonCounter.svelte';
 	import PhotonUpgrades from '@components/prestige/PhotonUpgrades.svelte';
 	import { onMount } from 'svelte';
@@ -281,6 +283,7 @@
 			if (addedParticles.length > 0) {
 				addParticles(addedParticles);
 			}
+			AmbientField.emit(RealmTypes.PHOTONS, isAuto ? 'hum' : 'spark', { x, y }, { color: CURRENCIES[currencyType].color });
 		}
 
 		// Excited stabilization: interacting with the realm resets/collapses it
@@ -577,6 +580,16 @@
 	const currentSpawnRate = $derived(gameManager.photonSpawnInterval);
 	const excitedUnlocked = $derived(gameManager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime > 0);
 
+	/** Photon upgrades thicken the dust, Excited Photons add gold and the Prism splits it into Red, Green and Blue light. */
+	const ambience = $derived({
+		colors: [
+			CURRENCIES[CurrenciesTypes.PHOTONS].color,
+			...(excitedUnlocked ? [CURRENCIES[CurrenciesTypes.EXCITED_PHOTONS].color] : []),
+			...(prismUnlocked ? CHROMATIC_COLORS.map(color => CURRENCIES[CHROMATIC[color].currency].color) : []),
+		],
+		density: 3 + Math.min(8, Math.floor(gameManager.photonUpgradeLevels / 4)) + (excitedUnlocked ? 3 : 0) + (prismUnlocked ? 4 : 0),
+	});
+
 	// Set up auto-clicker subscription
 	$effect(() => {
 		const clicksPer5Seconds = photonAutoClicksPer5Seconds;
@@ -606,6 +619,9 @@
 			<div class="absolute bg-[#2ee6a0]/10 blur-[160px] h-64 right-[15%] rounded-full top-[35%] w-64"></div>
 			<div class="absolute bg-[#4d8dff]/12 blur-[180px] bottom-[8%] h-80 left-[35%] rounded-full w-80"></div>
 		</div>
+	{/if}
+	{#if visible}
+		<Ambient accent={CURRENCIES[CurrenciesTypes.PHOTONS].color} {ambience} realm={RealmTypes.PHOTONS} />
 	{/if}
 	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. On desktop
 	     the upgrades panel is 100dvh - 150px (this padding, the realm's lg:pt-4 and the footer) and the photon field stretches to match it. -->

@@ -53,6 +53,9 @@ function rodAngle(index: number): number {
  * nucleon sprites are rasterized at their on-screen size, and the loop parks itself once a frozen core has settled.
  */
 export class ReactorRenderer extends CanvasLoop {
+	/** The single mounted reactor, named apart from the instance `current` scene. */
+	static mounted: ReactorRenderer | null = null;
+
 	private readonly appear = new Float32Array(MAX_NUCLEONS);
 	private readonly ctx: CanvasRenderingContext2D;
 	/** Fuel electrons flying to the core: x, y, vx, vy per slot, a zero speed marks a free slot. */
@@ -93,7 +96,19 @@ export class ReactorRenderer extends CanvasLoop {
 		this.current = scene;
 		this.power = scene.power;
 		this.output = scene.output;
+		ReactorRenderer.mounted = this;
 		this.observe();
+	}
+
+	/** Client position of the core, fuel and upgrades aim their background comets at it. */
+	get center(): { x: number; y: number } {
+		const rect = this.canvas.getBoundingClientRect();
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+	}
+
+	destroy() {
+		super.destroy();
+		if (ReactorRenderer.mounted === this) ReactorRenderer.mounted = null;
 	}
 
 	get scene(): ReactorScene {

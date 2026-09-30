@@ -65,6 +65,9 @@ function normalize(v: Vector): Vector {
  * a drawImage per electron cost ~5µs, 4.5ms a frame with every shell full. Nucleons are pre-rendered sprites.
  */
 export class AtomRenderer extends CanvasLoop {
+	/** The single mounted atom, purchases aim their background comets at it. */
+	static current: AtomRenderer | null = null;
+
 	scene: AtomScene;
 
 	private readonly appear = new Float32Array(NUCLEON_RANGE.max);
@@ -99,7 +102,24 @@ export class AtomRenderer extends CanvasLoop {
 		this.orbitPoints = Array.from({ length: shellSlots }, () => new Float32Array((ORBIT_SEGMENTS + 1) * 3));
 		const packing = packNucleus(scene.nucleons);
 		this.nucleonBases = Array.from({ length: NUCLEON_RANGE.max }, (_, i) => ({ ...(packing.points[i] ?? { x: 0, y: 0, z: 0 }) }));
+		AtomRenderer.current = this;
 		this.observe();
+	}
+
+	destroy() {
+		super.destroy();
+		if (AtomRenderer.current === this) AtomRenderer.current = null;
+	}
+
+	/** Client position of a random point on the orbit of shell `line` as last drawn, or of the nucleus when that shell is not drawn yet. */
+	target(line = -1): { x: number; y: number } {
+		const rect = this.canvas.getBoundingClientRect();
+		const scale = this.size > 0 ? rect.width / this.size : 1;
+		const drawn = this.scene.shells.some(shell => shell.line === line && shell.count > 0);
+		if (!drawn) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+		const j = Math.floor(Math.random() * ORBIT_SEGMENTS) * 3;
+		const points = this.orbitPoints[line];
+		return { x: rect.left + points[j] * scale, y: rect.top + points[j + 1] * scale };
 	}
 
 	/**

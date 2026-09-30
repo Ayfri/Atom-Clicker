@@ -8,8 +8,11 @@
 		type GeneratorType,
 	} from '$data/generators';
 	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
+	import { RealmTypes } from '$data/realms';
 	import { GENERATOR_COST_MULTIPLIER } from '$lib/constants';
 	import { formatNumber } from '$lib/utils';
+	import { AmbientField } from '$helpers/AmbientField';
+	import { AtomRenderer } from '$helpers/AtomRenderer';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
 	import { autoBuyManager } from '$stores/autoBuy.svelte';
@@ -63,9 +66,19 @@
 
 	const totalProduction = $derived(GENERATOR_TYPES.reduce((sum, type) => sum + gameManager.generatorProductions[type], 0));
 
-	function handlePurchase(type: GeneratorType) {
+	function handlePurchase(type: GeneratorType, event: MouseEvent) {
 		const amount = purchaseAmounts[type];
-		if (affordableGenerators.has(type) && amount > 0) gameManager.purchaseGenerator(type, amount);
+		if (!affordableGenerators.has(type) || amount <= 0) return;
+
+		const level = gameManager.generators[type]?.level ?? 0;
+		if (!gameManager.purchaseGenerator(type, amount)) return;
+		const newLevel = gameManager.generators[type]?.level ?? 0;
+		// The comet lands on the generator's orbit, where its new electrons show up.
+		const target = AtomRenderer.current?.target(GENERATOR_TYPES.filter(other => gameManager.generators[other]).indexOf(type));
+		const extra = Math.min(8, Math.round(Math.log2(amount)));
+		// A level up changes the generator color, so it blooms in the new one.
+		if (newLevel > level) AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: getGeneratorColor(newLevel), surge: 6, target });
+		else AmbientField.emit(RealmTypes.ATOMS, 'embers', event, { color: getGeneratorColor(level), count: 4 + extra, surge: 1 + Math.floor(extra / 2), target });
 	}
 
 	function formatShare(production: number) {
@@ -152,7 +165,7 @@
 				:	'bg-white/5 border-transparent opacity-50 cursor-not-allowed'}"
 				data-generator={type}
 				hidden={fullyHiddenGenerators.has(type)}
-				onclick={() => handlePurchase(type)}
+				onclick={event => handlePurchase(type, event)}
 				style="--color: {color};"
 				transition:fade
 			>

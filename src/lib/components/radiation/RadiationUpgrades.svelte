@@ -3,9 +3,12 @@
 	import Value from '@components/ui/Value.svelte';
 	import { CurrenciesTypes } from '$data/currencies';
 	import { RADIATION_UPGRADES, getRadiationUpgradeCost } from '$data/radiationUpgrades';
+	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
+	import { ReactorRenderer } from '$helpers/ReactorRenderer';
 	import { reveal } from '$helpers/reveals.svelte';
 	import { Flame, FlaskConical, Grid3x3, Layers, Magnet, Recycle, ShieldHalf, Snowflake, Sparkles } from '@lucide/svelte';
 	import type { Component } from 'svelte';
@@ -59,7 +62,9 @@
 					{affordable ? 'cursor-pointer bg-radiation/8 hover:bg-radiation/15' : 'cursor-default bg-white/3'}"
 				disabled={!affordable}
 				in:reveal={{ y: 0 }}
-				onclick={() => radiationManager.purchaseUpgrade(upgrade.id)}
+				onclick={event => {
+					if (radiationManager.purchaseUpgrade(upgrade.id)) AmbientField.emit(RealmTypes.RADIATION, 'bloom', event, { surge: 3, target: ReactorRenderer.mounted?.center });
+				}}
 			>
 				<span
 					class="grid size-10 shrink-0 place-items-center rounded-lg {affordable || maxed ? 'bg-radiation/15 text-radiation' : 'bg-white/5 text-white/30'}"

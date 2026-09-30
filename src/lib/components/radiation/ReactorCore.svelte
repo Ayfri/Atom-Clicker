@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { ReactorRenderer, type ReactorScene } from '$helpers/ReactorRenderer';
 	import { realmManager } from '$helpers/RealmManager.svelte';
@@ -42,6 +43,33 @@
 		renderer.setActive(realmManager.selectedRealmId === RealmTypes.RADIATION);
 	});
 
+	/** A running reactor sheds a slow mote from its rim, more often the closer its output is to the cap. */
+	const DRIFT_MAX_MS = 2200;
+	const DRIFT_MIN_MS = 700;
+
+	let core = $state<HTMLDivElement>();
+	const running = $derived(cpm > 0 && realmManager.selectedRealmId === RealmTypes.RADIATION);
+
+	$effect(() => {
+		if (!running || !core) return;
+		const element = core;
+		let timeout: ReturnType<typeof setTimeout>;
+		const shed = () => {
+			const rect = element.getBoundingClientRect();
+			const angle = Math.random() * Math.PI * 2;
+			const radius = rect.width * 0.42;
+			AmbientField.emit(
+				RealmTypes.RADIATION,
+				'drift',
+				{ x: rect.left + rect.width / 2 + Math.cos(angle) * radius, y: rect.top + rect.height / 2 + Math.sin(angle) * radius },
+				{ angle },
+			);
+			timeout = setTimeout(shed, DRIFT_MAX_MS - (DRIFT_MAX_MS - DRIFT_MIN_MS) * scene.output);
+		};
+		timeout = setTimeout(shed, DRIFT_MAX_MS);
+		return () => clearTimeout(timeout);
+	});
+
 	let seenInjection = untrack(() => radiationManager.lastBombard.seq);
 	$effect(() => {
 		const { mass: added, seq } = radiationManager.lastBombard;
@@ -51,7 +79,7 @@
 	});
 </script>
 
-<div class="relative aspect-square w-full" {@attach mountRenderer}>
+<div class="relative aspect-square w-full" bind:this={core} {@attach mountRenderer}>
 	<canvas class="absolute inset-0 size-full"></canvas>
 	<canvas class="absolute inset-0 size-full"></canvas>
 

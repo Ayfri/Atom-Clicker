@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Ambient from '@components/game/Ambient.svelte';
 	import FuelInjector from '@components/radiation/FuelInjector.svelte';
 	import PowerLever from '@components/radiation/PowerLever.svelte';
 	import RadiationUpgrades from '@components/radiation/RadiationUpgrades.svelte';
@@ -8,6 +9,7 @@
 	import { RealmTypes } from '$data/realms';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
+	import { realmManager } from '$helpers/RealmManager.svelte';
 	import { reveal } from '$helpers/reveals.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { mobile } from '$stores/window.svelte';
@@ -25,6 +27,15 @@
 	const timeToEmpty = $derived(radiationManager.timeToEmpty);
 
 	const hasMass = $derived(mass > 0);
+
+	/** Fallout thickens with the reactor output and every Reactor Upgrade owned, an empty core leaves a single mote. */
+	const ambience = $derived({
+		colors: [accent],
+		density:
+			hasMass ?
+				2 + Math.round(8 * Math.min(1, cpm / radiationManager.maxCpm)) + Math.min(6, Object.keys(radiationManager.upgradeLevels).length)
+			:	1,
+	});
 	/** Latched so lowering the power under 10 CPM does not hide the upgrades again, once true the derived has no dependency left. */
 	let upgradesReached = false;
 	const showUpgrades = $derived((upgradesReached ||= cpm >= 10 || Object.keys(radiationManager.upgradeLevels).length > 0));
@@ -50,6 +61,9 @@
 		style:background="radial-gradient(circle at 35% 45%, color-mix(in srgb, var(--color-radiation) 14%, transparent), transparent 55%)"
 		style:opacity={hasMass ? 0.3 + power * 0.7 : 0.15}
 	></div>
+	{#if realmManager.selectedRealmId === RealmTypes.RADIATION}
+		<Ambient {accent} {ambience} realm={RealmTypes.RADIATION} />
+	{/if}
 
 	<div class="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-10 pt-12 lg:flex-row lg:items-start lg:pl-24 lg:pr-28 2xl:px-4 max-lg:landscape:pt-2">
 		<!-- On a phone in landscape the header spans the top, the reactor and its controls sit side by side under it. -->

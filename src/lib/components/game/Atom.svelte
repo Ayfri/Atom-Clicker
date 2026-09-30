@@ -3,6 +3,7 @@
 	import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
 	import {REALMS, RealmTypes} from '$data/realms';
 	import {GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor} from '$data/generators';
+	import { AmbientField } from '$helpers/AmbientField';
 	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
 	import {formatNumber} from '$lib/utils';
 	import { addParticles, particlesEnabled } from '$stores/canvas';
@@ -109,6 +110,14 @@
 			for (let i = 0; i < Math.min(count, MAX_BURSTS_PER_BATCH); i++) {
 				spawnParticles(rect.left + Math.random() * rect.width, rect.top + Math.random() * rect.height);
 			}
+			const angle = Math.random() * Math.PI * 2;
+			const radius = rect.width * 0.4;
+			AmbientField.emit(
+				RealmTypes.ATOMS,
+				'hum',
+				{ x: rect.left + rect.width / 2 + Math.cos(angle) * radius, y: rect.top + rect.height / 2 + Math.sin(angle) * radius },
+				{ angle },
+			);
 		}, intervalMs);
 		return () => clearInterval(interval);
 	});
@@ -117,6 +126,7 @@
 		gameManager.addAtoms(gameManager.clickPower);
 		gameManager.incrementClicks();
 		spawnParticles(x, y);
+		AmbientField.emit(RealmTypes.ATOMS, 'spark', { x, y });
 		const rect = getRect();
 		if (rect) renderer?.pulse(x - rect.left - rect.width / 2, y - rect.top - rect.height / 2);
 	}

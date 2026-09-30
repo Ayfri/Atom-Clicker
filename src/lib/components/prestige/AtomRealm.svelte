@@ -1,12 +1,15 @@
 <script lang="ts">
 	import Achievements from '@components/game/Achievements.svelte';
 	import ActivePowerUps from '@components/hud/ActivePowerUps.svelte';
+	import Ambient from '@components/game/Ambient.svelte';
 	import Atom from '@components/game/Atom.svelte';
 	import Bonus from '@components/game/Bonus.svelte';
 	import Canvas from '@components/game/Canvas.svelte';
 	import Counter from '@components/game/Counter.svelte';
 	import Generators from '@components/game/Generators.svelte';
 	import Upgrades from '@components/game/Upgrades.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { GENERATOR_TYPES, getGeneratorColor } from '$data/generators';
 	import { getQuarkShopItem } from '$data/quarkShop';
 	import { RealmTypes } from '$data/realms';
 	import { gameManager } from '$helpers/GameManager.svelte';
@@ -33,6 +36,24 @@
 		const themeId = quarksManager.equippedThemes[RealmTypes.ATOMS];
 		return themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined;
 	});
+
+	/** Each owned generator adds a mote in its level color, each prestige and realm reached thickens the dust. */
+	const ambience = $derived.by(() => {
+		const owned = GENERATOR_TYPES.flatMap(type => gameManager.generators[type]?.count ? [gameManager.generators[type]] : []);
+		const colors = new Set([CURRENCIES[CurrenciesTypes.ATOMS].color, ...owned.map(generator => getGeneratorColor(generator.level))]);
+		const protonised = gameManager.totalProtonisesAllTime > 0;
+		const electronized = gameManager.totalElectronizesAllTime > 0;
+		if (protonised) colors.add(CURRENCIES[CurrenciesTypes.PROTONS].color);
+		if (electronized) colors.add(CURRENCIES[CurrenciesTypes.ELECTRONS].color);
+		const realms = [RealmTypes.PHOTONS, RealmTypes.RADIATION].filter(realm => gameManager.realms[realm]?.unlocked).length;
+		const density = 2 + owned.length + (protonised ? 3 : 0) + (electronized ? 3 : 0) + realms * 2;
+		// A Higgs power-up turns the dust gold and makes it rise twice as fast, like the atom spinning faster.
+		if (gameManager.hasBonus) {
+			const higgs = CURRENCIES[CurrenciesTypes.HIGGS_BOSON].color;
+			return { colors: [higgs, higgs, ...colors], density: density + 6, pace: 2 };
+		}
+		return { colors: [...colors], density };
+	});
 </script>
 
 <div class="relative pt-12 transition-all duration-1000 ease-in-out lg:pt-8 max-lg:landscape:pt-2 {mobile.current ? 'min-h-screen pb-8' : ''}">
@@ -47,6 +68,7 @@
 				<div class="absolute bg-green-500/15 blur-[180px] bottom-[10%] h-80 left-[10%] rounded-full w-80"></div>
 			{/if}
 		</div>
+		<Ambient accent={themeAccent ?? CURRENCIES[CurrenciesTypes.ATOMS].color} {ambience} realm={RealmTypes.ATOMS} />
 	{/if}
 	<Bonus />
 	<ActivePowerUps />

@@ -1,6 +1,10 @@
 <script lang="ts">
 	import HiggsBoson from '@components/icons/HiggsBoson.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
 	import { POWER_UPS } from '$data/powerUp';
+	import { RealmTypes } from '$data/realms';
+	import { AmbientField } from '$helpers/AmbientField';
+	import { AtomRenderer } from '$helpers/AtomRenderer';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import type { PowerUp } from '$lib/types';
@@ -70,10 +74,11 @@
 		}, FADE_OUT_DURATION);
 	}
 
-	function onClick() {
+	function onClick(event: MouseEvent) {
 		if (phase === 'collected') return;
 
 		phase = 'collected';
+		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[CurrenciesTypes.HIGGS_BOSON].color, count: 18, surge: 8, target: AtomRenderer.current?.target() });
 		messageShown = true;
 		powerUp.startTime = Date.now();
 		gameManager.addPowerUp(powerUp);

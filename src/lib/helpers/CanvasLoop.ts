@@ -69,13 +69,13 @@ export abstract class CanvasLoop {
 		this.sprites.clear();
 	}
 
-	protected sprite(key: string, paint: (ctx: CanvasRenderingContext2D, half: number) => void): HTMLCanvasElement {
+	protected sprite(key: string, paint: (ctx: CanvasRenderingContext2D, half: number) => void, size = SPRITE_SIZE): HTMLCanvasElement {
 		let sprite = this.sprites.get(key);
 		if (!sprite) {
 			sprite = document.createElement('canvas');
-			sprite.width = sprite.height = SPRITE_SIZE;
+			sprite.width = sprite.height = size;
 			const ctx = sprite.getContext('2d');
-			if (ctx) paint(ctx, SPRITE_SIZE / 2);
+			if (ctx) paint(ctx, size / 2);
 			this.sprites.set(key, sprite);
 		}
 		return sprite;
