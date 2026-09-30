@@ -3,6 +3,7 @@
 - **Tutorial**: No more popups, small tips now point right at what to do next and vanish once you do it, while the interface grows panel by panel as you unlock things (turn tips off or replay them in Settings).
 - **Generators**: Buildings are now called Generators, and each one shows its share of your production and how many more you need for its next level, with a line that previews how far your next purchase takes it.
 - **The Atom**: The atom is now in 3D, with your generators' electrons orbiting a nucleus that grows as you progress and picks up the color of each prestige and realm you unlock.
+- **Counters**: Bolder atom and photon counters with your other currencies and Lights at a glance, and a Stability Field gauge that fills while you leave the game alone.
 - **Skill Tree**: A redrawn, animated tree where energy flows into each skill you buy, whose skills now unlock new mechanics only, grouped by theme and kept through every prestige, while the production boosts moved to the Upgrades list and the photon shop.
 - **Photon Realm**: The photon field now glows with drifting light waves, and each photon shows a ring counting down its time left.
 - **Radiation Realm**: The reactor is redrawn in 3D with control rods that pull out as you raise the power lever and a core that grows with your fuel and burns white-hot at full power, with fuel, power and output gathered around it.
