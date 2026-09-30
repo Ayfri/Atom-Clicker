@@ -31,7 +31,7 @@
 		iconProps?: Record<string, unknown>;
 		id: string;
 		label: string;
-		/** Modals are code-split: none of their chunks (xyflow, virtua, marked) sit in the initial bundle. */
+		/** Modals are code-split: none of their chunks (xyflow, virtua) sit in the initial bundle. */
 		load: ModalLoader;
 		notification?: () => boolean;
 	}

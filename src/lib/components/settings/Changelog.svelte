@@ -1,83 +1,116 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { marked } from 'marked';
 	import { gameManager } from '$helpers/GameManager.svelte';
+	import { ChevronDown, Paintbrush, Sparkles } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 
-	let changelogContent = $state('');
+	interface Entry {
+		/** Text split on `**`, odd indices are bold. */
+		parts: string[];
+		theme: string | undefined;
+	}
+
+	interface Group {
+		entries: Entry[];
+		label: string | undefined;
+	}
+
+	interface Release {
+		date: Date | undefined;
+		groups: Group[];
+		title: string;
+	}
+
+	/** Releases shown before the "older updates" button. */
+	const SHOWN_RELEASES = 5;
+	const GROUP_ICONS: Record<string, typeof Sparkles> = { New: Sparkles, Redesigned: Paintbrush };
+	const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+	const relativeFormat = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+	let releases = $state.raw<Release[]>([]);
+	let showAll = $state(false);
+	const latest = $derived(releases.find(release => release.date));
+
+	/** Reads the `# Release`, `## Group` and `- **Theme**: text` lines of `Changelog.md`. */
+	function parse(markdown: string): Release[] {
+		const result: Release[] = [];
+		let release: Release | undefined;
+		for (const line of markdown.split('\n')) {
+			if (line.startsWith('# ')) {
+				const [, day, month, year] = line.match(/(\d{2})-(\d{2})-(\d{4})/) ?? [];
+				release = { date: year ? new Date(+year, +month - 1, +day) : undefined, groups: [], title: line.slice(2).trim() };
+				result.push(release);
+			} else if (line.startsWith('## ')) release?.groups.push({ entries: [], label: line.slice(3).trim() });
+			else if (line.startsWith('- ') && release) {
+				if (!release.groups.length) release.groups.push({ entries: [], label: undefined });
+				const [, theme, text = ''] = line.slice(2).trim().match(/^(?:\*\*(.+?)\*\*:\s*)?(.*)$/) ?? [];
+				release.groups.at(-1)!.entries.push({ parts: text.split('**'), theme });
+			}
+		}
+		return result;
+	}
+
+	function ago(date: Date): string {
+		const days = Math.round((date.getTime() - Date.now()) / 86_400_000);
+		if (days > -7) return relativeFormat.format(days, 'day');
+		if (days > -60) return relativeFormat.format(Math.round(days / 7), 'week');
+		if (days > -365) return relativeFormat.format(Math.round(days / 30), 'month');
+		return relativeFormat.format(Math.round(days / 365), 'year');
+	}
 
 	onMount(async () => {
 		gameManager.unlockAchievement('changelog_modal_opener');
 		try {
-			const response = await fetch('/Changelog.md');
-			changelogContent = await response.text();
+			releases = parse(await (await fetch('/Changelog.md')).text());
 		} catch (error) {
 			console.error('Failed to load changelog:', error);
 		}
 	});
 </script>
 
-{#if changelogContent}
-    <div class="prose prose-invert mx-auto max-w-3xl">
-        {@html marked(changelogContent)}
-    </div>
-{/if}
+<div class="mx-auto flex max-w-3xl flex-col divide-y divide-white/10">
+	{#each showAll ? releases : releases.slice(0, SHOWN_RELEASES) as release (release.title)}
+		<section class="grid gap-x-8 gap-y-4 py-6 first:pt-0 md:grid-cols-[9rem_1fr]">
+			<header class="flex items-baseline gap-x-3 gap-y-1 max-md:flex-wrap md:sticky md:top-0 md:flex-col md:self-start">
+				{#if release.date}
+					<h3 class="font-semibold text-white">{dateFormat.format(release.date)}</h3>
+					<p class="text-xs text-white/40">{ago(release.date)}</p>
+					{#if release === latest}
+						<span class="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">Latest</span>
+					{/if}
+				{:else}
+					<h3 class="font-semibold text-accent">{release.title}</h3>
+					<p class="text-xs text-white/40">Next update</p>
+				{/if}
+			</header>
 
-<style lang="postcss">
-	@reference '../../../app.css';
+			<div class="flex flex-col gap-6">
+				{#each release.groups as group, g (g)}
+					<div class="flex flex-col gap-3">
+						{#if group.label}
+							{@const Icon = GROUP_ICONS[group.label]}
+							<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-white/50 uppercase">
+								{#if Icon}<Icon class="text-accent" size={14} />{/if}
+								{group.label}
+							</p>
+						{/if}
+						<ul class="flex flex-col gap-3">
+							{#each group.entries as entry, e (e)}
+								<li class="text-sm leading-relaxed text-white/70 select-text">
+									{#if entry.theme}<span class="block font-semibold text-white">{entry.theme}</span>{/if}
+									{#each entry.parts as part, p (p)}{#if p % 2}<strong class="font-semibold text-white">{part}</strong>{:else}{part}{/if}{/each}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/each}
+			</div>
+		</section>
+	{/each}
 
-	:global(.prose) {
-		@apply text-white/90;
-	}
-
-	:global(.prose *) {
-		user-select: text;
-	}
-
-	:global(.prose h1) {
-		@apply mb-4 text-3xl font-bold text-white border-b border-white/10 pb-4;
-	}
-
-	:global(.prose ul) {
-		@apply flex flex-col gap-2 pl-5 pb-8 list-disc;
-	}
-
-	:global(.prose li) {
-		@apply leading-relaxed;
-	}
-
-	:global(.prose li::marker) {
-		@apply text-accent-200;
-	}
-
-	:global(.prose p) {
-		@apply leading-relaxed;
-	}
-
-	:global(.prose a) {
-		@apply text-accent-500 transition-colors;
-
-		&:hover {
-			@apply text-accent-400;
-		}
-	}
-
-	:global(.prose strong) {
-		@apply text-white font-bold;
-	}
-
-	:global(.prose em) {
-		@apply text-white/80 italic;
-	}
-
-	:global(.prose code) {
-		@apply bg-black/20 px-1.5 py-0.5 rounded text-sm font-mono text-white;
-	}
-
-	:global(.prose pre) {
-		@apply bg-black/20 p-4 rounded-lg overflow-x-auto;
-	}
-
-	:global(.prose pre code) {
-		@apply bg-transparent p-0 text-base;
-	}
-</style>
+	{#if !showAll && releases.length > SHOWN_RELEASES}
+		<button class="flex items-center justify-center gap-2 py-4 text-sm font-medium text-white/50 transition-colors hover:text-white" onclick={() => (showAll = true)}>
+			Show {releases.length - SHOWN_RELEASES} older updates
+			<ChevronDown size={16} />
+		</button>
+	{/if}
+</div>

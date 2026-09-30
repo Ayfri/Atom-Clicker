@@ -35,7 +35,6 @@
 	"dependencies": {
 		"@lucide/svelte": "^1.45.0",
 		"@supabase/supabase-js": "2.116.0",
-		"marked": "18.0.13",
 		"virtua": "^0.51.3"
 	},
 	"packageManager": "bun@1.4.2",
