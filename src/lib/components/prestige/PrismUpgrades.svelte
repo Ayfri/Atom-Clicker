@@ -60,7 +60,7 @@
 			if (!chromaticManager.purchaseUpgrade(upgrade.id)) return;
 			const field = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
 			const target = field && { x: field.left + field.width / 2, y: field.top + field.height / 2 };
-			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[upgrade.currencies[0]].color, surge: 3, target });
+			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[upgrade.currencies[0]].color, surge: 6, target });
 		}}
 	>
 		<div class="mb-0.5 flex items-start justify-between">

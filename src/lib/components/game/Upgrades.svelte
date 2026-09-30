@@ -61,7 +61,7 @@
 			AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, {
 				color: CURRENCIES[selectedCurrency].color,
 				count: 10 + Math.min(14, bought),
-				surge: Math.min(10, 2 + bought),
+				surge: Math.min(20, 4 + bought * 2),
 				target: AtomRenderer.current?.target(),
 			});
 		}
@@ -70,7 +70,7 @@
 	function buy(upgrade: Upgrade, event: MouseEvent) {
 		if (!gameManager.purchaseUpgrade(upgrade.id)) return;
 		// Upgrades boost the whole atom, so the comet lands on the nucleus.
-		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[upgrade.cost.currency].color, surge: 3, target: AtomRenderer.current?.target() });
+		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[upgrade.cost.currency].color, surge: 6, target: AtomRenderer.current?.target() });
 	}
 </script>
 

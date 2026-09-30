@@ -78,7 +78,7 @@
 		if (phase === 'collected') return;
 
 		phase = 'collected';
-		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[CurrenciesTypes.HIGGS_BOSON].color, count: 18, surge: 8, target: AtomRenderer.current?.target() });
+		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[CurrenciesTypes.HIGGS_BOSON].color, count: 18, surge: 16, target: AtomRenderer.current?.target() });
 		messageShown = true;
 		powerUp.startTime = Date.now();
 		gameManager.addPowerUp(powerUp);

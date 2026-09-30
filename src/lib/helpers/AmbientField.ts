@@ -6,10 +6,10 @@ import { prefersReducedMotion } from 'svelte/motion';
 const TAU = Math.PI * 2;
 /** Soft glows need no retina detail and the canvas spans the whole realm: 1x keeps its fill and memory at a quarter of 2x. */
 const MAX_PIXEL_RATIO = 1;
-const MAX_BURST_MOTES = 60;
+const MAX_BURST_MOTES = 90;
 const MAX_DUST = 20;
 /** Extra dust purchases may add on top of the realm density. */
-const MAX_SURGE = 12;
+const MAX_SURGE = 30;
 const GLOW_SIZE = 32;
 const FADE_IN_S = 0.08;
 /** A ring ends its life this many times wider than its preset size. */
