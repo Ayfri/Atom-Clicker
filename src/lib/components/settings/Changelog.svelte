@@ -69,8 +69,8 @@
 
 <div class="mx-auto flex max-w-3xl flex-col divide-y divide-white/10">
 	{#each showAll ? releases : releases.slice(0, SHOWN_RELEASES) as release (release.title)}
-		<section class="grid gap-x-8 gap-y-4 py-6 first:pt-0 md:grid-cols-[9rem_1fr]">
-			<header class="flex items-baseline gap-x-3 gap-y-1 max-md:flex-wrap md:sticky md:top-0 md:flex-col md:self-start">
+		<section class="flex flex-col gap-4 py-6 first:pt-0">
+			<header class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 				{#if release.date}
 					<h3 class="font-semibold text-white">{dateFormat.format(release.date)}</h3>
 					<p class="text-xs text-white/40">{ago(release.date)}</p>
