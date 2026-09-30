@@ -18,7 +18,7 @@
 - **Prestige**: Protonize and Electronize show your gain and what each reset keeps, and every reset gets its own icon that glows when ready.
 - **Achievements**: Grouped by theme, each series showing only your latest tier and the next one.
 - **Offline Progress**: A Welcome Back screen counts up your loot and shows what your automation did while you were away.
-- **Settings**: A cleaner menu with a visual Profile, a Save tab comparing this device with your cloud save, and a way to turn off Google Analytics.
+- **Settings**: A cleaner menu with a visual Profile, a cloud save comparison, a Changelog that flags new updates, and a way to turn off Google Analytics.
 - **Mobile**: A bottom bar replaces the floating icons, and the game fits your phone in landscape.
 
 # What's new 19-09-2026
