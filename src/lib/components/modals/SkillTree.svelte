@@ -204,9 +204,8 @@
 		</div>
 
 		<div
-			class="absolute top-0 left-0 origin-top-left"
+			class={['absolute top-0 left-0 origin-top-left', panZoom.moving && 'will-change-transform']}
 			style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})"
-			style:will-change={panZoom.moving ? 'transform' : undefined}
 		>
 			<!-- Dots belong to the tree layer so they pan without a repaint, and shrink with the zoom so their density never outshines the tree. -->
 			<div
