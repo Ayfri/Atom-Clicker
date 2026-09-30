@@ -11,7 +11,7 @@
 	import { RealmTypes } from '$data/realms';
 	import { GENERATOR_COST_MULTIPLIER } from '$lib/constants';
 	import { formatNumber } from '$lib/utils';
-	import { AmbientField } from '$helpers/AmbientField';
+	import { AmbientField, ELECTRON_FLIGHT } from '$helpers/AmbientField';
 	import { AtomRenderer } from '$helpers/AtomRenderer';
 	import { gameManager } from '$helpers/GameManager.svelte';
 	import { reveal, reveals } from '$helpers/reveals.svelte';
@@ -73,12 +73,17 @@
 		const level = gameManager.generators[type]?.level ?? 0;
 		if (!gameManager.purchaseGenerator(type, amount)) return;
 		const newLevel = gameManager.generators[type]?.level ?? 0;
-		// The comet lands on the generator's orbit, where its new electrons show up.
-		const target = AtomRenderer.current?.target(GENERATOR_TYPES.filter(other => gameManager.generators[other]).indexOf(type));
+		// The comet lands where the generator's orbit grows its new electron, which waits for it.
+		const renderer = AtomRenderer.current;
+		const line = GENERATOR_TYPES.filter(other => gameManager.generators[other]).indexOf(type);
+		const burst = { flight: ELECTRON_FLIGHT, target: renderer?.target(line, ELECTRON_FLIGHT) };
 		const extra = Math.min(8, Math.round(Math.log2(amount)));
 		// A level up changes the generator color, so it blooms in the new one.
-		if (newLevel > level) AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: getGeneratorColor(newLevel), surge: 6, target });
-		else AmbientField.emit(RealmTypes.ATOMS, 'embers', event, { color: getGeneratorColor(level), count: 4 + extra, surge: 1 + Math.floor(extra / 2), target });
+		const flight =
+			newLevel > level ?
+				AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { ...burst, color: getGeneratorColor(newLevel), surge: 12 })
+			:	AmbientField.emit(RealmTypes.ATOMS, 'embers', event, { ...burst, color: getGeneratorColor(level), count: 4 + extra, surge: 2 + extra });
+		renderer?.hold(line, flight);
 	}
 
 	function formatShare(production: number) {

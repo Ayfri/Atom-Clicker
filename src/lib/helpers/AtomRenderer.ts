@@ -19,13 +19,6 @@ export interface AtomScene {
 	shells: readonly AtomShell[];
 }
 
-interface ElectronBatch {
-	alpha: number;
-	core: Path2D;
-	halo: Path2D;
-	palette: Palette;
-}
-
 interface Palette {
 	core: string;
 	halo: string;
@@ -39,17 +32,28 @@ export const NUCLEON_RANGE = { max: 16, min: 1 } as const;
 export const CANVAS_OVERFLOW = 1.3;
 
 const CAMERA_PITCH = 0.42;
-/** Electrons are batched into one path per shell and depth band, half the bands sit behind the nucleus. */
+const COS_PITCH = Math.cos(CAMERA_PITCH);
+const SIN_PITCH = Math.sin(CAMERA_PITCH);
+/** Electrons are filled as one path per shell and depth band, half the bands sit behind the nucleus. */
 const DEPTH_BANDS = 4;
+const BAND_ALPHAS = Array.from({ length: DEPTH_BANDS }, (_, band) => 1 - (0.6 * (band + 0.5)) / DEPTH_BANDS);
 /** Radii and sizes below are authored for a 450px wide atom and scale with the host. */
 const DESIGN_SIZE = 450;
+/** Per second, how fast a shell's shown electron count closes the gap to its real one. */
+const ELECTRON_EASE = 5;
+/** A shell shows `count % GENERATOR_LEVEL_UP_COST` electrons, this only bounds the per-shell buffer. */
+const MAX_ELECTRONS = 32;
 const FOCAL_LENGTH = 650;
+/** Aura sprites are baked at the brightest click impulse and dimmed with `globalAlpha`, which cannot go above 1. */
+const AURA_PEAK = 0.3;
+const AURA_REST = 0.22;
 const MAX_PIXEL_RATIO = 2;
 const MAX_SPARKS = 12;
 const NUCLEON_SHADES = 4;
 const ORBIT_SEGMENTS = 48;
 const SPARK_COLOR = '#8cc2ff';
 const SPARK_DURATION = 0.35;
+
 function cross(a: Vector, b: Vector): Vector {
 	return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
 }
@@ -57,6 +61,21 @@ function cross(a: Vector, b: Vector): Vector {
 function normalize(v: Vector): Vector {
 	const length = Math.hypot(v.x, v.y, v.z);
 	return { x: v.x / length, y: v.y / length, z: v.z / length };
+}
+
+/** Rolls `v` in its orbit plane, spins it by `yaw` around the atom, then tilts it under the camera, writing into `out`. */
+function orient(out: Vector, v: Vector, roll: number, yaw: number) {
+	const rx = v.x * Math.cos(roll) - v.y * Math.sin(roll);
+	const ry = v.x * Math.sin(roll) + v.y * Math.cos(roll);
+	const z = -rx * Math.sin(yaw) + v.z * Math.cos(yaw);
+	out.x = rx * Math.cos(yaw) + v.z * Math.sin(yaw);
+	out.y = ry * COS_PITCH - z * SIN_PITCH;
+	out.z = ry * SIN_PITCH + z * COS_PITCH;
+}
+
+/** Angle of electron 0 on shell `line`, the others follow it at even spacing. */
+function spin(line: number, time: number) {
+	return (time * TAU) / (6 + line * 3) + line * 0.7;
 }
 
 /**
@@ -71,20 +90,33 @@ export class AtomRenderer extends CanvasLoop {
 	scene: AtomScene;
 
 	private readonly appear = new Float32Array(NUCLEON_RANGE.max);
+	private readonly balls = new Map<string, HTMLCanvasElement[]>();
 	private readonly bases: { u: Vector; v: Vector }[];
+	private readonly byDepth = (a: number, b: number) => this.nucleonPoints[b * 3 + 2] - this.nucleonPoints[a * 3 + 2];
 	private readonly ctx: CanvasRenderingContext2D;
+	/** Electron count drawn per shell. */
+	private readonly electronCounts: Uint8Array;
+	/** x, y, radius and depth band of each electron per shell, rewritten every frame into the same buffers. */
+	private readonly electrons: Float32Array[];
+	/** `performance.now()` until which a shell keeps its shown count, while a purchase comet flies to it. */
+	private readonly holds: Float64Array;
 	private readonly palettes = new Map<string, Palette>();
-	/** Electron batches in front of the nucleus, filled after it. */
-	private readonly front: ElectronBatch[] = [];
 	private readonly nucleonBases: Vector[];
 	private readonly nucleonOrder: number[] = [];
 	private readonly nucleonPoints = new Float32Array(NUCLEON_RANGE.max * 3);
 	private readonly orbitPoints: Float32Array[];
+	/** Electrons shown per shell, eased toward the scene count: a joining electron grows while the others spread to make room. */
+	private readonly shown: Float32Array;
 	private readonly sparks: { age: number; x: number; y: number }[] = [];
+	/** Orbit plane of the shell being drawn, reused so no vector is allocated per frame. */
+	private readonly u: Vector = { x: 0, y: 0, z: 0 };
+	private readonly v: Vector = { x: 0, y: 0, z: 0 };
 	private impulse = 0;
 	private nucleusScale = 0;
 	private ratio = 1;
 	private size = 0;
+	/** Last spin rate, so `target` can predict where a shell will be once a comet lands. */
+	private speed = 1;
 	private time = 0;
 
 	constructor(canvas: HTMLCanvasElement, scene: AtomScene, shellSlots: number) {
@@ -100,6 +132,10 @@ export class AtomRenderer extends CanvasLoop {
 			return { u, v: cross(normal, u) };
 		});
 		this.orbitPoints = Array.from({ length: shellSlots }, () => new Float32Array((ORBIT_SEGMENTS + 1) * 3));
+		this.electrons = Array.from({ length: shellSlots }, () => new Float32Array(MAX_ELECTRONS * 4));
+		this.electronCounts = new Uint8Array(shellSlots);
+		this.holds = new Float64Array(shellSlots);
+		this.shown = new Float32Array(shellSlots);
 		const packing = packNucleus(scene.nucleons);
 		this.nucleonBases = Array.from({ length: NUCLEON_RANGE.max }, (_, i) => ({ ...(packing.points[i] ?? { x: 0, y: 0, z: 0 }) }));
 		AtomRenderer.current = this;
@@ -111,15 +147,34 @@ export class AtomRenderer extends CanvasLoop {
 		if (AtomRenderer.current === this) AtomRenderer.current = null;
 	}
 
-	/** Client position of a random point on the orbit of shell `line` as last drawn, or of the nucleus when that shell is not drawn yet. */
-	target(line = -1): { x: number; y: number } {
+	/** Keeps shell `line` at its shown electron count for `seconds`, so a purchase lands with its comet instead of before it. */
+	hold(line: number, seconds: number) {
+		if (seconds > 0 && line in this.holds) this.holds[line] = Math.max(this.holds[line], performance.now() + seconds * 1000);
+	}
+
+	/**
+	 * Client position where shell `line` grows its next electron in `seconds`: a joining electron emerges on electron 0, so this
+	 * predicts electron 0. Without a line, the nucleus.
+	 */
+	target(line = -1, seconds = 0): { x: number; y: number } {
 		const rect = this.canvas.getBoundingClientRect();
 		const scale = this.size > 0 ? rect.width / this.size : 1;
-		const drawn = this.scene.shells.some(shell => shell.line === line && shell.count > 0);
-		if (!drawn) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-		const j = Math.floor(Math.random() * ORBIT_SEGMENTS) * 3;
-		const points = this.orbitPoints[line];
-		return { x: rect.left + points[j] * scale, y: rect.top + points[j + 1] * scale };
+		const basis = this.bases[line];
+		if (!basis) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+
+		const time = this.time + seconds * this.speed;
+		const center = this.size / 2;
+		const unit = this.size / (DESIGN_SIZE * CANVAS_OVERFLOW);
+		const focal = FOCAL_LENGTH * unit;
+		const radius = unit * (78 + line * 18);
+		this.orbitPlane(line, time);
+		const cos = Math.cos(spin(line, time)) * radius;
+		const sin = Math.sin(spin(line, time)) * radius;
+		const depth = focal / (focal + this.u.z * cos + this.v.z * sin);
+		return {
+			x: rect.left + (center + (this.u.x * cos + this.v.x * sin) * depth) * scale,
+			y: rect.top + (center + (this.u.y * cos + this.v.y * sin) * depth) * scale,
+		};
 	}
 
 	/**
@@ -148,23 +203,66 @@ export class AtomRenderer extends CanvasLoop {
 		return palette;
 	}
 
-	private fillBatch({ alpha, core, halo, palette }: ElectronBatch) {
-		this.ctx.globalAlpha = alpha;
-		this.ctx.fillStyle = palette.halo;
-		this.ctx.fill(halo);
-		this.ctx.fillStyle = palette.core;
-		this.ctx.fill(core);
+	/** Fills the electrons of shell `line` lying in depth `band`, halos first then cores. */
+	private fillBand(line: number, band: number, palette: Palette, presence: number) {
+		const { ctx } = this;
+		ctx.globalAlpha = BAND_ALPHAS[band] * presence;
+		ctx.fillStyle = palette.halo;
+		this.traceBand(line, band, 2);
+		ctx.fill();
+		ctx.fillStyle = palette.core;
+		this.traceBand(line, band, 1);
+		ctx.fill();
+	}
+
+	private traceBand(line: number, band: number, size: number) {
+		const { ctx } = this;
+		const data = this.electrons[line];
+		ctx.beginPath();
+		for (let i = 0; i < this.electronCounts[line] * 4; i += 4) {
+			if (data[i + 3] !== band) continue;
+			const r = data[i + 2] * size;
+			ctx.moveTo(data[i] + r, data[i + 1]);
+			ctx.arc(data[i], data[i + 1], r, 0, TAU);
+		}
+	}
+
+	/** Each orbit rolls at its own rate so its plane keeps changing, then yaw spins the whole atom under a camera slightly above it. */
+	private orbitPlane(line: number, time: number) {
+		const basis = this.bases[line];
+		const roll = ((time * 0.09) / (1 + line * 0.35)) * (line % 2 ? 1 : -1);
+		orient(this.u, basis.u, roll, time * 0.12);
+		orient(this.v, basis.v, roll, time * 0.12);
 	}
 
 	private ballSprite(color: string, shade: number): HTMLCanvasElement {
-		return this.sprite(`ball${color}${shade}`, (ctx, half) => paintNucleon(ctx, half, color, shade / (NUCLEON_SHADES - 1)));
+		let shades = this.balls.get(color);
+		if (!shades) {
+			shades = Array.from({ length: NUCLEON_SHADES }, (_, s) =>
+				this.sprite(`ball${color}${s}`, (ctx, half) => paintNucleon(ctx, half, color, s / (NUCLEON_SHADES - 1))),
+			);
+			this.balls.set(color, shades);
+		}
+		return shades[shade];
+	}
+
+	/** Keyed by the bare color, the ball sprites carry a prefix. */
+	private auraSprite(color: string): HTMLCanvasElement {
+		return this.sprite(color, (ctx, half) => {
+			const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+			gradient.addColorStop(0, rgba(color, AURA_PEAK));
+			gradient.addColorStop(0.45, rgba(color, (0.06 * AURA_PEAK) / AURA_REST));
+			gradient.addColorStop(1, rgba(color, 0));
+			ctx.fillStyle = gradient;
+			ctx.fillRect(0, 0, half * 2, half * 2);
+		});
 	}
 
 	/** The atom never settles, it spins as long as it is on screen. */
 	protected draw(dt: number): boolean {
 		const { ctx, scene } = this;
-		const speed = (1 + 0.8 * scene.energy) * (scene.bonus ? 2 : 1);
-		this.time += dt * speed;
+		this.speed = (1 + 0.8 * scene.energy) * (scene.bonus ? 2 : 1);
+		this.time += dt * this.speed;
 		this.impulse *= Math.exp(-dt * 7);
 
 		const time = this.time;
@@ -182,44 +280,30 @@ export class AtomRenderer extends CanvasLoop {
 		const nucleusRadius = unit * (24 + 26 * growth) * heartbeat;
 
 		ctx.globalCompositeOperation = 'lighter';
-		scene.auras.forEach((color, i) => {
+		ctx.globalAlpha = (AURA_REST + 0.08 * this.impulse) / AURA_PEAK;
+		for (let i = 0; i < scene.auras.length; i++) {
 			const radius = nucleusRadius * (2.3 + i * 0.9) * (1 + 0.07 * Math.sin(time * 1.6 + i * 2));
-			const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
-			gradient.addColorStop(0, rgba(color, 0.22 + 0.08 * this.impulse));
-			gradient.addColorStop(0.45, rgba(color, 0.06));
-			gradient.addColorStop(1, rgba(color, 0));
-			ctx.fillStyle = gradient;
-			ctx.fillRect(center - radius, center - radius, radius * 2, radius * 2);
-		});
+			ctx.drawImage(this.auraSprite(scene.auras[i]), center - radius, center - radius, radius * 2, radius * 2);
+		}
 		ctx.globalCompositeOperation = 'source-over';
 
-		/** Each orbit rolls at its own rate so its plane keeps changing, then yaw spins the whole atom under a camera slightly above it. */
-		const yaw = time * 0.12;
-		const cosYaw = Math.cos(yaw);
-		const sinYaw = Math.sin(yaw);
-		const cosPitch = Math.cos(CAMERA_PITCH);
-		const sinPitch = Math.sin(CAMERA_PITCH);
-		const rotate = (v: Vector, cosRoll: number, sinRoll: number): Vector => {
-			const rx = v.x * cosRoll - v.y * sinRoll;
-			const ry = v.x * sinRoll + v.y * cosRoll;
-			const x = rx * cosYaw + v.z * sinYaw;
-			const z = -rx * sinYaw + v.z * cosYaw;
-			return { x, y: ry * cosPitch - z * sinPitch, z: ry * sinPitch + z * cosPitch };
-		};
-
-		this.front.length = 0;
+		const now = performance.now();
+		const ease = Math.min(1, dt * ELECTRON_EASE);
 		ctx.lineWidth = unit * 1.2;
 		for (const shell of scene.shells) {
-			const basis = this.bases[shell.line];
-			if (!basis || shell.count <= 0) continue;
-			const roll = ((time * 0.09) / (1 + shell.line * 0.35)) * (shell.line % 2 ? 1 : -1);
-			const cosRoll = Math.cos(roll);
-			const sinRoll = Math.sin(roll);
-			const u = rotate(basis.u, cosRoll, sinRoll);
-			const v = rotate(basis.v, cosRoll, sinRoll);
-			const radius = unit * (78 + shell.line * 18);
+			const { line } = shell;
+			if (!this.bases[line]) continue;
+			// A held shell keeps its count until the purchase comet lands, then eases to the real one.
+			const goal = now < this.holds[line] ? this.shown[line] : Math.min(shell.count, MAX_ELECTRONS);
+			const shown = Math.abs(goal - this.shown[line]) < 0.002 ? goal : this.shown[line] + (goal - this.shown[line]) * ease;
+			this.shown[line] = shown;
+			this.electronCounts[line] = 0;
+			if (shown <= 0) continue;
 
-			const points = this.orbitPoints[shell.line];
+			this.orbitPlane(line, time);
+			const { u, v } = this;
+			const radius = unit * (78 + line * 18);
+			const points = this.orbitPoints[line];
 			for (let j = 0; j <= ORBIT_SEGMENTS; j++) {
 				const angle = (j / ORBIT_SEGMENTS) * TAU;
 				const cos = Math.cos(angle) * radius;
@@ -231,45 +315,46 @@ export class AtomRenderer extends CanvasLoop {
 				points[j * 3 + 2] = z;
 			}
 			const palette = this.palette(shell.color);
+			const presence = Math.min(1, shown);
 			ctx.strokeStyle = palette.orbitBack;
-			this.strokeOrbit(points, true);
+			this.strokeOrbit(points, true, presence);
 
-			const batches = Array.from({ length: DEPTH_BANDS }, (_, band) => ({
-				alpha: 1 - (0.6 * (band + 0.5)) / DEPTH_BANDS,
-				core: new Path2D(),
-				halo: new Path2D(),
-				palette,
-			}));
-			const spin = (time * TAU) / (6 + shell.line * 3) + shell.line * 0.7;
-			const electronRadius = unit * (2.3 + shell.line * 0.12);
-			for (let k = 0; k < shell.count; k++) {
-				const angle = spin + (k / shell.count) * TAU;
+			// A fractional count spaces the electrons by it, so the newest one grows out of electron 0 as the rest spread.
+			const count = Math.ceil(shown);
+			const spacing = TAU / Math.max(1, shown);
+			const start = spin(line, time);
+			const electronRadius = unit * (2.3 + line * 0.12);
+			const data = this.electrons[line];
+			for (let k = 0; k < count; k++) {
+				const angle = start + k * spacing;
 				const cos = Math.cos(angle) * radius;
 				const sin = Math.sin(angle) * radius;
 				const z = u.z * cos + v.z * sin;
 				const scale = focal / (focal + z);
-				const x = center + (u.x * cos + v.x * sin) * scale;
-				const y = center + (u.y * cos + v.y * sin) * scale;
-				const r = electronRadius * scale;
-				const batch = batches[Math.min(DEPTH_BANDS - 1, Math.floor(((z / radius + 1) / 2) * DEPTH_BANDS))];
-				batch.core.moveTo(x + r, y);
-				batch.core.arc(x, y, r, 0, TAU);
-				batch.halo.moveTo(x + r * 2, y);
-				batch.halo.arc(x, y, r * 2, 0, TAU);
+				data[k * 4] = center + (u.x * cos + v.x * sin) * scale;
+				data[k * 4 + 1] = center + (u.y * cos + v.y * sin) * scale;
+				data[k * 4 + 2] = electronRadius * scale * Math.min(1, shown - k);
+				data[k * 4 + 3] = Math.min(DEPTH_BANDS - 1, Math.floor(((z / radius + 1) / 2) * DEPTH_BANDS));
 			}
-			for (let band = DEPTH_BANDS - 1; band >= DEPTH_BANDS / 2; band--) this.fillBatch(batches[band]);
-			this.front.push(...batches.slice(0, DEPTH_BANDS / 2));
+			this.electronCounts[line] = count;
+			for (let band = DEPTH_BANDS - 1; band >= DEPTH_BANDS / 2; band--) this.fillBand(line, band, palette, presence);
 		}
 
 		this.drawNucleus(dt, nucleons, nucleusRadius / packNucleus(nucleons).extent, center, time, scene);
 
-		ctx.globalAlpha = 1;
-		for (const shell of scene.shells) {
-			if (!this.bases[shell.line] || shell.count <= 0) continue;
-			ctx.strokeStyle = this.palette(shell.color).orbitFront;
-			this.strokeOrbit(this.orbitPoints[shell.line], false);
+		for (const { color, line } of scene.shells) {
+			if (this.bases[line] && this.shown[line] > 0) {
+				ctx.strokeStyle = this.palette(color).orbitFront;
+				this.strokeOrbit(this.orbitPoints[line], false, Math.min(1, this.shown[line]));
+			}
 		}
-		for (let i = this.front.length - 1; i >= 0; i--) this.fillBatch(this.front[i]);
+		// Later shells' front bands go first, so the first shells stay on top as before.
+		for (let i = scene.shells.length - 1; i >= 0; i--) {
+			const { color, line } = scene.shells[i];
+			if (!this.bases[line] || this.shown[line] <= 0) continue;
+			const palette = this.palette(color);
+			for (let band = DEPTH_BANDS / 2 - 1; band >= 0; band--) this.fillBand(line, band, palette, Math.min(1, this.shown[line]));
+		}
 
 		this.drawSparks(dt, center, unit);
 		ctx.globalAlpha = 1;
@@ -277,9 +362,9 @@ export class AtomRenderer extends CanvasLoop {
 	}
 
 	/** Strokes the orbit segments lying behind (`back`) or in front of the nucleus plane. */
-	private strokeOrbit(points: Float32Array, back: boolean) {
+	private strokeOrbit(points: Float32Array, back: boolean, alpha: number) {
 		const { ctx } = this;
-		ctx.globalAlpha = 1;
+		ctx.globalAlpha = alpha;
 		ctx.beginPath();
 		for (let j = 0; j < ORBIT_SEGMENTS; j++) {
 			if (points[j * 3 + 2] + points[j * 3 + 5] > 0 !== back) continue;
@@ -325,7 +410,7 @@ export class AtomRenderer extends CanvasLoop {
 			nucleonPoints[i * 3 + 2] = y0 * sinB + z1 * cosB;
 			nucleonOrder.push(i);
 		}
-		nucleonOrder.sort((a, b) => nucleonPoints[b * 3 + 2] - nucleonPoints[a * 3 + 2]);
+		nucleonOrder.sort(this.byDepth);
 
 		const scale = this.nucleusScale;
 		const extent = Math.max(1, packing.extent - NUCLEON_RADIUS);

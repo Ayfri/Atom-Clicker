@@ -63,6 +63,8 @@ const PRESETS = {
 /** Small ring and splash where a comet lands. */
 const IMPACT: Preset = { alpha: 1, cooldown: 0, count: 5, drag: 0.05, life: [0.3, 0.6], lift: 0, ring: true, size: [3, 5], speed: [80, 160], spread: TAU, stretch: true };
 const COMET_LIFE: readonly [number, number] = [0.7, 1];
+/** Flight of a comet carrying a new electron, the shell waits for it before growing one. */
+export const ELECTRON_FLIGHT = 0.8;
 const COMET_SIZE: readonly [number, number] = [5, 7];
 /** Sideways bend of a comet path, as a share of its length. */
 const COMET_BEND: readonly [number, number] = [0.15, 0.35];
@@ -92,6 +94,8 @@ export interface AmbientBurst {
 	angle?: number;
 	color?: string;
 	count?: number;
+	/** Comet flight in seconds, for a caller that times something to its landing. Random in `COMET_LIFE` otherwise. */
+	flight?: number;
 	/** Extra short-lived dust in the burst color, capped by `MAX_SURGE`. */
 	surge?: number;
 	/** Client point a comet flies to from the burst, splashing on arrival. */
@@ -191,9 +195,9 @@ export class AmbientField extends CanvasLoop {
 	}
 
 	/** Drops bursts for a realm or tab that is not on screen, so callers never have to check. */
-	static emit(realm: RealmType, preset: AmbientPreset, origin: Origin, burst: AmbientBurst = {}) {
+	static emit(realm: RealmType, preset: AmbientPreset, origin: Origin, burst: AmbientBurst = {}): number {
 		const field = AmbientField.current;
-		if (field?.realm === realm && !document.hidden && !prefersReducedMotion.current) field.burst(preset, origin, burst);
+		return field?.realm === realm && !document.hidden && !prefersReducedMotion.current ? field.burst(preset, origin, burst) : 0;
 	}
 
 	destroy() {
@@ -318,17 +322,20 @@ export class AmbientField extends CanvasLoop {
 		this.rect = null;
 	}
 
-	private burst(name: AmbientPreset, origin: Origin, { angle = -Math.PI / 2, color = this.accent, count, surge = 0, target }: AmbientBurst) {
+	/** Returns the comet flight in seconds, 0 when none left. */
+	private burst(name: AmbientPreset, origin: Origin, { angle = -Math.PI / 2, color = this.accent, count, flight, surge = 0, target }: AmbientBurst) {
 		const preset: Preset = PRESETS[name];
 		const now = performance.now();
-		if (now - (this.lastBurst[name] ?? -Infinity) < preset.cooldown || this.bursts >= MAX_BURST_MOTES) return;
+		if (now - (this.lastBurst[name] ?? -Infinity) < preset.cooldown || this.bursts >= MAX_BURST_MOTES) return 0;
 		this.lastBurst[name] = now;
 
 		const { x, y } = this.locate(origin);
+		// The comet goes first, something may be waiting for it to land.
+		const launched = target ? this.launch(color, x, y, this.locate(target), flight ?? between(COMET_LIFE)) : 0;
 		this.scatter(preset, color, x, y, angle, count ?? preset.count);
-		if (target) this.launch(color, x, y, this.locate(target));
 		for (let i = 0; i < surge && this.dust < MAX_DUST + MAX_SURGE; i++) this.spawnDust(between(SURGE_PROGRESS), SURGE_LIFE, color);
 		this.update();
+		return launched;
 	}
 
 	private glow(color: string) {
@@ -358,12 +365,13 @@ export class AmbientField extends CanvasLoop {
 	}
 
 	/** Sends a comet along a curve bent to a random side, so repeated purchases never draw the same line. */
-	private launch(color: string, sx: number, sy: number, { x: tx, y: ty }: Point) {
-		if (this.bursts >= MAX_BURST_MOTES) return;
+	private launch(color: string, sx: number, sy: number, { x: tx, y: ty }: Point, life: number) {
+		if (this.bursts >= MAX_BURST_MOTES) return 0;
 		const bend = between(COMET_BEND) * (Math.random() < 0.5 ? -1 : 1);
 		const path = { cx: (sx + tx) / 2 - (ty - sy) * bend, cy: (sy + ty) / 2 + (tx - sx) * bend, sx, sy, tx, ty };
-		this.motes.push(this.mote({ color, life: between(COMET_LIFE), path, size: between(COMET_SIZE), stretch: true, x: sx, y: sy }));
+		this.motes.push(this.mote({ color, life, path, size: between(COMET_SIZE), stretch: true, x: sx, y: sy }));
 		this.bursts++;
+		return life;
 	}
 
 	private locate(origin: Origin): Point {
