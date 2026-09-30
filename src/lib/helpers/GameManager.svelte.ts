@@ -311,14 +311,20 @@ export class GameManager {
 
 	stabilityMaxBoost = $derived(this.effects.value('stability_boost', 2, this));
 
-	/** Fills linearly while idle, up to a bonus of (max boost - 1) scaled by capacity, paused while a power-up is live. */
-	stabilityMultiplier = $derived.by(() => {
-		if (!this.features[FeatureTypes.STABILITY_FIELD] || this.activePowerUps.length > 0) return 1;
+	/** Full Stability Field multiplier, reached once `stabilityProgress` hits 1. */
+	stabilityMax = $derived(1 + (this.stabilityMaxBoost - 1) * this.stabilityCapacity);
+
+	/** 0 to 1 share of the idle time needed to fill the field. */
+	stabilityProgress = $derived.by(() => {
 		/** `clock` isn't reactive, reading inGameTime re-runs this every tick. */
 		this.inGameTime;
-		const progress = Math.min(Math.max((this.clock() - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1);
-		return 1 + (this.stabilityMaxBoost - 1) * this.stabilityCapacity * progress;
+		return Math.min(Math.max((this.clock() - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1);
 	});
+
+	/** Fills linearly while idle, up to `stabilityMax`, paused while a power-up is live. */
+	stabilityMultiplier = $derived(
+		!this.features[FeatureTypes.STABILITY_FIELD] || this.activePowerUps.length > 0 ? 1 : 1 + (this.stabilityMax - 1) * this.stabilityProgress,
+	);
 
 	stabilitySpeed = $derived(this.effects.value('stability_speed', 1, this));
 

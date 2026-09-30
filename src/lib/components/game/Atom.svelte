@@ -151,7 +151,7 @@
 </script>
 
 <button
-	class="atom relative mt-20 flex size-64 sm:size-75 md:size-90 lg:size-112.5 max-lg:landscape:mt-0 max-lg:landscape:size-[clamp(8rem,100dvh-14rem,18rem)]! items-center justify-center cursor-pointer bg-transparent"
+	class="atom relative mt-8 flex size-64 sm:size-75 md:size-90 lg:size-112.5 max-lg:landscape:mt-0 max-lg:landscape:size-[clamp(8rem,100dvh-14rem,18rem)]! items-center justify-center cursor-pointer bg-transparent"
 	aria-label="Atom"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
