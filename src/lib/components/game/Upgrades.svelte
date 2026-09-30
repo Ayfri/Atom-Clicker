@@ -57,12 +57,14 @@
 		// availableUpgrades is sorted cheapest first, so this drains the balance into as many upgrades as possible.
 		let bought = 0;
 		for (const upgrade of availableUpgrades) if (gameManager.purchaseUpgrade(upgrade.id)) bought++;
+		const nucleus = AtomRenderer.current?.target();
 		if (bought > 0) {
 			AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, {
 				color: CURRENCIES[selectedCurrency].color,
 				count: 10 + Math.min(14, bought),
 				surge: Math.min(20, 4 + bought * 2),
-				target: AtomRenderer.current?.target(),
+				// One comet per upgrade bought, streaming into the nucleus.
+				target: nucleus && Array.from({ length: Math.min(10, bought) }, () => nucleus),
 			});
 		}
 	}

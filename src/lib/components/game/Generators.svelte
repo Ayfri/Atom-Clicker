@@ -22,6 +22,9 @@
 	import Value from '@components/ui/Value.svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 
+	/** A bulk purchase sends one comet per new electron, up to this many spread over the new slots. */
+	const MAX_COMETS = 12;
+
 	const PurchaseModes = {
 		x1: 1,
 		x5: 5,
@@ -70,20 +73,34 @@
 		const amount = purchaseAmounts[type];
 		if (!affordableGenerators.has(type) || amount <= 0) return;
 
-		const level = gameManager.generators[type]?.level ?? 0;
+		const { count = 0, level = 0 } = gameManager.generators[type] ?? {};
 		if (!gameManager.purchaseGenerator(type, amount)) return;
 		const newLevel = gameManager.generators[type]?.level ?? 0;
-		// The comet lands where the generator's orbit grows its new electron, which waits for it.
+
+		// The new electrons wait for a group of comets, each landing on the slot where one of them grows in. A level up empties
+		// the orbit instead, its comets then rain evenly over it.
 		const renderer = AtomRenderer.current;
 		const line = GENERATOR_TYPES.filter(other => gameManager.generators[other]).indexOf(type);
-		const burst = { flight: ELECTRON_FLIGHT, target: renderer?.target(line, ELECTRON_FLIGHT) };
+		const before = count % GENERATOR_LEVEL_UP_COST;
+		const after = (count + amount) % GENERATOR_LEVEL_UP_COST;
+		const added = after - before;
+		const comets = Math.min(MAX_COMETS, added > 0 ? added : amount);
+		const target =
+			renderer ?
+				Array.from({ length: comets }, (_, i) =>
+					added > 0 ?
+						renderer.target(line, ELECTRON_FLIGHT, before + Math.floor((i * added) / comets), after)
+					:	renderer.target(line, ELECTRON_FLIGHT, i, comets),
+				)
+			:	undefined;
+		const burst = { flight: ELECTRON_FLIGHT, target };
 		const extra = Math.min(8, Math.round(Math.log2(amount)));
 		// A level up changes the generator color, so it blooms in the new one.
-		const flight =
+		const arrivals =
 			newLevel > level ?
 				AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { ...burst, color: getGeneratorColor(newLevel), surge: 12 })
 			:	AmbientField.emit(RealmTypes.ATOMS, 'embers', event, { ...burst, color: getGeneratorColor(level), count: 4 + extra, surge: 2 + extra });
-		renderer?.hold(line, flight);
+		if (arrivals.length > 0) renderer?.hold(line, Math.max(...arrivals), after);
 	}
 
 	function formatShare(production: number) {

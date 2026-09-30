@@ -39,8 +39,8 @@ const DEPTH_BANDS = 4;
 const BAND_ALPHAS = Array.from({ length: DEPTH_BANDS }, (_, band) => 1 - (0.6 * (band + 0.5)) / DEPTH_BANDS);
 /** Radii and sizes below are authored for a 450px wide atom and scale with the host. */
 const DESIGN_SIZE = 450;
-/** Per second, how fast a shell's shown electron count closes the gap to its real one. */
-const ELECTRON_EASE = 5;
+/** Per second, how fast each electron closes the gap to its slot and size. */
+const ELECTRON_EASE = 8;
 /** A shell shows `count % GENERATOR_LEVEL_UP_COST` electrons, this only bounds the per-shell buffer. */
 const MAX_ELECTRONS = 32;
 const FOCAL_LENGTH = 650;
@@ -79,15 +79,6 @@ function spin(line: number, time: number) {
 }
 
 /**
- * Angle of electron `k` past electron 0 with `shown` electrons: whole ones spread by the fractional count, so they make room
- * smoothly, while a growing one sits in its final slot. Growing from 1 to 2, the second appears straight across from the first.
- */
-function slot(k: number, shown: number) {
-	const whole = Math.floor(shown);
-	return (k * TAU) / (k < whole ? shown : whole + 1);
-}
-
-/**
  * Draws the clickable atom on a Canvas2D: a spinning ball of nucleons wrapped in one tilted orbit per generator,
  * spread over every inclination so the shells outline a sphere. Electrons are filled as one path per shell and depth band:
  * a drawImage per electron cost ~5µs, 4.5ms a frame with every shell full. Nucleons are pre-rendered sprites.
@@ -107,15 +98,21 @@ export class AtomRenderer extends CanvasLoop {
 	private readonly electronCounts: Uint8Array;
 	/** x, y, radius and depth band of each electron per shell, rewritten every frame into the same buffers. */
 	private readonly electrons: Float32Array[];
-	/** `performance.now()` until which a shell keeps its shown count, while a purchase comet flies to it. */
-	private readonly holds: Float64Array;
+	/** Electrons a held shell may show, raised as each purchase's comets land. */
+	private readonly released: Uint8Array;
+	/** Purchases whose comets still fly to each shell, in landing order: when `at` passes, the shell may grow to `goal`. */
+	private readonly releases: { at: number; goal: number }[][];
 	private readonly palettes = new Map<string, Palette>();
 	private readonly nucleonBases: Vector[];
 	private readonly nucleonOrder: number[] = [];
 	private readonly nucleonPoints = new Float32Array(NUCLEON_RANGE.max * 3);
 	private readonly orbitPoints: Float32Array[];
-	/** Electrons shown per shell, eased toward the scene count: a joining electron grows while the others spread to make room. */
-	private readonly shown: Float32Array;
+	/** Electrons each shell is heading to, the scene count unless comets hold it back. */
+	private readonly goals: Uint8Array;
+	/** Angle of each electron past electron 0, per shell, eased toward its even slot. */
+	private readonly offsets: Float32Array[];
+	/** Size of each electron from 0 to 1, per shell. */
+	private readonly scales: Float32Array[];
 	private readonly sparks: { age: number; x: number; y: number }[] = [];
 	/** Orbit plane of the shell being drawn, reused so no vector is allocated per frame. */
 	private readonly u: Vector = { x: 0, y: 0, z: 0 };
@@ -143,8 +140,11 @@ export class AtomRenderer extends CanvasLoop {
 		this.orbitPoints = Array.from({ length: shellSlots }, () => new Float32Array((ORBIT_SEGMENTS + 1) * 3));
 		this.electrons = Array.from({ length: shellSlots }, () => new Float32Array(MAX_ELECTRONS * 4));
 		this.electronCounts = new Uint8Array(shellSlots);
-		this.holds = new Float64Array(shellSlots);
-		this.shown = new Float32Array(shellSlots);
+		this.released = new Uint8Array(shellSlots);
+		this.releases = Array.from({ length: shellSlots }, () => []);
+		this.goals = new Uint8Array(shellSlots);
+		this.offsets = Array.from({ length: shellSlots }, () => new Float32Array(MAX_ELECTRONS));
+		this.scales = Array.from({ length: shellSlots }, () => new Float32Array(MAX_ELECTRONS));
 		const packing = packNucleus(scene.nucleons);
 		this.nucleonBases = Array.from({ length: NUCLEON_RANGE.max }, (_, i) => ({ ...(packing.points[i] ?? { x: 0, y: 0, z: 0 }) }));
 		AtomRenderer.current = this;
@@ -156,13 +156,19 @@ export class AtomRenderer extends CanvasLoop {
 		if (AtomRenderer.current === this) AtomRenderer.current = null;
 	}
 
-	/** Keeps shell `line` at its shown electron count for `seconds`, so a purchase lands with its comet instead of before it. */
-	hold(line: number, seconds: number) {
-		if (seconds > 0 && line in this.holds) this.holds[line] = Math.max(this.holds[line], performance.now() + seconds * 1000);
+	/**
+	 * Keeps shell `line` at its current electrons until its purchase comets land in `seconds`, then lets it grow to `goal`, so the
+	 * electrons show up with their comets instead of before them. Purchases made meanwhile queue up and land in order.
+	 */
+	hold(line: number, seconds: number, goal: number) {
+		const releases = this.releases[line];
+		if (!releases) return;
+		if (releases.length === 0) this.released[line] = this.goals[line];
+		releases.push({ at: performance.now() + seconds * 1000, goal });
 	}
 
-	/** Client position of the slot where shell `line` grows its next electron, as it will be in `seconds`. Without a line, the nucleus. */
-	target(line = -1, seconds = 0): { x: number; y: number } {
+	/** Client position, as it will be in `seconds`, of slot `index` among `total` evenly spread electrons on shell `line`. Without a line, the nucleus. */
+	target(line = -1, seconds = 0, index = 0, total = 1): { x: number; y: number } {
 		const rect = this.canvas.getBoundingClientRect();
 		const scale = this.size > 0 ? rect.width / this.size : 1;
 		const basis = this.bases[line];
@@ -173,9 +179,7 @@ export class AtomRenderer extends CanvasLoop {
 		const unit = this.size / (DESIGN_SIZE * CANVAS_OVERFLOW);
 		const focal = FOCAL_LENGTH * unit;
 		const radius = unit * (78 + line * 18);
-		// The electron growing now, if any, is not the next one: the next takes the slot after it.
-		const next = Math.ceil(this.shown[line] - 0.001);
-		const angle = spin(line, time) + slot(next, next);
+		const angle = spin(line, time) + (index * TAU) / Math.max(1, total);
 		this.orbitPlane(line, time);
 		const cos = Math.cos(angle) * radius;
 		const sin = Math.sin(angle) * radius;
@@ -302,12 +306,14 @@ export class AtomRenderer extends CanvasLoop {
 		for (const shell of scene.shells) {
 			const { line } = shell;
 			if (!this.bases[line]) continue;
-			// A held shell keeps its count until the purchase comet lands, then eases to the real one.
-			const goal = now < this.holds[line] ? this.shown[line] : Math.min(shell.count, MAX_ELECTRONS);
-			const shown = Math.abs(goal - this.shown[line]) < 0.002 ? goal : this.shown[line] + (goal - this.shown[line]) * ease;
-			this.shown[line] = shown;
+			const releases = this.releases[line];
+			for (; releases.length > 0 && now >= releases[0].at; releases.shift()) this.released[line] = releases[0].goal;
+			// A held shell only grows as its comets land, then goes to the real count with the last purchase.
+			const goal = Math.min(shell.count, MAX_ELECTRONS, releases.length > 0 ? this.released[line] : MAX_ELECTRONS);
+			this.goals[line] = goal;
+			const scales = this.scales[line];
 			this.electronCounts[line] = 0;
-			if (shown <= 0) continue;
+			if (goal === 0 && scales[0] === 0) continue;
 
 			this.orbitPlane(line, time);
 			const { u, v } = this;
@@ -324,43 +330,55 @@ export class AtomRenderer extends CanvasLoop {
 				points[j * 3 + 2] = z;
 			}
 			const palette = this.palette(shell.color);
-			const presence = Math.min(1, shown);
 			ctx.strokeStyle = palette.orbitBack;
-			this.strokeOrbit(points, true, presence);
+			this.strokeOrbit(points, true, scales[0]);
 
-			const count = Math.ceil(shown);
+			// Each electron eases to its even slot on its own: a group joining is born in its final slots and grows at once,
+			// while the others slide over to make room. Leaving electrons shrink where they are.
+			const offsets = this.offsets[line];
 			const start = spin(line, time);
 			const electronRadius = unit * (2.3 + line * 0.12);
 			const data = this.electrons[line];
-			for (let k = 0; k < count; k++) {
-				const angle = start + slot(k, shown);
+			let count = 0;
+			for (let k = 0; k < MAX_ELECTRONS; k++) {
+				const grow = k < goal ? 1 : 0;
+				if (grow === 0 && scales[k] === 0) continue;
+				const slot = (k * TAU) / Math.max(1, goal);
+				if (scales[k] === 0) offsets[k] = slot;
+				else if (grow) offsets[k] += (slot - offsets[k]) * ease;
+				scales[k] = Math.abs(grow - scales[k]) < 0.002 ? grow : scales[k] + (grow - scales[k]) * ease;
+				if (scales[k] === 0) continue;
+
+				const angle = start + offsets[k];
 				const cos = Math.cos(angle) * radius;
 				const sin = Math.sin(angle) * radius;
 				const z = u.z * cos + v.z * sin;
 				const scale = focal / (focal + z);
-				data[k * 4] = center + (u.x * cos + v.x * sin) * scale;
-				data[k * 4 + 1] = center + (u.y * cos + v.y * sin) * scale;
-				data[k * 4 + 2] = electronRadius * scale * Math.min(1, shown - k);
-				data[k * 4 + 3] = Math.min(DEPTH_BANDS - 1, Math.floor(((z / radius + 1) / 2) * DEPTH_BANDS));
+				data[count * 4] = center + (u.x * cos + v.x * sin) * scale;
+				data[count * 4 + 1] = center + (u.y * cos + v.y * sin) * scale;
+				data[count * 4 + 2] = electronRadius * scale * scales[k];
+				data[count * 4 + 3] = Math.min(DEPTH_BANDS - 1, Math.floor(((z / radius + 1) / 2) * DEPTH_BANDS));
+				count++;
 			}
 			this.electronCounts[line] = count;
-			for (let band = DEPTH_BANDS - 1; band >= DEPTH_BANDS / 2; band--) this.fillBand(line, band, palette, presence);
+			for (let band = DEPTH_BANDS - 1; band >= DEPTH_BANDS / 2; band--) this.fillBand(line, band, palette, scales[0]);
 		}
 
 		this.drawNucleus(dt, nucleons, nucleusRadius / packNucleus(nucleons).extent, center, time, scene);
 
+		// Electron 0 is the first to grow and shrinks with the last, so its size fades the whole shell in and out.
 		for (const { color, line } of scene.shells) {
-			if (this.bases[line] && this.shown[line] > 0) {
+			if (this.bases[line] && this.electronCounts[line] > 0) {
 				ctx.strokeStyle = this.palette(color).orbitFront;
-				this.strokeOrbit(this.orbitPoints[line], false, Math.min(1, this.shown[line]));
+				this.strokeOrbit(this.orbitPoints[line], false, this.scales[line][0]);
 			}
 		}
 		// Later shells' front bands go first, so the first shells stay on top as before.
 		for (let i = scene.shells.length - 1; i >= 0; i--) {
 			const { color, line } = scene.shells[i];
-			if (!this.bases[line] || this.shown[line] <= 0) continue;
+			if (!this.bases[line] || this.electronCounts[line] === 0) continue;
 			const palette = this.palette(color);
-			for (let band = DEPTH_BANDS / 2 - 1; band >= 0; band--) this.fillBand(line, band, palette, Math.min(1, this.shown[line]));
+			for (let band = DEPTH_BANDS / 2 - 1; band >= 0; band--) this.fillBand(line, band, palette, this.scales[line][0]);
 		}
 
 		this.drawSparks(dt, center, unit);
