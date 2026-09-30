@@ -11,6 +11,8 @@
 - **Quark Shop**: A Prism theme for the Photon Realm and a banner for each colored Light.
 - **Offline Progress**: Coming back now greets you with a Welcome Back screen where your loot counts up, showing how much time was stored and what your automation did while you were away.
 - **Settings**: A cleaner menu on desktop and mobile with a more visual Profile and Stats, a Gameplay tab open to everyone, a Save tab comparing this device with your cloud save, and a Legal & Privacy tab where you can turn off Google Analytics.
+- **Navigation**: Protonise, Electronize and Ionize get their own colored icons, grouped apart from the menus, that glow when a reset is ready.
+- **Mobile**: A bottom bar replaces the floating icons, the game now fits your phone in landscape, and rotating it no longer leaves the page shrunk.
 
 # What's new 19-09-2026
 
