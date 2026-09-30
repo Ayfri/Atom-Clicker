@@ -55,7 +55,7 @@
 	}
 </script>
 
-<div class="relative pt-12 lg:pt-4 max-lg:landscape:pt-0" style:--color-radiation={accent}>
+<div class="relative lg:pt-4"style:--color-radiation={accent}>
 	<div
 		class="pointer-events-none fixed inset-0 -z-50 transition-opacity duration-700"
 		style:background="radial-gradient(circle at 35% 45%, color-mix(in srgb, var(--color-radiation) 14%, transparent), transparent 55%)"

@@ -304,11 +304,15 @@
 				) ?
 					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
 				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
-				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
+				style="top: {mobile.current ? 'var(--banner-height)' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
 					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`
 				:	'translateX(0)'}; {background ? `background-image: ${background};` : ''}"
 			>
-				<div class="absolute inset-0 overflow-y-auto custom-scrollbar">
+				<!-- On phones the realm background runs behind the level bar while the content scrolls below it. -->
+				<div
+					class="absolute inset-0 overflow-y-auto custom-scrollbar"
+					style:top={mobile.current && gameManager.features[FeatureTypes.LEVELS] ? '3rem' : undefined}
+				>
 					<div class="flex flex-col min-h-full">
 						<div class="flex-1">
 							<RealmComponent />

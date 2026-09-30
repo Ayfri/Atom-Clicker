@@ -587,7 +587,7 @@
 	});
 </script>
 
-<div class="relative pt-12 lg:pt-4 transition-all duration-1000 ease-in-out" style={themePalette}>
+<div class="relative lg:pt-4 transition-all duration-1000 ease-in-out" style={themePalette}>
 	<!-- Same glows the Atom Realm gets from its prestiges: the first Ionize splits the light into Red, Green and Blue. -->
 	{#if visible && prismUnlocked}
 		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
