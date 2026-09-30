@@ -736,15 +736,18 @@ export class GameManager {
 	}
 
 	/**
-	 * `skipProduction` is what the browser passes: there the atoms are summed per frame in `+page.svelte` for a smooth
-	 * counter, and crediting them here too would pay every generator twice. The simulation has no frame loop and pays here.
+	 * `skipProduction` is what the browser passes: there generator and auto-click atoms are summed per commit in
+	 * `+page.svelte` for a smooth counter and XP bar, crediting them here too would pay them twice. The simulation has no
+	 * commit loop and pays here.
 	 */
 	tick(deltaTime = 1000, skipAchievements = false, skipProduction = false) {
 		const seconds = deltaTime / 1000;
 		this.inGameTime += deltaTime;
 
-		if (!skipProduction && this.atomsPerSecond > 0) this.addAtoms(this.atomsPerSecond * seconds);
-		if (this.autoClicksPerSecond > 0) this.addAtoms(this.clickPower * this.autoClicksPerSecond * seconds);
+		if (!skipProduction) {
+			if (this.atomsPerSecond > 0) this.addAtoms(this.atomsPerSecond * seconds);
+			if (this.autoClicksPerSecond > 0) this.addAtoms(this.clickPower * this.autoClicksPerSecond * seconds);
+		}
 		if (this.atomsPerSecond > this.highestAPS) this.highestAPS = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);

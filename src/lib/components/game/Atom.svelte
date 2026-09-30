@@ -102,7 +102,7 @@
 			if (count < 1) return;
 			pending -= count;
 
-			// Auto-click atoms are credited once per second by GameManager.tick(), this interval only drives the counters and the visuals.
+			// Auto-click atoms are credited with production by the commit loop in +page.svelte, this interval only drives the counters and the visuals.
 			gameManager.incrementClicks(true, count);
 			const rect = getRect();
 			if (!rect) return;

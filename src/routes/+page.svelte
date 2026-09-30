@@ -83,6 +83,8 @@
 	const CLOUD_PULL_WARNING_THRESHOLD_MS = 5_000;
 	// Long gaps (background tab, stalled frame) are clamped so production never jumps, offline progress handles those.
 	const MAX_FRAME_MS = 100;
+	/** Auto-clicks are capped at a full second, so a background tab, whose timers are throttled to 1 Hz, still pays them in full. */
+	const MAX_AUTO_CLICK_FRAME_MS = 1000;
 	/**
 	 * Production is committed on a timer at this rate, not from a rAF loop: a pending rAF makes Chrome run a full main
 	 * frame at the display rate (179 per second on a 179 Hz screen), while the counters only change at 50 Hz.
@@ -104,7 +106,11 @@
 
 	function update() {
 		const now = performance.now();
-		pendingAtoms += (gameManager.atomsPerSecond * Math.min(now - lastUpdateTime, MAX_FRAME_MS)) / 1000;
+		const elapsed = now - lastUpdateTime;
+		pendingAtoms +=
+			(gameManager.atomsPerSecond * Math.min(elapsed, MAX_FRAME_MS) +
+				gameManager.clickPower * gameManager.autoClicksPerSecond * Math.min(elapsed, MAX_AUTO_CLICK_FRAME_MS)) /
+			1000;
 		lastUpdateTime = now;
 		commitPendingAtoms();
 	}
