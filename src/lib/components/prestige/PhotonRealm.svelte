@@ -63,7 +63,10 @@
 
 	$effect(() => {
 		if (!prismUnlocked) return;
-		const interval = setInterval(() => chromatic.spawn(canvasWidth, canvasHeight), chromaticManager.spawnInterval);
+		const interval = setInterval(() => {
+			chromatic.spawn(canvasWidth, canvasHeight);
+			wake();
+		}, chromaticManager.spawnInterval);
 		return () => clearInterval(interval);
 	});
 
@@ -245,6 +248,7 @@
 		};
 
 		circles.push(circle);
+		wake();
 	}
 
 	function clickCircle(circle: Circle, x: number, y: number, isAuto: boolean) {
@@ -491,17 +495,30 @@
 		return () => observer.disconnect();
 	});
 
+	let frame = 0;
+
+	function loop() {
+		updateCircles();
+		if (!document.hidden) render();
+		frame = circles.length > 0 || !chromatic.empty ? requestAnimationFrame(loop) : 0;
+	}
+
+	/** The loop stops once the field is empty, an idle pending rAF still costs a main frame per vsync. Spawns wake it back up. */
+	function wake() {
+		if (frame || !canvas || !drawn) return;
+		// Nothing aged while stopped, the first delta must not count the idle time.
+		lastUpdateTime = Date.now();
+		frame = requestAnimationFrame(loop);
+	}
+
 	// Draw on the browser's own frame cadence, and not at all while the tab or the realm is hidden or a modal covers it.
 	$effect(() => {
 		if (!canvas || !drawn) return;
-
-		let frame = requestAnimationFrame(function loop() {
-			frame = requestAnimationFrame(loop);
-			updateCircles();
-			if (!document.hidden) render();
-		});
-
-		return () => cancelAnimationFrame(frame);
+		frame = requestAnimationFrame(loop);
+		return () => {
+			cancelAnimationFrame(frame);
+			frame = 0;
+		};
 	});
 
 	/**
