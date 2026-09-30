@@ -55,6 +55,7 @@ export const statsConfig = {
 	generators: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 26 },
 	highestAPS: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
+	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER, minVersion: 30 },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL, minVersion: 1 },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM, minVersion: 12 },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },

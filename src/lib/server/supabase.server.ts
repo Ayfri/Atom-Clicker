@@ -91,6 +91,24 @@ export const leaderboardService = {
 		}
 
 		return data
+	},
+
+	/** Only the save fields the integrity checks read, so a score update never downloads the whole save. */
+	async getSaveIntegrityFields(userId: string) {
+		const { data, error } = await supabaseAdmin
+			.from('profiles')
+			.select(
+				'currencies:save->currencies, inGameTime:save->inGameTime, integrityFlagged:save->integrityFlagged, lastSave:save->lastSave, startDate:save->startDate, totalClicksAllTime:save->totalClicksAllTime, totalClicksRun:save->totalClicksRun, totalElectronizesAllTime:save->totalElectronizesAllTime, totalElectronizesRun:save->totalElectronizesRun, totalProtonisesAllTime:save->totalProtonisesAllTime, totalProtonisesRun:save->totalProtonisesRun',
+			)
+			.eq('id', userId)
+			.maybeSingle()
+
+		if (error) {
+			console.error('Error fetching save integrity fields:', error)
+			throw error
+		}
+
+		return data
 	}
 }
 

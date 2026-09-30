@@ -154,6 +154,7 @@ export interface GameState {
 	generators: Partial<Record<GeneratorType, Generator>>;
 	highestAPS: number;
 	inGameTime: number;
+	integrityFlagged: boolean;
 	lastInteractionTime: number;
 	lastSave: number;
 	photonUpgrades: Record<string, number>;

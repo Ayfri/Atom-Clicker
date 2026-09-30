@@ -3,16 +3,14 @@ import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType } from '$d
 import { RealmTypes } from '$data/realms';
 import type { GameState, Generator } from '$lib/types';
 import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
+import { checkStatePlausibility } from '$helpers/plausibility';
 import { statsConfig } from '$helpers/statConstants';
 import { getItem } from '$lib/utils/safeLocalStorage';
 import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
 import type { SaveErrorType } from '$stores/saveRecovery.svelte';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 29;
-
-/** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
-const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;
+export const SAVE_VERSION = 30;
 
 export interface LoadSaveResult {
 	errorDetails?: string;
@@ -27,33 +25,6 @@ export interface LoadSaveResult {
 /** Serializes and checksum-wraps a game state, see saveIntegrity.ts. */
 export function serializeSaveState(state: GameState): string {
 	return wrapSaveForStorage(JSON.stringify(state));
-}
-
-/** Balance-independent sanity checks (currency vs earned totals, inGameTime vs wall clock). */
-export function checkStatePlausibility(state: GameState): string[] {
-	const warnings: string[] = [];
-
-	if (state.currencies && typeof state.currencies === 'object') {
-		for (const [name, currency] of Object.entries(state.currencies)) {
-			if (!currency || typeof currency !== 'object') continue;
-			const { amount, earnedAllTime, earnedRun } = currency as { amount: number; earnedAllTime: number; earnedRun: number };
-			if (typeof amount === 'number' && typeof earnedAllTime === 'number' && amount > earnedAllTime) {
-				warnings.push(`Currency ${name}: amount (${amount}) exceeds earnedAllTime (${earnedAllTime})`);
-			}
-			if (typeof earnedRun === 'number' && typeof earnedAllTime === 'number' && earnedRun > earnedAllTime) {
-				warnings.push(`Currency ${name}: earnedRun (${earnedRun}) exceeds earnedAllTime (${earnedAllTime})`);
-			}
-		}
-	}
-
-	if (typeof state.inGameTime === 'number' && typeof state.startDate === 'number' && typeof state.lastSave === 'number') {
-		const maxPossibleInGameTime = state.lastSave - state.startDate + PLAUSIBILITY_TIME_TOLERANCE_MS;
-		if (state.inGameTime > maxPossibleInGameTime) {
-			warnings.push(`inGameTime (${state.inGameTime}) exceeds wall-clock time since startDate (${maxPossibleInGameTime})`);
-		}
-	}
-
-	return warnings;
 }
 
 // Helper functions for state management

@@ -87,8 +87,8 @@ export class LeaderboardStore {
 
 	async updateScore(atoms: number, level: number) {
 		if (!browser || this.isUpdating) return;
-		// Skip submission for saves flagged by the local integrity check, see saves.ts.
-		if (gameManager.saveIntegrityTampered || gameManager.saveIntegrityWarnings.length > 0) return;
+		// Skip submission for saves flagged by the integrity checks, see plausibility.ts.
+		if (gameManager.integrityFlagged || gameManager.saveIntegrityWarnings.length > 0) return;
 
 		try {
 			this.isUpdating = true;

@@ -31,6 +31,7 @@ import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
 import { EffectTable } from '$helpers/effects';
 import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
 import { applyOfflineProgress } from '$helpers/offlineProgress';
+import { checkStatePlausibility } from '$helpers/plausibility';
 import { radiationManager } from '$helpers/RadiationManager.svelte';
 import { realmManager } from '$helpers/RealmManager.svelte';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '$helpers/saves';
@@ -66,6 +67,8 @@ export class GameManager {
 	generators = $state.raw<Partial<Record<GeneratorType, Generator>>>({});
 	highestAPS = $state(0);
 	inGameTime = $state(0);
+	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
+	integrityFlagged = $state(false);
 	lastInteractionTime = $state(Date.now());
 	lastSave = $state(Date.now());
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
@@ -78,7 +81,6 @@ export class GameManager {
 	/** Owned Quark shop item ids, gating prestige-persistence behaviors the effect pipeline can't express. */
 	quarkEntitlements = $state<string[]>([]);
 	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
-	saveIntegrityTampered = $state(false);
 	saveIntegrityWarnings = $state<string[]>([]);
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
 	skillUpgrades = $state.raw<string[]>([]);
@@ -449,6 +451,7 @@ export class GameManager {
 			generators: this.generators,
 			highestAPS: this.highestAPS,
 			inGameTime: this.inGameTime,
+			integrityFlagged: this.integrityFlagged,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
 			photonUpgrades: this.photonUpgrades,
@@ -522,25 +525,31 @@ export class GameManager {
 		this.loadSaveData(result.state);
 		this.syncFeatures();
 		this.checkRealmUnlocks();
-		this.saveIntegrityTampered = result.integrityTampered ?? false;
-		this.saveIntegrityWarnings = result.integrityWarnings ?? [];
-		if (this.saveIntegrityTampered || this.saveIntegrityWarnings.length > 0) {
-			console.warn('Save integrity check flagged this save:', { tampered: this.saveIntegrityTampered, warnings: this.saveIntegrityWarnings });
-			toastStore.warning({
-				message: 'This save looks like it was edited outside the game. Leaderboard submission is disabled for this session.',
-				title: 'Save check',
-			});
-		}
+		if (result.integrityTampered) this.integrityFlagged = true;
+		this.reportIntegrity(result.integrityWarnings ?? []);
 		this.catchUpOffline();
 		this.save();
 	}
 
 	/** Replaces the game with a cloud save, syncing features and realms like a local load and writing it to this device at once. */
 	loadCloudSave(state: GameState) {
+		const flagged = this.integrityFlagged;
 		this.loadSaveData(state);
+		this.integrityFlagged ||= flagged;
 		this.syncFeatures();
 		this.checkRealmUnlocks();
+		this.reportIntegrity(checkStatePlausibility(state));
 		this.save();
+	}
+
+	private reportIntegrity(warnings: string[]) {
+		this.saveIntegrityWarnings = warnings;
+		if (!this.integrityFlagged && warnings.length === 0) return;
+		console.warn('Save integrity check flagged this save:', { flagged: this.integrityFlagged, warnings });
+		toastStore.warning({
+			message: 'This save looks like it was edited outside the game, so it no longer submits to the leaderboard.',
+			title: 'Save check',
+		});
 	}
 
 	loadSaveData(data: Partial<GameState>) {
@@ -682,6 +691,7 @@ export class GameManager {
 
 	reset() {
 		this.resetAll();
+		this.saveIntegrityWarnings = [];
 		this.startDate = Date.now();
 		this.save();
 	}

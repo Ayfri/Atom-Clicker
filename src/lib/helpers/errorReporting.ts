@@ -108,7 +108,7 @@ function captureGameState(): Record<string, unknown> | null {
 			radiationUnlocked: state.radiation?.unlocked ?? false,
 			// Every realm stays mounted, so this is the visible one only
 			realm: state.selectedRealmId ?? null,
-			saveTampered: gameManager.saveIntegrityTampered,
+			saveTampered: gameManager.integrityFlagged,
 			saveWarnings: gameManager.saveIntegrityWarnings,
 			skillUpgrades: state.skillUpgrades?.length ?? 0,
 			totalClicks: state.totalClicksAllTime ?? 0,

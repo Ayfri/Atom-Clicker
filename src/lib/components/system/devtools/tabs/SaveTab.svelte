@@ -87,7 +87,7 @@
 		<span>v{SAVE_VERSION}</span>
 		<span>{(saveSize / 1024).toFixed(1)} KB</span>
 		<span>saved {new Date(gameManager.lastSave).toLocaleTimeString()}</span>
-		{#if gameManager.saveIntegrityTampered}<span class="text-red-400">checksum tampered</span>{/if}
+		{#if gameManager.integrityFlagged}<span class="text-red-400">integrity flagged</span>{/if}
 	</div>
 	{#each gameManager.saveIntegrityWarnings as warning (warning)}
 		<p class="mb-1 text-[11px] text-yellow-300/80">{warning}</p>

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { checkStatePlausibility } from '$helpers/plausibility';
 import { leaderboardService, supabaseAdmin } from '$lib/server/supabase.server';
 import { readVerifiedRequest } from '$lib/server/verifiedRequest.server';
 import { addRankToLeaderboard } from '$lib/utils/number-parser';
@@ -88,6 +89,12 @@ export const POST: RequestHandler = async ({ request }) => {
 				error: 'Update too frequent',
 				nextUpdateIn: Math.ceil((UPDATE_INTERVAL - timeSinceLastUpdate) / 1000)
 			}, { status: 429 });
+		}
+
+		/** The client already skips flagged saves, this catches direct calls when the cloud save carries the evidence. */
+		const save = await leaderboardService.getSaveIntegrityFields(userId);
+		if (save && (save.integrityFlagged === true || checkStatePlausibility(save).length > 0)) {
+			return json({ error: 'Save flagged by the integrity checks' }, { status: 403 });
 		}
 
 		await leaderboardService.updateProfileStats(userId, atoms, level, username, picture ?? undefined);
