@@ -128,7 +128,8 @@
 	const MIN_SPIN = 10;
 	const MAX_SPIN = 30;
 
-	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', baseSizeMultiplier, gameManager));
+	/** Phones get smaller photons, a narrow field fits fewer and MIN_HIT_RADIUS keeps them easy to tap. */
+	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', baseSizeMultiplier, gameManager) * (mobile.current ? 0.75 : 1));
 	const circleLifetime = $derived(baseCircleLifetime + gameManager.effects.value('photon_duration', 0, gameManager));
 	const excitedLifetimeMultiplier = $derived(gameManager.effects.value('excited_photon_duration', 1, gameManager));
 
