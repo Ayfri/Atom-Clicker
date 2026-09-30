@@ -3,13 +3,18 @@ import { browser } from '$app/environment';
 import { supabaseAuth } from '$stores/supabaseAuth.svelte';
 import type { LeaderboardEntry } from '$lib/types/leaderboard';
 import { obfuscateClientData } from '$lib/utils/obfuscation';
+import { getJSON, setItem } from '$lib/utils/safeLocalStorage';
 
 export const REFRESH_INTERVAL = 60_000; // 1 minute between leaderboard refreshes
+const RANKS_KEY = 'atomic-clicker-leaderboard-ranks';
 const MIN_UPDATE_INTERVAL = 30_000; // 30 seconds minimum between updates
 
 const MIN_ATOMS_CHANGE_PERCENT = 0.05; // 5% minimum change in atoms
 
 interface LeaderboardStats {
+	/** Players with a score, which a leaderboard reset brings far below the account count. */
+	rankedPlayers: number;
+	/** Every account, the community upgrade scales with it. */
 	totalUsers: number;
 }
 
@@ -19,14 +24,44 @@ interface LeaderboardData {
 }
 
 export class LeaderboardStore {
-	entries = $state<LeaderboardEntry[]>([]);
-	stats = $state<LeaderboardStats>({ totalUsers: 0 });
+	entries = $state.raw<LeaderboardEntry[]>([]);
+	/** Bumped on every successful fetch, restarts the header's refresh countdown. */
+	fetchedAt = $state(0);
+	stats = $state<LeaderboardStats>({ rankedPlayers: 0, totalUsers: 0 });
 	isUpdating = $state(false);
-	playerRank = $derived(this.entries.find(entry => entry.self)?.rank ?? null);
-	/** Rank 1 of 100 is the top 1%, never shown as 0%. */
-	playerPercentile = $derived(this.playerRank && this.stats.totalUsers ? Math.max(1, Math.ceil((this.playerRank / this.stats.totalUsers) * 100)) : null);
+	onlineCount = $derived(this.entries.reduce((count, entry) => count + (entry.is_online ? 1 : 0), 0));
+	playerIndex = $derived(this.entries.findIndex(entry => entry.self));
+	playerRank = $derived(this.playerIndex >= 0 ? this.entries[this.playerIndex].rank : null);
+	playerPercentile = $derived(this.percentile(this.playerRank));
+	/** Ranks from the previous time the leaderboard was open, null on a first visit so no row claims to be new. */
+	previousRanks = $state.raw<Record<string, number> | null>(null);
 
 	private hasFetched = false;
+	private visiting = false;
+
+	/** Rank 1 of 100 is the top 1%, never shown as 0%. */
+	percentile(rank: number | null): number | null {
+		return rank && this.stats.rankedPlayers ? Math.max(1, Math.ceil((rank / this.stats.rankedPlayers) * 100)) : null;
+	}
+
+	/** Places climbed since the previous visit, positive when moving up, null for a player absent back then. */
+	rankDelta(entry: LeaderboardEntry): number | null {
+		const previous = entry.userId ? this.previousRanks?.[entry.userId] : undefined;
+		return previous === undefined ? null : previous - entry.rank;
+	}
+
+	startVisit() {
+		this.visiting = true;
+		this.previousRanks = getJSON<Record<string, number> | null>(RANKS_KEY, null);
+	}
+
+	endVisit() {
+		this.visiting = false;
+	}
+
+	private saveRanks() {
+		setItem(RANKS_KEY, JSON.stringify(Object.fromEntries(this.entries.filter(entry => entry.userId).map(entry => [entry.userId, entry.rank]))));
+	}
 
 	/** Nothing on the main screen shows leaderboard data, so the list is only pulled once a panel asks for it. */
 	async ensureLoaded() {
@@ -43,6 +78,8 @@ export class LeaderboardStore {
 			const data: LeaderboardData = await response.json();
 			this.entries = data.entries;
 			this.stats = data.stats;
+			this.fetchedAt = Date.now();
+			if (this.visiting) this.saveRanks();
 		} catch (error) {
 			console.error('Error fetching leaderboard:', error);
 		}

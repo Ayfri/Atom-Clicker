@@ -21,7 +21,7 @@
 			items: [
 				['Without an account', 'Your progress stays in your browser. Nothing personal leaves your device apart from the analytics and crash reports below.'],
 				['With an account', 'Signing in with Google, Discord or X stores your account id, email, username, profile picture, cloud save, leaderboard stats, Quarks balance and history.'],
-				['Leaderboard', 'Your username, picture, level, atoms and equipped cosmetics are public on the leaderboard.'],
+				['Leaderboard', 'Your username, picture, level, atoms and equipped cosmetics are public on the leaderboard. Your public profile also shows the game stats of your cloud save: play time, clicks, prestiges, realms, achievements, skills, generators and currencies earned.'],
 				['Crash reports', 'When the game crashes, the error, page URL, browser info and a snapshot of your game state are sent to help fix the bug, linked to your account if you are signed in.'],
 				['Feedback', 'The feedback form is hosted by Tally (tally.so), your email is prefilled if you are signed in.'],
 				['Analytics', 'Cloudflare Web Analytics counts visits without cookies. Google Analytics measures usage with cookies and can be turned off above.'],

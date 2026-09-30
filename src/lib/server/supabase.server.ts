@@ -75,6 +75,22 @@ export const leaderboardService = {
 		}
 
 		return data
+	},
+
+	/** The save stays server-side, the profile route only publishes the stats it reads from it. */
+	async getPublicSave(userId: string) {
+		const { data, error } = await supabaseAdmin
+			.from('profiles')
+			.select('created_at, save')
+			.eq('id', userId)
+			.maybeSingle()
+
+		if (error) {
+			console.error('Error fetching public save:', error)
+			throw error
+		}
+
+		return data
 	}
 }
 

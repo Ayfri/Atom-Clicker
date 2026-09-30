@@ -7,7 +7,7 @@ export function createCurrentPlayerPreview(bannerId: string): LeaderboardEntry {
 		atoms: gameManager.atoms,
 		equippedBanner: bannerId,
 		is_online: supabaseAuth.isAuthenticated,
-		lastUpdated: Date.now(),
+		lastSeen: Date.now(),
 		level: gameManager.playerLevel,
 		picture: supabaseAuth.avatarUrl ?? undefined,
 		rank: 1,

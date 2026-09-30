@@ -21,9 +21,11 @@ export const GET: RequestHandler = async ({ url }) => {
 		const userIdParam = url.searchParams.get('userId');
 		const currentUserId = userIdParam && userIdParam.trim().length > 0 ? userIdParam : undefined;
 
-		const [rawLeaderboard, { count: totalUsersCount }] = await Promise.all([
+		const [rawLeaderboard, { count: totalUsersCount }, { count: rankedCount }] = await Promise.all([
 			leaderboardService.getLeaderboard(1000),
 			supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
+			/** Same filter as get_leaderboard, rows emptied by a leaderboard reset count as accounts but not as ranked players. */
+			supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).not('atoms', 'is', null).not('atoms', 'in', '("","NaN","Infinity")'),
 		]);
 
 		const formattedLeaderboard = addRankToLeaderboard(rawLeaderboard).map((entry) => {
@@ -38,7 +40,8 @@ export const GET: RequestHandler = async ({ url }) => {
 				is_online: isTrulyOnline,
 				picture: entry.picture || '',
 				self: currentUserId ? entry.id === currentUserId : false,
-				lastUpdated: new Date(entry.last_updated).getTime(),
+				/** last_updated only moves on a new record, updated_at follows every heartbeat and cloud save. */
+				lastSeen: new Date(entry.updated_at ?? entry.last_updated).getTime(),
 				rank: entry.rank,
 				userId: entry.id,
 				username: entry.username || 'Anonymous',
@@ -48,6 +51,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		return json({
 			entries: formattedLeaderboard,
 			stats: {
+				rankedPlayers: rankedCount ?? formattedLeaderboard.length,
 				totalUsers: totalUsersCount ?? formattedLeaderboard.length,
 			},
 		});
