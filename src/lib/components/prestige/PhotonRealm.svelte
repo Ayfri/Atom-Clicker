@@ -608,13 +608,13 @@
 		</div>
 	{/if}
 	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. -->
-	<div class="h-full flex flex-col lg:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
+	<div class="h-full flex flex-col lg:flex-row max-lg:landscape:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-12 max-lg:landscape:pt-2 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
 		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
-		<div class="flex-1 lg:w-2/3 flex flex-col items-center">
+		<div class="flex-1 lg:w-2/3 flex flex-col items-center max-lg:landscape:sticky max-lg:landscape:top-0 max-lg:landscape:self-start">
 			<PhotonCounter />
 
 			<div
-				class="relative w-full {mobile.current ? 'h-[40vh] min-h-75' : 'h-87.5 lg:h-162.5'} overflow-hidden"
+				class="relative w-full {mobile.current ? 'h-[40vh] min-h-75 landscape:h-[max(10rem,100dvh-15rem)] landscape:min-h-0' : 'h-87.5 lg:h-162.5'} overflow-hidden"
 				data-photon-realm
 				bind:this={container}
 			>
@@ -649,7 +649,7 @@
 		</div>
 
 		<!-- Upgrades Area - Right side (1/3 on desktop, full width on mobile) -->
-		<div class="w-full lg:w-1/3 lg:max-w-xs">
+		<div class="w-full lg:w-1/3 lg:max-w-xs max-lg:landscape:w-5/12 max-lg:landscape:shrink-0">
 			<PhotonUpgrades />
 		</div>
 	</div>

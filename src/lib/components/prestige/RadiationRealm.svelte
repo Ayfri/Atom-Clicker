@@ -44,16 +44,17 @@
 	}
 </script>
 
-<div class="relative pt-12 lg:pt-4" style:--color-radiation={accent}>
+<div class="relative pt-12 lg:pt-4 max-lg:landscape:pt-0" style:--color-radiation={accent}>
 	<div
 		class="pointer-events-none fixed inset-0 -z-50 transition-opacity duration-700"
 		style:background="radial-gradient(circle at 35% 45%, color-mix(in srgb, var(--color-radiation) 14%, transparent), transparent 55%)"
 		style:opacity={hasMass ? 0.3 + power * 0.7 : 0.15}
 	></div>
 
-	<div class="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-10 pt-12 lg:flex-row lg:items-start lg:pl-24 lg:pr-28 2xl:px-4">
-		<section class="flex flex-1 flex-col items-center gap-4">
-			<div class="flex flex-col items-center gap-1 text-center">
+	<div class="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-10 pt-12 lg:flex-row lg:items-start lg:pl-24 lg:pr-28 2xl:px-4 max-lg:landscape:pt-2">
+		<!-- On a phone in landscape the header spans the top, the reactor and its controls sit side by side under it. -->
+		<section class="flex flex-1 flex-col items-center gap-4 max-lg:landscape:flex-row max-lg:landscape:flex-wrap max-lg:landscape:items-start max-lg:landscape:justify-center">
+			<div class="flex flex-col items-center gap-1 text-center max-lg:landscape:w-full">
 				<div class="flex items-baseline gap-2">
 					<span
 						class="font-mono text-5xl font-bold tabular-nums text-radiation sm:text-[2.75rem] [text-shadow:0_0_24px_color-mix(in_srgb,var(--color-radiation)_45%,transparent)]"
@@ -79,7 +80,7 @@
 				</div>
 			</div>
 
-			<div class="flex w-full max-w-lg items-stretch gap-2">
+			<div class="flex w-full max-w-lg items-stretch gap-2 max-lg:landscape:max-w-[max(10rem,100dvh-13rem)]">
 				<div class="min-w-0 flex-1">
 					<ReactorCore {accent} />
 				</div>
@@ -90,7 +91,7 @@
 				{/if}
 			</div>
 
-			<div class="flex w-full max-w-sm flex-col gap-3">
+			<div class="flex w-full max-w-sm flex-col gap-3 max-lg:landscape:w-auto max-lg:landscape:flex-1">
 				{#if (hasMass || power > 0) && mobile.current}
 					<div in:reveal>
 						<PowerLever vertical={false} />

@@ -35,7 +35,7 @@
 	});
 </script>
 
-<div class="relative pt-12 transition-all duration-1000 ease-in-out lg:pt-8 {mobile.current ? 'min-h-screen pb-8' : ''}">
+<div class="relative pt-12 transition-all duration-1000 ease-in-out lg:pt-8 max-lg:landscape:pt-2 {mobile.current ? 'min-h-screen pb-8' : ''}">
 	<Canvas />
 
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
@@ -85,7 +85,7 @@
 				</div>
 			</div>
 		{/if}
-		<div class="grid-area-[atom] relative z-0 flex flex-col items-center justify-start">
+		<div class="grid-area-[atom] relative z-0 flex flex-col items-center justify-start max-lg:landscape:sticky max-lg:landscape:top-0">
 			<Counter />
 			<Atom />
 			<ActivePowerUps />
@@ -120,6 +120,16 @@
 			grid-template-columns: minmax(0, 1fr);
 			max-width: 100%;
 			overflow-x: hidden;
+		}
+	}
+
+	/* A phone on its side has no height for the stacked layout, so the atom stays in view beside the tabs. */
+	@media (width < 64rem) and (orientation: landscape) {
+		.game-container {
+			align-items: start;
+			gap: 1rem;
+			grid-template-areas: 'atom upgrades';
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		}
 	}
 </style>

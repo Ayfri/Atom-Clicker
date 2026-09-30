@@ -21,7 +21,7 @@
 	const hasAutoClick = $derived(gameManager.effects.has('auto_click'));
 </script>
 
-<div class="mb-8 text-center z-1 sm:mb-4 relative">
+<div class="mb-8 text-center z-1 sm:mb-4 max-lg:landscape:mb-2 relative">
 	<div class="mb-2">
 		{#if gameManager.electrons > 0}
 			<div>

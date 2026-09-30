@@ -9,7 +9,7 @@
 	const hasAutoClick = $derived((gameManager.photonUpgrades['auto_clicker'] || 0) > 0);
 </script>
 
-<div class="mb-8 text-center z-1 sm:mb-4 relative">
+<div class="mb-8 text-center z-1 sm:mb-4 max-lg:landscape:mb-2 relative">
 	<div class="mb-2">
 		{#if gameManager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime > 0}
 			<div>
