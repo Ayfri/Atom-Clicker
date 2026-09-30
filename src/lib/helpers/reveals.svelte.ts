@@ -1,6 +1,6 @@
 import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
 import { gameManager } from '$helpers/GameManager.svelte';
-import { cubicOut } from 'svelte/easing';
+import { cubicInOut, cubicOut } from 'svelte/easing';
 import type { TransitionConfig } from 'svelte/transition';
 
 const FIRST_GENERATOR_COST = GENERATORS[GENERATOR_TYPES[0]].cost.amount;
@@ -47,5 +47,28 @@ export function reveal(_node: Element, { delay = 0, y = 16 }: { delay?: number; 
 		},
 		delay,
 		duration: 1600,
+	};
+}
+
+/**
+ * Unfolds a panel along its flex container's direction so its neighbours glide aside, its content keeps its final width under the clip.
+ * @example <aside in:unfold>...</aside>
+ */
+export function unfold(node: HTMLElement, { duration = 900 }: { duration?: number } = {}): TransitionConfig {
+	if (!reveals.animating) return { duration: 0 };
+	const parent = getComputedStyle(node.parentElement ?? node);
+	const row = parent.flexDirection.startsWith('row');
+	const [axis, edge] = row ? ['width', 'left'] : ['height', 'top'];
+	const size = row ? node.offsetWidth : node.offsetHeight;
+	const gap = parseFloat(row ? parent.columnGap : parent.rowGap) || 0;
+	const content = node.firstElementChild;
+	if (row && content instanceof HTMLElement) {
+		content.style.width = `${content.offsetWidth}px`;
+		node.addEventListener('introend', () => content.style.removeProperty('width'), { once: true });
+	}
+	return {
+		css: t => `overflow: hidden; ${axis}: ${t * size}px; min-${axis}: 0; margin-${edge}: ${(t - 1) * gap}px; opacity: ${Math.min(1, t * 3)};`,
+		duration,
+		easing: cubicInOut,
 	};
 }

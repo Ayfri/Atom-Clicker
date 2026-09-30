@@ -10,7 +10,7 @@
 	import { quarksManager } from '$helpers/QuarksManager.svelte';
 	import { radiationManager } from '$helpers/RadiationManager.svelte';
 	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { reveal } from '$helpers/reveals.svelte';
+	import { reveal, unfold } from '$helpers/reveals.svelte';
 	import { formatNumber } from '$lib/utils';
 	import { mobile } from '$stores/window.svelte';
 
@@ -133,7 +133,7 @@
 		</section>
 
 		{#if showUpgrades}
-			<aside class="w-full lg:w-2/5 lg:max-w-md" in:reveal>
+			<aside class="w-full lg:w-2/5 lg:max-w-md" in:unfold>
 				<RadiationUpgrades />
 			</aside>
 		{/if}
