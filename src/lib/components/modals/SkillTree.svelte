@@ -16,6 +16,9 @@
 		minY: Math.min(...SKILLS.map(({ position }) => position.y)),
 	};
 
+	/** The view can pan a tree edge to its center, half a desktop modal at the minimum zoom spans ~5400px of tree. */
+	const GRID_MARGIN = 6000;
+
 	const ROOT_CENTER = {
 		x: SKILL_UPGRADES.unlockLevels.position.x + SKILL_NODE_SIZE.width / 2,
 		y: SKILL_UPGRADES.unlockLevels.position.y + SKILL_NODE_SIZE.height / 2,
@@ -200,16 +203,19 @@
 			{/each}
 		</div>
 
-		<!-- Dots shrink and fade out with the zoom, a dense grid at low zoom would outshine the tree. -->
 		<div
-			class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,rgb(255_255_255/0.12)_var(--dot),transparent_var(--dot))]"
-			style:--dot="{Math.max(0.75, 1.5 * panZoom.zoom)}px"
-			style:background-position="{panZoom.x}px {panZoom.y}px"
-			style:background-size="{40 * panZoom.zoom}px {40 * panZoom.zoom}px"
-			style:opacity={Math.min(1, Math.max(0, (panZoom.zoom - 0.2) / 0.6))}
-		></div>
-
-		<div class="absolute top-0 left-0 origin-top-left" style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})">
+			class="absolute top-0 left-0 origin-top-left"
+			style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})"
+			style:will-change={panZoom.moving ? 'transform' : undefined}
+		>
+			<!-- Dots belong to the tree layer so they pan without a repaint, and shrink with the zoom so their density never outshines the tree. -->
+			<div
+				class="pointer-events-none absolute bg-[radial-gradient(circle,rgb(255_255_255/0.12)_1.5px,transparent_1.5px)] bg-size-[40px_40px]"
+				style:height="{TREE_BOUNDS.maxY - TREE_BOUNDS.minY + 2 * GRID_MARGIN}px"
+				style:left="{TREE_BOUNDS.minX - GRID_MARGIN}px"
+				style:top="{TREE_BOUNDS.minY - GRID_MARGIN}px"
+				style:width="{TREE_BOUNDS.maxX - TREE_BOUNDS.minX + 2 * GRID_MARGIN}px"
+			></div>
 			<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
 				{#each LINKS as { id, path, source, target } (id)}
 					{#if statuses[source].visible && statuses[target.id].visible}

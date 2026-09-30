@@ -19,6 +19,11 @@ const midpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y +
  * @example <div style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})">
  */
 export class PanZoom {
+	/**
+	 * A gesture is moving the view. The content layer takes `will-change: transform` only meanwhile: without it every move
+	 * repaints all its children, and kept on it stays rasterized at the zoom it started with, blurry once zoomed in.
+	 */
+	moving = $state(false);
 	x = $state(0);
 	y = $state(0);
 	zoom = $state(1);
@@ -28,6 +33,8 @@ export class PanZoom {
 	#element: HTMLElement | undefined;
 	readonly #options: PanZoomOptions;
 	readonly #pointers = new Map<number, Point>();
+	/** Wheel zooms have no end event, the gesture ends once the wheel stays still for a moment. */
+	#wheelEnd: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(options: PanZoomOptions) {
 		this.#options = options;
@@ -50,6 +57,7 @@ export class PanZoom {
 			window.removeEventListener('pointermove', this.#onPointerMove);
 			window.removeEventListener('pointerup', this.#onPointerUp);
 			window.removeEventListener('pointercancel', this.#onPointerUp);
+			clearTimeout(this.#wheelEnd);
 			this.#element = undefined;
 		};
 	};
@@ -104,6 +112,7 @@ export class PanZoom {
 		const next = { x: event.clientX, y: event.clientY };
 		const other = [...this.#pointers].find(([id]) => id !== event.pointerId)?.[1];
 		this.#pointers.set(event.pointerId, next);
+		this.moving = true;
 
 		if (!other) {
 			this.#dragDistance += Math.abs(next.x - last.x) + Math.abs(next.y - last.y);
@@ -121,11 +130,15 @@ export class PanZoom {
 
 	#onPointerUp = (event: PointerEvent) => {
 		this.#pointers.delete(event.pointerId);
+		if (this.#pointers.size === 0) this.moving = false;
 	};
 
 	#onWheel = (event: WheelEvent) => {
 		if (!this.#element) return;
 		event.preventDefault();
+		this.moving = true;
+		clearTimeout(this.#wheelEnd);
+		this.#wheelEnd = setTimeout(() => (this.moving = false), 200);
 		const rect = this.#element.getBoundingClientRect();
 		const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaY;
 		/** Trackpad pinches arrive as ctrl+wheel with much smaller deltas than a mouse wheel. */
