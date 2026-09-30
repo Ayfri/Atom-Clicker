@@ -82,13 +82,18 @@ class Pool {
 export class ClickParticles extends CanvasLoop {
 	private static current: ClickParticles | null = null;
 
+	/** Box around everything drawn on the last frame, in CSS px: a burst covers a small area, clearing the whole screen filled it all for nothing. */
+	private bottom = -Infinity;
 	private readonly ctx: CanvasRenderingContext2D;
 	private readonly icons = new Pool(MAX_ICONS);
 	/** Keyed by currency id, filled as the SVGs load: a click before that only gets its label. */
 	private readonly iconSprites = new Map<string, Sprite>();
+	private left = Infinity;
 	private ratio = 1;
+	private right = -Infinity;
 	private readonly texts = new Pool(MAX_TEXTS);
 	private readonly textSprites = new Map<string, Sprite>();
+	private top = Infinity;
 
 	constructor(canvas: HTMLCanvasElement) {
 		super(canvas);
@@ -137,10 +142,12 @@ export class ClickParticles extends CanvasLoop {
 	}
 
 	protected draw(dt: number): boolean {
-		const { canvas, ctx, icons, ratio, texts } = this;
+		const { ctx, icons, ratio, texts } = this;
 		const damp = DRAG ** dt;
-		ctx.setTransform(1, 0, 0, 1, 0, 0);
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+		if (this.right > this.left) ctx.clearRect(this.left, this.top, this.right - this.left, this.bottom - this.top);
+		this.left = this.top = Infinity;
+		this.right = this.bottom = -Infinity;
 
 		for (let i = icons.size - 1; i >= 0; i--) {
 			const particle = icons.items[i];
@@ -160,6 +167,8 @@ export class ClickParticles extends CanvasLoop {
 			ctx.globalAlpha = particle.alpha;
 			ctx.setTransform(ratio * cos, ratio * sin, -ratio * sin, ratio * cos, ratio * particle.x, ratio * particle.y);
 			ctx.drawImage(sprite.source, -width / 2, -height / 2, width, height);
+			// At least half the diagonal, so it bounds the sprite at any rotation without a square root.
+			this.cover(particle.x, particle.y, (width + height) / 2);
 		}
 
 		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -175,6 +184,7 @@ export class ClickParticles extends CanvasLoop {
 			const { sprite } = particle;
 			ctx.globalAlpha = particle.alpha;
 			ctx.drawImage(sprite.source, particle.x - sprite.width / 2, particle.y - sprite.height / 2, sprite.width, sprite.height);
+			this.cover(particle.x, particle.y, Math.max(sprite.width, sprite.height) / 2);
 		}
 
 		ctx.globalAlpha = 1;
@@ -187,12 +197,24 @@ export class ClickParticles extends CanvasLoop {
 		this.texts.clear();
 		this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		this.right = -Infinity;
 	}
 
+	/** Resizing clears the canvas, so nothing is left to erase. */
 	protected resize() {
 		this.ratio = pixelRatio();
 		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
 		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
+		this.right = -Infinity;
+	}
+
+	/** Grows the box the next frame clears, with a pixel of room for antialiasing. */
+	private cover(x: number, y: number, reach: number) {
+		reach += 1;
+		this.left = Math.min(this.left, Math.floor(x - reach));
+		this.top = Math.min(this.top, Math.floor(y - reach));
+		this.right = Math.max(this.right, Math.ceil(x + reach));
+		this.bottom = Math.max(this.bottom, Math.ceil(y + reach));
 	}
 
 	private rasterizeIcon(image: HTMLImageElement): Sprite {
