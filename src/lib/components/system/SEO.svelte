@@ -1,4 +1,5 @@
 <script>
+	import { page } from '$app/state';
 	import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 	import { VERSION } from "@sveltejs/kit";
 
@@ -7,8 +8,9 @@
 	const author = 'Ayfri';
 	const description =
 		'Atom Clicker is a free incremental game. Click atoms, buy upgrades and generators, prestige through protons, electrons and photons, and climb the leaderboard.';
-	const absoluteImageLink = `${site}/currencies/atom.svg`;
-	const absoluteOgImageLink = `${site}/og-image.png`;
+	/** Images come from the serving origin, so a preview deploy links its own assets rather than the ones live on the main site. */
+	const absoluteImageLink = `${page.url.origin}/currencies/atom.svg`;
+	const absoluteOgImageLink = `${page.url.origin}/og-image.png`;
 
 	const structuredData = {
 		'@context': 'https://schema.org',
