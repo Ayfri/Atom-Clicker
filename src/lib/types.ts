@@ -205,6 +205,12 @@ export interface PowerUp {
 	startTime: number;
 }
 
+/** One line of a prestige modal's Resets, Keeps or Next run lists, led by the icons of the currencies it concerns. */
+export interface PrestigeListItem {
+	currencies?: CurrencyName[];
+	label: string;
+}
+
 export interface Price {
 	amount: number;
 	currency: CurrencyName;
