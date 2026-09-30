@@ -7,6 +7,7 @@
 - **Living Backgrounds**: Every realm fills with drifting motes that thicken as you progress, and each click or purchase sends a comet to what it powers.
 - **Tutorial**: Small tips replace the popups and point at what to do next, while the interface opens up panel by panel as you unlock things.
 - **Quark Shop**: A Prism theme for the Photon Realm and a banner for each colored Light.
+- **Player Profiles**: Tap anyone on the leaderboard to see their journey, stats and generators.
 
 ## Redesigned
 
@@ -18,6 +19,7 @@
 - **Prestige**: Protonize and Electronize show your gain and what each reset keeps, and every reset gets its own icon that glows when ready.
 - **Achievements**: Grouped by theme, each series showing only your latest tier and the next one.
 - **Offline Progress**: A Welcome Back screen counts up your loot and shows what your automation did while you were away.
+- **Leaderboard**: A podium for the top 3, a bar showing the next player to pass, Near me and Online tabs, and arrows for who moved since your last visit.
 - **Settings**: A cleaner menu with a visual Profile, a cloud save comparison, a Changelog that flags new updates, and a way to turn off Google Analytics.
 - **Mobile**: A bottom bar replaces the floating icons, and the game fits your phone in landscape.
 
