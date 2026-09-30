@@ -266,13 +266,6 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 	};
 }
 
-// Simple validation check (used by cloud save)
-export function isValidGameState(state: unknown): state is GameState {
-	if (!state) return false;
-	const result = validateAndRepairGameState(structuredClone(state));
-	return result.valid || result.repaired;
-}
-
 export function migrateSavedState(savedState: unknown): GameState | undefined {
 	if (!savedState || typeof savedState !== 'object') return undefined;
 	const state = savedState as any;

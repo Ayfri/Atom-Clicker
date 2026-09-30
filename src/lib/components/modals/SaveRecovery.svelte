@@ -35,7 +35,7 @@
 		try {
 			const loadedState = await supabaseAuth.loadGameFromCloud();
 			if (loadedState) {
-				gameManager.loadSaveData(loadedState);
+				gameManager.loadCloudSave(loadedState);
 				toastStore.success({ title: 'Recovery Successful', message: 'Your game has been loaded from the cloud save.' });
 				saveRecovery.clearError();
 				onClose();

@@ -5,7 +5,7 @@ import type { GameState } from '$lib/types';
 import type { Database, Json, Profile } from '$lib/types/supabase';
 import { isLocalStorageAvailable } from '$lib/utils/safeLocalStorage';
 import { multiTabDetector } from '$stores/multiTab.svelte';
-import { isValidGameState, SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
+import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
 
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
 export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
@@ -361,12 +361,8 @@ export class SupabaseAuth {
 			if (error) throw error;
 			if (!profile?.save) return null;
 
-			const migratedState = migrateSavedState(profile.save);
-
-			if (migratedState && isValidGameState(migratedState)) {
-				return migratedState as GameState;
-			}
-			return null;
+			/** The repaired state, since `loadSaveData` skips missing keys and would keep this device's values for them. */
+			return validateAndRepairGameState(migrateSavedState(profile.save)).state;
 		} catch (err) {
 			console.error('Error loading game from cloud:', err);
 			throw err;

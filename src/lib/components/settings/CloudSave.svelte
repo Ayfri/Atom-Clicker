@@ -104,7 +104,7 @@
 		try {
 			const loadedState = await supabaseAuth.loadGameFromCloud();
 			if (!loadedState) throw new Error('No saved game found in cloud');
-			gameManager.loadSaveData(loadedState);
+			gameManager.loadCloudSave(loadedState);
 			toastStore.info({ title: 'Success', message: 'Game loaded from cloud' });
 			onClose();
 		} catch (e) {

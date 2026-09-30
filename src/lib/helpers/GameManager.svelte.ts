@@ -535,6 +535,14 @@ export class GameManager {
 		this.save();
 	}
 
+	/** Replaces the game with a cloud save, syncing features and realms like a local load and writing it to this device at once. */
+	loadCloudSave(state: GameState) {
+		this.loadSaveData(state);
+		this.syncFeatures();
+		this.checkRealmUnlocks();
+		this.save();
+	}
+
 	loadSaveData(data: Partial<GameState>) {
 		for (const key of Object.keys(statsConfig)) {
 			if (!(key in data)) continue;
