@@ -293,32 +293,36 @@ export class QuarksManager {
 		}
 	}
 
-	async claimAchievement(achievementId: string) {
-		if (this.claimedAchievementIds.includes(achievementId)) return;
+	/** Resolves to the Quarks the server granted, 0 when nothing was claimed. */
+	async claimAchievement(achievementId: string): Promise<number> {
+		if (this.claimedAchievementIds.includes(achievementId)) return 0;
 		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', {
 			achievementIds: [achievementId],
 		}, `claim-achievement:${achievementId}`);
-		if (!result) return;
+		if (!result) return 0;
 
 		this.balance = result.balance;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, achievementId])];
 		if (result.granted > 0) {
 			toastStore.info({ message: 'Achievement reward claimed.', title: '+1 Quark' });
 		}
+		return result.granted;
 	}
 
-	async claimAchievements(achievementIds: string[]) {
+	/** Resolves to the Quarks the server granted, 0 when nothing was claimed. */
+	async claimAchievements(achievementIds: string[]): Promise<number> {
 		const idsToClaim = achievementIds.filter((id) => !this.claimedAchievementIds.includes(id));
-		if (idsToClaim.length === 0) return;
+		if (idsToClaim.length === 0) return 0;
 
 		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', { achievementIds: idsToClaim }, 'claim-achievements');
-		if (!result) return;
+		if (!result) return 0;
 
 		this.balance = result.balance;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...idsToClaim])];
 		if (result.granted > 0) {
 			toastStore.info({ message: `${result.granted} achievement rewards claimed.`, title: `+${result.granted} Quarks` });
 		}
+		return result.granted;
 	}
 
 	async collectHiggsBoson() {
