@@ -23,6 +23,7 @@
 - **Leaderboard**: A podium for the top 3, a bar showing the next player to pass, Near me and Online tabs, and arrows for who moved since your last visit.
 - **Settings**: A cleaner menu with a visual Profile, a cloud save comparison, a Changelog that flags new updates, scientific notation for big numbers, and a way to turn off Google Analytics.
 - **Mobile**: A bottom bar replaces the floating icons, and the game fits your phone in landscape.
+- **Sign In**: A clearer sign in dialog showing what an account unlocks, and Google players can now sign in with one tap without leaving the game.
 
 # What's new 19-09-2026
 
