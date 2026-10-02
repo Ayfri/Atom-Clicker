@@ -43,7 +43,7 @@
 	};
 </script>
 
-<div class="relative z-1 mb-8 flex w-full flex-col items-center text-center sm:mb-4 max-lg:landscape:mb-2">
+<div class="relative z-1 flex w-full flex-col items-center text-center lg:mb-4 max-lg:landscape:mb-2">
 	{#if prestigeCurrencies.length > 0}
 		<div class="mb-1 flex items-center gap-4 text-lg font-bold tabular-nums">
 			{#each prestigeCurrencies as type (type)}
