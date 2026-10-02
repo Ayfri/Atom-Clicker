@@ -28,7 +28,7 @@ export class MultiTabDetector {
 		toastStore.warning({
 			title: 'Auth warning',
 			message: 'Game is already open in another tab. Auth and Cloud Save might not work correctly.',
-			is_infinite: true
+			duration: 0
 		});
 	}
 }

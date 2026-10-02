@@ -43,7 +43,7 @@
 			actionLabel: 'Reload',
 			title: 'New Version Available',
 			message: 'Reload to get the latest version, your progress is saved.',
-			is_infinite: true,
+			duration: 0,
 		});
 	});
 </script>

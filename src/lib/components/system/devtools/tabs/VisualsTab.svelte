@@ -22,7 +22,7 @@
 	let size = $state(40);
 
 	const toast = (type: 'error' | 'info' | 'success' | 'warning', infinite = false) =>
-		toastStore[type]({ is_infinite: infinite, message: `A ${infinite ? 'sticky ' : ''}${type} toast.`, title: `Test ${type}` });
+		toastStore[type]({ duration: infinite ? 0 : undefined, message: `A ${infinite ? 'sticky ' : ''}${type} toast.`, title: `Test ${type}` });
 </script>
 
 <Section title="Toasts and animations">

@@ -16,31 +16,27 @@ export interface ToastStyle {
 export interface Toast {
 	action?: () => void;
 	actionLabel?: string;
+	/** Milliseconds before the toast closes itself, 0 keeps it until dismissed. */
 	duration: number;
 	icon?: ToastIcon;
 	id: number;
-	is_infinite?: boolean;
 	message: string;
 	title: string;
 	type: ToastType;
 }
 
-export type ToastOptions = Omit<Toast, 'id' | 'duration' | 'type'> & {
+export type ToastOptions = Omit<Toast, 'duration' | 'id' | 'type'> & {
 	duration?: number;
 };
+
+/** Older timed toasts make room past this count, so an achievement burst never stacks off screen. */
+const MAX_TOASTS = 4;
 
 /** Monotonic, because a Date.now() based id can collide with another toast still alive in the list. */
 let nextToastId = 0;
 
 class ToastStore {
 	list = $state<Toast[]>([]);
-
-	add = (toast: Toast) => {
-		this.list.push(toast);
-		if (!toast.is_infinite && toast.duration > 0) {
-			setTimeout(() => this.remove(toast.id), toast.duration);
-		}
-	};
 
 	clearAll = () => {
 		this.list = [];
@@ -50,18 +46,14 @@ class ToastStore {
 		this.list = this.list.filter(t => t.id !== id);
 	};
 
+	/** A repeated toast replaces its live twin, which restarts its timer instead of stacking copies. */
 	private create(type: ToastType, options: ToastOptions) {
-		this.add({
-			action: options.action,
-			actionLabel: options.actionLabel,
-			duration: options.duration ?? 10_000,
-			icon: options.icon,
-			id: ++nextToastId,
-			is_infinite: options.is_infinite ?? false,
-			message: options.message,
-			title: options.title,
-			type,
-		});
+		const list = this.list.filter(t => t.message !== options.message || t.title !== options.title);
+		if (list.length >= MAX_TOASTS) {
+			const oldest = list.findIndex(t => t.duration > 0);
+			if (oldest !== -1) list.splice(oldest, 1);
+		}
+		this.list = [...list, { ...options, duration: options.duration ?? 10_000, id: ++nextToastId, type }];
 	}
 
 	error = (options: ToastOptions) => this.create('error', options);
@@ -71,4 +63,3 @@ class ToastStore {
 }
 
 export const toastStore = new ToastStore();
-

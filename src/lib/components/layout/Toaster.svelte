@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { toastStore, type ToastStyle, type ToastType } from '#stores/toasts.svelte.js';
 	import { AlertCircle, AlertTriangle, CheckCircle, Info, Trash2 } from '@lucide/svelte';
-	import { fade } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
+	import { fade, fly } from 'svelte/transition';
 	import Toast from './Toast.svelte';
 
 	const typeConfig = {
@@ -41,10 +42,12 @@
 	id="toaster"
 >
 	{#each toastStore.list as toast (toast.id)}
-		<Toast
-			{toast}
-			config={typeConfig[toast.type]}
-		/>
+		<div animate:flip={{ duration: 300 }} transition:fly={{ duration: 400, x: 20 }}>
+			<Toast
+				{toast}
+				config={typeConfig[toast.type]}
+			/>
+		</div>
 	{/each}
 
 	{#if toastStore.list.length > 1}
