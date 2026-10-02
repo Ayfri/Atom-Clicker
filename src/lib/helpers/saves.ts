@@ -179,13 +179,14 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 
 	// Try to repair each field
 	for (const check of checks) {
+		// Cloned like in migrateSavedState: the loaded state is mutated in place (the currencies setter fills it), the shared default must stay pristine.
 		if (!(check.key in stateObj)) {
-			stateObj[check.key] = check.defaultValue;
+			stateObj[check.key] = structuredClone(check.defaultValue);
 			repairs.push(`Added missing field: ${check.key}`);
 			repaired = true;
 		} else if (!check.validator(stateObj[check.key])) {
 			const oldValue = stateObj[check.key];
-			stateObj[check.key] = check.defaultValue;
+			stateObj[check.key] = structuredClone(check.defaultValue);
 			repairs.push(`Repaired invalid ${check.key}: ${JSON.stringify(oldValue)} -> ${JSON.stringify(check.defaultValue)}`);
 			repaired = true;
 		}

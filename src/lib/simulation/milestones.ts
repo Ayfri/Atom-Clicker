@@ -1,4 +1,5 @@
 import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -27,6 +28,7 @@ const READERS = {
 	electronizes: () => gameManager.totalElectronizesAllTime,
 	electrons: () => currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
 	excitedPhotons: () => currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
+	ionizes: () => gameManager.totalIonizesAllTime,
 	photonUpgradeLevels: () => gameManager.photonUpgradeLevels,
 	playerLevel: () => gameManager.playerLevel,
 	protonises: () => gameManager.totalProtonisesAllTime,
@@ -37,10 +39,16 @@ const READERS = {
 	upgrades: () => gameManager.upgrades.length,
 } satisfies Record<string, Reader>;
 
-const at = (field: keyof typeof READERS, value: number, id: string, name: string, description: string): MilestoneEntry => ({
-	milestone: { description, id, name },
+const at = (field: keyof typeof READERS, value: number, id: string, name: string, description: string, system?: true): MilestoneEntry => ({
+	milestone: { description, id, name, system },
 	read: READERS[field],
 	value,
+});
+
+const feature = (type: FeatureType, name: string): MilestoneEntry => ({
+	milestone: { description: `Unlocked ${name}`, id: `feature_${type}`, name, system: true },
+	read: () => (gameManager.features[type] ? 1 : 0),
+	value: 1,
 });
 
 const firstPurchase = (type: (typeof GENERATOR_TYPES)[number]): MilestoneEntry => ({
@@ -70,12 +78,19 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('totalGenerators', 500, 'generators_500', '500 Generators', 'Owns 500 generators'),
 	at('totalGenerators', 1000, 'generators_1k', '1K Generators', 'Owns 1000 generators'),
 
-	at('protonises', 1, 'first_protonise', '1st Protonise', 'First Protonise'),
+	at('protonises', 1, 'first_protonise', '1st Protonise', 'First Protonise', true),
 	at('protonises', 10, 'protonises_10', '10 Protonises', '10 Protonises'),
 	at('protons', 100, 'protons_100', '100 Protons', 'Earned 100 Protons'),
 	at('protons', 1000, 'protons_1k', '1K Protons', 'Earned 1K Protons'),
-	at('electronizes', 1, 'first_electronize', '1st Electronize', 'First Electronize'),
+	at('electronizes', 1, 'first_electronize', '1st Electronize', 'First Electronize', true),
 	at('electrons', 100, 'electrons_100', '100 Electrons', 'Earned 100 Electrons'),
+	at('ionizes', 1, 'first_ionize', '1st Ionize', 'First Ionize', true),
+
+	feature(FeatureTypes.LEVELS, 'Skill Tree & Levels'),
+	feature(FeatureTypes.PURPLE_REALM, 'Photon Realm'),
+	feature(FeatureTypes.STABILITY_FIELD, 'Stability Field'),
+	feature(FeatureTypes.COLLIDER, 'Collider'),
+	feature(FeatureTypes.RADIATION_REALM, 'Radiation Realm'),
 
 	at('excitedPhotons', 1, 'excited_1', '1st Excited Photon', 'Collected an excited photon'),
 	at('excitedPhotons', 100, 'excited_100', '100 Excited Photons', 'Earned 100 excited photons'),

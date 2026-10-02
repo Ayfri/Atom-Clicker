@@ -1,28 +1,53 @@
 /** Turns a simulation result into a compact markdown balance report meant to be pasted into a chat for analysis. */
 import { ACHIEVEMENTS } from '#data/achievements.js';
-import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { formatDuration, formatNumber } from '#lib/utils.js';
 import { MILESTONES } from './milestones';
 import { DEFAULT_SEED } from './random';
-import { totalActionCount, type SimulationAction, type SimulationResult, type SimulationSnapshot } from './types';
+import {
+	PRESTIGE_LAYERS,
+	totalActionCount,
+	type PrestigeEvent,
+	type RunInsights,
+	type SimulationAction,
+	type SimulationResult,
+	type SimulationSnapshot,
+} from './types';
 
-const CURVE_ROWS = 16;
-const GROWTH_MAX = 4;
-const HOUR_MS = 3_600_000;
-const GROWTH_MIN = 0.5;
-const MILESTONE_WINDOW_MS = 600_000;
-const STALL_GROWTH = 1.05;
-const MAX_STALLS = 6;
-const MAX_SPIKES = 8;
 const ACHIEVEMENT_TOTAL = Object.keys(ACHIEVEMENTS).length;
+/** A tier whose next unit pays back within this factor of the best tier's is a correct purchase. */
+const BEST_VALUE_SLACK = 2;
+const CURVE_ROWS = 16;
+/** Below this median share and best-buy share at once, a tier has no visible role. */
+const DEAD_SHARE = 0.01;
+const DOMINANCE_MIN_TIERS = 3;
+const GROWTH_MAX = 4;
+const GROWTH_MIN = 0.5;
+const HOUR_MS = 3_600_000;
+const IDLE_BUCKETS_MS = [60_000, 300_000, 900_000];
+const MAX_GAPS = 6;
+const MAX_PRESTIGE_ROWS = 30;
+const MAX_SPIKES = 8;
+const MAX_STALLS = 6;
+const MILESTONE_WINDOW_MS = 600_000;
+const SKILL_TOTAL = Object.keys(SKILL_UPGRADES).length;
+const STALL_GROWTH = 1.05;
+const SYSTEM_GAP_TARGET_MS = 4 * HOUR_MS;
 
 function simTime(ms: number): string {
 	const h = Math.floor(ms / 3_600_000);
 	const m = Math.floor((ms % 3_600_000) / 60_000);
 	return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}m`;
+}
+
+/** Paybacks run from seconds to millennia, so past two days they read in days. */
+function span(ms: number): string {
+	if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+	if (ms < 2 * 86_400_000) return simTime(ms);
+	return `${formatNumber(ms / 86_400_000)}d`;
 }
 
 function mult(value: number): string {
@@ -33,6 +58,19 @@ function mult(value: number): string {
 
 function pct(value: number): string {
 	return `${(value * 100).toFixed(1)}%`;
+}
+
+/** Evenly spaced rows, the last one always kept, so a 72h run reads as short as a 2h one. */
+function sample<T>(rows: T[], count = CURVE_ROWS): T[] {
+	const step = Math.max(1, Math.ceil(rows.length / count));
+	return rows.filter((_, i) => i % step === 0 || i === rows.length - 1);
+}
+
+function median(values: number[]): number {
+	if (values.length === 0) return 0;
+	const sorted = values.toSorted((a, b) => a - b);
+	const middle = sorted.length >> 1;
+	return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 function table(headers: string[], rows: string[][]): string {
@@ -152,13 +190,18 @@ function findStalls(snapshots: SimulationSnapshot[]): { end: number; growth: num
 	return stalls.sort((a, b) => b.end - b.start - (a.end - a.start)).slice(0, MAX_STALLS);
 }
 
+interface HourlyGrowth {
+	decades: number;
+	hour: number;
+	peak: number;
+}
+
 /**
  * The balance target is a rate, not a size. Measured on peak APS rather than on the atom counter: a protonise wipes
  * atoms, so an atom-based rate reports minus thirty decades an hour every time the run resets and says nothing.
+ * The band is stated per hour, so the window is an hour: a two-minute slice of a ratchet reads zero almost everywhere.
  */
-function growthSection(snapshots: SimulationSnapshot[]): string {
-	// The band is stated per hour, so the measurement window is an hour: a two-minute slice of a ratchet reads zero
-	// almost everywhere and says nothing about pacing.
+function hourlyGrowth(snapshots: SimulationSnapshot[]): { hourly: HourlyGrowth[]; inBandShare: number; measured: number } {
 	const last = snapshots[snapshots.length - 1];
 	const totalHours = Math.max(1, Math.ceil(last.timestamp / HOUR_MS));
 	const atHour: SimulationSnapshot[] = [];
@@ -169,7 +212,7 @@ function growthSection(snapshots: SimulationSnapshot[]): string {
 		atHour[hour] = snapshots[cursor];
 	}
 
-	const hourly: { decades: number; hour: number; peak: number }[] = [];
+	const hourly: HourlyGrowth[] = [];
 	for (let hour = 1; hour <= totalHours; hour++) {
 		const previous = peakAps(atHour[hour - 1]);
 		const current = peakAps(atHour[hour]);
@@ -179,17 +222,17 @@ function growthSection(snapshots: SimulationSnapshot[]): string {
 
 	const measured = hourly.filter(entry => Number.isFinite(entry.decades));
 	const inBand = measured.filter(entry => entry.decades >= GROWTH_MIN && entry.decades <= GROWTH_MAX).length;
-	const share = measured.length > 0 ? inBand / measured.length : 0;
-	const step = Math.max(1, Math.ceil(hourly.length / CURVE_ROWS));
+	return { hourly, inBandShare: measured.length > 0 ? inBand / measured.length : 0, measured: measured.length };
+}
 
+function growthSection(snapshots: SimulationSnapshot[]): string {
+	const { hourly, inBandShare, measured } = hourlyGrowth(snapshots);
 	return [
-		`Target band: ${GROWTH_MIN} to ${GROWTH_MAX} decades of peak APS per hour. In band for **${pct(share)}** of the ${measured.length} measured hours.`,
+		`Target band: ${GROWTH_MIN} to ${GROWTH_MAX} decades of peak APS per hour. In band for **${pct(inBandShare)}** of the ${measured} measured hours.`,
 		'',
 		table(
 			['hour', 'decades', 'band', 'peak APS'],
-			hourly
-				.filter((_, i) => i % step === 0 || i === hourly.length - 1)
-				.map(entry => [
+			sample(hourly).map(entry => [
 					`${entry.hour}h`,
 					Number.isFinite(entry.decades) ? entry.decades.toFixed(2) : '-',
 					entry.decades < GROWTH_MIN ? 'slow' : entry.decades > GROWTH_MAX ? 'fast' : 'ok',
@@ -234,30 +277,345 @@ function multiplierBreakdown(s: SimulationSnapshot): string {
 	);
 }
 
+function totalProduction(s: SimulationSnapshot): number {
+	return GENERATOR_TYPES.reduce((sum, t) => sum + (s.generatorProductions[t] ?? 0), 0);
+}
+
+function bestPayback(s: SimulationSnapshot): number {
+	return Math.min(...Object.values(s.generatorPaybacks ?? {}));
+}
+
 function generatorTable(s: SimulationSnapshot): string {
-	const totalProduction = GENERATOR_TYPES.reduce((sum, t) => sum + (s.generatorProductions[t] ?? 0), 0);
+	const total = totalProduction(s);
+	const best = bestPayback(s);
 	return table(
-		['generator', 'count', 'APS', 'share', 'upgrade ×', 'level ×'],
+		['generator', 'count', 'APS', 'share', 'upgrade ×', 'level ×', 'payback', 'vs best'],
 		GENERATOR_TYPES.map(type => {
 			const production = s.generatorProductions[type] ?? 0;
+			const payback = s.generatorPaybacks?.[type];
 			return [
 				GENERATORS[type].name,
 				`${s.generators[type] ?? 0}`,
 				formatNumber(production),
-				totalProduction > 0 ? pct(production / totalProduction) : '-',
+				total > 0 ? pct(production / total) : '-',
 				mult(s.generatorUpgradeFactors[type] ?? 1),
 				mult(s.generatorLevelFactors[type] ?? 1),
+				payback !== undefined ? span(payback * 1000) : '-',
+				payback !== undefined && best > 0 ? mult(payback / best) : '-',
 			];
 		}),
 	);
 }
 
+interface GeneratorRole {
+	/** Share of snapshots where the next unit pays back within BEST_VALUE_SLACK of the best tier. */
+	bestValueShare: number;
+	firstOwned: number;
+	medianShare: number;
+	peakShare: number;
+	type: GeneratorType;
+}
+
+/** A tier has a role if it either produces a visible share or is, at some point, one of the right things to buy. */
+function generatorRoles(snapshots: SimulationSnapshot[]): GeneratorRole[] {
+	const shares = GENERATOR_TYPES.map((): number[] => []);
+	const bestValue = GENERATOR_TYPES.map(() => 0);
+	const firstOwned = GENERATOR_TYPES.map(() => Infinity);
+	let valued = 0;
+	for (const s of snapshots) {
+		const total = totalProduction(s);
+		const best = bestPayback(s);
+		if (Number.isFinite(best)) valued++;
+		GENERATOR_TYPES.forEach((type, i) => {
+			const payback = s.generatorPaybacks?.[type];
+			if (payback !== undefined && payback <= best * BEST_VALUE_SLACK) bestValue[i]++;
+			if ((s.generators[type] ?? 0) === 0 || total <= 0) return;
+			firstOwned[i] = Math.min(firstOwned[i], s.timestamp);
+			shares[i].push((s.generatorProductions[type] ?? 0) / total);
+		});
+	}
+	return GENERATOR_TYPES.map((type, i) => ({
+		bestValueShare: valued > 0 ? bestValue[i] / valued : 0,
+		firstOwned: firstOwned[i],
+		medianShare: median(shares[i]),
+		peakShare: shares[i].length > 0 ? Math.max(...shares[i]) : 0,
+		type,
+	}));
+}
+
+const isDeadTier = (role: GeneratorRole) => role.medianShare < DEAD_SHARE && role.bestValueShare < DEAD_SHARE;
+
+function generatorRolesSection(snapshots: SimulationSnapshot[], roles: GeneratorRole[]): string {
+	return [
+		`Share is the tier's slice of generator production while owned. Best buy counts the snapshots where its next unit pays back within ${BEST_VALUE_SLACK}× of the best tier, the wait to afford it included. A tier low on both has no role.`,
+		'',
+		table(
+			['generator', 'first owned', 'median share', 'peak share', 'best buy'],
+			roles.map(role => [
+				`${GENERATORS[role.type].name}${isDeadTier(role) ? ' ⚠' : ''}`,
+				Number.isFinite(role.firstOwned) ? simTime(role.firstOwned) : 'never',
+				pct(role.medianShare),
+				pct(role.peakShare),
+				pct(role.bestValueShare),
+			]),
+		),
+		'',
+		'Production share over time (%), with the best buy of each row:',
+		'',
+		table(
+			['t', ...GENERATOR_TYPES.map(type => GENERATORS[type].name), 'best buy'],
+			sample(snapshots.filter(s => totalProduction(s) > 0)).map(s => {
+				const total = totalProduction(s);
+				const best = bestPayback(s);
+				const bestType = GENERATOR_TYPES.find(type => s.generatorPaybacks?.[type] === best);
+				return [
+					simTime(s.timestamp),
+					...GENERATOR_TYPES.map(type => ((100 * (s.generatorProductions[type] ?? 0)) / total).toFixed(0)),
+					bestType ? GENERATORS[bestType].name : '-',
+				];
+			}),
+		),
+	].join('\n');
+}
+
+/**
+ * Share of the single biggest tier, skipping the first hour and the minutes after a reset, where one or two tiers owning
+ * everything is expected. The late mean covers the last quarter of the run, the endgame the balance goal is about.
+ */
+function dominance(snapshots: SimulationSnapshot[]): { late: number; peak: number; type: GeneratorType | null } {
+	const counts = new Map<GeneratorType, number>();
+	const tops: number[] = [];
+	const lateFrom = (snapshots.at(-1)?.timestamp ?? 0) * 0.75;
+	const late: number[] = [];
+	for (const s of snapshots) {
+		const total = totalProduction(s);
+		const owned = GENERATOR_TYPES.filter(type => (s.generators[type] ?? 0) > 0).length;
+		if (s.timestamp < HOUR_MS || total <= 0 || owned < DOMINANCE_MIN_TIERS) continue;
+		let top: GeneratorType = GENERATOR_TYPES[0];
+		for (const type of GENERATOR_TYPES) if ((s.generatorProductions[type] ?? 0) > (s.generatorProductions[top] ?? 0)) top = type;
+		const share = (s.generatorProductions[top] ?? 0) / total;
+		tops.push(share);
+		if (s.timestamp >= lateFrom) late.push(share);
+		counts.set(top, (counts.get(top) ?? 0) + 1);
+	}
+	return {
+		late: late.length > 0 ? late.reduce((a, b) => a + b, 0) / late.length : 0,
+		peak: tops.length > 0 ? Math.max(...tops) : 0,
+		type: [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
+	};
+}
+
+function realmTable(snapshots: SimulationSnapshot[]): string {
+	return table(
+		['t', 'protons', 'electrons', 'photons earned', 'excited earned', 'photon lvls', 'skills', 'P/E', 'radiation ×', 'stability ×'],
+		sample(snapshots).map(s => [
+			simTime(s.timestamp),
+			formatNumber(s.protons),
+			formatNumber(s.electrons),
+			formatNumber(s.photonsEarned ?? 0),
+			formatNumber(s.excitedPhotonsEarned ?? 0),
+			`${s.photonUpgradeLevels}`,
+			`${s.skills}`,
+			`${s.protonises}/${s.electronizes}`,
+			mult(s.radiationMultiplier),
+			mult(s.stabilityMultiplier),
+		]),
+	);
+}
+
+interface SystemStep {
+	gap: number;
+	name: string;
+	time: number;
+}
+
+/** Each new gameplay system with the wait since the previous one, the run's start counting as the first rung. */
+function systemLadder(result: SimulationResult): { open: number; reached: SystemStep[]; missing: string[] } {
+	const reached: SystemStep[] = [];
+	let previous = 0;
+	for (const hit of result.milestones) {
+		if (!hit.milestone.system) continue;
+		reached.push({ gap: hit.timeReached - previous, name: hit.milestone.name, time: hit.timeReached });
+		previous = hit.timeReached;
+	}
+	const reachedIds = new Set(result.milestones.map(hit => hit.milestone.id));
+	const end = result.snapshots.at(-1)?.timestamp ?? 0;
+	return { missing: MILESTONES.filter(m => m.system && !reachedIds.has(m.id)).map(m => m.name), open: end - previous, reached };
+}
+
+function ladderSection(ladder: ReturnType<typeof systemLadder>): string {
+	return [
+		`Target: a new system roughly every ${SYSTEM_GAP_TARGET_MS / HOUR_MS}h. ${simTime(ladder.open)} since the last one at the end of the run.`,
+		'',
+		table(
+			['system', 'at', 'wait'],
+			ladder.reached.map(step => [step.name, simTime(step.time), simTime(step.gap)]),
+		),
+		...(ladder.missing.length > 0 ? ['', `Never reached: ${ladder.missing.join(', ')}`] : []),
+	].join('\n');
+}
+
+function prestigeSection(prestiges: PrestigeEvent[]): string {
+	const lastGain = new Map<PrestigeEvent['type'], number>();
+	const rows = prestiges.map((event, i) => {
+		const previous = lastGain.get(event.type);
+		lastGain.set(event.type, event.gain);
+		// A deeper reset wipes the shallower currency, so the next gain starts a new series instead of reading as a 0.00× drop.
+		for (const layer of PRESTIGE_LAYERS.slice(0, PRESTIGE_LAYERS.indexOf(event.type))) lastGain.delete(layer);
+		return [
+			`${i + 1}`,
+			event.type,
+			simTime(event.timestamp),
+			simTime(event.runMs),
+			event.type === 'ionize' ? '-' : formatNumber(event.gain),
+			previous && event.type !== 'ionize' ? mult(event.gain / previous) : '-',
+			formatNumber(event.rawAps),
+			`${event.skills}`,
+		];
+	});
+	const summary = PRESTIGE_LAYERS
+		.map(type => {
+			const runs = prestiges.filter(event => event.type === type);
+			return runs.length > 0 ? `${type} ×${runs.length}, first ${simTime(runs[0].timestamp)}, median run ${simTime(median(runs.map(e => e.runMs)))}` : null;
+		})
+		.filter(line => line !== null);
+	return [
+		summary.length > 0 ? summary.join(' · ') : 'No reset in this run.',
+		'',
+		'Run is the time since the previous reset of the same or a deeper layer. Gain × compares with the previous reset of the same layer.',
+		'',
+		table(['#', 'layer', 'at', 'run', 'gain', 'gain ×', 'raw APS', 'skills'], sample(rows, MAX_PRESTIGE_ROWS)),
+	].join('\n');
+}
+
+function idleShare(insights: RunInsights, minMs: number): number {
+	if (insights.activeMs <= 0) return 0;
+	return insights.idleGaps.reduce((sum, gap) => sum + (gap.activeMs >= minMs ? gap.activeMs : 0), 0) / insights.activeMs;
+}
+
+function idleSection(insights: RunInsights): string {
+	const longest = insights.idleGaps.toSorted((a, b) => b.activeMs - a.activeMs).slice(0, MAX_GAPS);
+	return [
+		`Active play time where the bot found nothing to buy, reset or assign. ${simTime(insights.activeMs)} of active time: ` +
+			IDLE_BUCKETS_MS.map(ms => `${pct(idleShare(insights, ms))} in waits ≥ ${simTime(ms)}`).join(', ') + '.',
+		...(longest.length > 0
+			? ['', table(['from', 'to', 'active wait'], longest.map(gap => [simTime(gap.start), simTime(gap.end), simTime(gap.activeMs)]))]
+			: []),
+	].join('\n');
+}
+
+type Verdict = 'bad' | 'ok' | 'watch';
+
+interface Check {
+	label: string;
+	measured: string;
+	target: string;
+	verdict: Verdict;
+}
+
+/** Lower is better: `ok` up to the first bound, `watch` up to the second. */
+function grade(value: number, ok: number, watch: number): Verdict {
+	return value <= ok ? 'ok' : value <= watch ? 'watch' : 'bad';
+}
+
+/** One graded line per balance goal, so a run reads at a glance and a matrix of runs compares line by line. */
+export function buildScorecard(result: SimulationResult): Check[] {
+	const { insights, milestones, snapshots } = result;
+	const checks: Check[] = [];
+	if (snapshots.length === 0) return checks;
+	const reached = new Map(milestones.map(hit => [hit.milestone.id, hit.timeReached]));
+
+	const { inBandShare, measured } = hourlyGrowth(snapshots);
+	checks.push({
+		label: 'Growth pacing',
+		measured: `${pct(inBandShare)} of ${measured}h in band`,
+		target: `≥ 70% of hours at ${GROWTH_MIN}-${GROWTH_MAX} decades/h`,
+		verdict: grade(-inBandShare, -0.7, -0.4),
+	});
+
+	const stalls = findStalls(snapshots);
+	const longestStall = stalls[0] ? stalls[0].end - stalls[0].start : 0;
+	checks.push({
+		label: 'Longest APS stall',
+		measured: stalls[0] ? `${simTime(longestStall)} from ${simTime(stalls[0].start)}` : 'none',
+		target: '≤ 1h',
+		verdict: grade(longestStall, HOUR_MS, 2 * HOUR_MS),
+	});
+
+	const top = dominance(snapshots);
+	checks.push({
+		label: 'Top tier dominance',
+		measured: `last quarter ${pct(top.late)}, peak ${pct(top.peak)}${top.type ? `, mostly ${GENERATORS[top.type].name}` : ''}`,
+		target: 'last quarter < 70%, never ~90%',
+		verdict: grade(top.late, 0.7, 0.85),
+	});
+
+	const dead = generatorRoles(snapshots).filter(isDeadTier);
+	checks.push({
+		label: 'Tiers without a role',
+		measured: dead.length > 0 ? dead.map(role => GENERATORS[role.type].name).join(', ') : 'none',
+		target: `every tier > ${pct(DEAD_SHARE)} share or best buy`,
+		verdict: grade(dead.length, 0, 2),
+	});
+
+	if (insights) {
+		const longest = insights.idleGaps.reduce((max, gap) => Math.max(max, gap.activeMs), 0);
+		const share = idleShare(insights, IDLE_BUCKETS_MS[1]);
+		checks.push({
+			label: 'Nothing to do',
+			measured: `longest wait ${simTime(longest)}, ${pct(share)} of active time in waits ≥ 5m`,
+			target: 'longest ≤ 15m, ≤ 10% in long waits',
+			verdict: grade(Math.max(longest / (15 * 60_000), share / 0.1), 1, 2),
+		});
+	}
+
+	const ladder = systemLadder(result);
+	const widest = Math.max(ladder.open, ...ladder.reached.map(step => step.gap));
+	const bunched = ladder.reached.filter((step, i) => i > 0 && step.gap < 30 * 60_000).length;
+	checks.push({
+		label: 'System ladder',
+		measured: `${ladder.reached.length}/${ladder.reached.length + ladder.missing.length} systems, widest gap ${simTime(widest)}, ${bunched} within 30m of the previous`,
+		target: `a system every ~${SYSTEM_GAP_TARGET_MS / HOUR_MS}h`,
+		verdict: grade(widest, 1.5 * SYSTEM_GAP_TARGET_MS, 2.5 * SYSTEM_GAP_TARGET_MS),
+	});
+
+	const firstProtonise = insights?.prestiges.find(event => event.type === 'protonise');
+	checks.push({
+		label: 'First Protonise',
+		measured: firstProtonise
+			? `${simTime(firstProtonise.timestamp)}, ${firstProtonise.skills}/${SKILL_TOTAL} skills owned`
+			: reached.has('first_protonise') ? simTime(reached.get('first_protonise') ?? 0) : 'never',
+		target: 'well before the skill tree is bought',
+		verdict: firstProtonise ? grade(firstProtonise.skills / SKILL_TOTAL, 0.3, 0.6) : reached.has('first_protonise') ? 'ok' : 'bad',
+	});
+
+	for (const [id, label] of [['feature_purple_realm', 'Photons reachable'], ['first_electronize', 'Electrons reachable']] as const) {
+		const time = reached.get(id);
+		checks.push({ label, measured: time !== undefined ? simTime(time) : 'never', target: 'reached', verdict: time !== undefined ? 'ok' : 'bad' });
+	}
+
+	const densest = milestoneDensity(milestones);
+	checks.push({
+		label: 'Unlock dogpile',
+		measured: `${densest.count} milestones in 10m from ${simTime(densest.start)}`,
+		target: '≤ 6',
+		verdict: grade(densest.count, 6, 9),
+	});
+
+	return checks;
+}
+
+const VERDICT_MARK: Record<Verdict, string> = { bad: '✗', ok: '✓', watch: '~' };
+
+export function formatScorecard(checks: Check[]): string[] {
+	const width = Math.max(...checks.map(check => check.label.length));
+	return checks.map(check => `  ${VERDICT_MARK[check.verdict]} ${check.label.padEnd(width)}  ${check.measured}`);
+}
+
 function curveTable(snapshots: SimulationSnapshot[]): string {
-	const step = Math.max(1, Math.ceil(snapshots.length / CURVE_ROWS));
-	const sampled = snapshots.filter((_, i) => i % step === 0 || i === snapshots.length - 1);
 	return table(
 		['t', 'atoms', 'APS', 'peak APS', 'APC', 'global ×', 'bldgs', 'upg', 'ach', 'lvl', 'protons', 'electrons'],
-		sampled.map(s => [
+		sample(snapshots).map(s => [
 			simTime(s.timestamp),
 			formatNumber(s.atoms),
 			formatNumber(rawAps(s)),
@@ -321,6 +679,18 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	);
 
 	lines.push('');
+	lines.push('## Balance scorecard');
+	lines.push('');
+	lines.push('One line per balance goal: ✓ on target, ~ worth a look, ✗ off target. The sections below hold the detail.');
+	lines.push('');
+	lines.push(
+		table(
+			['', 'check', 'measured', 'target'],
+			buildScorecard(result).map(check => [VERDICT_MARK[check.verdict], check.label, check.measured, check.target]),
+		),
+	);
+
+	lines.push('');
 	lines.push('## Final state');
 	lines.push('');
 	lines.push(
@@ -356,6 +726,30 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	lines.push('## Growth rate');
 	lines.push('');
 	lines.push(growthSection(snapshots));
+
+	lines.push('');
+	lines.push('## Realm progress');
+	lines.push('');
+	lines.push('Earned columns are all-time, P/E counts Protonises and Electronizes.');
+	lines.push('');
+	lines.push(realmTable(snapshots));
+
+	lines.push('');
+	lines.push('## System ladder');
+	lines.push('');
+	lines.push(ladderSection(systemLadder(result)));
+
+	if (result.insights) {
+		lines.push('');
+		lines.push('## Prestige runs');
+		lines.push('');
+		lines.push(prestigeSection(result.insights.prestiges));
+
+		lines.push('');
+		lines.push('## Idle time');
+		lines.push('');
+		lines.push(idleSection(result.insights));
+	}
 
 	lines.push('');
 	lines.push('## Milestones');
@@ -395,6 +789,16 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	lines.push(multiplierBreakdown(final));
 
 	lines.push('');
+	lines.push('## Generator roles');
+	lines.push('');
+	lines.push(generatorRolesSection(snapshots, generatorRoles(snapshots)));
+
+	lines.push('');
+	lines.push('## Generators (final)');
+	lines.push('');
+	lines.push(generatorTable(final));
+
+	lines.push('');
 	lines.push('## Upgrade families');
 	lines.push('');
 	lines.push('Sorted by completion, least bought first. A family at 0 is content the run never touched.');
@@ -426,11 +830,6 @@ export function buildMarkdownReport(result: SimulationResult): string {
 			],
 		),
 	);
-
-	lines.push('');
-	lines.push('## Generators (final)');
-	lines.push('');
-	lines.push(generatorTable(final));
 
 	lines.push('');
 	lines.push('## Actions');
