@@ -7,9 +7,8 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
-	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { reveals } from '#helpers/reveals.svelte.js';
 	import { setGlobals } from '#lib/globals.js';
-	import { formatNumber } from '#lib/utils.js';
 	import { isLocalStorageUnavailable } from '#lib/utils/safeLocalStorage.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
@@ -22,6 +21,7 @@
 	import Levels from '#components/game/Levels.svelte';
 	import NavBar from '#components/layout/NavBar.svelte';
 	import RealmFooter from '#components/layout/RealmFooter.svelte';
+	import RealmSwitcher from '#components/layout/RealmSwitcher.svelte';
 	import RemoteBanner from '#components/layout/RemoteBanner.svelte';
 	import Toaster from '#components/layout/Toaster.svelte';
 	import OfflineProgress from '#components/modals/OfflineProgress.svelte';
@@ -30,7 +30,6 @@
 	import PhotonRealm from '#components/prestige/PhotonRealm.svelte';
 	import RadiationRealm from '#components/prestige/RadiationRealm.svelte';
 	import AutoSaveIndicator from '#components/system/AutoSaveIndicator.svelte';
-	import Currency from '#components/ui/Currency.svelte';
 	import { onMount, untrack, type Component } from 'svelte';
 
 	const realmComponents: Record<string, Component> = {
@@ -46,37 +45,7 @@
 		return theme?.background ?? realm.background;
 	}
 
-	const WARP_STREAKS = [
-		{ delay: 0, top: 14, width: 28 },
-		{ delay: 60, top: 27, width: 18 },
-		{ delay: 20, top: 39, width: 36 },
-		{ delay: 110, top: 48, width: 22 },
-		{ delay: 40, top: 57, width: 40 },
-		{ delay: 140, top: 68, width: 16 },
-		{ delay: 80, top: 79, width: 30 },
-		{ delay: 30, top: 90, width: 24 },
-	] as const;
-
-	const selectedIndex = $derived(realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealmId));
-
-	/** One-shot overlay of a player-triggered switch, a new `id` remounts it so back-to-back switches restart it. */
-	let warp = $state<{ color: string; direction: 1 | -1; id: number } | null>(null);
-
-	/** Switches spammed mid-swing restart the transitions from wherever they are and pile up warps. */
-	const SWITCH_COOLDOWN_MS = 500;
-	let lastSwitchTime = -SWITCH_COOLDOWN_MS;
-
-	function switchRealm(realm: RealmConfig, index: number) {
-		const now = performance.now();
-		if (index === selectedIndex || now - lastSwitchTime < SWITCH_COOLDOWN_MS) return;
-		lastSwitchTime = now;
-		warp = { color: realm.color, direction: index > selectedIndex ? 1 : -1, id: (warp?.id ?? 0) + 1 };
-		realmManager.selectRealm(realm.id);
-	}
-
-	function endWarp(event: AnimationEvent) {
-		if (event.target === event.currentTarget) warp = null;
-	}
+	const selectedIndex = $derived(realmManager.selectedIndex);
 
 	autoBuyManager.init();
 	autoUpgradeManager.init();
@@ -234,53 +203,7 @@
 	<Toaster />
 	<AutoSaveIndicator />
 	<Canvas />
-
-	{#if realmManager.availableRealms.length > 1}
-		<!-- The panel itself is click-through, so its padding never swallows taps meant for the realm underneath. On phones
-		     it sits just under the level bar, beside the realm headers. -->
-		<div
-			class="fixed right-4 top-[calc(var(--banner-height)+5rem)] z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
-			in:reveal
-		>
-			<div class="flex flex-col gap-1">
-				{#each realmManager.availableRealms as realm, i (realm.id)}
-					<button
-						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 pointer-events-auto {(
-							realmManager.selectedRealmId === realm.id
-						) ?
-							'bg-accent-500/60 border-accent-400/50'
-						:	'bg-white/5 hover:bg-white/10'}"
-						id="realm-{realm.id}"
-						in:reveal
-						onclick={() => switchRealm(realm, i)}
-						title="{realm.title} - {formatNumber(realmManager.realmValues[realm.id] ?? 0)} {realm.currency.name.toLowerCase()}"
-					>
-						<Currency name={realm.currency.name} />
-						<div class="text-xs text-white/80">{formatNumber(realmManager.realmValues[realm.id] ?? 0, 1)}</div>
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	{#if warp}
-		{#key warp.id}
-			<div
-				aria-hidden="true"
-				class="realm-warp"
-				onanimationend={endWarp}
-				style="--warp-color: {warp.color}; --warp-dir: {warp.direction};"
-			>
-				<div class="realm-warp-sweep"></div>
-				{#each WARP_STREAKS as streak, i (i)}
-					<div
-						class="realm-warp-streak"
-						style="animation-delay: {streak.delay}ms; top: {streak.top}%; width: {streak.width}vw;"
-					></div>
-				{/each}
-			</div>
-		{/key}
-	{/if}
+	<RealmSwitcher />
 
 	<main
 		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : (
@@ -333,91 +256,3 @@
 		{/if}
 	</main>
 </div>
-
-<style>
-	/* Only opacity and transform animate, so the whole overlay stays on the compositor even on small phones. */
-	.realm-warp {
-		animation: warp-flash 750ms ease-out both;
-		background: radial-gradient(
-			ellipse 70% 90% at calc(50% + var(--warp-dir) * 50%) 50%,
-			color-mix(in srgb, var(--warp-color), transparent 65%),
-			transparent 70%
-		);
-		inset: 0;
-		overflow: hidden;
-		pointer-events: none;
-		position: fixed;
-		z-index: 20;
-	}
-
-	.realm-warp-sweep {
-		animation: warp-sweep 650ms cubic-bezier(0.65, 0, 0.35, 1) both;
-		background: linear-gradient(
-			90deg,
-			transparent,
-			color-mix(in srgb, var(--warp-color), transparent 75%) 35%,
-			color-mix(in srgb, var(--warp-color), white 45%) 50%,
-			color-mix(in srgb, var(--warp-color), transparent 75%) 65%,
-			transparent
-		);
-		inset-block: -10%;
-		left: 32.5vw;
-		position: absolute;
-		width: 35vw;
-	}
-
-	.realm-warp-streak {
-		animation: warp-streak 450ms cubic-bezier(0.5, 0, 0.75, 0) both;
-		background: linear-gradient(90deg, transparent, var(--warp-color), transparent);
-		border-radius: 9999px;
-		height: 2px;
-		left: 0;
-		position: absolute;
-	}
-
-	@keyframes warp-flash {
-		0% {
-			opacity: 0;
-		}
-		30% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 0;
-		}
-	}
-
-	@keyframes warp-sweep {
-		0% {
-			opacity: 0;
-			transform: translateX(calc(var(--warp-dir) * 90vw)) skewX(-14deg);
-		}
-		25% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 0;
-			transform: translateX(calc(var(--warp-dir) * -90vw)) skewX(-14deg);
-		}
-	}
-
-	@keyframes warp-streak {
-		0% {
-			opacity: 0;
-			transform: translateX(calc(var(--warp-dir) * 110vw));
-		}
-		30% {
-			opacity: 0.8;
-		}
-		100% {
-			opacity: 0;
-			transform: translateX(calc(var(--warp-dir) * -110vw));
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.realm-warp {
-			display: none;
-		}
-	}
-</style>

@@ -65,7 +65,7 @@
 		<Ambient {accent} {ambience} realm={RealmTypes.RADIATION} />
 	{/if}
 
-	<div class="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-10 pt-1 lg:flex-row lg:pt-12 lg:items-start lg:pl-24 lg:pr-28 2xl:px-4 max-lg:landscape:pt-2">
+	<div class="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-10 pt-1 lg:flex-row lg:pt-12 lg:items-start lg:pl-24 lg:pr-38 2xl:px-4 max-lg:landscape:pt-2">
 		<!-- On a phone in landscape the header spans the top, the reactor and its controls sit side by side under it. -->
 		<section class="flex flex-1 flex-col items-center gap-4 max-lg:landscape:flex-row max-lg:landscape:flex-wrap max-lg:landscape:items-start max-lg:landscape:justify-center">
 			<div class="flex flex-col items-center gap-1 text-center max-lg:landscape:w-full">

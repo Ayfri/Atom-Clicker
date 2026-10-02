@@ -180,7 +180,7 @@
 	class={[
 		'fixed bottom-0 flex',
 		mobile.current ?
-			'inset-x-0 z-40 h-(--mobile-nav-height) items-center justify-center gap-0.5 border-t border-white/10 bg-accent-950/95 px-1'
+			'inset-x-0 z-40 h-(--mobile-dock-height) items-center justify-center gap-0.5 border-t border-white/10 bg-accent-950/95 px-1'
 		:	'left-0 z-50 w-18 flex-col items-center gap-2 border-r border-white/5 bg-black/25 py-4 backdrop-blur-xs',
 	]}
 	style:top={mobile.current ? undefined : 'var(--banner-height)'}

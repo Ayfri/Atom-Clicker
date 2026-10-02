@@ -1,5 +1,4 @@
 import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import type { Currency } from '#lib/types.js';
@@ -54,14 +53,8 @@ class RealmManager {
 		return this.realms.filter(r => gameManager.realms[r.id]?.unlocked);
 	}
 
-	get realmValues() {
-		return this.realms.reduce(
-			(acc, realm) => {
-				acc[realm.id] = currenciesManager.getAmount(realm.currency.name);
-				return acc;
-			},
-			{} as Record<RealmType, number>,
-		);
+	get selectedIndex() {
+		return this.availableRealms.findIndex(r => r.id === this.selectedRealmId);
 	}
 
 	get selectedRealm() {

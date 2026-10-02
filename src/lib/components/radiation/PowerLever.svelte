@@ -2,7 +2,7 @@
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 
 	interface Props {
-		/** Phones get a horizontal throttle, the fixed realm switcher covers the right edge of the reactor where the vertical one sits. */
+		/** Phones get a horizontal throttle under the reactor, the narrow column has no room beside it for the vertical one. */
 		vertical: boolean;
 	}
 
