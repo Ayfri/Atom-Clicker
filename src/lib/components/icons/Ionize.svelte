@@ -21,6 +21,7 @@
 <!-- A sun-like burst: the orbit breaks in three places and a ray of each colored Light escapes through the gaps. -->
 <svg
 	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
 	viewBox="0 0 24 24"
 	fill="none"
 	width={size}

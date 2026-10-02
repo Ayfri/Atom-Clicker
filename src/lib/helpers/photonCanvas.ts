@@ -73,7 +73,7 @@ export function drawLightIcon(ctx: CanvasRenderingContext2D, color: string, face
 
 /**
  * Draws a photon icon centered on the current origin, matching the SVG markup of
- * `@components/icons/Photon.svelte` and `@components/icons/ExcitedPhoton.svelte`.
+ * `#components/icons/Photon.svelte` and `#components/icons/ExcitedPhoton.svelte`.
  */
 export function drawPhotonIcon(ctx: CanvasRenderingContext2D, excited: boolean, size: number, alpha: number) {
 	const color = excited ? CURRENCIES[CurrenciesTypes.EXCITED_PHOTONS].color : CURRENCIES[CurrenciesTypes.PHOTONS].color;

@@ -1,7 +1,9 @@
 <script lang="ts">
-	import type { SVGAttributes } from 'svelte/elements';
+	import type { SvelteHTMLElements } from 'svelte/elements';
 
-	interface Props extends SVGAttributes<SVGSVGElement> {
+	type SvgProps = SvelteHTMLElements['svg'];
+
+	interface Props extends SvgProps {
 		color?: string;
 		size?: number | string;
 	}
@@ -11,6 +13,7 @@
 
 <svg
 	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
 	viewBox="0 0 24 24"
 	fill="none"
 	width={size}
@@ -21,13 +24,7 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<circle
-		cx="12"
-		cy="12"
-		r="6"
-		fill={color}
-		fill-opacity="0.2"
-	></circle>
+	<circle cx="12" cy="12" r="6" fill={color} fill-opacity="0.2"></circle>
 
 	<path
 		d="M19.02 9.40C21.04 9.40 22.46 9.68 22.83 10.24C23.59 11.40 19.58 13.33 13.85 14.55C8.13 15.77 2.88 15.82 2.11 14.66C1.71 14.05 2.64 13.23 4.45 12.40"

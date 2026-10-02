@@ -1,7 +1,9 @@
 <script lang="ts">
-	import type { SVGAttributes } from 'svelte/elements';
+	import type { SvelteHTMLElements } from 'svelte/elements';
 
-	interface Props extends SVGAttributes<SVGSVGElement> {
+	type SvgProps = SvelteHTMLElements['svg'];
+
+	interface Props extends SvgProps {
 		color?: string;
 		size?: number | string;
 	}
@@ -11,6 +13,7 @@
 
 <svg
 	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
 	viewBox="0 0 24 24"
 	fill="none"
 	width={size}
@@ -21,62 +24,19 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<!-- Everything rotated together -->
 	<g transform="rotate(35 12 12)">
-		<!-- Vertical axis line -->
-		<line
-			x1="12"
-			y1="1"
-			x2="12"
-			y2="23"
-		></line>
+		<!-- Axis -->
+		<line x1="12" y1="1" x2="12" y2="23"></line>
 
-		<!-- Left magnetic field loops (2 concentric ellipses) -->
-		<ellipse
-			cx="7"
-			cy="12"
-			rx="4.5"
-			ry="8"
-			fill="none"
-			stroke-width="1"
-			opacity="0.6"
-		></ellipse>
-		<ellipse
-			cx="8"
-			cy="12"
-			rx="3"
-			ry="5"
-			fill="none"
-			stroke-width="1"
-			opacity="0.6"
-		></ellipse>
+		<!-- Magnetic field loops -->
+		<g stroke-width="1" opacity="0.6">
+			<ellipse cx="7" cy="12" rx="4.5" ry="8"></ellipse>
+			<ellipse cx="8" cy="12" rx="3" ry="5"></ellipse>
+			<ellipse cx="16.5" cy="12" rx="4.5" ry="8"></ellipse>
+			<ellipse cx="16" cy="12" rx="3" ry="5"></ellipse>
+		</g>
 
-		<!-- Right magnetic field loops (2 concentric ellipses) -->
-		<ellipse
-			cx="16.5"
-			cy="12"
-			rx="4.5"
-			ry="8"
-			fill="none"
-			stroke-width="1"
-			opacity="0.6"
-		></ellipse>
-		<ellipse
-			cx="16"
-			cy="12"
-			rx="3"
-			ry="5"
-			fill="none"
-			stroke-width="1"
-			opacity="0.6"
-		></ellipse>
-
-		<!-- Central neutron star core -->
-		<circle
-			cx="12"
-			cy="12"
-			r="2.5"
-			fill={color}
-		></circle>
+		<!-- Core -->
+		<circle cx="12" cy="12" r="2.5" fill={color}></circle>
 	</g>
 </svg>

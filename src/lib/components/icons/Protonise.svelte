@@ -14,6 +14,7 @@
 <!-- The atom collapses inward into a proton, the "+" nucleus. -->
 <svg
 	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
 	viewBox="0 0 24 24"
 	fill="none"
 	width={size}
