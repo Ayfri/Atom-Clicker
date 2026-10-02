@@ -1,6 +1,6 @@
 import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
 import { browser } from '$app/env';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
+import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
 import type { GameState } from '#lib/types.js';
 import type { Database, Json, Profile } from '#lib/types/supabase.js';
 import { isLocalStorageAvailable } from '#lib/utils/safeLocalStorage.js';
@@ -226,6 +226,48 @@ export class SupabaseAuth {
 		} catch (err) {
 			console.error('Sign in error:', err);
 			throw err;
+		}
+	}
+
+	private oneTapPrompted = false;
+
+	/** Signs in from Google's One Tap prompt without leaving the page, Google itself backs off for days once a player dismisses it. */
+	async promptGoogleOneTap() {
+		// FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't.
+		if (!PUBLIC_GOOGLE_CLIENT_ID || !this.supabase || this.isAuthenticated || this.oneTapPrompted || window.self !== window.top) return;
+		this.oneTapPrompted = true;
+
+		try {
+			await new Promise((resolve, reject) => {
+				const script = document.createElement('script');
+				script.src = 'https://accounts.google.com/gsi/client';
+				script.onload = resolve;
+				script.onerror = reject;
+				document.head.append(script);
+			});
+
+			/** Google signs the SHA-256 of the nonce into the ID token, Supabase hashes the raw one to compare them. */
+			const nonce = crypto.randomUUID();
+			const hashedNonce = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce))).toHex();
+
+			window.google!.accounts.id.initialize({
+				callback: async ({ credential }) => {
+					const { error } = await this.supabase!.auth.signInWithIdToken({ nonce, provider: 'google', token: credential });
+					if (error) {
+						console.error('Google One Tap sign in error:', error);
+						this.error = error;
+					}
+				},
+				client_id: PUBLIC_GOOGLE_CLIENT_ID,
+				context: 'signin',
+				itp_support: true,
+				nonce: hashedNonce,
+				use_fedcm_for_prompt: true,
+			});
+			window.google!.accounts.id.prompt();
+		} catch (err) {
+			// Content blockers commonly block the Google script, the regular sign in dialog still works without it.
+			console.warn('Google One Tap unavailable:', err);
 		}
 	}
 

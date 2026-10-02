@@ -168,6 +168,14 @@
 		});
 	});
 
+	/** Late enough that the One Tap prompt offers to keep real progress instead of greeting a new player with a login. */
+	const ONE_TAP_PLAY_TIME_MS = 10 * 60_000;
+	const oneTapReady = $derived(accountBootstrapped && !supabaseAuth.isAuthenticated && gameManager.inGameTime >= ONE_TAP_PLAY_TIME_MS);
+
+	$effect(() => {
+		if (oneTapReady) supabaseAuth.promptGoogleOneTap();
+	});
+
 	/** Signing in or out swaps the player half of the Collider state, so it re-syncs on each change. */
 	$effect(() => {
 		if (!accountBootstrapped || !gameManager.features[FeatureTypes.COLLIDER]) return;
