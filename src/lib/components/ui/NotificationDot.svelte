@@ -19,8 +19,9 @@
 >
 	{#if hasNotification}
 		<span
+			aria-hidden="true"
 			class="absolute -top-1 -right-1 size-2 rounded-full animate-pulse shadow-[0_0_10px]"
-			style="background-color: {color}; shadow-color: {color};"
+			style="background-color: {color}; --tw-shadow-color: {color};"
 		></span>
 	{/if}
 	{@render children?.()}

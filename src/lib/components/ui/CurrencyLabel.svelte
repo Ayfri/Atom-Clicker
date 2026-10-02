@@ -13,7 +13,7 @@
 	const currency = $derived(CURRENCIES[name]);
 </script>
 
-<span class="inline-flex items-center gap-0.5 align-tFop whitespace-nowrap {className}" style="color: {currency.color}">
+<span class="inline-flex items-center gap-0.5 align-top whitespace-nowrap {className}" style="color: {currency.color}">
 	<Currency {name} {size} />
 	{currency.name}
 </span>

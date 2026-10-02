@@ -30,7 +30,7 @@
 	const currencyObject = $derived(currency ? CURRENCIES[currency] : undefined);
 </script>
 
-<span title={currencyObject?.name ?? ''} class="inline-flex items-center gap-1 {className}" {...rest}>
+<span title={currencyObject?.name} class="inline-flex items-center gap-1 {className}" {...rest}>
 	{prefix}{formatNumber(value, precision)}
 	{#if currency}
 		<Currency name={currency} class={currencyClass} size={18}/>
