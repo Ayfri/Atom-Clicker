@@ -79,7 +79,7 @@
 		{#each currencies as currency (currency)}
 			{const amount = $derived(gameManager.currencies[currency].amount)}
 			<span class="flex items-center gap-1.5 text-xs text-white/70"><Currency name={currency} size={14} />{currency}</span>
-			<NumberInput onCommit={value => setCurrency(currency, value)} value={amount} />
+			<NumberInput label={currency} onCommit={value => setCurrency(currency, value)} value={amount} />
 			<button class={btn} onclick={() => setCurrency(currency, Math.max(amount, 1) * 10)}>x10</button>
 			<button class={btn} onclick={() => setCurrency(currency, 0)}>0</button>
 		{/each}

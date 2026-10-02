@@ -19,7 +19,7 @@
 
 	async function copy(text: string, what: string) {
 		await navigator.clipboard.writeText(text);
-		toastStore.success({ message: `${what} copied to the clipboard.`, title: 'DevTools', duration: 2000 });
+		toastStore.success({ duration: 2000, message: `${what} copied to the clipboard.`, title: 'DevTools' });
 	}
 
 	function download() {
@@ -28,16 +28,18 @@
 		URL.revokeObjectURL(url);
 	}
 
-	let importText = $state<string | null>(null);
-	const importError = $derived.by(() => {
-		if (!importText) return null;
+	function jsonError(text?: string | null): string | null {
+		if (!text) return null;
 		try {
-			JSON.parse(importText);
+			JSON.parse(text);
 			return null;
 		} catch (error) {
 			return (error as Error).message;
 		}
-	});
+	}
+
+	let importText = $state<string | null>(null);
+	const importError = $derived(jsonError(importText));
 
 	let snapshotName = $state('');
 
@@ -52,15 +54,7 @@
 	let query = $state('');
 	const keys = $derived(Object.keys(statsConfig).filter(key => key.toLowerCase().includes(query.trim().toLowerCase())));
 	let editing = $state<{ key: string; text: string } | null>(null);
-	const editError = $derived.by(() => {
-		if (!editing) return null;
-		try {
-			JSON.parse(editing.text);
-			return null;
-		} catch (error) {
-			return (error as Error).message;
-		}
-	});
+	const editError = $derived(jsonError(editing?.text));
 
 	/** `loadSaveData` already knows how to route the odd keys (settings merge, radiation, tutorial, selected realm). */
 	function write(key: string, value: unknown) {
@@ -100,7 +94,7 @@
 		<button class="{btnDanger} ml-auto" onclick={() => confirm('Wipe the local save and reload?') && reloadWithSave(null)}>Hard reset</button>
 	</div>
 	{#if importText !== null}
-		<textarea bind:value={importText} class="{field} mt-2 h-24 resize-y" placeholder="Paste a stored save or a raw state JSON"></textarea>
+		<textarea aria-label="Save to import" bind:value={importText} class="{field} mt-2 h-24 resize-y" placeholder="Paste a stored save or a raw state JSON"></textarea>
 		<div class="mt-1 flex items-center gap-2">
 			<span class="flex-1 truncate text-[11px] text-red-300">{importError ?? ''}</span>
 			<button class={btnAccent} disabled={!importText || !!importError} onclick={() => reloadWithSave(importText)}>Load and reload</button>
@@ -117,7 +111,7 @@
 			snapshotName = '';
 		}}
 	>
-		<input bind:value={snapshotName} class={field} placeholder="Name, e.g. before electronize" />
+		<input aria-label="Snapshot name" bind:value={snapshotName} class={field} placeholder="Name, e.g. before electronize" />
 		<button class={btnAccent} type="submit">Capture</button>
 	</form>
 	<div class="mt-1.5 flex flex-col gap-0.5">
@@ -135,16 +129,16 @@
 </Section>
 
 <Section title="State editor">
-	<input bind:value={query} class="{field} mb-1.5" placeholder="Filter keys" type="search" />
+	<input aria-label="Filter keys" bind:value={query} class="{field} mb-1.5" placeholder="Filter keys" type="search" />
 	<div class="flex flex-col">
 		{#each keys as key (key)}
 			{const value = $derived(read(key))}
 			<div class="grid grid-cols-[10rem_1fr] items-center gap-2 border-b border-white/5 py-0.5 text-xs last:border-0">
 				<span class="truncate font-mono text-[11px] text-white/50" title={key}>{key}</span>
 				{#if typeof value === 'number'}
-					<NumberInput onCommit={next => write(key, next)} {value} />
+					<NumberInput label={key} onCommit={next => write(key, next)} {value} />
 				{:else if typeof value === 'string'}
-					<input class={field} onchange={e => write(key, e.currentTarget.value)} {value} />
+					<input aria-label={key} class={field} onchange={e => write(key, e.currentTarget.value)} {value} />
 				{:else}
 					<button
 						class="truncate rounded px-1 text-left font-mono text-[11px] text-white/40 hover:bg-white/5 hover:text-white/70"
@@ -157,6 +151,7 @@
 			</div>
 			{#if editing?.key === key}
 				<textarea
+					aria-label="{key} JSON"
 					bind:value={editing.text}
 					class="{field} my-1 h-48 resize-y"
 					onkeydown={e => {

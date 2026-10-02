@@ -46,6 +46,7 @@
 			<span>{(stabilityProgress * 100).toFixed(1)}% of {formatDuration(stabilityTime)}</span>
 		</div>
 		<input
+			aria-label="Stability progress"
 			class="w-full cursor-pointer accent-accent-500"
 			max="1"
 			min="0"
@@ -66,11 +67,12 @@
 	{/snippet}
 	<div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-xs text-white/70">
 		<span>Unlocked</span>
-		<input bind:checked={radiationManager.unlocked} class={checkbox} type="checkbox" />
+		<input aria-label="Reactor unlocked" bind:checked={radiationManager.unlocked} class={checkbox} type="checkbox" />
 		<span>Mass</span>
-		<NumberInput onCommit={value => (radiationManager.mass = Math.max(0, value))} value={radiationManager.mass} />
+		<NumberInput label="Mass" onCommit={value => (radiationManager.mass = Math.max(0, value))} value={radiationManager.mass} />
 		<span>Rods {(radiationManager.controlRodLevel * 100).toFixed(0)}%</span>
 		<input
+			aria-label="Control rods"
 			class="w-full cursor-pointer accent-accent-500"
 			max="1"
 			min="0"

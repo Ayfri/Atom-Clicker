@@ -5,11 +5,12 @@
 
 	interface Props {
 		class?: string;
+		label?: string;
 		onCommit: (value: number) => void;
 		value: number;
 	}
 
-	let { class: className = '', onCommit, value }: Props = $props();
+	let { class: className = '', label, onCommit, value }: Props = $props();
 
 	/** Raw text while focused, null otherwise so the field shows the live formatted value. */
 	let draft = $state<string | null>(null);
@@ -22,6 +23,7 @@
 </script>
 
 <input
+	aria-label={label}
 	class="{field} {className} {Number.isNaN(parsed) ? 'border-red-500/70!' : ''}"
 	onblur={commit}
 	onfocus={async e => {

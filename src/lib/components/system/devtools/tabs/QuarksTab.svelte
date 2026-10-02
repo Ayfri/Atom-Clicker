@@ -48,7 +48,7 @@
 		</label>
 		<span>Balance</span>
 		{#if quarksManager.devOverride}
-			<NumberInput onCommit={value => (quarksManager.balance = Math.max(0, Math.round(value)))} value={quarksManager.balance} />
+			<NumberInput label="Quarks balance" onCommit={value => (quarksManager.balance = Math.max(0, Math.round(value)))} value={quarksManager.balance} />
 		{:else}
 			<span class="font-mono text-white">{formatNumber(quarksManager.balance)}</span>
 		{/if}

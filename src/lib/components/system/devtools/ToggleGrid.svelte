@@ -69,10 +69,11 @@
 
 <div class="flex flex-col gap-3">
 	<div class="flex flex-wrap items-center gap-1.5">
-		<input bind:value={query} class="{field} flex-1 basis-32" placeholder="Search id or name" type="search" />
+		<input aria-label="Search" bind:value={query} class="{field} flex-1 basis-32" placeholder="Search id or name" type="search" />
 		<div class="flex overflow-hidden rounded-md border border-white/10 text-xs">
 			{#each ['all', 'on', 'off'] as const as option (option)}
 				<button
+					aria-pressed={filter === option}
 					class="cursor-pointer px-2.5 py-1.5 capitalize transition-colors {filter === option ? 'bg-accent-500/30 text-white' : 'text-white/50 hover:bg-white/5'}"
 					onclick={() => (filter = option)}
 				>
@@ -99,6 +100,7 @@
 				{#each group.chips as { item, label } (item.id)}
 					{const on = $derived(ownedSet.has(item.id))}
 					<button
+						aria-pressed={on}
 						class="h-7 min-w-7 cursor-pointer rounded-md border px-2 text-[11px] font-semibold transition-colors {on ?
 							'border-accent-400/60 bg-accent-500/25 text-accent-100'
 						:	'border-white/10 bg-white/5 text-white/40 hover:border-white/25 hover:text-white/70'}"

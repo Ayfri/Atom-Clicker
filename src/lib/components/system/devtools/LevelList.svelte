@@ -32,6 +32,7 @@
 				{item.name} <span class="font-mono text-[10px] text-white/25">{item.id}</span>
 			</span>
 			<NumberInput
+				label="{item.name} level"
 				onCommit={value => onChange({ ...levels, [item.id]: Math.min(item.maxLevel, Math.max(0, Math.round(value))) })}
 				value={level}
 			/>

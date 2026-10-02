@@ -43,7 +43,7 @@
 				<Icon color={getGeneratorColor(generator?.level ?? 0)} size={16} />
 				<span class="truncate">{GENERATORS[type].name}</span>
 			</span>
-			<NumberInput onCommit={value => setGeneratorCount(type, value)} value={generator?.count ?? 0} />
+			<NumberInput label="{GENERATORS[type].name} count" onCommit={value => setGeneratorCount(type, value)} value={generator?.count ?? 0} />
 			<span class="font-mono text-white/50">{generator?.level ?? 0}</span>
 			<span class="text-right font-mono text-white/60">{formatNumber(gameManager.generatorProductions[type])}</span>
 			<label class="flex items-center gap-1" title={autoBuyUnlocked.has(type) ? 'Auto-buy' : 'Auto-buy upgrade not owned'}>
