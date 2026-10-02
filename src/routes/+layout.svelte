@@ -12,7 +12,8 @@
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { LoaderCircle } from '@lucide/svelte';
-	import { type Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		children?: Snippet;
@@ -23,7 +24,10 @@
 	// The benchmark route is a standalone analysis tool, none of the in-game overlays belong there.
 	const isBenchmark = $derived(page.url.pathname.startsWith('/benchmark'));
 
+	let mounted = $state(false);
 	let updatePromptShown = false;
+
+	onMount(() => (mounted = true));
 
 	// The old build's chunks are gone from Cloudflare, so a client-side navigation would hit a dead import
 	beforeNavigate((navigation) => {
@@ -51,8 +55,9 @@
 <SEO />
 <Analytics />
 
-{#if !browser}
-	<div class="flex h-screen w-screen items-center justify-center gap-4 flex-col text-center px-6">
+<!-- The server-rendered loading shell stays over the app until it mounts, then fades out instead of vanishing. -->
+{#if !mounted}
+	<div class="fixed inset-0 z-100 flex flex-col items-center justify-center gap-4 bg-page px-6 text-center" out:fade={{ duration: 250 }}>
 		<h1 class="text-4xl font-bold">Atom Clicker</h1>
 		<p class="max-w-xl text-slate-300">
 			A free incremental game. Click atoms, buy generators and upgrades, prestige through protons, electrons and photons, and climb the
@@ -64,7 +69,8 @@
 		/>
 		<noscript><p>Atom Clicker needs JavaScript enabled to run.</p></noscript>
 	</div>
-{:else}
+{/if}
+{#if browser}
 	<PrestigeAnimation
 		animation={prestigeStore.animation}
 		onComplete={() => prestigeStore.reset()}
