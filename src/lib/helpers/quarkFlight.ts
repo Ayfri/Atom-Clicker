@@ -43,7 +43,9 @@ export function gatherSparks(sources: { x: number; y: number }[], target: Elemen
 
 			const dx = to.left + Math.random() * to.width - x;
 			const dy = to.top + to.height / 2 - y;
-			const keyframes = arc(dx, dy, (Math.random() - 0.5) * 120, dy * 0.5 - 20 - Math.random() * 40, (t, translate) => ({
+			/** The bow scales with the distance, so a short gather curls in instead of swinging wide. */
+			const reach = Math.min(120, Math.hypot(dx, dy));
+			const keyframes = arc(dx, dy, (Math.random() - 0.5) * reach, dy * 0.5 - (0.15 + Math.random() * 0.35) * reach, (t, translate) => ({
 				opacity: t < 0.15 ? t / 0.15 : t > 0.9 ? 0.4 : 1,
 				transform: `${translate} scale(${t < 0.15 ? 0.3 + (t / 0.15) * 0.9 : 1.2 - 0.6 * t})`,
 			}));

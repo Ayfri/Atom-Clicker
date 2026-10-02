@@ -12,6 +12,7 @@
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
+	const RING_SPARKS = 6;
 	const TOTAL_ACHIEVEMENTS = Object.keys(ACHIEVEMENTS).length;
 
 	const claimableAchievementIds = $derived(
@@ -45,11 +46,21 @@
 		if (!expandedGroups.delete(name)) expandedGroups.add(name);
 	}
 
-	/** The Quarks only fly to the nav once the server granted them, a failed claim shows its error toast instead. */
+	/**
+	 * A ring of sparks condenses into the button, then the Quark flies to the nav. It only flies once the server granted
+	 * it, a failed claim shows its error toast instead. The flight is snapshotted first, the button is gone by then.
+	 */
 	async function claim(event: MouseEvent & { currentTarget: HTMLButtonElement }, achievementId: string) {
 		if (!canClaimAchievements) return;
-		const launch = quarkFlight(event.currentTarget);
-		launch(await quarksManager.claimAchievement(achievementId));
+		const button = event.currentTarget;
+		const rect = button.getBoundingClientRect();
+		const ring = Array.from({ length: RING_SPARKS }, (_, i) => {
+			const angle = (i / RING_SPARKS) * Math.PI * 2;
+			return { x: rect.left + rect.width / 2 + Math.cos(angle) * 34, y: rect.top + rect.height / 2 + Math.sin(angle) * 26 };
+		});
+		const launch = quarkFlight(button);
+		const [granted] = await Promise.all([quarksManager.claimAchievement(achievementId), gatherSparks(ring, button, 350)]);
+		launch(granted);
 	}
 
 	/** Sparks gather from each claimable row into the button, then the granted Quarks fly from it to the nav. */
