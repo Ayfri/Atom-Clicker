@@ -49,7 +49,7 @@
 	const DRIFT_MIN_MS = 700;
 
 	let core = $state<HTMLDivElement>();
-	const running = $derived(cpm > 0 && realmManager.selectedRealmId === RealmTypes.RADIATION);
+	const running = $derived(cpm > 0 && realmManager.selectedRealmId === RealmTypes.RADIATION && !ui.covered);
 
 	$effect(() => {
 		if (!running || !core) return;

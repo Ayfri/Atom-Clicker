@@ -61,6 +61,7 @@
 			return;
 		}
 		untrack(pick);
+		if (ui.activeModal) return;
 		const interval = setInterval(pick, POLL_MS);
 		window.addEventListener('scroll', pick, { capture: true, passive: true });
 		return () => {
@@ -159,8 +160,13 @@
 
 <style>
 	.hint-ring {
-		animation: hint-pulse 1.6s ease-in-out infinite;
 		transition: all 200ms;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.hint-ring {
+			animation: hint-pulse 1.6s ease-in-out infinite;
+		}
 	}
 
 	@keyframes hint-pulse {
