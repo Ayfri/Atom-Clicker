@@ -27,7 +27,6 @@ export function serializeSaveState(state: GameState): string {
 	return wrapSaveForStorage(JSON.stringify(state));
 }
 
-// Helper functions for state management
 export function loadSavedState(): LoadSaveResult {
 	let rawData: string | null = null;
 
@@ -87,15 +86,9 @@ export function loadSavedState(): LoadSaveResult {
 		// Step 3: Validate and try to repair if needed
 		const validationResult = validateAndRepairGameState(migratedState);
 		if (validationResult.valid) {
+			if (validationResult.repaired) console.log('Game state repaired:', validationResult.repairs);
 			console.log('Valid game state:', validationResult.state);
 			const integrityWarnings = checkStatePlausibility(validationResult.state!);
-			return { integrityTampered, integrityWarnings, state: validationResult.state, success: true };
-		}
-
-		// If repair was attempted but still invalid
-		if (validationResult.repaired && validationResult.state) {
-			console.log('Game state repaired:', validationResult.repairs);
-			const integrityWarnings = checkStatePlausibility(validationResult.state);
 			return { integrityTampered, integrityWarnings, state: validationResult.state, success: true };
 		}
 

@@ -72,11 +72,9 @@ export class GameManager {
 	lastInteractionTime = $state(Date.now());
 	lastSave = $state(Date.now());
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
-	/** Set from +layout.svelte, simulation.worker.ts imports GameManager and has no auth/DOM context for QuarksManager. */
-	onAchievementUnlocked: ((achievementId: string) => void) | null = null;
 	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
-	/** Pushed in by QuarksManager, same one-way dependency rule as `onAchievementUnlocked`. */
+	/** Pushed in by QuarksManager, which GameManager never imports so the simulation worker stays free of fetch and auth code. */
 	quarkBoostSources = $state<EffectSource[]>([]);
 	/** Owned Quark shop item ids, gating prestige-persistence behaviors the effect pipeline can't express. */
 	quarkEntitlements = $state<string[]>([]);
@@ -835,7 +833,6 @@ export class GameManager {
 				title: 'Achievement unlocked',
 			});
 		}
-		this.onAchievementUnlocked?.(achievementId);
 	}
 
 	unlockGenerator(type: GeneratorType) {
