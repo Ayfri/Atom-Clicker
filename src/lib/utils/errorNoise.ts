@@ -5,9 +5,10 @@ const APP_FRAME_PATTERN = /\/_app\//;
 const INJECTED_TOP_FRAME_PATTERN = /\(<anonymous>:\d+:\d+\)/;
 
 /**
- * Nothing to fix on our side: network failures, tabs left open across a deploy, the
- * "Request timeout <name>Distributor.getValue" family a ChromeOS text-prediction extension rejects with, and the
- * "Object Not Found Matching Id" rejections of the CefSharp browser Outlook Safe Links opens emailed links in.
+ * Nothing to fix on our side, and these arrive without a stack the frame checks below could judge: network failures, tabs left
+ * open across a deploy, the "Request timeout <name>Distributor.getValue" family a ChromeOS text-prediction extension rejects with,
+ * the "Object Not Found Matching Id" rejections of the CefSharp browser Outlook Safe Links opens emailed links in, and iOS
+ * WKWebView / Safari extension messaging failures.
  */
 const IGNORED_MESSAGE_PATTERNS = [
 	/^Failed to fetch$/,
@@ -20,8 +21,8 @@ const IGNORED_MESSAGE_PATTERNS = [
 	/error loading dynamically imported module/,
 	/^The string did not match the expected pattern\.$/,
 	/WKWebView API client did not respond to this postMessage/,
-	/is not defined$/,
-	/el\.click is not a function/,
+	/^The WKWebView was deallocated before the message was delivered/,
+	/^Invalid call to runtime\.sendMessage\(\)/,
 	/Cannot read properties of undefined \(reading '_source'\)/,
 ];
 
