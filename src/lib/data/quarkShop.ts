@@ -61,7 +61,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	boost_click_power: {
 		cost: 60,
-		description: 'Permanently doubles click power.',
+		description: 'Doubles click power while owned.',
 		effects: [mul('click', 2), mul('click_aps', 2)],
 		iconStack: { icon: 'click' },
 		id: 'boost_click_power',
@@ -70,7 +70,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	boost_global_production: {
 		cost: 120,
-		description: 'Permanently increases all production by 10%.',
+		description: 'Increases all production by 10% while owned.',
 		effects: [mul('global', 1.1)],
 		iconStack: { icon: 'globe' },
 		id: 'boost_global_production',
@@ -79,7 +79,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	boost_xp_gain: {
 		cost: 50,
-		description: 'Permanently increases XP gain by 25%.',
+		description: 'Increases XP gain by 25% while owned.',
 		effects: [mul('xp_gain', 1.25)],
 		iconStack: { icon: 'level' },
 		id: 'boost_xp_gain',
@@ -88,7 +88,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	convenience_auto_buy_speed: {
 		cost: 80,
-		description: 'Permanently increases auto-buyer speed by 20%.',
+		description: 'Increases auto-buyer speed by 20% while owned.',
 		effects: [mul('auto_speed', 1.2)],
 		iconStack: { icon: 'speed' },
 		id: 'convenience_auto_buy_speed',
@@ -97,7 +97,7 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	convenience_power_up_duration: {
 		cost: 70,
-		description: 'Permanently increases power-up duration by 20%.',
+		description: 'Increases power-up duration by 20% while owned.',
 		effects: [mul('power_up_duration', 1.2)],
 		iconStack: { icon: 'higgsBoson' },
 		id: 'convenience_power_up_duration',
