@@ -74,7 +74,7 @@
 			id: 'quarks',
 			label: 'Quarks',
 			load: () => import('#components/modals/Quarks.svelte'),
-			condition: () => quarksManager.balance > 0,
+			condition: () => supabaseAuth.isAuthenticated || quarksManager.balance > 0,
 			notification: () => supabaseAuth.isAuthenticated && quarksManager.hasSynced && quarksManager.hasClaimableQuest,
 		},
 		{
