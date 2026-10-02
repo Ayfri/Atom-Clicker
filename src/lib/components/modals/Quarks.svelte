@@ -4,15 +4,15 @@
 	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
 	import Quark from '#components/icons/Quark.svelte';
+	import Login from '#components/modals/Login.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
-	import { getQuestTarget, questAnchors } from '#data/dailyQuests.js';
 	import { CURRENCY_ICON_NAMES, type IconComponent } from '#data/icons.js';
-	import { QUARK_SHOP } from '#data/quarkShop.js';
-	import { RealmTypes, type RealmType } from '#data/realms.js';
+	import { QUARK_SHOP, type QuarkShopItem } from '#data/quarkShop.js';
+	import { RealmTypes } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -40,31 +40,31 @@
 
 	let { onClose }: Props = $props();
 
-	let activeTab = $state<'banners' | 'quests' | 'shop' | 'themes'>('quests');
+	type Tab = 'banners' | 'quests' | 'shop' | 'themes';
+
+	const TABS: { icon: typeof Target; id: Tab; label: string }[] = [
+		{ icon: Target, id: 'quests', label: 'Quests' },
+		{ icon: ShoppingBag, id: 'shop', label: 'Shop' },
+		{ icon: Palette, id: 'themes', label: 'Themes' },
+		{ icon: Flag, id: 'banners', label: 'Banners' },
+	];
+
+	let activeTab = $state<Tab>('quests');
 	let now = $state(Date.now());
+	let showLogin = $state(false);
+
+	const canAct = $derived(supabaseAuth.isAuthenticated || quarksManager.devOverride);
 
 	const shopItems = Object.values(QUARK_SHOP);
 	const boostItems = shopItems.filter(item => item.type === 'boost' || item.type === 'convenience');
-	const themeItems = shopItems.filter(item => item.type === 'theme');
 	const bannerItems = shopItems.filter(item => item.type === 'banner');
-
-	const REALM_ORDER: RealmType[] = [RealmTypes.ATOMS, RealmTypes.PHOTONS, RealmTypes.RADIATION];
-
-	function themesForRealm(realmId: RealmType) {
-		return themeItems.filter(item => item.theme?.realmId === realmId);
-	}
-
-	function realmTitle(realmId: RealmType) {
-		return realmManager.realms.find(r => r.id === realmId)?.title ?? realmId;
-	}
-
-	function realmCurrency(realmId: RealmType) {
-		return realmManager.realms.find(r => r.id === realmId)?.currency;
-	}
-
-	function isRealmUnlocked(realmId: RealmType) {
-		return gameManager.realms[realmId]?.unlocked ?? false;
-	}
+	const realmSections = [RealmTypes.ATOMS, RealmTypes.PHOTONS, RealmTypes.RADIATION]
+		.map(id => ({
+			id,
+			realm: realmManager.realms.find(r => r.id === id),
+			themes: shopItems.filter(item => item.theme?.realmId === id),
+		}))
+		.filter(section => section.themes.length > 0);
 
 	const QUEST_ICONS: Record<string, IconComponent> = {
 		atoms_earned: AtomIcon,
@@ -79,35 +79,101 @@
 	};
 
 	const resetIn = $derived.by(() => {
-		const nextUtcMidnight = Date.UTC(
-			new Date(now).getUTCFullYear(),
-			new Date(now).getUTCMonth(),
-			new Date(now).getUTCDate() + 1,
-		);
-		const remainingMs = Math.max(0, nextUtcMidnight - now);
-		const hours = Math.floor(remainingMs / 3_600_000);
-		const minutes = Math.floor((remainingMs % 3_600_000) / 60_000);
-		return `${hours}h ${minutes}m`;
+		const remainingMs = 86_400_000 - (now % 86_400_000);
+		return `${Math.floor(remainingMs / 3_600_000)}h ${Math.floor((remainingMs % 3_600_000) / 60_000)}m`;
 	});
 
 	onMount(() => {
 		const interval = setInterval(() => (now = Date.now()), 30_000);
 		return () => clearInterval(interval);
 	});
-
-	function questTarget(quest: (typeof quarksManager.quests)[number]) {
-		const frozen = gameManager.dailyStats.questTargets[quest.id];
-		return typeof frozen === 'number' ?
-			frozen
-		:	getQuestTarget(quest, questAnchors(gameManager.highestAPS));
-	}
 </script>
 
-{#snippet quarkAmount(amount: number)}
+{#snippet quarkAmount(amount: number, prefix = '')}
 	<span class="inline-flex items-center gap-1 font-mono">
 		<Quark size={14} class="shrink-0" />
-		{formatNumber(amount)}
+		{prefix}{formatNumber(amount)}
 	</span>
+{/snippet}
+
+{#snippet action(label: string, pendingLabel: string, pending: boolean, disabled: boolean, onclick: () => void)}
+	<button
+		class="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-accent-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-30"
+		disabled={canAct && (disabled || pending)}
+		onclick={canAct ? onclick : () => (showLogin = true)}
+	>
+		{#if canAct}
+			{pending ? pendingLabel : label}
+		{:else}
+			<Lock size={14} class="shrink-0" /> Sign in
+		{/if}
+	</button>
+{/snippet}
+
+{#snippet buy(item: QuarkShopItem)}
+	{@render action(
+		'Buy',
+		'Buying...',
+		quarksManager.isActionPending(`purchase:${item.id}`),
+		quarksManager.balance < item.cost,
+		() => quarksManager.purchase(item.id),
+	)}
+{/snippet}
+
+{#snippet cosmetic(item: QuarkShopItem)}
+	{const realmId = $derived(item.theme?.realmId)}
+	{const owned = $derived(quarksManager.entitlements.includes(item.id))}
+	{const equipped = $derived(realmId ? quarksManager.equippedThemes[realmId] === item.id : quarksManager.equippedBanner === item.id)}
+	{const equipPending = $derived(quarksManager.isActionPending(realmId ? `equip-theme:${realmId}` : 'equip-banner'))}
+	<div
+		class="flex flex-col gap-2 rounded-lg border p-3 transition-colors {equipped
+			? 'border-emerald-300 bg-emerald-500/15 ring-1 ring-emerald-300/30'
+			: owned
+				? 'border-emerald-400/60 bg-emerald-500/8'
+				: 'border-white/10 bg-accent-800/50'}"
+	>
+		{#if item.theme}
+			<div
+				class="h-12 rounded-lg"
+				style:background="linear-gradient(135deg, {item.theme.accent}, {item.theme.accentSecondary ?? item.theme.accent})"
+			></div>
+		{:else}
+			<LeaderboardRow entry={createCurrentPlayerPreview(item.id)} />
+		{/if}
+		<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+			<span class="font-medium text-white">{item.name}</span>
+			{#if owned}
+				<span
+					class="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold {equipped
+						? 'bg-emerald-300 text-emerald-950'
+						: 'bg-emerald-400/20 text-emerald-200'}"
+				>
+					<Check size={12} />
+					{equipped ? 'Equipped' : 'Owned'}
+				</span>
+			{/if}
+		</div>
+		<p class="text-sm text-white/60">{item.description}</p>
+		<div class="flex items-center justify-between">
+			<span class="flex items-center gap-1 text-sm text-white/60">{@render quarkAmount(item.cost)}</span>
+			{#if owned}
+				<button
+					class="cursor-pointer rounded-lg px-3 py-1 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-30 {equipped
+						? 'bg-white/10 text-white/80 hover:bg-white/20'
+						: 'bg-accent-600 text-white hover:bg-accent-500'}"
+					disabled={equipPending}
+					onclick={() =>
+						realmId ?
+							quarksManager.equipTheme(realmId, equipped ? null : item.id)
+						:	quarksManager.equipBanner(equipped ? null : item.id)}
+				>
+					{equipPending ? 'Applying...' : equipped ? 'Unequip' : 'Equip'}
+				</button>
+			{:else}
+				{@render buy(item)}
+			{/if}
+		</div>
+	</div>
 {/snippet}
 
 <Modal {onClose} width="lg">
@@ -122,37 +188,27 @@
 	{/snippet}
 
 	<div class="flex flex-col gap-6">
-		{#if !supabaseAuth.isAuthenticated}
+		{#if !canAct}
 			<div class="rounded-lg bg-black/20 p-3 text-sm text-white/60">
 				Sign in to claim quests, buy items and equip skins. Progress is still tracked while signed out.
 			</div>
 		{/if}
 
-		<div class="flex gap-2 border-b border-white/10 pb-2">
-			<button
-				class="cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors {activeTab === 'quests' ? 'bg-accent-700 text-white' : 'text-white/60 hover:text-white'}"
-				onclick={() => (activeTab = 'quests')}
-			>
-				<Target size={16} /> Quests
-			</button>
-			<button
-				class="cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors {activeTab === 'shop' ? 'bg-accent-700 text-white' : 'text-white/60 hover:text-white'}"
-				onclick={() => (activeTab = 'shop')}
-			>
-				<ShoppingBag size={16} /> Shop
-			</button>
-			<button
-				class="cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors {activeTab === 'themes' ? 'bg-accent-700 text-white' : 'text-white/60 hover:text-white'}"
-				onclick={() => (activeTab = 'themes')}
-			>
-				<Palette size={16} /> Realms Themes
-			</button>
-			<button
-				class="cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors {activeTab === 'banners' ? 'bg-accent-700 text-white' : 'text-white/60 hover:text-white'}"
-				onclick={() => (activeTab = 'banners')}
-			>
-				<Flag size={16} /> Banners
-			</button>
+		<div class="grid grid-cols-4 gap-1 border-b border-white/10 pb-2 sm:flex sm:gap-2" role="tablist">
+			{#each TABS as tab (tab.id)}
+				<button
+					class={[
+						'flex cursor-pointer flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:flex-row sm:gap-2 sm:px-3 sm:py-2 sm:text-sm',
+						activeTab === tab.id ? 'bg-accent-700 text-white' : 'text-white/60 hover:text-white',
+					]}
+					aria-selected={activeTab === tab.id}
+					onclick={() => (activeTab = tab.id)}
+					role="tab"
+				>
+					<tab.icon class="shrink-0" size={16} />
+					{tab.label}
+				</button>
+			{/each}
 		</div>
 
 		{#if activeTab === 'quests'}
@@ -173,12 +229,10 @@
 				</div>
 
 				{#each quarksManager.quests as quest (quest.id)}
-					{const target = $derived(questTarget(quest))}
+					{const target = $derived(quarksManager.getTarget(quest))}
 					{const progress = $derived(quarksManager.getProgress(quest))}
 					{const claimed = $derived(quarksManager.claimedQuestIds.includes(quest.id))}
 					{const complete = $derived(progress >= target)}
-					{const pending = $derived(quarksManager.isActionPending(`claim-quest:${quest.id}`))}
-					{const pct = $derived(Math.min(100, (progress / target) * 100))}
 					{const QuestIcon = $derived(QUEST_ICONS[quest.id] ?? Target)}
 					<div
 						class="flex flex-col gap-3 rounded-xl border p-4 transition-colors {claimed
@@ -194,15 +248,13 @@
 								</div>
 								<span class="text-white">{quest.description(target)}</span>
 							</div>
-							<span class="flex shrink-0 items-center gap-1 text-sm text-white/60">
-								+{@render quarkAmount(quest.reward)}
-							</span>
+							<span class="flex shrink-0 items-center text-sm text-white/60">{@render quarkAmount(quest.reward, '+')}</span>
 						</div>
 
 						<div class="h-2 overflow-hidden rounded-full bg-black/30">
 							<div
-								class="h-full rounded-full bg-linear-to-r from-[#4a9eff] via-[#3ddc84] to-[#ff4d4d] transition-[clip-path]"
-								style:clip-path="inset(0 {100 - pct}% 0 0)"
+								class="h-full origin-left will-change-transform {complete ? 'bg-emerald-400' : 'bg-accent-400'}"
+								style:transform="scaleX({Math.min(1, progress / target)})"
 							></div>
 						</div>
 
@@ -213,13 +265,13 @@
 									<Check size={14} /> Claimed
 								</span>
 							{:else}
-								<button
-									class="cursor-pointer rounded-lg bg-accent-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-30"
-									disabled={!complete || !supabaseAuth.isAuthenticated || pending}
-									onclick={() => quarksManager.claimQuest(quest.id)}
-								>
-									{pending ? 'Claiming...' : supabaseAuth.isAuthenticated ? 'Claim' : 'Sign in to claim'}
-								</button>
+								{@render action(
+									'Claim',
+									'Claiming...',
+									quarksManager.isActionPending(`claim-quest:${quest.id}`),
+									!complete,
+									() => quarksManager.claimQuest(quest.id),
+								)}
 							{/if}
 						</div>
 					</div>
@@ -231,14 +283,14 @@
 					Boosts & Convenience
 					<HelpIcon>
 						{#snippet content()}
-							Permanent boosts and convenience unlocks refund at 100%, so your balance is really a limit on how many you can
+							Boosts and convenience unlocks refund at 100%, so your balance is really a limit on how many you can
 							equip at once.
 						{/snippet}
 					</HelpIcon>
 				</h3>
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{#each boostItems as item (item.id)}
-						{const owned = $derived(quarksManager.entitlements.includes(item.id))}
+						{const refunding = $derived(quarksManager.isActionPending(`refund:${item.id}`))}
 						<div class="flex flex-col gap-2 rounded-lg bg-accent-800/50 p-3">
 							<div class="flex items-center justify-between">
 								<span class="flex items-center gap-2 font-medium text-white">
@@ -250,21 +302,17 @@
 								<span class="flex items-center gap-1 text-sm text-white/60">{@render quarkAmount(item.cost)}</span>
 							</div>
 							<p class="text-sm text-white/60">{item.description}</p>
-							{#if owned}
+							{#if quarksManager.entitlements.includes(item.id)}
 								<button
-									class="cursor-pointer flex items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1 text-sm text-white/70 transition-colors hover:bg-white/20"
+									class="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1 text-sm text-white/70 transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30"
+									disabled={refunding}
 									onclick={() => quarksManager.refund(item.id)}
 								>
-									<Undo2 size={14} /> Refund
+									<Undo2 size={14} />
+									{refunding ? 'Refunding...' : 'Refund'}
 								</button>
 							{:else}
-								<button
-									class="cursor-pointer rounded-lg bg-accent-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-30"
-									disabled={quarksManager.balance < item.cost || !supabaseAuth.isAuthenticated}
-									onclick={() => quarksManager.purchase(item.id)}
-								>
-									Buy
-								</button>
+								{@render buy(item)}
 							{/if}
 						</div>
 					{/each}
@@ -273,7 +321,7 @@
 		{:else if activeTab === 'themes'}
 			<section class="flex flex-col gap-5">
 				<h3 class="flex items-center gap-1 text-lg font-bold text-white/80">
-					Realms Themes
+					Realm Themes
 					<HelpIcon>
 						{#snippet content()}
 							Cosmetic only, no gameplay effect. Each theme recolors its Realm's background and a couple of accents.
@@ -281,79 +329,31 @@
 						{/snippet}
 					</HelpIcon>
 				</h3>
-				{#each REALM_ORDER as realmId (realmId)}
-					{const realmThemes = $derived(themesForRealm(realmId))}
-					{#if realmThemes.length > 0}
-						{const unlocked = $derived(isRealmUnlocked(realmId))}
-						{const currency = $derived(realmCurrency(realmId))}
-						<div class="relative">
-							{#if !unlocked}
-								<div class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/30 p-4 text-center">
-									<span class="flex items-center gap-2 text-sm font-medium text-white/80">
-										<Lock size={14} class="shrink-0" /> Progress further in the game to reveal
-									</span>
-								</div>
-							{/if}
-							<div class={['flex flex-col gap-2', !unlocked && 'pointer-events-none blur-md select-none']} aria-hidden={!unlocked}>
-								<h4 class="flex items-center gap-1.5 text-sm font-semibold text-white/60">
-									{#if currency}
-										<IconStack color={currency.color} icon={CURRENCY_ICON_NAMES[currency.name]} size={16} />
-									{/if}
-									{realmTitle(realmId)}
-									{#if !unlocked}<Lock size={12} />{/if}
-								</h4>
-								<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-									{#each realmThemes as item (item.id)}
-										{const owned = $derived(quarksManager.entitlements.includes(item.id))}
-										{const equipped = $derived(quarksManager.equippedThemes[realmId] === item.id)}
-										{const purchasePending = $derived(quarksManager.isActionPending(`purchase:${item.id}`))}
-										{const equipPending = $derived(quarksManager.isActionPending(`equip-theme:${realmId}`))}
-										<div
-											class="flex flex-col gap-2 rounded-lg border p-3 transition-colors {equipped
-												? 'border-emerald-300 bg-emerald-500/15 ring-1 ring-emerald-300/30'
-												: owned
-													? 'border-emerald-400/60 bg-emerald-500/8'
-													: 'border-white/10 bg-accent-800/50'}"
-										>
-											<div
-												class="h-12 rounded-lg"
-												style="background: linear-gradient(135deg, {item.theme?.accent}, {item.theme?.accentSecondary ?? item.theme?.accent})"
-											></div>
-											<div class="flex items-center justify-between gap-2">
-												<span class="font-medium text-white">{item.name}</span>
-												<span class="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold {equipped ? 'bg-emerald-300 text-emerald-950' : owned ? 'bg-emerald-400/20 text-emerald-200' : 'bg-white/8 text-white/45'}">
-													{#if owned}<Check size={12} />{/if}
-													{equipped ? 'Equipped' : owned ? 'Owned' : 'Not owned'}
-												</span>
-											</div>
-											<p class="text-sm text-white/60">{item.description}</p>
-											<div class="flex items-center justify-between">
-												<span class="flex items-center gap-1 text-sm text-white/60">{@render quarkAmount(item.cost)}</span>
-												{#if owned}
-													<button
-														class="cursor-pointer rounded-lg px-3 py-1 text-sm font-medium transition-colors {equipped ? 'bg-white/10 text-white/50' : 'bg-accent-600 text-white hover:bg-accent-500'}"
-														disabled={equipPending}
-														onclick={() => quarksManager.equipTheme(realmId, equipped ? null : item.id)}
-													>
-														{equipPending ? 'Applying...' : equipped ? 'Equipped' : 'Equip'}
-													</button>
-												{:else}
-													<button
-														class="cursor-pointer flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-30"
-														disabled={quarksManager.balance < item.cost || !supabaseAuth.isAuthenticated || purchasePending}
-														onclick={() => quarksManager.purchase(item.id)}
-													>
-														{supabaseAuth.isAuthenticated ? purchasePending ? 'Buying...' : 'Buy' : ''}
-														{#if !supabaseAuth.isAuthenticated}<Lock size={14} />{/if}
-													</button>
-												{/if}
-											</div>
-										</div>
-									{/each}
-								</div>
+				{#each realmSections as { id, realm, themes } (id)}
+					{const unlocked = $derived(gameManager.realms[id]?.unlocked ?? false)}
+					<div class="relative">
+						{#if !unlocked}
+							<div class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/30 p-4 text-center">
+								<span class="flex items-center gap-2 text-sm font-medium text-white/80">
+									<Lock size={14} class="shrink-0" /> Progress further in the game to reveal
+								</span>
+							</div>
+						{/if}
+						<div class={['flex flex-col gap-2', !unlocked && 'pointer-events-none blur-md select-none']} aria-hidden={!unlocked}>
+							<h4 class="flex items-center gap-1.5 text-sm font-semibold text-white/60">
+								{#if realm?.currency}
+									<IconStack color={realm.currency.color} icon={CURRENCY_ICON_NAMES[realm.currency.name]} size={16} />
+								{/if}
+								{realm?.title ?? id}
+								{#if !unlocked}<Lock size={12} />{/if}
+							</h4>
+							<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+								{#each themes as item (item.id)}
+									{@render cosmetic(item)}
+								{/each}
 							</div>
 						</div>
-					{/if}
+					</div>
 				{/each}
 				<p class="text-xs text-white/40">Themes are permanent and cannot be refunded.</p>
 			</section>
@@ -370,48 +370,7 @@
 				</h3>
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{#each bannerItems as item (item.id)}
-						{const owned = $derived(quarksManager.entitlements.includes(item.id))}
-						{const equipped = $derived(quarksManager.equippedBanner === item.id)}
-						{const purchasePending = $derived(quarksManager.isActionPending(`purchase:${item.id}`))}
-						{const equipPending = $derived(quarksManager.isActionPending('equip-banner'))}
-							<div
-								class="flex flex-col gap-2 rounded-lg border p-3 transition-colors {equipped
-									? 'border-emerald-300 bg-emerald-500/15 ring-1 ring-emerald-300/30'
-									: owned
-										? 'border-emerald-400/60 bg-emerald-500/8'
-										: 'border-white/10 bg-accent-800/50'}"
-							>
-							<LeaderboardRow entry={createCurrentPlayerPreview(item.id)} />
-								<div class="flex items-center justify-between gap-2">
-									<span class="font-medium text-white">{item.name}</span>
-									<span class="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold {equipped ? 'bg-emerald-300 text-emerald-950' : owned ? 'bg-emerald-400/20 text-emerald-200' : 'bg-white/8 text-white/45'}">
-										{#if owned}<Check size={12} />{/if}
-										{equipped ? 'Equipped' : owned ? 'Owned' : 'Not owned'}
-									</span>
-								</div>
-							<p class="text-sm text-white/60">{item.description}</p>
-							<div class="flex items-center justify-between">
-								<span class="flex items-center gap-1 text-sm text-white/60">{@render quarkAmount(item.cost)}</span>
-								{#if owned}
-									<button
-										class="cursor-pointer rounded-lg px-3 py-1 text-sm font-medium transition-colors {equipped ? 'bg-white/10 text-white/50' : 'bg-accent-600 text-white hover:bg-accent-500'}"
-										disabled={equipPending}
-										onclick={() => quarksManager.equipBanner(equipped ? null : item.id)}
-									>
-										{equipPending ? 'Applying...' : equipped ? 'Equipped' : 'Equip'}
-									</button>
-								{:else}
-									<button
-										class="cursor-pointer flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-30"
-										disabled={quarksManager.balance < item.cost || !supabaseAuth.isAuthenticated || purchasePending}
-										onclick={() => quarksManager.purchase(item.id)}
-									>
-										{supabaseAuth.isAuthenticated ? purchasePending ? 'Buying...' : 'Buy' : ''}
-										{#if !supabaseAuth.isAuthenticated}<Lock size={14} />{/if}
-									</button>
-								{/if}
-							</div>
-						</div>
+						{@render cosmetic(item)}
 					{/each}
 				</div>
 				<p class="text-xs text-white/40">Banners are permanent and cannot be refunded.</p>
@@ -419,3 +378,7 @@
 		{/if}
 	</div>
 </Modal>
+
+{#if showLogin}
+	<Login onClose={() => (showLogin = false)} />
+{/if}
