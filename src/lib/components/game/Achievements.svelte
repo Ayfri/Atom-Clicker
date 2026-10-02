@@ -58,7 +58,8 @@
 		<HelpIcon position="bottom">
 			{#snippet content()}
 				<p class="text-xs text-white/80">
-					Each achievement awards 1 <QuarkLabel /> the first time you unlock it. Hidden achievements stay secret until you find them.
+					Each achievement awards 1 <QuarkLabel /> the first time your account unlocks it, unlocking it again after a reset pays nothing. Hidden
+					achievements stay secret until you find them.
 				</p>
 			{/snippet}
 		</HelpIcon>
@@ -71,7 +72,7 @@
 		<div class="mt-2 flex items-center gap-2 border-b border-white/5 pb-2 text-xs" in:reveal={{ y: 0 }}>
 			<Quark class="shrink-0" size={18} />
 			<p class="min-w-0 flex-1 leading-tight text-white/60">
-				<span class="font-semibold text-white">{count} achievement {count === 1 ? 'reward' : 'rewards'}</span> ready, 1 Quark each
+				<span class="font-semibold text-white">{count} new {count === 1 ? 'reward' : 'rewards'}</span>, each achievement pays 1 Quark once per account
 			</p>
 			<button
 				class="flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-accent-600 px-2 py-1 font-semibold text-white transition-colors hover:bg-accent-500 disabled:cursor-wait disabled:opacity-60"
