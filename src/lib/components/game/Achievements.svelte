@@ -12,9 +12,9 @@
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	/** A big Claim all takes longer to gather, 5ms more per achievement, capped so a full list never drags. */
-	const CASCADE_MS_PER_CLAIM = 5;
-	const MAX_CASCADE_MS = 2000;
+	/** A big Claim all takes longer to gather and to fly to the nav, 10ms more per achievement for each, capped so a full list never drags. */
+	const CASCADE_MS_PER_CLAIM = 10;
+	const MAX_CASCADE_MS = 2500;
 	const RING_SPARKS = 6;
 	const TOTAL_ACHIEVEMENTS = Object.keys(ACHIEVEMENTS).length;
 
@@ -79,7 +79,7 @@
 		collecting = claimableAchievementIds.length;
 		const cascade = Math.min(MAX_CASCADE_MS, collecting * CASCADE_MS_PER_CLAIM);
 		const [granted] = await Promise.all([quarksManager.claimAchievements(claimableAchievementIds), gatherSparks(sources, button, 600, cascade)]);
-		quarkFlight(button)(granted);
+		quarkFlight(button)(granted, cascade);
 		collecting = 0;
 	}
 </script>
