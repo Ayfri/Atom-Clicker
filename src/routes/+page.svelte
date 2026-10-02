@@ -95,11 +95,12 @@
 		hasCheckedCloudSaveOnLoad = true;
 
 		try {
-			const cloudGameTime = await supabaseAuth.getCloudSaveTime();
-			if (cloudGameTime === null) return;
+			const stamp = await supabaseAuth.getCloudSaveStamp();
+			if (stamp?.inGameTime == null) return;
 
-			const localGameTime = gameManager.inGameTime || 0;
-			if (cloudGameTime > localGameTime + CLOUD_PULL_WARNING_THRESHOLD_MS) {
+			const cloudAhead = stamp.inGameTime > (gameManager.inGameTime || 0) + CLOUD_PULL_WARNING_THRESHOLD_MS;
+			supabaseAuth.adoptCloudSave(stamp.lastSaveDate, cloudAhead);
+			if (cloudAhead) {
 				toastStore.warning({
 					action: () => ui.openSettings('cloud'),
 					actionLabel: 'Open Cloud Save',
