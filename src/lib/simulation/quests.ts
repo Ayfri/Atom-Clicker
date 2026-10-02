@@ -1,4 +1,4 @@
-import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests, questAnchors } from '#data/dailyQuests.js';
+import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { QuestBehavior } from './types';
@@ -31,8 +31,7 @@ export class QuestTracker {
 		this.dayIndex = dayIndex;
 		this.quests = pickDailyQuests(`sim-${dayIndex}`);
 		this.targets = {};
-		const anchors = questAnchors(gameManager.highestAPS);
-		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, anchors);
+		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, gameManager.highestAPSRun);
 		this.offeredTotal += this.quests.length;
 
 		gameManager.dailyStats = {

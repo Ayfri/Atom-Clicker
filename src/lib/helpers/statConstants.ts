@@ -50,6 +50,7 @@ export const statsConfig = {
 	features: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 21 },
 	generators: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 26 },
 	highestAPS: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
+	highestAPSRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE, minVersion: 31 },
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER, minVersion: 30 },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL, minVersion: 1 },

@@ -1,7 +1,7 @@
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
 import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import type { DailyStats } from '#data/dailyQuests.js';
+import type { DailyQuestContext, DailyStats } from '#data/dailyQuests.js';
 import { FeatureTypes } from '#data/features.js';
 import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
@@ -66,6 +66,8 @@ export class GameManager {
 	featuresManager = new FeaturesManager();
 	generators = $state.raw<Partial<Record<GeneratorType, Generator>>>({});
 	highestAPS = $state(0);
+	/** Best rate since the last Electronize, which sets the daily atoms quest: the all-time best can sit 60+ orders above a fresh run. */
+	highestAPSRun = $state(0);
 	inGameTime = $state(0);
 	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
 	integrityFlagged = $state(false);
@@ -407,6 +409,17 @@ export class GameManager {
 		this.offlineProgressSummary = null;
 	}
 
+	/** What the daily quest pool filters on, shared by QuarksManager and the simulation so both offer the same quests. */
+	dailyQuestContext(hasThirdQuestSlot: boolean): DailyQuestContext {
+		return {
+			hasElectronized: this.totalElectronizesAllTime > 0,
+			hasPhotonRealm: this.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
+			hasPrism: this.totalIonizesAllTime > 0,
+			hasThirdQuestSlot,
+			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
+		};
+	}
+
 	electronize() {
 		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return false;
 		this.totalElectronizesAllTime++;
@@ -448,6 +461,7 @@ export class GameManager {
 			features: this.features,
 			generators: this.generators,
 			highestAPS: this.highestAPS,
+			highestAPSRun: this.highestAPSRun,
 			inGameTime: this.inGameTime,
 			integrityFlagged: this.integrityFlagged,
 			lastInteractionTime: this.lastInteractionTime,
@@ -782,6 +796,7 @@ export class GameManager {
 			if (this.autoClicksPerSecond > 0) this.addAtoms(this.clickPower * this.autoClicksPerSecond * seconds);
 		}
 		if (this.atomsPerSecond > this.highestAPS) this.highestAPS = this.atomsPerSecond;
+		if (this.atomsPerSecond > this.highestAPSRun) this.highestAPSRun = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);
 

@@ -10,7 +10,7 @@ import { unwrapStoredSave, wrapSaveForStorage } from '#lib/utils/saveIntegrity.j
 import type { SaveErrorType } from '#stores/saveRecovery.svelte.js';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 30;
+export const SAVE_VERSION = 31;
 
 export interface LoadSaveResult {
 	errorDetails?: string;

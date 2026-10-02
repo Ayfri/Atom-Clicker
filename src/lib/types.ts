@@ -153,6 +153,7 @@ export interface GameState {
 	features: FeatureState;
 	generators: Partial<Record<GeneratorType, Generator>>;
 	highestAPS: number;
+	highestAPSRun: number;
 	inGameTime: number;
 	integrityFlagged: boolean;
 	lastInteractionTime: number;
