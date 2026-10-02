@@ -115,7 +115,7 @@
 	});
 </script>
 
-<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100dvh-204px)]">
+<div class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 lg:h-[calc(100dvh-204px)]">
 	<div class="flex items-center justify-between gap-2">
 		<div class="flex items-center gap-1.5">
 			<h2 class="text-lg">Generators</h2>
@@ -147,7 +147,7 @@
 		{/if}
 	</div>
 
-	<div id="generators-list" class="flex flex-col gap-1.5 overflow-y-auto custom-scrollbar px-1 flex-1">
+	<div id="generators-list" class="flex flex-col gap-1.5 lg:overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each GENERATOR_TYPES as type (type)}
 			{const generator = $derived(GENERATORS[type])}
 			{const saveData = $derived(gameManager.generators[type])}

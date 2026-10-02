@@ -82,10 +82,11 @@
 		if (!canClaimAchievements || !list) return;
 		const button = event.currentTarget;
 		const bounds = list.getBoundingClientRect();
-		/** Rows scrolled out of the list send their sparks from its edge. */
+		const [top, bottom] = [Math.max(bounds.top, 0), Math.min(bounds.bottom, innerHeight)];
+		/** Rows scrolled out of view, in the desktop list or the phone page, send their sparks from the visible edge. */
 		const sources = [...list.querySelectorAll('[data-claim]')].map(row => {
 			const rect = row.getBoundingClientRect();
-			return { x: rect.left + rect.width / 2, y: Math.min(bounds.bottom, Math.max(bounds.top, rect.top + rect.height / 2)) };
+			return { x: rect.left + rect.width / 2, y: Math.min(bottom, Math.max(top, rect.top + rect.height / 2)) };
 		});
 		collecting = claimableAchievementIds.length;
 		const cascade = Math.min(MAX_CASCADE_MS, collecting * CASCADE_MS_PER_CLAIM);
@@ -95,7 +96,7 @@
 	}
 </script>
 
-<div class="backdrop-blur-xs bg-black/10 p-3 rounded-lg h-150 lg:h-[calc(100dvh-204px)] flex flex-col">
+<div class="backdrop-blur-xs bg-black/10 p-3 rounded-lg lg:h-[calc(100dvh-204px)] flex flex-col">
 	<div class="flex items-center gap-1.5">
 		<h2 class="font-semibold text-lg">Achievements</h2>
 		<span class="text-xs tabular-nums text-white/50">{gameManager.achievements.length}/{TOTAL_ACHIEVEMENTS}</span>
@@ -129,7 +130,7 @@
 		</div>
 	{/if}
 	<!-- Collapsed series render two rows each instead of every tier, which keeps the always-mounted panel light. -->
-	<div bind:this={list} class="mt-1 flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar px-1 pb-1">
+	<div bind:this={list} class="mt-1 flex-1 overflow-x-clip lg:overflow-y-auto custom-scrollbar px-1 pb-1">
 		{#each visibleGroups as group (group.name)}
 			{const unlockedIds = $derived(gameManager.unlockedAchievementIds)}
 			{const unlockedCount = $derived(group.achievements.filter(achievement => unlockedIds.has(achievement.id)).length)}
