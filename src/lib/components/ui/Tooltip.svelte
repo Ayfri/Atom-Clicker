@@ -46,10 +46,12 @@
 	<button
 		bind:this={trigger}
 		class="cursor-help"
+		onblur={hide}
 		onclick={e => {
 			e.stopPropagation();
 			toggle();
 		}}
+		onfocus={e => e.currentTarget.matches(':focus-visible') && show()}
 		type="button"
 	>
 		{@render children()}

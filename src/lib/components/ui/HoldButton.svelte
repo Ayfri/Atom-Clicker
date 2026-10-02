@@ -18,6 +18,10 @@
 	let frame: number | null = null;
 	let startTime = 0;
 
+	$effect(() => () => {
+		if (frame !== null) cancelAnimationFrame(frame);
+	});
+
 	const clipPath = $derived(`inset(0 ${100 - progress}% 0 0)`);
 	const glowSpread = $derived(6 + (progress / 100) * 22);
 	const glowBlur = $derived(16 + (progress / 100) * 40);
@@ -40,15 +44,23 @@
 		frame = requestAnimationFrame(tick);
 	}
 
-	function startHold(event: PointerEvent) {
+	function startHold() {
 		if (disabled || holding) return;
+		holding = true;
+		startTime = performance.now();
+		frame = requestAnimationFrame(tick);
+	}
+
+	function startPointerHold(event: PointerEvent) {
 		// Capture keeps the hold alive when the finger drifts off the button, which touch devices do constantly.
 		try {
 			(event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
 		} catch {}
-		holding = true;
-		startTime = performance.now();
-		frame = requestAnimationFrame(tick);
+		startHold();
+	}
+
+	function startKeyHold(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') startHold();
 	}
 
 	function cancelHold() {
@@ -64,8 +76,11 @@
 	{disabled}
 	{style}
 	style:box-shadow={boxShadow}
+	onblur={cancelHold}
+	onkeydown={startKeyHold}
+	onkeyup={cancelHold}
 	onpointercancel={cancelHold}
-	onpointerdown={startHold}
+	onpointerdown={startPointerHold}
 	onpointerleave={cancelHold}
 	onpointerup={cancelHold}
 >
@@ -167,6 +182,13 @@
 		box-shadow: 0 0 8px 2px var(--hold-glow, rgba(255, 255, 255, 0.6));
 		opacity: 0;
 		animation: spark-rise var(--duration) ease-out var(--delay) infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.hold-button.holding .hold-button-shimmer,
+		.hold-spark {
+			animation: none;
+		}
 	}
 
 	@keyframes spark-rise {
