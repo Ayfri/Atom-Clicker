@@ -12,22 +12,33 @@
 	const absoluteImageLink = `${page.url.origin}/currencies/atom.svg`;
 	const absoluteOgImageLink = `${page.url.origin}/og-image.png`;
 
+	const creator = {
+		'@type': 'Person',
+		alternateName: 'Pierre Roy',
+		image: 'https://ayfri.com/images/avatar.png',
+		jobTitle: 'Software Engineer',
+		name: author,
+		sameAs: ['https://github.com/Ayfri', 'https://www.linkedin.com/in/pierre-roy-ayfri/', 'https://www.twitch.tv/ayfri_', 'https://x.com/Ayfri_'],
+		url: 'https://ayfri.com',
+	};
+
 	const structuredData = {
 		'@context': 'https://schema.org',
-		'@type': 'Game',
-		name,
-		author: { '@type': 'Person', name: author },
+		'@type': 'VideoGame',
+		applicationCategory: 'GameApplication',
+		author: creator,
 		description,
-		url: site,
-		image: absoluteOgImageLink,
+		gamePlatform: 'Web browser',
 		genre: ['Incremental', 'Clicker', 'Idle'],
-		operatingSystem: 'All',
-		publisher: author,
-		sourceOrganization: {
-			'@type': 'Organization',
-			name: author,
-			url: site,
-		},
+		image: absoluteOgImageLink,
+		inLanguage: 'en',
+		isAccessibleForFree: true,
+		name,
+		offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+		operatingSystem: 'Any',
+		playMode: 'SinglePlayer',
+		publisher: creator,
+		url: site,
 	};
 </script>
 
@@ -59,14 +70,14 @@
 	<meta property="og:site_name" content={name} />
 
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:creator" content={author} />
+	<meta name="twitter:creator" content="@Ayfri_" />
+	<meta name="twitter:site" content="@Ayfri_" />
 	<meta name="twitter:title" content={name} />
 	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={absoluteOgImageLink} />
 
 	<link rel="canonical" href={site} />
 	<meta name="robots" content="index, follow" />
-	<meta name="language" content="en" />
 
 	<title>{name}</title>
 
