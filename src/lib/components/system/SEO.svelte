@@ -34,7 +34,6 @@
 <svelte:head>
 	<!-- Auth and quarks both hit Supabase right after mount, so the TLS handshake starts during HTML parse. -->
 	<link rel="preconnect" href={PUBLIC_SUPABASE_URL} crossorigin="anonymous" />
-	<meta lang="en" />
 	<meta name="description" content={description} />
 	<meta
 		name="keywords"
@@ -61,7 +60,6 @@
 
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:creator" content={author} />
-	<meta name="twitter:site" content={site} />
 	<meta name="twitter:title" content={name} />
 	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={absoluteOgImageLink} />
