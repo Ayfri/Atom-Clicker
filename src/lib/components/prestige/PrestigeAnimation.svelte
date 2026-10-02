@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
-	import { CURRENCIES } from '$data/currencies';
-	import type { PrestigeAnimationType as AnimationType } from '$stores/prestige.svelte';
-	import Electron from '@components/icons/Electron.svelte';
-	import IonizeIcon from '@components/icons/Ionize.svelte';
-	import Light from '@components/icons/Light.svelte';
-	import Proton from '@components/icons/Proton.svelte';
+	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+	import { CURRENCIES } from '#data/currencies.js';
+	import type { PrestigeAnimationType as AnimationType } from '#stores/prestige.svelte.js';
+	import Electron from '#components/icons/Electron.svelte';
+	import IonizeIcon from '#components/icons/Ionize.svelte';
+	import Light from '#components/icons/Light.svelte';
+	import Proton from '#components/icons/Proton.svelte';
 	import { untrack } from 'svelte';
 
 	/** Each Light starts the Ionize symbol offset along its own direction, the three merge back into white. */

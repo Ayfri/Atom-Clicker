@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { GENERATOR_TYPES, GENERATORS, getGeneratorColor, type GeneratorType } from '$data/generators';
-	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
-	import Currency from '@components/ui/Currency.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { MAX_BOOST_POINTS } from '$lib/constants';
-	import { formatNumber } from '$lib/utils';
-	import { autoBuyManager } from '$stores/autoBuy.svelte';
-	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
+	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { GENERATOR_TYPES, GENERATORS, getGeneratorColor, type GeneratorType } from '#data/generators.js';
+	import { GENERATOR_ICON_NAMES, ICONS } from '#data/icons.js';
+	import Currency from '#components/ui/Currency.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { MAX_BOOST_POINTS } from '#lib/constants.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
+	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
 	import { btn, checkbox, setGeneratorCount } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';

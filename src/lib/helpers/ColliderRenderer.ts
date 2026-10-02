@@ -1,5 +1,5 @@
-import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
-import { rgba, TAU } from '$helpers/nucleus';
+import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { rgba, TAU } from '#helpers/nucleus.js';
 
 const BEAM_ACCELERATION = 22;
 const BEAM_COLORS = ['#81addf', '#ffd58a'] as const;

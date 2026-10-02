@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SvelteHTMLElements } from 'svelte/elements';
-	import { QUARK_CHARGE_COLORS } from '$data/quarks';
+	import { QUARK_CHARGE_COLORS } from '#data/quarks.js';
 
 	type SvgProps = SvelteHTMLElements['svg'];
 

@@ -1,10 +1,5 @@
-/// <reference no-default-lib="true"/>
-/// <reference lib="esnext" />
-/// <reference lib="webworker" />
-/// <reference types="@sveltejs/kit" />
-import { build, files } from '$service-worker';
-
-const self = globalThis.self as unknown as ServiceWorkerGlobalScope;
+import { assets, immutable } from '$app/manifest';
+import { self } from '$app/service-worker';
 
 /**
  * Chunks are cached as pages request them rather than precached, so players never download the Cosmos or benchmark code they don't open.
@@ -14,8 +9,9 @@ const IMMUTABLE_CACHE = 'immutable';
 /** The game shell and static files always come from the network first, this cache only serves them offline. */
 const STATIC_CACHE = 'static';
 
-const buildPaths = new Set(build);
-const staticPaths = new Set(['/', ...files]);
+/** Manifest paths are relative to the base path, and the game is served from the root. */
+const buildPaths = new Set(immutable.map(({ path }) => `/${path}`));
+const staticPaths = new Set(['/', ...assets.map(({ path }) => `/${path}`)]);
 
 async function prune(cacheName: string, keep: Set<string>): Promise<void> {
 	const cache = await caches.open(cacheName);

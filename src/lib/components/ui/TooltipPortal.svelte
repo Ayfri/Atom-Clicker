@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '$stores/tooltip.svelte';
+	import { tooltip } from '#stores/tooltip.svelte.js';
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 
 	let tooltipElement = $state<HTMLDivElement>();

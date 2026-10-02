@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Value from '@components/ui/Value.svelte';
-	import { CurrenciesTypes } from '$data/currencies';
-	import { RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { ReactorRenderer } from '$helpers/ReactorRenderer';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { formatNumber } from '$lib/utils';
+	import Value from '#components/ui/Value.svelte';
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { ReactorRenderer } from '#helpers/ReactorRenderer.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { Fuel } from '@lucide/svelte';
 
 	const SHARES = [

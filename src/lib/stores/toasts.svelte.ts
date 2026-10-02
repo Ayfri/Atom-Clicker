@@ -1,5 +1,5 @@
 import type { Component } from 'svelte';
-import type { IconStackSpec } from '$helpers/iconStacks';
+import type { IconStackSpec } from '#helpers/iconStacks.js';
 
 /** A component, a name from `namedIcons` in `Toast.svelte`, or a composed stack rendered by `IconStack.svelte`. */
 export type ToastIcon = Component | IconStackSpec | string;

@@ -1,25 +1,25 @@
 <script lang="ts">
-	import AtomIcon from '@components/icons/Atom.svelte';
-	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
-	import Journey from '@components/profile/Journey.svelte';
-	import Lifetime from '@components/profile/Lifetime.svelte';
-	import StatTiles, { type StatTile } from '@components/profile/StatTiles.svelte';
-	import Avatar from '@components/ui/Avatar.svelte';
-	import LeaderboardBannerBackdrop from '@components/ui/LeaderboardBannerBackdrop.svelte';
-	import LevelChip from '@components/ui/LevelChip.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { ACHIEVEMENTS } from '$data/achievements';
-	import { CurrenciesTypes } from '$data/currencies';
-	import { GENERATOR_COLORS, GENERATOR_TYPES, GENERATORS } from '$data/generators';
-	import { podiumColor } from '$data/leaderboard';
-	import { getQuarkShopItem } from '$data/quarkShop';
-	import { RealmTypes } from '$data/realms';
-	import { SKILL_UPGRADES } from '$data/skillTree';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import type { LeaderboardEntry, PublicProfile, PublicProfileStats } from '$lib/types/leaderboard';
-	import { formatDuration, formatNumber } from '$lib/utils';
-	import { leaderboard } from '$stores/leaderboard.svelte';
-	import { ui } from '$stores/ui.svelte';
+	import AtomIcon from '#components/icons/Atom.svelte';
+	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+	import Journey from '#components/profile/Journey.svelte';
+	import Lifetime from '#components/profile/Lifetime.svelte';
+	import StatTiles, { type StatTile } from '#components/profile/StatTiles.svelte';
+	import Avatar from '#components/ui/Avatar.svelte';
+	import LeaderboardBannerBackdrop from '#components/ui/LeaderboardBannerBackdrop.svelte';
+	import LevelChip from '#components/ui/LevelChip.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { GENERATOR_COLORS, GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+	import { podiumColor } from '#data/leaderboard.js';
+	import { getQuarkShopItem } from '#data/quarkShop.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { SKILL_UPGRADES } from '#data/skillTree.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import type { LeaderboardEntry, PublicProfile, PublicProfileStats } from '#lib/types/leaderboard.js';
+	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import { leaderboard } from '#stores/leaderboard.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { Clock, MousePointerClick, Network, Pencil, Trophy } from '@lucide/svelte';
 
 	interface Props {

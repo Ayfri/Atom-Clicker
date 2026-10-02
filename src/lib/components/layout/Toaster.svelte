@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toastStore, type ToastStyle, type ToastType } from '$stores/toasts.svelte';
+	import { toastStore, type ToastStyle, type ToastType } from '#stores/toasts.svelte.js';
 	import { AlertCircle, AlertTriangle, CheckCircle, Info, Trash2 } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import Toast from './Toast.svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Currency from '@components/ui/Currency.svelte';
-	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { formatNumber } from '$lib/utils';
+	import Currency from '#components/ui/Currency.svelte';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { formatNumber } from '#lib/utils.js';
 
 	interface Props {
 		earned: Partial<Record<CurrencyName, number>>;

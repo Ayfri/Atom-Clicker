@@ -1,8 +1,8 @@
-import { browser, dev, version } from '$app/environment';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { isNoiseError } from '$lib/utils/errorNoise';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+import { browser, dev, version } from '$app/env';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { isNoiseError } from '#lib/utils/errorNoise.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 /** Client context, stored as `browser_info`, everything here identifies the runtime rather than the player. */
 export interface BrowserInfo {

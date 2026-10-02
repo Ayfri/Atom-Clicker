@@ -1,23 +1,23 @@
 <script lang="ts">
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { FeatureTypes } from '$data/features';
-	import { SKILL_UPGRADES } from '$data/skillTree';
-	import { colliderManager } from '$helpers/ColliderManager.svelte';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { reveal, reveals } from '$helpers/reveals.svelte';
-	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-	import { changelog } from '$stores/changelog.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-	import { ui } from '$stores/ui.svelte';
-	import { mobile } from '$stores/window.svelte';
-	import ElectronizeIcon from '@components/icons/Electronize.svelte';
-	import IonizeIcon from '@components/icons/Ionize.svelte';
-	import ProtoniseIcon from '@components/icons/Protonise.svelte';
-	import QuarkIcon from '@components/icons/Quark.svelte';
-	import NotificationDot from '@components/ui/NotificationDot.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { FeatureTypes } from '#data/features.js';
+	import { SKILL_UPGRADES } from '#data/skillTree.js';
+	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+	import { changelog } from '#stores/changelog.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
+	import { mobile } from '#stores/window.svelte.js';
+	import ElectronizeIcon from '#components/icons/Electronize.svelte';
+	import IonizeIcon from '#components/icons/Ionize.svelte';
+	import ProtoniseIcon from '#components/icons/Protonise.svelte';
+	import QuarkIcon from '#components/icons/Quark.svelte';
+	import NotificationDot from '#components/ui/NotificationDot.svelte';
 	import { Medal, Network, Orbit, Settings as SettingsIcon, Zap } from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 
@@ -37,7 +37,7 @@
 		notification?: () => boolean;
 	}
 
-	const settingsLoader: ModalLoader = () => import('@components/modals/Settings.svelte');
+	const settingsLoader: ModalLoader = () => import('#components/modals/Settings.svelte');
 
 	const SKILL_TREE_ROOTS = Object.values(SKILL_UPGRADES).filter(skill => !skill.requires || skill.requires.length === 0);
 	const PROTON_COLOR = CURRENCIES[CurrenciesTypes.PROTONS].color;
@@ -49,14 +49,14 @@
 			icon: Medal,
 			id: 'leaderboard',
 			label: 'Leaderboard',
-			load: () => import('@components/modals/Leaderboard.svelte'),
+			load: () => import('#components/modals/Leaderboard.svelte'),
 			condition: () => reveals.leaderboard,
 		},
 		{
 			icon: Network,
 			id: 'skill-tree',
 			label: 'Skill Tree',
-			load: () => import('@components/modals/SkillTree.svelte'),
+			load: () => import('#components/modals/SkillTree.svelte'),
 			condition: () => gameManager.skillUpgrades.length > 0 || SKILL_TREE_ROOTS.some(root => currenciesManager.getEarnedAllTime(root.cost.currency) >= root.cost.amount),
 			notification: () => gameManager.hasAvailableSkillUpgrades,
 		},
@@ -64,7 +64,7 @@
 			icon: Zap,
 			id: 'boosts',
 			label: 'Boosts',
-			load: () => import('@components/modals/CurrencyBoosts.svelte'),
+			load: () => import('#components/modals/CurrencyBoosts.svelte'),
 			condition: () => gameManager.totalProtonisesAllTime > 0,
 			notification: () => gameManager.boostPointsAvailable > 0,
 		},
@@ -73,7 +73,7 @@
 			iconProps: { mono: true },
 			id: 'quarks',
 			label: 'Quarks',
-			load: () => import('@components/modals/Quarks.svelte'),
+			load: () => import('#components/modals/Quarks.svelte'),
 			condition: () => quarksManager.balance > 0,
 			notification: () => supabaseAuth.isAuthenticated && quarksManager.hasSynced && quarksManager.hasClaimableQuest,
 		},
@@ -81,7 +81,7 @@
 			icon: Orbit,
 			id: 'collider',
 			label: 'Collider',
-			load: () => import('@components/modals/Collider.svelte'),
+			load: () => import('#components/modals/Collider.svelte'),
 			condition: () => gameManager.features[FeatureTypes.COLLIDER],
 			notification: () => supabaseAuth.isAuthenticated && colliderManager.ready,
 		},
@@ -91,7 +91,7 @@
 			iconProps: { color: PROTON_COLOR },
 			id: 'protonise',
 			label: 'Protonize',
-			load: () => import('@components/prestige/Protonise.svelte'),
+			load: () => import('#components/prestige/Protonise.svelte'),
 			condition: () => gameManager.atoms >= PROTONS_ATOMS_REQUIRED || gameManager.totalProtonisesAllTime > 0,
 			notification: () => gameManager.protoniseProtonsGain > gameManager.protons,
 		},
@@ -101,7 +101,7 @@
 			iconProps: { color: ELECTRON_COLOR },
 			id: 'electronize',
 			label: 'Electronize',
-			load: () => import('@components/prestige/Electronize.svelte'),
+			load: () => import('#components/prestige/Electronize.svelte'),
 			condition: () => gameManager.protons >= ELECTRONS_PROTONS_REQUIRED || gameManager.totalElectronizesAllTime > 0,
 			notification: () => gameManager.electronizeElectronsGain > 0,
 		},
@@ -111,7 +111,7 @@
 			iconProps: { color: WHITE_LIGHT_COLOR },
 			id: 'ionize',
 			label: 'Ionize',
-			load: () => import('@components/prestige/Ionize.svelte'),
+			load: () => import('#components/prestige/Ionize.svelte'),
 			condition: () => radiationManager.unlocked || gameManager.totalIonizesAllTime > 0,
 			notification: () => radiationManager.ionizeReady,
 		},

@@ -1,11 +1,11 @@
 import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
-import { browser } from '$app/environment';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
-import type { GameState } from '$lib/types';
-import type { Database, Json, Profile } from '$lib/types/supabase';
-import { isLocalStorageAvailable } from '$lib/utils/safeLocalStorage';
-import { multiTabDetector } from '$stores/multiTab.svelte';
-import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
+import { browser } from '$app/env';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
+import type { GameState } from '#lib/types.js';
+import type { Database, Json, Profile } from '#lib/types/supabase.js';
+import { isLocalStorageAvailable } from '#lib/utils/safeLocalStorage.js';
+import { multiTabDetector } from '#stores/multiTab.svelte.js';
+import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/saves.js';
 
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
 export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
@@ -111,13 +111,13 @@ export class SupabaseAuth {
 
 				console.log('Auth state change for user:', user.id);
 
-				let { data: profile, error } = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
+				let { data: profile, error } = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 
 				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
 				if (error && error.code === 'PGRST116') {
 					console.log('Profile not found yet, retrying in 1s...');
-					await new Promise(resolve => setTimeout(resolve, 1000));
-					const retry = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+					const retry = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 					profile = retry.data;
 					error = retry.error;
 				}
@@ -127,12 +127,7 @@ export class SupabaseAuth {
 					console.log('Found profile:', profile.username);
 
 					// Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence.
-					void this.supabase!.from('profiles')
-						.update({
-							is_online: true,
-							updated_at: new Date().toISOString(),
-						})
-						.eq('id', user.id);
+					void (this.supabase!).from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id);
 
 					this.startHeartbeat();
 				} else {
@@ -160,20 +155,20 @@ export class SupabaseAuth {
 	private startHeartbeat() {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
-			if (this.currentSession?.access_token) {
-				try {
-					await fetch('/api/auth/status', {
-						method: 'POST',
-						headers: {
-							'Authorization': `Bearer ${this.currentSession.access_token}`,
+				if (this.currentSession?.access_token) {
+					try {
+						await fetch('/api/auth/status', {
+							method: 'POST',
+							headers: {
+								'Authorization': `Bearer ${this.currentSession.access_token}`,
 							'Content-Type': 'application/json',
-						},
+							},
 						body: JSON.stringify({ is_online: true }),
-					});
+						});
 				} catch (err) {
-					console.error('Heartbeat failed:', err);
+						console.error('Heartbeat failed:', err);
+					}
 				}
-			}
 		}, 45_000); // Pulse every 45 seconds
 	}
 
@@ -249,9 +244,8 @@ export class SupabaseAuth {
 			const accessToken = hash.get('access_token');
 			const refreshToken = hash.get('refresh_token');
 			try {
-				if (code) await this.supabase!.auth.exchangeCodeForSession(code);
-				else if (accessToken && refreshToken) await this.supabase!.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-			} catch (err) {
+				if (code) await (this.supabase!).auth.exchangeCodeForSession(code); else if (accessToken && refreshToken) await (this.supabase!).auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+			} catch(err) {
 				console.error('Popup sign in error:', err);
 				this.error = err as Error;
 			}

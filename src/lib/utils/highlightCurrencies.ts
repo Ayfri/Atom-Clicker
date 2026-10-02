@@ -1,4 +1,4 @@
-import { CURRENCIES, type CurrencyName } from '$data/currencies';
+import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
 
 function escapeHtml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

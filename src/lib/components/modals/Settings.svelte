@@ -1,16 +1,16 @@
 <script lang="ts">
-	import Changelog from '@components/settings/Changelog.svelte';
-	import CloudSave from '@components/settings/CloudSave.svelte';
-	import Credits from '@components/settings/Credits.svelte';
-	import FeedbackForm from '@components/settings/Feedback.svelte';
-	import Gameplay from '@components/settings/Gameplay.svelte';
-	import Legal from '@components/settings/Legal.svelte';
-	import Profile from '@components/settings/Profile.svelte';
-	import GlobalStats from '@components/settings/Stats.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import NotificationDot from '@components/ui/NotificationDot.svelte';
-	import { changelog } from '$stores/changelog.svelte';
-	import { ui } from '$stores/ui.svelte';
+	import Changelog from '#components/settings/Changelog.svelte';
+	import CloudSave from '#components/settings/CloudSave.svelte';
+	import Credits from '#components/settings/Credits.svelte';
+	import FeedbackForm from '#components/settings/Feedback.svelte';
+	import Gameplay from '#components/settings/Gameplay.svelte';
+	import Legal from '#components/settings/Legal.svelte';
+	import Profile from '#components/settings/Profile.svelte';
+	import GlobalStats from '#components/settings/Stats.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import NotificationDot from '#components/ui/NotificationDot.svelte';
+	import { changelog } from '#stores/changelog.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, SlidersHorizontal, User } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';

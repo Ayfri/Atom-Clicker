@@ -1,7 +1,7 @@
-import { CURRENCIES, type CurrencyName } from '$data/currencies';
-import type { RealmType } from '$data/realms';
-import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
-import { realmManager } from '$helpers/RealmManager.svelte';
+import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+import type { RealmType } from '#data/realms.js';
+import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
 
 const MAX_ICONS = 110;
 /** Reserved apart from icons: an auto-clicker firing hundreds of times a second floods icon slots and would otherwise starve the "+N" text. */

@@ -1,6 +1,6 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import type { GeneratorType } from '$data/generators';
-import { browser } from '$app/environment';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import type { GeneratorType } from '#data/generators.js';
+import { browser } from '$app/env';
 import { untrack } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 

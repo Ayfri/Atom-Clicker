@@ -1,7 +1,7 @@
-import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, type ChromaticColor, ChromaticColors } from '$data/chromatic';
-import { CURRENCIES } from '$data/currencies';
-import { chromaticManager } from '$helpers/ChromaticManager.svelte';
-import { drawLightIcon } from '$helpers/photonCanvas';
+import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, type ChromaticColor, ChromaticColors } from '#data/chromatic.js';
+import { CURRENCIES } from '#data/currencies.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { drawLightIcon } from '#helpers/photonCanvas.js';
 
 export interface ChromaticPhoton {
 	color: ChromaticColor;

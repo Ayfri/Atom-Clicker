@@ -1,4 +1,4 @@
-import type { NumberNotation } from '$lib/types';
+import type { NumberNotation } from '#lib/types.js';
 
 export const SUFFIXES = [
 	'',

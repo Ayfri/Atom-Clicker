@@ -1,6 +1,6 @@
-import type { HandleClientError } from '@sveltejs/kit';
-import { initGlobalErrorHandlers, reportError } from '$lib/helpers/errorReporting';
-import { getItem, setItem } from '$lib/utils/safeLocalStorage';
+import type { HandleClientError } from '@sveltejs/kit/hooks';
+import { initGlobalErrorHandlers, reportError } from '#lib/helpers/errorReporting.js';
+import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
 
 initGlobalErrorHandlers();
 
@@ -29,27 +29,18 @@ function recoverFromStaleChunk(): boolean {
 	return true;
 }
 
-/**
- * Global client-side error handler for SvelteKit
- * Catches unhandled errors and reports them to the server
- */
-export const handleError: HandleClientError = async ({ error, status, message }) => {
-	if (status === 404) {
-		return { message: 'Page not found' };
-	}
+export const handleError: HandleClientError = async ({ error, kind }) => {
+	// Errors thrown with `error(...)` are expected and keep their own status and message
+	if (kind === 'app') return;
+	if (kind === 'framework' && error.status === 404) return { message: 'Page not found' };
 
-	const errorMessage = error instanceof Error ? error.message : message || '';
-	if (STALE_CHUNK_PATTERN.test(errorMessage) && recoverFromStaleChunk()) {
+	const reported = error instanceof Error ? error : new Error(kind === 'framework' ? error.message : 'Unknown client error');
+	if (STALE_CHUNK_PATTERN.test(reported.message) && recoverFromStaleChunk()) {
 		return { message: 'A new version was deployed, reloading...' };
 	}
 
 	console.error('[Client Error]', error);
-
-	if (error instanceof Error) {
-		await reportError(error);
-	} else {
-		await reportError(new Error(message || 'Unknown client error'));
-	}
+	await reportError(reported);
 
 	return {
 		message: 'An unexpected error occurred. The error has been reported.'

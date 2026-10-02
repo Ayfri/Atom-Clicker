@@ -1,8 +1,8 @@
-import { CurrenciesTypes } from '$data/currencies';
-import { RADIATION_UPGRADES, getRadiationUpgradePrice } from '$data/radiationUpgrades';
-import { chromaticManager } from '$helpers/ChromaticManager.svelte';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import type { RadiationState } from '$lib/types';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { RADIATION_UPGRADES, getRadiationUpgradePrice } from '#data/radiationUpgrades.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import type { RadiationState } from '#lib/types.js';
 
 // SIMPLIFIED MECHANICS:
 // - Add mass to the reactor core (fuel)

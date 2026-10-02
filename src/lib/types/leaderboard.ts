@@ -1,6 +1,6 @@
-import type { CurrencyName } from '$data/currencies';
-import type { GeneratorType } from '$data/generators';
-import type { RealmType } from '$data/realms';
+import type { CurrencyName } from '#data/currencies.js';
+import type { GeneratorType } from '#data/generators.js';
+import type { RealmType } from '#data/realms.js';
 
 export interface LeaderboardEntry {
     atoms: number;

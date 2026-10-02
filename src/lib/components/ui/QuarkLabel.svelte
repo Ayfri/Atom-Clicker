@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Quark from '@components/icons/Quark.svelte';
+	import Quark from '#components/icons/Quark.svelte';
 
 	interface Props {
 		class?: string;

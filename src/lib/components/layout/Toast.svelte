@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
-	import type { IconStackSpec } from '$helpers/iconStacks';
-	import { toastStore, type Toast, type ToastStyle } from '$stores/toasts.svelte';
+	import type { IconStackSpec } from '#helpers/iconStacks.js';
+	import { toastStore, type Toast, type ToastStyle } from '#stores/toasts.svelte.js';
 	import { Award, Coffee, Globe, Trophy, X } from '@lucide/svelte';
-	import Discord from '@components/icons/Discord.svelte';
-	import GitHub from '@components/icons/GitHub.svelte';
-	import IconStack from '@components/ui/IconStack.svelte';
+	import Discord from '#components/icons/Discord.svelte';
+	import GitHub from '#components/icons/GitHub.svelte';
+	import IconStack from '#components/ui/IconStack.svelte';
 	import { linear } from 'svelte/easing';
 	import { Tween } from 'svelte/motion';
 	import { onMount } from 'svelte';

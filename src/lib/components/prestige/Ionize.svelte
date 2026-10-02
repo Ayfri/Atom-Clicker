@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { CHROMATIC, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '$data/chromatic';
-	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { RADIATION_UPGRADES } from '$data/radiationUpgrades';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '$helpers/RadiationManager.svelte';
-	import { formatNumber } from '$lib/utils';
-	import { prestigeStore } from '$stores/prestige.svelte';
-	import IonizeIcon from '@components/icons/Ionize.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import HoldButton from '@components/ui/HoldButton.svelte';
-	import Modal from '@components/ui/Modal.svelte';
+	import { CHROMATIC, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import IonizeIcon from '#components/icons/Ionize.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import HoldButton from '#components/ui/HoldButton.svelte';
+	import Modal from '#components/ui/Modal.svelte';
 	import { Check, Rainbow, RotateCcw, Vault, X } from '@lucide/svelte';
 
 	interface ListItem {

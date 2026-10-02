@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { changelog } from '$stores/changelog.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { changelog } from '#stores/changelog.svelte.js';
 	import { ChevronDown, Paintbrush, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 

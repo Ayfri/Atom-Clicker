@@ -1,6 +1,6 @@
-import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests, questAnchors } from '$data/dailyQuests';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { statsConfig } from '$helpers/statConstants';
+import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests, questAnchors } from '#data/dailyQuests.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { statsConfig } from '#helpers/statConstants.js';
 import type { QuestBehavior } from './types';
 
 const DAY_MS = 24 * 3600 * 1000;

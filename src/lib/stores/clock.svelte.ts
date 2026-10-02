@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 // Shared ticking clock used to drive reactive countdowns (e.g. "next auto-buy in Xs" tooltips)
 // without every consumer spinning up its own setInterval.

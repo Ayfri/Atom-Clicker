@@ -1,4 +1,4 @@
-import type { TutorialState } from '$lib/types';
+import type { TutorialState } from '#lib/types.js';
 
 export function createDefaultTutorialState(): TutorialState {
 	return { enabled: true, seen: [] };

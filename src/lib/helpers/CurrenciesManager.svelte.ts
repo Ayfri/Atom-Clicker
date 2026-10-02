@@ -1,7 +1,7 @@
 
-import { CurrenciesTypes, type CurrencyName, CURRENCIES } from '$data/currencies';
-import { type LayerType, LAYERS } from '$helpers/statConstants';
-import type { CurrencyStateMap } from '$lib/types';
+import { CurrenciesTypes, type CurrencyName, CURRENCIES } from '#data/currencies.js';
+import { type LayerType, LAYERS } from '#helpers/statConstants.js';
+import type { CurrencyStateMap } from '#lib/types.js';
 
 export class CurrenciesManager {
 	currencies = $state<CurrencyStateMap>({} as CurrencyStateMap);

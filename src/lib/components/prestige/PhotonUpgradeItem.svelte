@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Value from '@components/ui/Value.svelte';
-	import { CURRENCIES, type CurrencyName } from '$data/currencies';
-	import { getPhotonUpgradeCost, canAffordPhotonUpgrade } from '$data/photonUpgrades';
-	import { RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { photonFieldCenter } from '$helpers/photonCanvas';
-	import type { PhotonUpgrade } from '$lib/types';
+	import Value from '#components/ui/Value.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+	import { getPhotonUpgradeCost, canAffordPhotonUpgrade } from '#data/photonUpgrades.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { photonFieldCenter } from '#helpers/photonCanvas.js';
+	import type { PhotonUpgrade } from '#lib/types.js';
 
 	interface Props {
 		currency: CurrencyName;

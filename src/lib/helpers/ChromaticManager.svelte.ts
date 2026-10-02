@@ -15,11 +15,11 @@ import {
 	SPECTRUM_DROP_GROWTH,
 	SPECTRUM_HP_GROWTH,
 	WHITE_RECIPE,
-} from '$data/chromatic';
-import { CurrenciesTypes } from '$data/currencies';
-import type { ChromaticBreak } from '$helpers/chromaticField';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import type { ChromaticState } from '$lib/types';
+} from '#data/chromatic.js';
+import { CurrenciesTypes } from '#data/currencies.js';
+import type { ChromaticBreak } from '#helpers/chromaticField.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import type { ChromaticState } from '#lib/types.js';
 
 const EMPTY_KILLS: Record<ChromaticColor, number> = { blue: 0, green: 0, red: 0 };
 

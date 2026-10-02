@@ -1,7 +1,7 @@
-import type { GeneratorType } from '$data/generators';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import type { Effect, EffectAmount, EffectSource, EffectStat } from '$lib/types';
-import { formatNumber } from '$lib/utils';
+import type { GeneratorType } from '#data/generators.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import type { Effect, EffectAmount, EffectSource, EffectStat } from '#lib/types.js';
+import { formatNumber } from '#lib/utils.js';
 
 type Reader = (manager: GameManager) => number;
 

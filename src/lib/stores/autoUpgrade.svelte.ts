@@ -1,5 +1,5 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import { browser } from '$app/environment';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { browser } from '$app/env';
 import { SvelteSet } from 'svelte/reactivity';
 
 class AutoUpgradeManager {

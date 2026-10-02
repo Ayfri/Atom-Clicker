@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { particlesEnabled } from '$helpers/CanvasLoop';
-	import { ClickParticles } from '$helpers/particles';
-	import { ui } from '$stores/ui.svelte';
+	import { particlesEnabled } from '#helpers/CanvasLoop.js';
+	import { ClickParticles } from '#helpers/particles.js';
+	import { ui } from '#stores/ui.svelte.js';
 
 	$effect(() => {
 		if (!particlesEnabled) return;

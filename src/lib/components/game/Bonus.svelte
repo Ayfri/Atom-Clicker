@@ -1,14 +1,14 @@
 <script lang="ts">
-	import HiggsBoson from '@components/icons/HiggsBoson.svelte';
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { POWER_UPS } from '$data/powerUp';
-	import { RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { AtomRenderer } from '$helpers/AtomRenderer';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import type { PowerUp } from '$lib/types';
-	import { formatNumber, randomBetween, randomValue } from '$lib/utils';
+	import HiggsBoson from '#components/icons/HiggsBoson.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { POWER_UPS } from '#data/powerUp.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { AtomRenderer } from '#helpers/AtomRenderer.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import type { PowerUp } from '#lib/types.js';
+	import { formatNumber, randomBetween, randomValue } from '#lib/utils.js';
 	import { onMount } from 'svelte';
 
 	const VISIBLE_DURATION = 25000;

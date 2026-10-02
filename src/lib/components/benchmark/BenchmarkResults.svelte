@@ -1,8 +1,8 @@
 ﻿<script lang="ts">
 	import { Award, ChevronDown, ChevronUp, Clock, Layers, Sparkles, Star, Target, TrendingUp, Zap } from '@lucide/svelte';
-	import { formatDuration, formatNumber, formatSimTimePrecise } from '$lib/utils';
-	import { MILESTONES } from '$lib/simulation/milestones';
-	import type { SimulationResult } from '$lib/simulation/types';
+	import { formatDuration, formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import { MILESTONES } from '#lib/simulation/milestones.js';
+	import type { SimulationResult } from '#lib/simulation/types.js';
 	import SpikeBreakdown from './SpikeBreakdown.svelte';
 
 	let { result }: { result: SimulationResult } = $props();

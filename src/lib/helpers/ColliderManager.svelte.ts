@@ -1,10 +1,10 @@
-import { browser } from '$app/environment';
-import { colliderBonus } from '$data/collider';
-import { gameManager } from '$helpers/GameManager.svelte';
-import type { ColliderState } from '$lib/types';
-import { obfuscateClientData } from '$lib/utils/obfuscation';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-import { toastStore } from '$stores/toasts.svelte';
+import { browser } from '$app/env';
+import { colliderBonus } from '#data/collider.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import type { ColliderState } from '#lib/types.js';
+import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 
 /** Owns the `/api/collider` calls, GameManager only receives the bonus so the simulation worker never pulls in `fetch`. */
 export class ColliderManager {
@@ -25,7 +25,7 @@ export class ColliderManager {
 		this.readyAt = Date.now() + state.readyInMs;
 		this.ready = state.readyInMs <= 0;
 		clearTimeout(this.readyTimer);
-		if (!this.ready) this.readyTimer = setTimeout(() => (this.ready = true), state.readyInMs);
+		if (!this.ready) this.readyTimer = setTimeout(() => this.ready = true, state.readyInMs);
 	}
 
 	private async headers(signedIn: boolean): Promise<Record<string, string>> {

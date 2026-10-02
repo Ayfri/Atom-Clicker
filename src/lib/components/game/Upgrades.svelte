@@ -1,20 +1,20 @@
 <script lang="ts">
-	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '$data/currencies';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { AtomRenderer } from '$helpers/AtomRenderer';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '$data/upgrades';
-	import { ICONS } from '$data/icons';
-	import { RealmTypes } from '$data/realms';
-	import type { Upgrade } from '$lib/types';
-	import AutoButton from '@components/ui/AutoButton.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { reveal, reveals } from '$helpers/reveals.svelte';
-	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import { clock } from '$stores/clock.svelte';
-	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
+	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '#data/currencies.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { AtomRenderer } from '#helpers/AtomRenderer.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '#data/upgrades.js';
+	import { ICONS } from '#data/icons.js';
+	import { RealmTypes } from '#data/realms.js';
+	import type { Upgrade } from '#lib/types.js';
+	import AutoButton from '#components/ui/AutoButton.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	import { clock } from '#stores/clock.svelte.js';
+	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { Eye, EyeOff } from '@lucide/svelte';
 

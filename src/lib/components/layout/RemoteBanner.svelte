@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { remoteMessage } from '$stores/remoteMessage.svelte';
+	import { remoteMessage } from '#stores/remoteMessage.svelte.js';
 	import { onMount } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { X, Megaphone } from '@lucide/svelte';

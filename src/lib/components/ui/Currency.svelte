@@ -1,15 +1,15 @@
 <script lang="ts">
 	import type { SvelteHTMLElements } from 'svelte/elements';
-	import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
-	import {CURRENCIES, type CurrencyName} from '$data/currencies';
-	import LightIcon from '@components/icons/Light.svelte';
-	import WhiteLightIcon from '@components/icons/WhiteLight.svelte';
-	import AtomIcon from '@components/icons/Atom.svelte';
-	import ElectronIcon from '@components/icons/Electron.svelte';
-	import ExcitedPhotonIcon from '@components/icons/ExcitedPhoton.svelte';
-	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
-	import ProtonIcon from '@components/icons/Proton.svelte';
-	import PhotonIcon from '@components/icons/Photon.svelte';
+	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+	import {CURRENCIES, type CurrencyName} from '#data/currencies.js';
+	import LightIcon from '#components/icons/Light.svelte';
+	import WhiteLightIcon from '#components/icons/WhiteLight.svelte';
+	import AtomIcon from '#components/icons/Atom.svelte';
+	import ElectronIcon from '#components/icons/Electron.svelte';
+	import ExcitedPhotonIcon from '#components/icons/ExcitedPhoton.svelte';
+	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+	import ProtonIcon from '#components/icons/Proton.svelte';
+	import PhotonIcon from '#components/icons/Photon.svelte';
 
 	type SvgProps = SvelteHTMLElements['svg'];
 

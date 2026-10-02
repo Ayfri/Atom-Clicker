@@ -1,9 +1,9 @@
 <script lang="ts">
-	import AutoButton from '@components/ui/AutoButton.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { formatNumber } from '$lib/utils';
+	import AutoButton from '#components/ui/AutoButton.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { fade } from 'svelte/transition';
 
 	const SIDE_CURRENCIES = [

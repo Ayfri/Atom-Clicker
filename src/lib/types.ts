@@ -1,14 +1,14 @@
-import type { ChromaticColor } from '$data/chromatic';
-import type { CurrencyName } from '$data/currencies';
-import type { DailyStats } from '$data/dailyQuests';
-import type { FeatureType } from '$data/features';
-import type { GeneratorType } from '$data/generators';
-import type { IconName } from '$data/icons';
-import type { RealmType } from '$data/realms';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import type { IconStackSpec } from '$helpers/iconStacks';
-import type { LayerType } from '$helpers/statConstants';
-import type { ToastIcon } from '$stores/toasts.svelte';
+import type { ChromaticColor } from '#data/chromatic.js';
+import type { CurrencyName } from '#data/currencies.js';
+import type { DailyStats } from '#data/dailyQuests.js';
+import type { FeatureType } from '#data/features.js';
+import type { GeneratorType } from '#data/generators.js';
+import type { IconName } from '#data/icons.js';
+import type { RealmType } from '#data/realms.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import type { IconStackSpec } from '#helpers/iconStacks.js';
+import type { LayerType } from '#helpers/statConstants.js';
+import type { ToastIcon } from '#stores/toasts.svelte.js';
 
 export interface Achievement {
 	condition: (manager: GameManager) => boolean;

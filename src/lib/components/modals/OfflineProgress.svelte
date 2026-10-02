@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { CURRENCIES, type CurrencyName } from '$data/currencies';
-	import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
-	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { formatDuration, formatNumber } from '$lib/utils';
-	import PhotonIcon from '@components/icons/Photon.svelte';
-	import Currency from '@components/ui/Currency.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+	import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+	import { GENERATOR_ICON_NAMES, ICONS } from '#data/icons.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import PhotonIcon from '#components/icons/Photon.svelte';
+	import Currency from '#components/ui/Currency.svelte';
 	import { ArrowBigUp, CircleArrowUp, Factory, Hourglass, MousePointerClick, Radiation, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';

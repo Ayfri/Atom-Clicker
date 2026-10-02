@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { formatNumber } from '$lib/utils';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { prefersReducedMotion } from 'svelte/motion';
 
 	let badge: HTMLElement;

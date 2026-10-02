@@ -10,22 +10,22 @@
 		SPECTRUM_DROP_GROWTH,
 		SPECTRUM_HP_GROWTH,
 		WHITE_RECIPE,
-	} from '$data/chromatic';
+	} from '#data/chromatic.js';
 
 	export { spectrumHelp };
 </script>
 
 <script lang="ts">
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { chromaticManager } from '$helpers/ChromaticManager.svelte';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { photonFieldCenter } from '$helpers/photonCanvas';
-	import { reveal } from '$helpers/reveals.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import Value from '@components/ui/Value.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { photonFieldCenter } from '#helpers/photonCanvas.js';
+	import { reveal } from '#helpers/reveals.svelte.js';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Value from '#components/ui/Value.svelte';
 
 	const UPGRADES = Object.values(CHROMATIC_UPGRADES);
 	const byPrefix = (prefix: string) => UPGRADES.filter(upgrade => upgrade.id.startsWith(prefix));

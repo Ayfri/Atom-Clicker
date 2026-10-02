@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { CurrenciesTypes } from '$data/currencies';
-	import { boostTiersUnlockedByNextProtonise } from '$data/upgrades';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { LAYERS } from '$helpers/statConstants';
-	import { PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-	import type { PrestigeListItem } from '$lib/types';
-	import { formatNumber } from '$lib/utils';
-	import PrestigeModal from '@components/prestige/PrestigeModal.svelte';
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { boostTiersUnlockedByNextProtonise } from '#data/upgrades.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { LAYERS } from '#helpers/statConstants.js';
+	import { PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+	import type { PrestigeListItem } from '#lib/types.js';
+	import { formatNumber } from '#lib/utils.js';
+	import PrestigeModal from '#components/prestige/PrestigeModal.svelte';
 
 	interface Props {
 		onClose: () => void;

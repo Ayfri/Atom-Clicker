@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { Achievement, AchievementGroup } from '$lib/types';
-	import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS } from '$data/achievements';
-	import { isQuarkAchievement } from '$data/quarkAchievements';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import Quark from '@components/icons/Quark.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import IconStack from '@components/ui/IconStack.svelte';
-	import QuarkLabel from '@components/ui/QuarkLabel.svelte';
+	import type { Achievement, AchievementGroup } from '#lib/types.js';
+	import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS } from '#data/achievements.js';
+	import { isQuarkAchievement } from '#data/quarkAchievements.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import Quark from '#components/icons/Quark.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import IconStack from '#components/ui/IconStack.svelte';
+	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	const TOTAL_ACHIEVEMENTS = Object.keys(ACHIEVEMENTS).length;

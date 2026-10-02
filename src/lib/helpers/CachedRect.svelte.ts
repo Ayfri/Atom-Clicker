@@ -1,5 +1,5 @@
-import type { RealmType } from '$data/realms';
-import { REALM_SWITCH_MS, realmManager } from '$helpers/RealmManager.svelte';
+import type { RealmType } from '#data/realms.js';
+import { REALM_SWITCH_MS, realmManager } from '#helpers/RealmManager.svelte.js';
 
 /**
  * Bounding rect of an element of a realm, for the hot paths (auto-clicks, pointer moves): `getBoundingClientRect` forces a

@@ -1,15 +1,15 @@
 <script lang="ts">
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { CurrenciesTypes } from '$data/currencies';
-	import { RADIATION_UPGRADES, getRadiationUpgradeCost } from '$data/radiationUpgrades';
-	import { RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { ReactorRenderer } from '$helpers/ReactorRenderer';
-	import { reveal } from '$helpers/reveals.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { RADIATION_UPGRADES, getRadiationUpgradeCost } from '#data/radiationUpgrades.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { ReactorRenderer } from '#helpers/ReactorRenderer.js';
+	import { reveal } from '#helpers/reveals.svelte.js';
 	import { Flame, FlaskConical, Grid3x3, Layers, Magnet, Recycle, ShieldHalf, Snowflake, Sparkles } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 

@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import { toastStore } from '$stores/toasts.svelte';
+import { browser } from '$app/env';
+import { toastStore } from '#stores/toasts.svelte.js';
 
 export class MultiTabDetector {
 	isDuplicate = $state(false);

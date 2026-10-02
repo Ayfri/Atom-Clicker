@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Tooltip from '@components/ui/Tooltip.svelte';
-	import { type TooltipPosition, type TooltipSize } from '$stores/tooltip.svelte';
+	import Tooltip from '#components/ui/Tooltip.svelte';
+	import { type TooltipPosition, type TooltipSize } from '#stores/tooltip.svelte.js';
 	import { CircleHelp } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 

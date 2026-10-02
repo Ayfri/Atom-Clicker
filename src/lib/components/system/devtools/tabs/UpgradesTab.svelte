@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { EXCITED_PHOTON_UPGRADES, PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { RADIATION_UPGRADES } from '$data/radiationUpgrades';
-	import { SKILL_UPGRADES } from '$data/skillTree';
-	import { UPGRADES } from '$data/upgrades';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
+	import { EXCITED_PHOTON_UPGRADES, PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
+	import { SKILL_UPGRADES } from '#data/skillTree.js';
+	import { UPGRADES } from '#data/upgrades.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import LevelList from '../LevelList.svelte';
 	import ToggleGrid from '../ToggleGrid.svelte';
 

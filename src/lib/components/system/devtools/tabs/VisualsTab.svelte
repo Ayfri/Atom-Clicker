@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { ACHIEVEMENTS } from '$data/achievements';
-	import { ICONS, type IconName } from '$data/icons';
-	import IconStack from '@components/ui/IconStack.svelte';
-	import { tierIconStack } from '$helpers/iconStacks';
-	import { prestigeStore } from '$stores/prestige.svelte';
-	import { toastStore } from '$stores/toasts.svelte';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { ICONS, type IconName } from '#data/icons.js';
+	import IconStack from '#components/ui/IconStack.svelte';
+	import { tierIconStack } from '#helpers/iconStacks.js';
+	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { btn, field } from '../shared.svelte';
 	import Section from '../Section.svelte';
 

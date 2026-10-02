@@ -1,5 +1,5 @@
-import { LAYERS } from '$helpers/statConstants';
-import type { Currency } from '$lib/types';
+import { LAYERS } from '#helpers/statConstants.js';
+import type { Currency } from '#lib/types.js';
 
 export const CurrenciesTypes = {
 	ATOMS: 'Atoms',

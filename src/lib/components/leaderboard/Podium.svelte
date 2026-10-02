@@ -1,13 +1,13 @@
 <script lang="ts">
-	import Avatar from '@components/ui/Avatar.svelte';
-	import LeaderboardBannerBackdrop from '@components/ui/LeaderboardBannerBackdrop.svelte';
-	import LevelChip from '@components/ui/LevelChip.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { CurrenciesTypes } from '$data/currencies';
-	import { podiumColor } from '$data/leaderboard';
-	import { getQuarkShopItem } from '$data/quarkShop';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import type { LeaderboardEntry } from '$lib/types/leaderboard';
+	import Avatar from '#components/ui/Avatar.svelte';
+	import LeaderboardBannerBackdrop from '#components/ui/LeaderboardBannerBackdrop.svelte';
+	import LevelChip from '#components/ui/LevelChip.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { podiumColor } from '#data/leaderboard.js';
+	import { getQuarkShopItem } from '#data/quarkShop.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 	import { Crown } from '@lucide/svelte';
 
 	interface Props {

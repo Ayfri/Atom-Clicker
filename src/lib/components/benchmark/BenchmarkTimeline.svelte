@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { RotateCcw, Target } from '@lucide/svelte';
-	import { formatDuration, formatNumber, formatSimTimePrecise } from '$lib/utils';
-	import type { MilestoneHit, SimulationProgress } from '$lib/simulation/types';
+	import { formatDuration, formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import type { MilestoneHit, SimulationProgress } from '#lib/simulation/types.js';
 
 	interface Props {
 		elapsedTime: number;

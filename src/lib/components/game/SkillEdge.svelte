@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { Attachment } from 'svelte/attachments';
-	import { SKILL_NODE_SIZE } from '$data/skillTree';
-	import type { SkillUpgrade } from '$lib/types';
+	import { SKILL_NODE_SIZE } from '#data/skillTree.js';
+	import type { SkillUpgrade } from '#lib/types.js';
 
 	/** How long the liquid takes to flow from a skill into the one just bought, the node bursts when it arrives. */
 	export const FILL_MS = 800;

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import HiggsBoson from '@components/icons/HiggsBoson.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { PowerUp } from '$lib/types';
-	import { formatNumber } from '$lib/utils';
+	import HiggsBoson from '#components/icons/HiggsBoson.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import type { PowerUp } from '#lib/types.js';
+	import { formatNumber } from '#lib/utils.js';
 	import type { Attachment } from 'svelte/attachments';
 	import { backOut } from 'svelte/easing';
 	import { fly, scale } from 'svelte/transition';

@@ -1,5 +1,5 @@
-import { formatNumber } from '$lib/utils';
-import { simpleHash } from '$lib/utils/signing';
+import { formatNumber } from '#lib/utils.js';
+import { simpleHash } from '#lib/utils/signing.js';
 
 export type DailyStatMetric =
 	| 'achievementsUnlocked'

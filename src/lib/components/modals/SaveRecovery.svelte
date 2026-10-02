@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Login from '@components/modals/Login.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { saveRecovery } from '$stores/saveRecovery.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-	import { toastStore } from '$stores/toasts.svelte';
+	import Login from '#components/modals/Login.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { AlertTriangle, CloudDownload, Database, RefreshCw, Trash2, Trophy, X } from '@lucide/svelte';
 
 	interface Props {

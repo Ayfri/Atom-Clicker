@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { X } from '@lucide/svelte';
-	import { ui } from '$stores/ui.svelte';
+	import { ui } from '#stores/ui.svelte.js';
 	import type { Snippet } from 'svelte';
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 

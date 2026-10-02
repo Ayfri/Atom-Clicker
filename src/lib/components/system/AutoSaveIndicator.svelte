@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CloudUpload } from '@lucide/svelte';
-	import { autoSave } from '$stores/autoSave.svelte';
+	import { autoSave } from '#stores/autoSave.svelte.js';
 
 	const SAVE_ANIMATION_DURATION = 1000;
 	let animationTimeout: ReturnType<typeof setTimeout>;

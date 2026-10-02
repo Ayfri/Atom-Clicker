@@ -1,16 +1,16 @@
 <script lang="ts">
-	import '@/app.css';
-	import { browser } from '$app/environment';
+	import '../app.css';
+	import { browser } from '$app/env';
 	import { beforeNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
-	import PrestigeAnimation from '@components/prestige/PrestigeAnimation.svelte';
-	import Analytics from '@components/system/Analytics.svelte';
-	import DevTools from '@components/system/devtools/DevTools.svelte';
-	import SEO from '@components/system/SEO.svelte';
-	import Hints from '@components/tutorial/Hints.svelte';
-	import TooltipPortal from '@components/ui/TooltipPortal.svelte';
-	import { prestigeStore } from '$stores/prestige.svelte';
-	import { toastStore } from '$stores/toasts.svelte';
+	import PrestigeAnimation from '#components/prestige/PrestigeAnimation.svelte';
+	import Analytics from '#components/system/Analytics.svelte';
+	import DevTools from '#components/system/devtools/DevTools.svelte';
+	import SEO from '#components/system/SEO.svelte';
+	import Hints from '#components/tutorial/Hints.svelte';
+	import TooltipPortal from '#components/ui/TooltipPortal.svelte';
+	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { LoaderCircle } from '@lucide/svelte';
 	import { type Snippet } from 'svelte';
 
@@ -26,7 +26,9 @@
 	let updatePromptShown = false;
 
 	// The old build's chunks are gone from Cloudflare, so a client-side navigation would hit a dead import
-	beforeNavigate(navigation => {
+	beforeNavigate((navigation) => {
+		if (navigation.shallow) return;
+
 		if (updated.current && navigation.to?.url) {
 			navigation.cancel();
 			location.href = navigation.to.url.href;

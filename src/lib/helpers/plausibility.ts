@@ -1,4 +1,4 @@
-import type { GameState } from '$lib/types';
+import type { GameState } from '#lib/types.js';
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
 const TIME_TOLERANCE_MS = 60_000;

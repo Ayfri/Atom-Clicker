@@ -1,13 +1,13 @@
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { GENERATORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
-import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
-import { RADIATION_UPGRADES, type RadiationUpgrade, getRadiationUpgradePrice } from '$data/radiationUpgrades';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import type { PhotonUpgrade } from '$lib/types';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { GENERATORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
+import { RADIATION_UPGRADES, type RadiationUpgrade, getRadiationUpgradePrice } from '#data/radiationUpgrades.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import type { PhotonUpgrade } from '#lib/types.js';
 import type { BotBehavior } from './types';
 
 type Priced = { cost: { amount: number; currency: CurrencyName } };

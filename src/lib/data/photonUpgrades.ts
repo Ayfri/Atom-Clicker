@@ -1,9 +1,9 @@
-import { CurrenciesTypes } from '$data/currencies';
-import { FeatureTypes } from '$data/features';
-import { add, mul } from '$helpers/effects';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import type { PhotonUpgrade } from '$lib/types';
-import { formatNumber } from '$lib/utils';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import { add, mul } from '#helpers/effects.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import type { PhotonUpgrade } from '#lib/types.js';
+import { formatNumber } from '#lib/utils.js';
 
 const STABILITY_EFFICIENCIES = [0.2, 0.5, 1];
 

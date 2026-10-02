@@ -1,5 +1,5 @@
 /** IndexedDB store for benchmark report history. */
-import type { MilestoneHit, SimulationResult, SpikeEvent } from '$lib/simulation/types';
+import type { MilestoneHit, SimulationResult, SpikeEvent } from '#lib/simulation/types.js';
 
 const DB_NAME = 'atom-clicker-benchmarks';
 const DB_VERSION = 2;

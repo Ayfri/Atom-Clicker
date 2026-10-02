@@ -1,19 +1,19 @@
-import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
-import { CurrenciesTypes } from '$data/currencies';
-import { FeatureTypes } from '$data/features';
-import { GENERATOR_TYPES, GENERATORS } from '$data/generators';
-import { RealmTypes, type RealmType } from '$data/realms';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { chromaticManager } from '$helpers/ChromaticManager.svelte';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import { realmManager } from '$helpers/RealmManager.svelte';
-import { reveals } from '$helpers/reveals.svelte';
-import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '$lib/constants';
-import { photonUpgradesTab } from '$stores/photonUpgradesTab.svelte';
-import type { TooltipPosition } from '$stores/tooltip.svelte';
-import { ui } from '$stores/ui.svelte';
+import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+import { RealmTypes, type RealmType } from '#data/realms.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
+import { reveals } from '#helpers/reveals.svelte.js';
+import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
+import type { TooltipPosition } from '#stores/tooltip.svelte.js';
+import { ui } from '#stores/ui.svelte.js';
 
 export interface Hint {
 	/** The action that teaches the hint, it is marked seen as soon as this holds, even if it was never displayed. Without it the hint shows a "Got it" button. */

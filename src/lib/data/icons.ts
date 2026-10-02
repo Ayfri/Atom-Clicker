@@ -1,24 +1,24 @@
 import type { Component } from 'svelte';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { GeneratorTypes, type GeneratorType } from '$data/generators';
-import AtomIcon from '@components/icons/Atom.svelte';
-import DiscordIcon from '@components/icons/Discord.svelte';
-import ElectronIcon from '@components/icons/Electron.svelte';
-import ExcitedPhotonIcon from '@components/icons/ExcitedPhoton.svelte';
-import BlackHoleIcon from '@components/icons/generators/BlackHole.svelte';
-import CrystalIcon from '@components/icons/generators/Crystal.svelte';
-import MicroorganismIcon from '@components/icons/generators/Microorganism.svelte';
-import MoleculeIcon from '@components/icons/generators/Molecule.svelte';
-import NanostructureIcon from '@components/icons/generators/Nanostructure.svelte';
-import NeutronStarIcon from '@components/icons/generators/NeutronStar.svelte';
-import PlanetIcon from '@components/icons/generators/Planet.svelte';
-import RockIcon from '@components/icons/generators/Rock.svelte';
-import StarIcon from '@components/icons/generators/Star.svelte';
-import GitHubIcon from '@components/icons/GitHub.svelte';
-import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
-import PhotonIcon from '@components/icons/Photon.svelte';
-import ProtonIcon from '@components/icons/Proton.svelte';
-import QuarkIcon from '@components/icons/Quark.svelte';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { GeneratorTypes, type GeneratorType } from '#data/generators.js';
+import AtomIcon from '#components/icons/Atom.svelte';
+import DiscordIcon from '#components/icons/Discord.svelte';
+import ElectronIcon from '#components/icons/Electron.svelte';
+import ExcitedPhotonIcon from '#components/icons/ExcitedPhoton.svelte';
+import BlackHoleIcon from '#components/icons/generators/BlackHole.svelte';
+import CrystalIcon from '#components/icons/generators/Crystal.svelte';
+import MicroorganismIcon from '#components/icons/generators/Microorganism.svelte';
+import MoleculeIcon from '#components/icons/generators/Molecule.svelte';
+import NanostructureIcon from '#components/icons/generators/Nanostructure.svelte';
+import NeutronStarIcon from '#components/icons/generators/NeutronStar.svelte';
+import PlanetIcon from '#components/icons/generators/Planet.svelte';
+import RockIcon from '#components/icons/generators/Rock.svelte';
+import StarIcon from '#components/icons/generators/Star.svelte';
+import GitHubIcon from '#components/icons/GitHub.svelte';
+import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+import PhotonIcon from '#components/icons/Photon.svelte';
+import ProtonIcon from '#components/icons/Proton.svelte';
+import QuarkIcon from '#components/icons/Quark.svelte';
 import {
 	Activity,
 	ArrowBigUp,

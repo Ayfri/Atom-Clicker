@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BaseChart, { type ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
-	import ComparisonChart from '$lib/components/benchmark/ComparisonChart.svelte';
-	import { GENERATORS, GENERATOR_COLORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '$data/generators';
-	import { totalActionCount, type SimulationSnapshot } from '$lib/simulation/types';
+	import BaseChart, { type ChartSeries } from '#lib/components/benchmark/BaseChart.svelte';
+	import ComparisonChart from '#lib/components/benchmark/ComparisonChart.svelte';
+	import { GENERATORS, GENERATOR_COLORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '#data/generators.js';
+	import { totalActionCount, type SimulationSnapshot } from '#lib/simulation/types.js';
 
 	interface SeriesDef {
 		color: string;

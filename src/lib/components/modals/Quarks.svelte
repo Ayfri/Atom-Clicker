@@ -1,24 +1,24 @@
 <script lang="ts">
-	import AtomIcon from '@components/icons/Atom.svelte';
-	import ElectronizeIcon from '@components/icons/Electronize.svelte';
-	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
-	import ProtoniseIcon from '@components/icons/Protonise.svelte';
-	import Quark from '@components/icons/Quark.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import IconStack from '@components/ui/IconStack.svelte';
-	import LeaderboardRow from '@components/ui/LeaderboardRow.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import QuarkLabel from '@components/ui/QuarkLabel.svelte';
-	import { getQuestTarget, questAnchors } from '$data/dailyQuests';
-	import { CURRENCY_ICON_NAMES, type IconComponent } from '$data/icons';
-	import { QUARK_SHOP } from '$data/quarkShop';
-	import { RealmTypes, type RealmType } from '$data/realms';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { formatNumber } from '$lib/utils';
-	import { createCurrentPlayerPreview } from '$lib/utils/leaderboard-preview';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import AtomIcon from '#components/icons/Atom.svelte';
+	import ElectronizeIcon from '#components/icons/Electronize.svelte';
+	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+	import ProtoniseIcon from '#components/icons/Protonise.svelte';
+	import Quark from '#components/icons/Quark.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import IconStack from '#components/ui/IconStack.svelte';
+	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
+	import { getQuestTarget, questAnchors } from '#data/dailyQuests.js';
+	import { CURRENCY_ICON_NAMES, type IconComponent } from '#data/icons.js';
+	import { QUARK_SHOP } from '#data/quarkShop.js';
+	import { RealmTypes, type RealmType } from '#data/realms.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { createCurrentPlayerPreview } from '#lib/utils/leaderboard-preview.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import {
 		Check,
 		CircleArrowUp,

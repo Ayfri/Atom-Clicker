@@ -1,5 +1,5 @@
-import type { IconName } from '$data/icons';
-import { formatNumber } from '$lib/utils';
+import type { IconName } from '#data/icons.js';
+import { formatNumber } from '#lib/utils.js';
 
 /** Beyond this many copies a stack stops reading as "several" and just looks noisy, so the count moves into the label. */
 export const MAX_STACK_COUNT = 3;

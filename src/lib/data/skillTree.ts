@@ -1,9 +1,9 @@
-import { CurrenciesTypes } from '$data/currencies';
-import { FeatureTypes } from '$data/features';
-import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '$data/generators';
-import { GENERATOR_ICON_NAMES } from '$data/icons';
-import { add, mul } from '$helpers/effects';
-import type { SkillBranch, SkillUpgrade } from '$lib/types';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
+import { GENERATOR_ICON_NAMES } from '#data/icons.js';
+import { add, mul } from '#helpers/effects.js';
+import type { SkillBranch, SkillUpgrade } from '#lib/types.js';
 
 const SKILL_GRID = {
 	x: 550,

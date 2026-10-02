@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
-import { COLLIDER_COOLDOWN_SECONDS } from '$data/collider'
-import type { ColliderState } from '$lib/types'
-import type { Database } from '$lib/types/supabase'
-import { PUBLIC_SUPABASE_URL } from '$env/static/public'
-import { SUPABASE_SECRET_KEY } from '$env/static/private'
+import { createClient } from '@supabase/supabase-js';
+import { COLLIDER_COOLDOWN_SECONDS } from '#data/collider.js';
+import type { ColliderState } from '#lib/types.js';
+import type { Database } from '#lib/types/supabase.js';
+import { PUBLIC_SUPABASE_URL } from '$app/env/public';
+import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
 export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
 	auth: {
@@ -247,7 +247,7 @@ export const quarksService = {
 			throw error;
 		}
 
-		return (data ?? []).map(row => row.item_id);
+		return (data ?? []).map((row) => row.item_id);
 	},
 
 	async getClaimedAchievementIds(userId: string) {
@@ -262,7 +262,7 @@ export const quarksService = {
 			throw error;
 		}
 
-		return (data ?? []).map(row => row.ref.replace('achievement:', ''));
+		return (data ?? []).map((row) => row.ref.replace('achievement:', ''));
 	},
 
 	async getClaimedQuestIds(userId: string, dayKey: string) {
@@ -279,7 +279,7 @@ export const quarksService = {
 			throw error;
 		}
 
-		return (data ?? []).map(row => row.ref.split(':').slice(2).join(':'));
+		return (data ?? []).map((row) => row.ref.split(':').slice(2).join(':'));
 	},
 
 	async equipBanner(userId: string, itemId: string | null) {
@@ -314,13 +314,10 @@ export const quarksService = {
 	async equipTheme(userId: string, realmId: string, itemId: string | null): Promise<Record<string, string>> {
 		const current = await this.getEquippedThemes(userId);
 		const next = { ...current };
-		if (itemId) next[realmId] = itemId;
-		else delete next[realmId];
 
-		const { error } = await supabaseAdmin
-			.from('profiles')
-			.update({ equipped_themes: next })
-			.eq('id', userId);
+		if (itemId) next[realmId] = itemId; else delete next[realmId];
+
+		const { error } = await supabaseAdmin.from('profiles').update({ equipped_themes: next }).eq('id', userId);
 
 		if (error) {
 			console.error('Error equipping theme:', error);

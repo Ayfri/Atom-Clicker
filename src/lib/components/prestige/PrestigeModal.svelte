@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { FeatureTypes } from '$data/features';
-	import { RealmTypes } from '$data/realms';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { effectBreakdown } from '$helpers/effects';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { LAYERS } from '$helpers/statConstants';
-	import type { EffectStat, PrestigeListItem } from '$lib/types';
-	import { formatNumber } from '$lib/utils';
-	import { prestigeStore } from '$stores/prestige.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import HoldButton from '@components/ui/HoldButton.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import Tooltip from '@components/ui/Tooltip.svelte';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { FeatureTypes } from '#data/features.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { effectBreakdown } from '#helpers/effects.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { LAYERS } from '#helpers/statConstants.js';
+	import type { EffectStat, PrestigeListItem } from '#lib/types.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import Currency from '#components/ui/Currency.svelte';
+	import HoldButton from '#components/ui/HoldButton.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import Tooltip from '#components/ui/Tooltip.svelte';
 	import { Check, Info, RotateCcw, Sparkles, Vault, X } from '@lucide/svelte';
 
 	interface Props {

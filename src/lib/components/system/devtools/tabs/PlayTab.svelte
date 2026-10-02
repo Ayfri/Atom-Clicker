@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { CURRENCIES, type CurrencyName } from '$data/currencies';
-	import { POWER_UPS } from '$data/powerUp';
-	import OfflineProgress from '@components/modals/OfflineProgress.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { applyOfflineProgress } from '$helpers/offlineProgress';
-	import { IONIZE_HOLD_SECONDS, radiationManager } from '$helpers/RadiationManager.svelte';
-	import { formatDuration, formatNumber } from '$lib/utils';
-	import { toastStore } from '$stores/toasts.svelte';
-	import { ui } from '$stores/ui.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+	import { POWER_UPS } from '#data/powerUp.js';
+	import OfflineProgress from '#components/modals/OfflineProgress.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { applyOfflineProgress } from '#helpers/offlineProgress.js';
+	import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { btn, btnAccent, setCurrency } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';

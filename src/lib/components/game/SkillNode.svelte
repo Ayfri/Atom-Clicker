@@ -26,11 +26,11 @@
 	import { Check, Lock } from '@lucide/svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { untrack } from 'svelte';
-	import { FILL_MS } from '@components/game/SkillEdge.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { ICONS } from '$data/icons';
-	import { SKILL_BRANCH_COLORS, SKILL_NODE_SIZE } from '$data/skillTree';
-	import type { SkillUpgrade } from '$lib/types';
+	import { FILL_MS } from '#components/game/SkillEdge.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { ICONS } from '#data/icons.js';
+	import { SKILL_BRANCH_COLORS, SKILL_NODE_SIZE } from '#data/skillTree.js';
+	import type { SkillUpgrade } from '#lib/types.js';
 
 	interface Props {
 		/** Delay before the node pops in, only read when it mounts. */

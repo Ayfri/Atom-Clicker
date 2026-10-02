@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import type {AuthConnection} from '$lib/types/auth';
+	import type {AuthConnection} from '#lib/types/auth.js';
 
 	export const AUTH_CONNECTIONS: AuthConnection[] = [
 		{
@@ -32,14 +32,16 @@
 	];
 
 	export function getAuthConnection(provider: string | undefined) {
-		return AUTH_CONNECTIONS.find(c => c.provider === provider);
+		return AUTH_CONNECTIONS.find((c) => c.provider === provider);
 	}
 </script>
 
-<script lang="ts">
-	import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
-	import {supabaseAuth} from '$stores/supabaseAuth.svelte';
-	import Modal from '@components/ui/Modal.svelte';
+<script
+	lang="ts"
+>
+	import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import Modal from '#components/ui/Modal.svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -75,7 +77,11 @@
 	}
 </script>
 
-<Modal {onClose} title="Choose how to connect" width="sm">
+<Modal
+	onClose={onClose}
+	title="Choose how to connect"
+	width="sm"
+>
 	{#if error}
 		<div class="mb-4 rounded-lg bg-red-500/20 p-4 text-red-200">
 			{error}

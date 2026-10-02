@@ -1,6 +1,6 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import type { LeaderboardEntry } from '$lib/types/leaderboard';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 export function createCurrentPlayerPreview(bannerId: string): LeaderboardEntry {
 	return {

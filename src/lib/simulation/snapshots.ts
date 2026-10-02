@@ -1,10 +1,10 @@
-import { CurrenciesTypes } from '$data/currencies';
-import { GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '$data/generators';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { EffectTable, effectAmount } from '$helpers/effects';
-import { gameManager } from '$helpers/GameManager.svelte';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { EffectTable, effectAmount } from '#helpers/effects.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
 import type { QuestTracker } from './quests';
 import type { SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
 

@@ -1,6 +1,6 @@
-import type { RealmType } from '$data/realms';
-import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
-import { REALM_SWITCH_MS } from '$helpers/RealmManager.svelte';
+import type { RealmType } from '#data/realms.js';
+import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { REALM_SWITCH_MS } from '#helpers/RealmManager.svelte.js';
 import { prefersReducedMotion } from 'svelte/motion';
 
 const TAU = Math.PI * 2;

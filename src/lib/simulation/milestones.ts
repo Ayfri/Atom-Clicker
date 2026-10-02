@@ -1,7 +1,7 @@
-import { CurrenciesTypes } from '$data/currencies';
-import { GENERATORS, GENERATOR_TYPES } from '$data/generators';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { gameManager } from '$helpers/GameManager.svelte';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
 import type { RunState } from './snapshots';
 import type { MilestoneDefinition, MilestoneHit } from './types';
 

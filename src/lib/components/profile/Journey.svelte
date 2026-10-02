@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ElectronizeIcon from '@components/icons/Electronize.svelte';
-	import PhotonIcon from '@components/icons/Photon.svelte';
-	import ProtoniseIcon from '@components/icons/Protonise.svelte';
-	import { CURRENCIES } from '$data/currencies';
-	import { REALMS } from '$data/realms';
-	import { formatNumber } from '$lib/utils';
+	import ElectronizeIcon from '#components/icons/Electronize.svelte';
+	import PhotonIcon from '#components/icons/Photon.svelte';
+	import ProtoniseIcon from '#components/icons/Protonise.svelte';
+	import { CURRENCIES } from '#data/currencies.js';
+	import { REALMS } from '#data/realms.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { Lock, Radiation } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 

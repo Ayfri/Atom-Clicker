@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Currency from '@components/ui/Currency.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { FeatureTypes } from '$data/features';
-	import { GENERATOR_LEVEL_UP_COST } from '$data/generators';
-	import { MAX_BOOST_POINTS } from '$lib/constants';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { FeatureTypes } from '#data/features.js';
+	import { GENERATOR_LEVEL_UP_COST } from '#data/generators.js';
+	import { MAX_BOOST_POINTS } from '#lib/constants.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { ChevronsRight, Minus, Plus, RotateCcw, Scale, Zap } from '@lucide/svelte';
 
 	interface Props {

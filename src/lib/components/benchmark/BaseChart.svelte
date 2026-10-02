@@ -1,5 +1,5 @@
 ﻿<script lang="ts">
-	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
 	import type { Attachment } from 'svelte/attachments';
 
 	export interface ChartSeries {

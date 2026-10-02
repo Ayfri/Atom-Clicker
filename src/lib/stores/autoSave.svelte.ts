@@ -1,7 +1,7 @@
-import { browser } from '$app/environment';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { getItem, setItem } from '$lib/utils/safeLocalStorage';
-import { supabaseAuth, type CloudSaveInfo } from '$stores/supabaseAuth.svelte';
+import { browser } from '$app/env';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { supabaseAuth, type CloudSaveInfo } from '#stores/supabaseAuth.svelte.js';
 
 class AutoSaveStore {
 	enabled = $state(browser && getItem('cloudAutoSaveEnabled') === 'true');

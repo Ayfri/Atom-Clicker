@@ -1,7 +1,7 @@
-import { createDefaultFeatureState, FeatureTypes } from '$data/features';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import type { FeatureState } from '$lib/types';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
+import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import type { FeatureState } from '#lib/types.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 
 export type FeatureAccessState = {
 	skillUpgrades: string[];

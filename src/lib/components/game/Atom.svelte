@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor } from '$data/generators';
-	import { REALMS, RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '$helpers/AtomRenderer';
-	import { CachedRect } from '$helpers/CachedRect.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { ClickParticles } from '$helpers/particles';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { formatNumber } from '$lib/utils';
-	import { ui } from '$stores/ui.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
+	import { REALMS, RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/AtomRenderer.js';
+	import { CachedRect } from '#helpers/CachedRect.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { ClickParticles } from '#helpers/particles.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { untrack } from 'svelte';
 
 	const prestigeColors = $derived([

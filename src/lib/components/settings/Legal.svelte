@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SettingRow from '@components/ui/SettingRow.svelte';
-	import Switch from '@components/ui/Switch.svelte';
-	import { privacy } from '$stores/privacy.svelte';
+	import SettingRow from '#components/ui/SettingRow.svelte';
+	import Switch from '#components/ui/Switch.svelte';
+	import { privacy } from '#stores/privacy.svelte.js';
 	import { ChevronDown, ShieldCheck } from '@lucide/svelte';
 
 	const sections = [

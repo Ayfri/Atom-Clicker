@@ -1,6 +1,6 @@
 <script lang="ts">
-	import QuarkIcon from '@components/icons/Quark.svelte';
-	import { getJSON, setItem } from '$lib/utils/safeLocalStorage';
+	import QuarkIcon from '#components/icons/Quark.svelte';
+	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { ChartLine, Factory, Gamepad2, Globe, HardDrive, Maximize2, Minimize2, Palette, TrendingUp, Trophy, Wrench, X } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import AchievementsTab from './tabs/AchievementsTab.svelte';

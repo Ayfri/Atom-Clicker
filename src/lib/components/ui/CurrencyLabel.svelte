@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Currency from '@components/ui/Currency.svelte';
-	import { CURRENCIES, type CurrencyName } from '$data/currencies';
+	import Currency from '#components/ui/Currency.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
 
 	interface Props {
 		class?: string;

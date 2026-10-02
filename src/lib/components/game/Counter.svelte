@@ -1,13 +1,13 @@
 <script lang="ts">
-	import AutoButton from '@components/ui/AutoButton.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import Tooltip from '@components/ui/Tooltip.svelte';
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { FeatureTypes } from '$data/features';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { reveal, reveals } from '$helpers/reveals.svelte';
-	import { formatDuration, formatNumber } from '$lib/utils';
+	import AutoButton from '#components/ui/AutoButton.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Tooltip from '#components/ui/Tooltip.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { FeatureTypes } from '#data/features.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { Info } from '@lucide/svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { prefersReducedMotion } from 'svelte/motion';

@@ -1,4 +1,4 @@
-import type { GeneratorType } from '$data/generators';
+import type { GeneratorType } from '#data/generators.js';
 
 export interface BenchmarkConfig {
 	botBehavior: BotBehavior;

@@ -1,21 +1,21 @@
 <script lang="ts">
-	import Achievements from '@components/game/Achievements.svelte';
-	import ActivePowerUps from '@components/hud/ActivePowerUps.svelte';
-	import Ambient from '@components/game/Ambient.svelte';
-	import Atom from '@components/game/Atom.svelte';
-	import Bonus from '@components/game/Bonus.svelte';
-	import Counter from '@components/game/Counter.svelte';
-	import Generators from '@components/game/Generators.svelte';
-	import Upgrades from '@components/game/Upgrades.svelte';
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { GENERATOR_TYPES, getGeneratorColor } from '$data/generators';
-	import { getQuarkShopItem } from '$data/quarkShop';
-	import { RealmTypes } from '$data/realms';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { reveal, reveals } from '$helpers/reveals.svelte';
-	import { mobile } from '$stores/window.svelte';
+	import Achievements from '#components/game/Achievements.svelte';
+	import ActivePowerUps from '#components/hud/ActivePowerUps.svelte';
+	import Ambient from '#components/game/Ambient.svelte';
+	import Atom from '#components/game/Atom.svelte';
+	import Bonus from '#components/game/Bonus.svelte';
+	import Counter from '#components/game/Counter.svelte';
+	import Generators from '#components/game/Generators.svelte';
+	import Upgrades from '#components/game/Upgrades.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
+	import { getQuarkShopItem } from '#data/quarkShop.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { mobile } from '#stores/window.svelte.js';
 
 	type Tab = keyof typeof TAB_LABELS;
 

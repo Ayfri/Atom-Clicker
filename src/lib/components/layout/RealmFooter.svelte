@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Discord from '@components/icons/Discord.svelte';
-	import GitHub from '@components/icons/GitHub.svelte';
+	import Discord from '#components/icons/Discord.svelte';
+	import GitHub from '#components/icons/GitHub.svelte';
 	import { Coffee } from '@lucide/svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 
 	function handleWebsiteClick() {
 		if (!gameManager.achievements.includes('website_click')) {

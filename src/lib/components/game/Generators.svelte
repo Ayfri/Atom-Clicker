@@ -6,20 +6,20 @@
 		GENERATORS,
 		getGeneratorColor,
 		type GeneratorType,
-	} from '$data/generators';
-	import { GENERATOR_ICON_NAMES, ICONS } from '$data/icons';
-	import { RealmTypes } from '$data/realms';
-	import { GENERATOR_COST_MULTIPLIER } from '$lib/constants';
-	import { formatNumber } from '$lib/utils';
-	import { AmbientField, ELECTRON_FLIGHT } from '$helpers/AmbientField';
-	import { AtomRenderer } from '$helpers/AtomRenderer';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { reveal, reveals } from '$helpers/reveals.svelte';
-	import { autoBuyManager } from '$stores/autoBuy.svelte';
-	import { clock } from '$stores/clock.svelte';
-	import AutoButton from '@components/ui/AutoButton.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import Value from '@components/ui/Value.svelte';
+	} from '#data/generators.js';
+	import { GENERATOR_ICON_NAMES, ICONS } from '#data/icons.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { GENERATOR_COST_MULTIPLIER } from '#lib/constants.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { AmbientField, ELECTRON_FLIGHT } from '#helpers/AmbientField.js';
+	import { AtomRenderer } from '#helpers/AtomRenderer.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
+	import { clock } from '#stores/clock.svelte.js';
+	import AutoButton from '#components/ui/AutoButton.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Value from '#components/ui/Value.svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 
 	/** A bulk purchase sends one comet per new electron, up to this many spread over the new slots. */

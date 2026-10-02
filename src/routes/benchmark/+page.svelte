@@ -1,14 +1,14 @@
 <script lang="ts">
-	import BenchmarkCharts from '$lib/components/benchmark/BenchmarkCharts.svelte';
-	import BenchmarkConfigPanel from '$lib/components/benchmark/BenchmarkConfigPanel.svelte';
-	import BenchmarkExport from '$lib/components/benchmark/BenchmarkExport.svelte';
-	import BenchmarkResults from '$lib/components/benchmark/BenchmarkResults.svelte';
-	import BenchmarkTimeline from '$lib/components/benchmark/BenchmarkTimeline.svelte';
-	import HistoryPanel from '$lib/components/benchmark/HistoryPanel.svelte';
-	import { buildBenchmarkConfig, configToPresets, profileForm, type BenchmarkForm } from '$lib/simulation/presets';
-	import SimulationWorker from '$lib/simulation/simulation.worker?worker';
-	import type { MilestoneHit, SimulationProgress, SimulationResult, SimulationSnapshot, SpikeEvent } from '$lib/simulation/types';
-	import { getReport, saveReport, type BenchmarkReport } from '$lib/stores/benchmarkHistory.svelte';
+	import BenchmarkCharts from '#lib/components/benchmark/BenchmarkCharts.svelte';
+	import BenchmarkConfigPanel from '#lib/components/benchmark/BenchmarkConfigPanel.svelte';
+	import BenchmarkExport from '#lib/components/benchmark/BenchmarkExport.svelte';
+	import BenchmarkResults from '#lib/components/benchmark/BenchmarkResults.svelte';
+	import BenchmarkTimeline from '#lib/components/benchmark/BenchmarkTimeline.svelte';
+	import HistoryPanel from '#lib/components/benchmark/HistoryPanel.svelte';
+	import { buildBenchmarkConfig, configToPresets, profileForm, type BenchmarkForm } from '#lib/simulation/presets.js';
+	import SimulationWorker from '#lib/simulation/simulation.worker?worker';
+	import type { MilestoneHit, SimulationProgress, SimulationResult, SimulationSnapshot, SpikeEvent } from '#lib/simulation/types.js';
+	import { getReport, saveReport, type BenchmarkReport } from '#lib/stores/benchmarkHistory.svelte.js';
 	import { ChartLine, GitCompare, History, Save, X } from '@lucide/svelte';
 
 	interface LiveRun {

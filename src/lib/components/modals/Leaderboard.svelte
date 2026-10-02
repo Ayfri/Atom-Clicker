@@ -1,14 +1,14 @@
 <script lang="ts">
-	import PlayerProfile from '@components/leaderboard/PlayerProfile.svelte';
-	import Podium from '@components/leaderboard/Podium.svelte';
-	import Login from '@components/modals/Login.svelte';
-	import Avatar from '@components/ui/Avatar.svelte';
-	import LeaderboardRow from '@components/ui/LeaderboardRow.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import type { LeaderboardEntry } from '$lib/types/leaderboard';
-	import { formatNumber, formatNumberFull } from '$lib/utils';
-	import { leaderboard, REFRESH_INTERVAL } from '$stores/leaderboard.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import PlayerProfile from '#components/leaderboard/PlayerProfile.svelte';
+	import Podium from '#components/leaderboard/Podium.svelte';
+	import Login from '#components/modals/Login.svelte';
+	import Avatar from '#components/ui/Avatar.svelte';
+	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
+	import { formatNumber, formatNumberFull } from '#lib/utils.js';
+	import { leaderboard, REFRESH_INTERVAL } from '#stores/leaderboard.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { ArrowLeft, Crosshair, Crown, Search, Trophy, Users } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import { VList, type VListHandle } from 'virtua/svelte';

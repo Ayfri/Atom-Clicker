@@ -1,4 +1,4 @@
-import { getItem, setItem } from '$lib/utils/safeLocalStorage';
+import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
 
 export const GA_ID = 'G-9M6JETNYJ5';
 const KEY = 'atom-clicker-analytics';

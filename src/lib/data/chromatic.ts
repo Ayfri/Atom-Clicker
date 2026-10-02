@@ -1,7 +1,7 @@
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { add, mul } from '$helpers/effects';
-import type { Effect } from '$lib/types';
-import { formatNumber } from '$lib/utils';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { add, mul } from '#helpers/effects.js';
+import type { Effect } from '#lib/types.js';
+import { formatNumber } from '#lib/utils.js';
 
 export const ChromaticColors = {
 	BLUE: 'blue',

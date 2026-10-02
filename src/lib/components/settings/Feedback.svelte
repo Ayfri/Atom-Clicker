@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Discord from '@components/icons/Discord.svelte';
-	import GitHub from '@components/icons/GitHub.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import Discord from '#components/icons/Discord.svelte';
+	import GitHub from '#components/icons/GitHub.svelte';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 	// Generate the Tally URL with email parameter if user is logged in
 	const tallyUrl = $derived.by(() => {

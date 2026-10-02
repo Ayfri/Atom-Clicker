@@ -1,13 +1,13 @@
-import { CurrenciesTypes } from '$data/currencies';
-import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType } from '$data/generators';
-import { RealmTypes } from '$data/realms';
-import type { GameState, Generator } from '$lib/types';
-import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
-import { checkStatePlausibility } from '$helpers/plausibility';
-import { statsConfig } from '$helpers/statConstants';
-import { getItem } from '$lib/utils/safeLocalStorage';
-import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
-import type { SaveErrorType } from '$stores/saveRecovery.svelte';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
+import { RealmTypes } from '#data/realms.js';
+import type { GameState, Generator } from '#lib/types.js';
+import { deriveFeatureState } from '#helpers/FeaturesManager.svelte.js';
+import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { statsConfig } from '#helpers/statConstants.js';
+import { getItem } from '#lib/utils/safeLocalStorage.js';
+import { unwrapStoredSave, wrapSaveForStorage } from '#lib/utils/saveIntegrity.js';
+import type { SaveErrorType } from '#stores/saveRecovery.svelte.js';
 
 export const SAVE_KEY = 'atomic-clicker-save';
 export const SAVE_VERSION = 30;

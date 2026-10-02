@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { facetPoints } from '$helpers/photonCanvas';
+	import { facetPoints } from '#helpers/photonCanvas.js';
 	import type { SvelteHTMLElements } from 'svelte/elements';
 
 	type SvgProps = SvelteHTMLElements['svg'];

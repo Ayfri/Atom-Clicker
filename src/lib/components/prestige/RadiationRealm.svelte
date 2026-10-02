@@ -1,18 +1,18 @@
 <script lang="ts">
-	import Ambient from '@components/game/Ambient.svelte';
-	import FuelInjector from '@components/radiation/FuelInjector.svelte';
-	import PowerLever from '@components/radiation/PowerLever.svelte';
-	import RadiationUpgrades from '@components/radiation/RadiationUpgrades.svelte';
-	import ReactorCore from '@components/radiation/ReactorCore.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import { getQuarkShopItem } from '$data/quarkShop';
-	import { RealmTypes } from '$data/realms';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { reveal, unfold } from '$helpers/reveals.svelte';
-	import { formatNumber } from '$lib/utils';
-	import { mobile } from '$stores/window.svelte';
+	import Ambient from '#components/game/Ambient.svelte';
+	import FuelInjector from '#components/radiation/FuelInjector.svelte';
+	import PowerLever from '#components/radiation/PowerLever.svelte';
+	import RadiationUpgrades from '#components/radiation/RadiationUpgrades.svelte';
+	import ReactorCore from '#components/radiation/ReactorCore.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import { getQuarkShopItem } from '#data/quarkShop.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { reveal, unfold } from '#helpers/reveals.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { mobile } from '#stores/window.svelte.js';
 
 	const DEFAULT_ACCENT = '#39ff14';
 

@@ -1,13 +1,16 @@
 <script lang="ts" module>
-	import { skillLink } from '@components/game/SkillEdge.svelte';
-	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '$data/skillTree';
-	import type { SkillUpgrade } from '$lib/types';
+	import { skillLink } from '#components/game/SkillEdge.svelte';
+	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '#data/skillTree.js';
+	import type { SkillUpgrade } from '#lib/types.js';
 
 	const SKILLS = Object.values(SKILL_UPGRADES);
 
-	const LINKS = SKILLS.flatMap(target =>
-		(target.requires ?? []).map(source => ({ ...skillLink(SKILL_UPGRADES[source], target), id: `${source}-${target.id}`, source, target })),
-	);
+	const LINKS = SKILLS.flatMap((target) => (target.requires ?? []).map((source) => ({
+		...skillLink(SKILL_UPGRADES[source], target),
+		id: `${source}-${target.id}`,
+		source,
+		target
+	})));
 
 	const TREE_BOUNDS = {
 		maxX: Math.max(...SKILLS.map(({ position }) => position.x)) + SKILL_NODE_SIZE.width,
@@ -29,7 +32,10 @@
 	function depthOf(skill: SkillUpgrade): number {
 		let depth = depths.get(skill.id);
 		if (depth === undefined) {
-			depth = skill.requires?.length ? 1 + Math.max(...skill.requires.map(id => depthOf(SKILL_UPGRADES[id]))) : 0;
+			depth = skill.requires?.length
+				? 1 + Math.max(...skill.requires.map((id) => depthOf(SKILL_UPGRADES[id])))
+				: 0;
+
 			depths.set(skill.id, depth);
 		}
 		return depth;
@@ -57,19 +63,19 @@
 
 <script lang="ts">
 	import { LocateFixed, Minus, Plus } from '@lucide/svelte';
-	import { dev } from '$app/environment';
-	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '@components/game/SkillEdge.svelte';
-	import SkillNode, { type SkillStatus } from '@components/game/SkillNode.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-	import { RealmTypes } from '$data/realms';
-	import { SKILL_BRANCH_COLORS } from '$data/skillTree';
-	import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { PanZoom } from '$helpers/PanZoom.svelte';
-	import { mobile } from '$stores/window.svelte';
+	import { dev } from '$app/env';
+	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/game/SkillEdge.svelte';
+	import SkillNode, { type SkillStatus } from '#components/game/SkillNode.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { SKILL_BRANCH_COLORS } from '#data/skillTree.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { PanZoom } from '#helpers/PanZoom.svelte.js';
+	import { mobile } from '#stores/window.svelte.js';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { prefersReducedMotion } from 'svelte/motion';
@@ -85,11 +91,11 @@
 	const panZoom = new PanZoom({ bounds: TREE_BOUNDS, home: { ...ROOT_CENTER, zoom: mobile.current ? 0.6 : 0.8 }, maxZoom: 2, minZoom: 0.15 });
 
 	/** Each gesture move is a main-thread frame that restyles and relayerizes every running animation, ~90 on a full tree, so they hold still meanwhile. */
-	const freezeWhileMoving: Attachment<HTMLElement> = element => {
+	const freezeWhileMoving: Attachment<HTMLElement> = (element) => {
 		if (!panZoom.moving) return;
-		const running = element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running');
+		const running = element.getAnimations({ subtree: true }).filter((animation) => animation.playState === 'running');
 		for (const animation of running) animation.pause();
-		return () => running.forEach(animation => animation.play());
+		return () => running.forEach((animation) => animation.play());
 	};
 
 	let showHiddenSkills = $state(false);
@@ -98,34 +104,28 @@
 	const enterDelays = new Map<string, number>();
 
 	function isCurrencyKnown(currency: CurrencyName): boolean {
-		return (
-			currency === CurrenciesTypes.ATOMS ||
-			(currency === CurrenciesTypes.PROTONS && gameManager.canProtonise) ||
-			(currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0) ||
-			((currency === CurrenciesTypes.PHOTONS || currency === CurrenciesTypes.EXCITED_PHOTONS || currency === CurrenciesTypes.HIGGS_BOSON) &&
-				gameManager.realms[RealmTypes.PHOTONS].unlocked)
-		);
+		return currency === CurrenciesTypes.ATOMS || currency === CurrenciesTypes.PROTONS && gameManager.canProtonise || currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0 || (currency === CurrenciesTypes.PHOTONS || currency === CurrenciesTypes.EXCITED_PHOTONS || currency === CurrenciesTypes.HIGGS_BOSON) && gameManager.realms[RealmTypes.PHOTONS].unlocked;
 	}
 
-	const balances = $derived(SKILL_CURRENCIES.filter(isCurrencyKnown).map(currency => ({ amount: currenciesManager.getAmount(currency), currency })));
+	const balances = $derived(SKILL_CURRENCIES.filter(isCurrencyKnown).map((currency) => ({ amount: currenciesManager.getAmount(currency), currency })));
 
 	function refresh() {
 		const owned = gameManager.skillUpgrades;
 		const firstRefresh = enterDelays.size === 0;
-		statuses = Object.fromEntries(
-			SKILLS.map(skill => {
-				const amount = currenciesManager.getAmount(skill.cost.currency);
-				const status: SkillStatus = {
-					affordable: amount >= skill.cost.amount,
-					available: gameManager.canPurchaseSkill(skill),
-					conditionMet: skill.condition?.(gameManager) ?? true,
-					currencyKnown: isCurrencyKnown(skill.cost.currency),
-					owned: owned.includes(skill.id),
-					progress: Math.min(1, amount / skill.cost.amount),
-					visible: (dev && showHiddenSkills) || owned.includes(skill.id) || !skill.requires?.length || skill.requires.some(id => owned.includes(id)),
-				};
-				if (status.visible && !enterDelays.has(skill.id)) enterDelays.set(skill.id, firstRefresh ? depthOf(skill) * 70 : FILL_MS + 250);
-				return [skill.id, status];
+
+		statuses = Object.fromEntries(SKILLS.map((skill) => {
+			const amount = currenciesManager.getAmount(skill.cost.currency);
+			const status: SkillStatus = {
+				affordable: amount >= skill.cost.amount,
+				available: gameManager.canPurchaseSkill(skill),
+				conditionMet: skill.condition?.(gameManager) ?? true,
+				currencyKnown: isCurrencyKnown(skill.cost.currency),
+				owned: owned.includes(skill.id),
+				progress: Math.min(1, amount / skill.cost.amount),
+				visible: dev && showHiddenSkills || owned.includes(skill.id) || !skill.requires?.length || skill.requires.some((id) => owned.includes(id))
+			};
+			if (status.visible && !enterDelays.has(skill.id)) enterDelays.set(skill.id, firstRefresh ? depthOf(skill) * 70 : FILL_MS + 250);
+			return [skill.id, status];
 			}),
 		);
 	}
@@ -146,7 +146,11 @@
 	});
 </script>
 
-<Modal {onClose} containerClass="m-2 !p-0 rounded-xl" width="lg">
+<Modal
+	onClose={onClose}
+	containerClass="m-2 !p-0 rounded-xl"
+	width="lg"
+>
 	{#snippet header()}
 		<div class="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-10">
 			<div class="flex items-center gap-3">
@@ -172,7 +176,11 @@
 			</div>
 			<div class="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90">
 				{#each balances as { amount, currency } (currency)}
-					<Value value={amount} {currency} currencyClass="h-5 w-5" />
+					<Value
+						value={amount}
+						currency={currency}
+						currencyClass="h-5 w-5"
+					/>
 				{/each}
 			</div>
 			{#if dev}
@@ -228,7 +236,12 @@
 			<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
 				{#each LINKS as { id, path, source, target } (id)}
 					{#if statuses[source].visible && statuses[target.id].visible}
-						<SkillEdge color={SKILL_BRANCH_COLORS[target.branch]} enterDelay={enterDelays.get(target.id) ?? 0} {path} state={linkState(target)} />
+						<SkillEdge
+							color={SKILL_BRANCH_COLORS[target.branch]}
+							enterDelay={enterDelays.get(target.id) ?? 0}
+							path={path}
+							state={linkState(target)}
+						/>
 					{/if}
 				{/each}
 			</svg>
@@ -252,7 +265,12 @@
 			{#each SKILLS as skill (skill.id)}
 				{const status = $derived(statuses[skill.id])}
 				{#if status.visible}
-					<SkillNode enterDelay={enterDelays.get(skill.id) ?? 0} onUnlock={() => unlock(skill)} {skill} {status} />
+					<SkillNode
+						enterDelay={enterDelays.get(skill.id) ?? 0}
+						onUnlock={() => unlock(skill)}
+						skill={skill}
+						status={status}
+					/>
 				{/if}
 			{/each}
 		</div>

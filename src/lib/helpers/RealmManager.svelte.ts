@@ -1,8 +1,8 @@
-import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { RealmTypes, type RealmType } from '$data/realms';
-import type { Currency } from '$lib/types';
+import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { RealmTypes, type RealmType } from '#data/realms.js';
+import type { Currency } from '#lib/types.js';
 
 /** Delay plus duration of the arriving realm's swing in `+page.svelte`, rects measured before it ends are still transformed. */
 export const REALM_SWITCH_MS = 800;

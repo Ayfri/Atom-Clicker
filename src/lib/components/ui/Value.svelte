@@ -1,7 +1,7 @@
 <script lang="ts">
-	import {CURRENCIES, type CurrencyName} from '$data/currencies';
-	import {formatNumber} from '$lib/utils';
-	import Currency from '@components/ui/Currency.svelte';
+	import {CURRENCIES, type CurrencyName} from '#data/currencies.js';
+	import {formatNumber} from '#lib/utils.js';
+	import Currency from '#components/ui/Currency.svelte';
 	import type { SvelteHTMLElements } from 'svelte/elements';
 
 	type SpanAttributes = SvelteHTMLElements['span'];

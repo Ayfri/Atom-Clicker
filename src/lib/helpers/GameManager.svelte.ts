@@ -1,15 +1,15 @@
-import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '$data/achievements';
-import { CHROMATIC_UPGRADES } from '$data/chromatic';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import type { DailyStats } from '$data/dailyQuests';
-import { FeatureTypes } from '$data/features';
-import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '$data/generators';
-import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
-import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '$data/powerUp';
-import { REALMS, RealmTypes } from '$data/realms';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
+import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
+import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import type { DailyStats } from '#data/dailyQuests.js';
+import { FeatureTypes } from '#data/features.js';
+import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
+import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
+import { REALMS, RealmTypes } from '#data/realms.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
 import type {
 	ChromaticState,
 	CurrencyBoosts,
@@ -23,24 +23,24 @@ import type {
 	RealmState,
 	Settings,
 	SkillUpgrade,
-} from '$lib/types';
-import { numberNotation } from '$lib/utils';
-import { setItem } from '$lib/utils/safeLocalStorage';
-import { chromaticManager } from '$helpers/ChromaticManager.svelte';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { EffectTable } from '$helpers/effects';
-import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
-import { applyOfflineProgress } from '$helpers/offlineProgress';
-import { checkStatePlausibility } from '$helpers/plausibility';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import { realmManager } from '$helpers/RealmManager.svelte';
-import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '$helpers/saves';
-import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
-import { TutorialManager } from '$helpers/TutorialManager.svelte';
-import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '$helpers/xp';
-import { leaderboard } from '$stores/leaderboard.svelte';
-import { saveRecovery } from '$stores/saveRecovery.svelte';
-import { toastStore } from '$stores/toasts.svelte';
+} from '#lib/types.js';
+import { numberNotation } from '#lib/utils.js';
+import { setItem } from '#lib/utils/safeLocalStorage.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { EffectTable } from '#helpers/effects.js';
+import { FeaturesManager } from '#helpers/FeaturesManager.svelte.js';
+import { applyOfflineProgress } from '#helpers/offlineProgress.js';
+import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
+import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/saves.js';
+import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
+import { TutorialManager } from '#helpers/TutorialManager.svelte.js';
+import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '#helpers/xp.js';
+import { leaderboard } from '#stores/leaderboard.svelte.js';
+import { saveRecovery } from '#stores/saveRecovery.svelte.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 
 const AUTO_PURCHASE_BASE_INTERVAL = 30_000;
 const AUTO_PURCHASE_MIN_INTERVAL = 1000;

@@ -1,4 +1,4 @@
-import { keys, removeItem, setItem } from '$lib/utils/safeLocalStorage';
+import { keys, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
 
 export type SaveErrorType = 'corrupted' | 'invalid_json' | 'migration_failed' | 'validation_failed' | 'unknown';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip, type TooltipPosition, type TooltipSize } from '$stores/tooltip.svelte';
+	import { tooltip, type TooltipPosition, type TooltipSize } from '#stores/tooltip.svelte.js';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

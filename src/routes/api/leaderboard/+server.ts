@@ -1,9 +1,8 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { checkStatePlausibility } from '$helpers/plausibility';
-import { leaderboardService, supabaseAdmin } from '$lib/server/supabase.server';
-import { readVerifiedRequest } from '$lib/server/verifiedRequest.server';
-import { addRankToLeaderboard } from '$lib/utils/number-parser';
+import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { leaderboardService, supabaseAdmin } from '#lib/server/supabase.server.js';
+import { readVerifiedRequest } from '#lib/server/verifiedRequest.server.js';
+import { addRankToLeaderboard } from '#lib/utils/number-parser.js';
 
 const UPDATE_INTERVAL = 25 * 1000;
 
@@ -49,7 +48,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			};
 		});
 
-		return json({
+		return Response.json({
 			entries: formattedLeaderboard,
 			stats: {
 				rankedPlayers: rankedCount ?? formattedLeaderboard.length,
@@ -58,7 +57,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		});
 	} catch (error) {
 		console.error('Failed to fetch leaderboard:', error);
-		return json({ error: 'Failed to fetch leaderboard' }, { status: 500 });
+		return Response.json({ error: 'Failed to fetch leaderboard' }, { status: 500 });
 	}
 };
 
@@ -71,21 +70,21 @@ export const POST: RequestHandler = async ({ request }) => {
 		const { username, atoms, level, picture } = verified.data;
 
 		if (typeof username !== 'string' || username.trim().length === 0 || username.length > MAX_USERNAME_LENGTH) {
-			return json({ error: 'Invalid username' }, { status: 400 });
+			return Response.json({ error: 'Invalid username' }, { status: 400 });
 		}
 		if (typeof atoms !== 'number' || !Number.isFinite(atoms) || atoms < 0 || atoms > MAX_ATOMS) {
-			return json({ error: 'Invalid atoms value' }, { status: 400 });
+			return Response.json({ error: 'Invalid atoms value' }, { status: 400 });
 		}
 		if (typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > MAX_LEVEL) {
-			return json({ error: 'Invalid level value' }, { status: 400 });
+			return Response.json({ error: 'Invalid level value' }, { status: 400 });
 		}
 		if (picture !== undefined && picture !== null && (typeof picture !== 'string' || picture.length > MAX_PICTURE_LENGTH)) {
-			return json({ error: 'Invalid picture value' }, { status: 400 });
+			return Response.json({ error: 'Invalid picture value' }, { status: 400 });
 		}
 
 		const timeSinceLastUpdate = Date.now() - (userLastUpdate.get(userId) || 0);
 		if (timeSinceLastUpdate < UPDATE_INTERVAL) {
-			return json({
+			return Response.json({
 				error: 'Update too frequent',
 				nextUpdateIn: Math.ceil((UPDATE_INTERVAL - timeSinceLastUpdate) / 1000)
 			}, { status: 429 });
@@ -94,15 +93,15 @@ export const POST: RequestHandler = async ({ request }) => {
 		/** The client already skips flagged saves, this catches direct calls when the cloud save carries the evidence. */
 		const save = await leaderboardService.getSaveIntegrityFields(userId);
 		if (save && (save.integrityFlagged === true || checkStatePlausibility(save).length > 0)) {
-			return json({ error: 'Save flagged by the integrity checks' }, { status: 403 });
+			return Response.json({ error: 'Save flagged by the integrity checks' }, { status: 403 });
 		}
 
 		await leaderboardService.updateProfileStats(userId, atoms, level, username, picture ?? undefined);
 		userLastUpdate.set(userId, Date.now());
 
-		return json({ success: true });
+		return Response.json({ success: true });
 	} catch (error) {
 		console.error('Failed to update leaderboard:', error);
-		return json({ error: 'Failed to update leaderboard' }, { status: 500 });
+		return Response.json({ error: 'Failed to update leaderboard' }, { status: 500 });
 	}
 };

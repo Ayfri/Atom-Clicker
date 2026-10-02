@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { formatDuration, formatNumber } from '$lib/utils';
-	import { autoSave } from '$stores/autoSave.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-	import { toastStore } from '$stores/toasts.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import { autoSave } from '#stores/autoSave.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';

@@ -1,4 +1,4 @@
-import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 
 /** Both photon icons are authored in a 24x24 viewBox, see Photon.svelte / ExcitedPhoton.svelte. */
 const ICON_VIEWBOX = 24;

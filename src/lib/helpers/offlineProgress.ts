@@ -1,13 +1,13 @@
-import { CHROMATIC, CHROMATIC_COLORS } from '$data/chromatic';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { FeatureTypes } from '$data/features';
-import type { GeneratorType } from '$data/generators';
-import { chromaticManager } from '$helpers/ChromaticManager.svelte';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import { XP_PER_ATOM } from '$lib/constants';
-import type { GeneratorCountMap, CurrencyAmountMap, OfflineProgressSummary } from '$lib/types';
+import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import type { GeneratorType } from '#data/generators.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { XP_PER_ATOM } from '#lib/constants.js';
+import type { GeneratorCountMap, CurrencyAmountMap, OfflineProgressSummary } from '#lib/types.js';
 
 const OFFLINE_AUTO_FACTOR = 120;
 const OFFLINE_BASE_MS = 6 * 60 * 60 * 1000;

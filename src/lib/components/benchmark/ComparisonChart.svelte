@@ -1,7 +1,7 @@
 <script lang="ts">
 	/** Two runs overlaid, each scaled to its actual duration. */
-	import type { ChartSeries } from '$lib/components/benchmark/BaseChart.svelte';
-	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
+	import type { ChartSeries } from '#lib/components/benchmark/BaseChart.svelte';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
 	import type { Attachment } from 'svelte/attachments';
 
 	interface Props {

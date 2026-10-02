@@ -1,8 +1,7 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getQuarkShopItem } from '$data/quarkShop';
-import { quarksService } from '$lib/server/supabase.server';
-import { readVerifiedRequest } from '$lib/server/verifiedRequest.server';
+import { getQuarkShopItem } from '#data/quarkShop.js';
+import { quarksService } from '#lib/server/supabase.server.js';
+import { readVerifiedRequest } from '#lib/server/verifiedRequest.server.js';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -11,26 +10,26 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const { itemId } = verified.data;
 		if (itemId !== null && typeof itemId !== 'string') {
-			return json({ error: 'Invalid itemId' }, { status: 400 });
+			return Response.json({ error: 'Invalid itemId' }, { status: 400 });
 		}
 
 		if (typeof itemId === 'string') {
 			const item = getQuarkShopItem(itemId);
 			if (!item || item.type !== 'banner') {
-				return json({ error: 'Unknown banner' }, { status: 400 });
+				return Response.json({ error: 'Unknown banner' }, { status: 400 });
 			}
 
 			const owned = await quarksService.getEntitlements(verified.userId);
 			if (!owned.includes(itemId)) {
-				return json({ error: 'Banner not owned' }, { status: 403 });
+				return Response.json({ error: 'Banner not owned' }, { status: 403 });
 			}
 		}
 
 		await quarksService.equipBanner(verified.userId, itemId);
 
-		return json({ equippedBanner: itemId });
+		return Response.json({ equippedBanner: itemId });
 	} catch (error) {
 		console.error('Failed to equip banner:', error);
-		return json({ error: 'Failed to equip banner' }, { status: 500 });
+		return Response.json({ error: 'Failed to equip banner' }, { status: 500 });
 	}
 };

@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/state';
-	import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+	import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 	import { VERSION } from "@sveltejs/kit";
 
 	const site = 'https://atom-clicker.ayfri.com';
@@ -15,12 +15,9 @@
 	const structuredData = {
 		'@context': 'https://schema.org',
 		'@type': 'Game',
-		name: name,
-		author: {
-			'@type': 'Person',
-			name: author,
-		},
-		description: description,
+		name,
+		author: { '@type': 'Person', name: author },
+		description,
 		url: site,
 		image: absoluteOgImageLink,
 		genre: ['Incremental', 'Clicker', 'Idle'],

@@ -1,5 +1,5 @@
-import { CanvasLoop, pixelRatio } from '$helpers/CanvasLoop';
-import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, spiralDirection, TAU, type Vector } from '$helpers/nucleus';
+import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, spiralDirection, TAU, type Vector } from '#helpers/nucleus.js';
 
 export interface AtomShell {
 	color: string;

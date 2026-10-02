@@ -1,10 +1,9 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { GENERATOR_TYPES, type GeneratorType } from '$data/generators';
-import { RealmTypes } from '$data/realms';
-import { leaderboardService } from '$lib/server/supabase.server';
-import type { PublicProfile, PublicProfileStats } from '$lib/types/leaderboard';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
+import { RealmTypes } from '#data/realms.js';
+import { leaderboardService } from '#lib/server/supabase.server.js';
+import type { PublicProfile, PublicProfileStats } from '#lib/types/leaderboard.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Bounds the id lists echoed back, a hand-edited save could hold anything. */
@@ -59,19 +58,19 @@ function readStats(value: unknown): PublicProfileStats | null {
 }
 
 export const GET: RequestHandler = async ({ params }) => {
-	if (!UUID.test(params.id)) return json({ error: 'Invalid player id' }, { status: 400 });
+	if (!UUID.test(params.id)) return Response.json({ error: 'Invalid player id' }, { status: 400 });
 
 	try {
 		const row = await leaderboardService.getPublicSave(params.id);
-		if (!row) return json({ error: 'Player not found' }, { status: 404 });
+		if (!row) return Response.json({ error: 'Player not found' }, { status: 404 });
 
 		const profile: PublicProfile = {
 			joinedAt: row.created_at ? new Date(row.created_at).getTime() : null,
 			stats: readStats(row.save),
 		};
-		return json(profile, { headers: { 'Cache-Control': 'public, max-age=60' } });
+		return Response.json(profile, { headers: { 'Cache-Control': 'public, max-age=60' } });
 	} catch (error) {
 		console.error('Failed to fetch profile:', error);
-		return json({ error: 'Failed to fetch profile' }, { status: 500 });
+		return Response.json({ error: 'Failed to fetch profile' }, { status: 500 });
 	}
 };

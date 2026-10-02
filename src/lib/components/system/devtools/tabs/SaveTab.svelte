@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { SAVE_KEY, SAVE_VERSION } from '$helpers/saves';
-	import { statsConfig } from '$helpers/statConstants';
-	import type { GameState } from '$lib/types';
-	import { getItem } from '$lib/utils/safeLocalStorage';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-	import { toastStore } from '$stores/toasts.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { SAVE_KEY, SAVE_VERSION } from '#helpers/saves.js';
+	import { statsConfig } from '#helpers/statConstants.js';
+	import type { GameState } from '#lib/types.js';
+	import { getItem } from '#lib/utils/safeLocalStorage.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { btn, btnAccent, btnDanger, field, reloadWithSave, snapshots } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';

@@ -1,4 +1,4 @@
-import { CurrenciesTypes } from '$data/currencies';
+import { CurrenciesTypes } from '#data/currencies.js';
 
 export type PhotonUpgradesTab = typeof CurrenciesTypes.EXCITED_PHOTONS | typeof CurrenciesTypes.PHOTONS | 'prism';
 

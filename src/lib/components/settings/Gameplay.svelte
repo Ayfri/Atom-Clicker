@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SettingRow from '@components/ui/SettingRow.svelte';
-	import Switch from '@components/ui/Switch.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { NumberNotation } from '$lib/types';
-	import { ui } from '$stores/ui.svelte';
+	import SettingRow from '#components/ui/SettingRow.svelte';
+	import Switch from '#components/ui/Switch.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import type { NumberNotation } from '#lib/types.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { Hash, Lightbulb, MoonStar, RotateCcw } from '@lucide/svelte';
 
 	const notations: { example: string; id: NumberNotation }[] = [

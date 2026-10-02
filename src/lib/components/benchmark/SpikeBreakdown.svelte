@@ -1,23 +1,23 @@
 <script lang="ts">
 	import { AlertTriangle, Award, Flame, RotateCcw, Sparkles, Star, TrendingUp, Wrench, Zap } from '@lucide/svelte';
 	import type { Component } from 'svelte';
-	import { GENERATOR_COLORS, GENERATORS, GeneratorTypes } from '$data/generators';
-	import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { SKILL_UPGRADES } from '$data/skillTree';
-	import { UPGRADES } from '$data/upgrades';
-	import { ACHIEVEMENTS } from '$data/achievements';
-	import BlackHoleIcon from '@components/icons/generators/BlackHole.svelte';
-	import CrystalIcon from '@components/icons/generators/Crystal.svelte';
-	import MicroorganismIcon from '@components/icons/generators/Microorganism.svelte';
-	import MoleculeIcon from '@components/icons/generators/Molecule.svelte';
-	import NanostructureIcon from '@components/icons/generators/Nanostructure.svelte';
-	import NeutronStarIcon from '@components/icons/generators/NeutronStar.svelte';
-	import PlanetIcon from '@components/icons/generators/Planet.svelte';
-	import RockIcon from '@components/icons/generators/Rock.svelte';
-	import StarIcon from '@components/icons/generators/Star.svelte';
-	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
-	import type { SimulationAction, SpikeEvent } from '$lib/simulation/types';
-	import type { EffectStat } from '$lib/types';
+	import { GENERATOR_COLORS, GENERATORS, GeneratorTypes } from '#data/generators.js';
+	import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+	import { SKILL_UPGRADES } from '#data/skillTree.js';
+	import { UPGRADES } from '#data/upgrades.js';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import BlackHoleIcon from '#components/icons/generators/BlackHole.svelte';
+	import CrystalIcon from '#components/icons/generators/Crystal.svelte';
+	import MicroorganismIcon from '#components/icons/generators/Microorganism.svelte';
+	import MoleculeIcon from '#components/icons/generators/Molecule.svelte';
+	import NanostructureIcon from '#components/icons/generators/Nanostructure.svelte';
+	import NeutronStarIcon from '#components/icons/generators/NeutronStar.svelte';
+	import PlanetIcon from '#components/icons/generators/Planet.svelte';
+	import RockIcon from '#components/icons/generators/Rock.svelte';
+	import StarIcon from '#components/icons/generators/Star.svelte';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import type { SimulationAction, SpikeEvent } from '#lib/simulation/types.js';
+	import type { EffectStat } from '#lib/types.js';
 
 	let { index, spike }: { index: number; spike: SpikeEvent } = $props();
 

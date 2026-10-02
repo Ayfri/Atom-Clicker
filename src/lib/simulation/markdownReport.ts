@@ -1,10 +1,10 @@
 /** Turns a simulation result into a compact markdown balance report meant to be pasted into a chat for analysis. */
-import { ACHIEVEMENTS } from '$data/achievements';
-import { GENERATORS, GENERATOR_TYPES } from '$data/generators';
-import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { formatDuration, formatNumber } from '$lib/utils';
+import { ACHIEVEMENTS } from '#data/achievements.js';
+import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { formatDuration, formatNumber } from '#lib/utils.js';
 import { MILESTONES } from './milestones';
 import { DEFAULT_SEED } from './random';
 import { totalActionCount, type SimulationAction, type SimulationResult, type SimulationSnapshot } from './types';

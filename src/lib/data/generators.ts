@@ -1,5 +1,5 @@
-import {CurrenciesTypes} from '$data/currencies';
-import type {Price} from '$lib/types';
+import {CurrenciesTypes} from '#data/currencies.js';
+import type {Price} from '#lib/types.js';
 
 export const GeneratorTypes = {
 	MOLECULE: 'molecule',

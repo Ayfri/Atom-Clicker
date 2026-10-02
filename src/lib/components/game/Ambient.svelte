@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { RealmType } from '$data/realms';
-	import { AmbientField, type Ambience } from '$helpers/AmbientField';
-	import { particlesEnabled } from '$helpers/CanvasLoop';
-	import { ui } from '$stores/ui.svelte';
+	import type { RealmType } from '#data/realms.js';
+	import { AmbientField, type Ambience } from '#helpers/AmbientField.js';
+	import { particlesEnabled } from '#helpers/CanvasLoop.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { untrack } from 'svelte';
 
 	interface Props {

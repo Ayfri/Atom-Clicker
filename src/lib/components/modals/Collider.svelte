@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Login from '@components/modals/Login.svelte';
-	import Modal from '@components/ui/Modal.svelte';
-	import { COLLIDER_COOLDOWN_SECONDS, COLLIDER_STEP, COLLIDER_STEP_BONUS } from '$data/collider';
-	import { colliderManager } from '$helpers/ColliderManager.svelte';
-	import { ColliderRenderer } from '$helpers/ColliderRenderer';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { formatNumberFull } from '$lib/utils';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import Login from '#components/modals/Login.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import { COLLIDER_COOLDOWN_SECONDS, COLLIDER_STEP, COLLIDER_STEP_BONUS } from '#data/collider.js';
+	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
+	import { ColliderRenderer } from '#helpers/ColliderRenderer.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { formatNumberFull } from '#lib/utils.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { TrendingUp, Users, Zap } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { backOut } from 'svelte/easing';

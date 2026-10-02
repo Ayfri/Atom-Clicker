@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { PHOTON_UPGRADES, EXCITED_PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { reveal } from '$helpers/reveals.svelte';
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
-	import { photonUpgradesTab } from '$stores/photonUpgradesTab.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
+	import { PHOTON_UPGRADES, EXCITED_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { reveal } from '#helpers/reveals.svelte.js';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
+	import Currency from '#components/ui/Currency.svelte';
+	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import PhotonUpgradeItem from './PhotonUpgradeItem.svelte';
 	import PrismUpgrades from './PrismUpgrades.svelte';
 	import { Eye, EyeOff, Triangle } from '@lucide/svelte';

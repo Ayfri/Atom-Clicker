@@ -1,12 +1,12 @@
-import type { Achievement, AchievementGroup } from '$lib/types';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import { tierIconStack } from '$helpers/iconStacks';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import { formatNumber } from '$lib/utils';
-import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '$data/generators';
-import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '$data/icons';
-import { SKILL_UPGRADES } from '$data/skillTree';
+import type { Achievement, AchievementGroup } from '#lib/types.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import { tierIconStack } from '#helpers/iconStacks.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { formatNumber } from '#lib/utils.js';
+import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
+import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/icons.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
 
 const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{

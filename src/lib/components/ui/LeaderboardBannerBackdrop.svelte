@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BannerDefinition } from '$data/quarkShop';
+	import type { BannerDefinition } from '#data/quarkShop.js';
 
 	interface Props {
 		banner: BannerDefinition;

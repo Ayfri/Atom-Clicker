@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { RealmTypes } from '$data/realms';
-	import { AmbientField } from '$helpers/AmbientField';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { ReactorRenderer, type ReactorScene } from '$helpers/ReactorRenderer';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { formatNumber } from '$lib/utils';
-	import { ui } from '$stores/ui.svelte';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { ReactorRenderer, type ReactorScene } from '#helpers/ReactorRenderer.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { untrack } from 'svelte';
 
 	interface Props {

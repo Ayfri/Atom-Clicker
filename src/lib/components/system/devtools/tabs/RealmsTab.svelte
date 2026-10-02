@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { FeatureTypes } from '$data/features';
-	import { HINTS } from '$data/hints';
-	import { RealmTypes } from '$data/realms';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { radiationManager } from '$helpers/RadiationManager.svelte';
-	import { formatDuration, formatNumber } from '$lib/utils';
+	import { FeatureTypes } from '#data/features.js';
+	import { HINTS } from '#data/hints.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { btn, btnDanger, checkbox } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';

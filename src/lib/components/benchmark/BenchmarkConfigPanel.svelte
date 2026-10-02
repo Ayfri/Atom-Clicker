@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tooltip from '@components/ui/Tooltip.svelte';
+	import Tooltip from '#components/ui/Tooltip.svelte';
 	import { Dices, Info, Pause, Play, Settings, Zap } from '@lucide/svelte';
 	import {
 		ACTIVITY_PRESETS,
@@ -9,9 +9,9 @@
 		profileForm,
 		type BenchmarkForm,
 		type BotProfileId,
-	} from '$lib/simulation/presets';
-	import type { BenchmarkConfig, QuestBehavior } from '$lib/simulation/types';
-	import { formatNumber } from '$lib/utils';
+	} from '#lib/simulation/presets.js';
+	import type { BenchmarkConfig, QuestBehavior } from '#lib/simulation/types.js';
+	import { formatNumber } from '#lib/utils.js';
 
 	interface Props {
 		config: BenchmarkConfig;

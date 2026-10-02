@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import type { SvelteHTMLElements } from 'svelte/elements';
 
 	type SvgProps = SvelteHTMLElements['svg'];

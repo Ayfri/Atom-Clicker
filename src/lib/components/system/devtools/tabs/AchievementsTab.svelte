@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ACHIEVEMENTS } from '$data/achievements';
-	import { gameManager } from '$helpers/GameManager.svelte';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import ToggleGrid from '../ToggleGrid.svelte';
 
 	const achievements = Object.values(ACHIEVEMENTS);

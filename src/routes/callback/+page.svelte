@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { AUTH_CALLBACK_MESSAGE, supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import { AUTH_CALLBACK_MESSAGE, supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 	let isLoading = $state(true);
 	let error: string | null = $state(null);

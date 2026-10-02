@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { BenchmarkConfig } from '$lib/simulation/types';
-	import { formatNumber } from '$lib/utils';
+	import type { BenchmarkConfig } from '#lib/simulation/types.js';
+	import { formatNumber } from '#lib/utils.js';
 	import {
 		clearAllReports,
 		deleteReport,
 		listReports,
 		renameReport,
 		type BenchmarkReportSummary,
-	} from '$lib/stores/benchmarkHistory.svelte';
+	} from '#lib/stores/benchmarkHistory.svelte.js';
 	import { Check, Eye, GitCompare, History, Pencil, Search, SlidersHorizontal, Trash2, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
