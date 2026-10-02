@@ -35,6 +35,7 @@ export const statsConfig = {
 			clicks: 0,
 			dayKey: '',
 			electronizes: 0,
+			fuelInjected: 0,
 			generatorsPurchased: 0,
 			higgsBosonsCollected: 0,
 			otherDailyQuestsCompleted: 0,

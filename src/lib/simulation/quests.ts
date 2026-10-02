@@ -1,5 +1,6 @@
-import { DAILY_QUEST_COUNT, type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
+import { DAILY_QUEST_COUNT, type DailyQuest, getDailyCap, getQuestProgress, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { QuestBehavior, QuestOutcome } from './types';
 
@@ -30,9 +31,10 @@ export class QuestTracker {
 		if (this.dayIndex !== -1) this.settleDay();
 
 		this.dayIndex = dayIndex;
-		this.quests = pickDailyQuests(`sim-${dayIndex}`, DAILY_QUEST_COUNT, gameManager.dailyQuestContext(false));
+		const context = gameManager.dailyQuestContext(false);
+		this.quests = pickDailyQuests(`sim-${dayIndex}`, DAILY_QUEST_COUNT, context);
 		this.targets = {};
-		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, gameManager.highestAPSRun);
+		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, context);
 		this.offeredTotal += this.quests.length;
 
 		gameManager.dailyStats = {
@@ -51,7 +53,7 @@ export class QuestTracker {
 
 		for (const quest of this.quests) {
 			const target = this.targets[quest.id] ?? quest.floor;
-			const progress = gameManager.dailyStats[quest.metric] ?? 0;
+			const progress = getQuestProgress(quest.metric, gameManager.dailyStats);
 			const outcome = (this.breakdown[quest.id] ??= { completed: 0, lastProgress: 0, lastTarget: 0, offered: 0 });
 			outcome.offered += 1;
 			outcome.lastProgress = progress;
@@ -71,16 +73,17 @@ export class QuestTracker {
 		this.completedToday = completed;
 	}
 
-	/** 'dedicated' bots grind out the last stretch of a close-but-incomplete click quest instead of leaving it on the table. */
+	/** 'dedicated' bots grind out the last stretch of a click quest and inject the fuel a fuel quest still misses, instead of leaving them on the table. */
 	steerDedicated() {
 		if (this.behavior !== 'dedicated' || this.dayIndex === -1) return;
 		if ((gameManager.inGameTime % DAY_MS) / DAY_MS < 0.7) return;
 
 		for (const quest of this.quests) {
-			if (quest.metric !== 'clicks') continue;
 			const target = this.targets[quest.id] ?? quest.floor;
-			if (gameManager.dailyStats.clicks >= target) continue;
-			gameManager.dailyStats.clicks += 5;
+			if (quest.metric === 'clicks' && gameManager.dailyStats.clicks < target) gameManager.dailyStats.clicks += 5;
+			if (quest.metric !== 'fuelInjected') continue;
+			const missing = Math.ceil((target - gameManager.dailyStats.fuelInjected) / radiationManager.massPerElectron);
+			if (missing > 0) gameManager.injectFuel(Math.min(Math.floor(gameManager.electrons), missing));
 		}
 	}
 }

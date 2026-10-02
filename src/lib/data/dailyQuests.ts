@@ -1,3 +1,4 @@
+import { CHROMATIC_COLORS, type ChromaticColor } from '#data/chromatic.js';
 import { formatNumber } from '#lib/utils.js';
 import { simpleHash } from '#lib/utils/signing.js';
 
@@ -5,8 +6,10 @@ export type DailyStatMetric =
 	| 'achievementsUnlocked'
 	| 'atomsEarned'
 	| 'chromaticBreaks'
+	| 'chromaticColorBreaks'
 	| 'clicks'
 	| 'electronizes'
+	| 'fuelInjected'
 	| 'generatorsPurchased'
 	| 'higgsBosonsCollected'
 	| 'otherDailyQuestsCompleted'
@@ -18,9 +21,12 @@ export interface DailyStats {
 	achievementsUnlocked: number;
 	atomsEarned: number;
 	chromaticBreaks: number;
+	/** Left out of the defaults so every day builds its own object, a shared nested default would carry counts over. */
+	chromaticColorBreaks?: Record<ChromaticColor, number>;
 	clicks: number;
 	dayKey: string;
 	electronizes: number;
+	fuelInjected: number;
 	generatorsPurchased: number;
 	higgsBosonsCollected: number;
 	otherDailyQuestsCompleted: number;
@@ -33,10 +39,16 @@ export interface DailyStats {
 }
 
 export interface DailyQuestContext {
+	/** How many times faster colored photons spawn than at the start, from Prism Frequency. */
+	chromaticSpawnBoost: number;
+	/** Fuel the electron bank and the next Electronize would buy. */
+	fuelAffordable: number;
 	hasElectronized: boolean;
 	hasPhotonRealm: boolean;
 	hasPrism: boolean;
+	hasRadiationRealm: boolean;
 	hasThirdQuestSlot: boolean;
+	highestAPSRun: number;
 	remainingAchievements: number;
 }
 
@@ -48,8 +60,8 @@ export interface DailyQuest {
 	metric: DailyStatMetric;
 	isAvailable?: (context: DailyQuestContext) => boolean;
 	reward: number;
-	/** Seconds of production at the best rate of the current Electronize run, the target never drops below `floor`. */
-	scale?: number;
+	/** Scales the target with progression, it never drops below `floor`. */
+	target?: (context: DailyQuestContext) => number;
 }
 
 export const DAILY_QUEST_COUNT = 2;
@@ -62,7 +74,7 @@ export const QUEST_POOL: DailyQuest[] = [
 		id: 'atoms_earned',
 		metric: 'atomsEarned',
 		reward: 1,
-		scale: 10_800,
+		target: context => context.highestAPSRun * 10_800, // three hours at the run's best rate
 	},
 	{
 		description: target => `Purchase ${target} generators today.`,
@@ -79,6 +91,16 @@ export const QUEST_POOL: DailyQuest[] = [
 		isAvailable: context => context.hasPrism,
 		metric: 'chromaticBreaks',
 		reward: 1,
+	},
+	{
+		description: target => `Break ${target} Red, Green and Blue photons each today.`,
+		floor: 20,
+		id: 'chromatic_each_color',
+		isAvailable: context => context.hasPrism,
+		metric: 'chromaticColorBreaks',
+		reward: 1,
+		/** Follows the spawn rate so it takes the same play time, 46 of each at max Prism Frequency. */
+		target: context => 20 * context.chromaticSpawnBoost,
 	},
 	{
 		description: target => `Click ${target} times today.`,
@@ -118,6 +140,16 @@ export const QUEST_POOL: DailyQuest[] = [
 		reward: 1,
 	},
 	{
+		description: target => `Inject ${formatNumber(target)} u of fuel into the reactor today.`,
+		floor: 1,
+		id: 'fuel_injected',
+		isAvailable: context => context.hasRadiationRealm,
+		metric: 'fuelInjected',
+		reward: 1,
+		/** Players hold fuel far above the CPM cap since a fuller core burns less at the same output, so only the bank bounds it. */
+		target: context => context.fuelAffordable / 2,
+	},
+	{
 		description: target => `Collect ${target} Higgs Bosons today.`,
 		floor: 5,
 		id: 'higgs_bosons_collected',
@@ -149,8 +181,14 @@ export const QUEST_POOL: DailyQuest[] = [
 	},
 ];
 
-export function getQuestTarget(quest: DailyQuest, highestAPSRun: number): number {
-	return Math.max(quest.floor, Math.round(highestAPSRun * (quest.scale ?? 0)));
+export function getQuestTarget(quest: DailyQuest, context: DailyQuestContext): number {
+	return Math.max(quest.floor, Math.round(quest.target?.(context) ?? 0));
+}
+
+/** The day's progress on a metric, the color quest counts the color broken the least. */
+export function getQuestProgress(metric: DailyStatMetric, stats: DailyStats): number {
+	if (metric === 'chromaticColorBreaks') return Math.min(...CHROMATIC_COLORS.map(color => stats.chromaticColorBreaks?.[color] ?? 0));
+	return stats[metric] ?? 0;
 }
 
 export function getDailyQuestCount(entitlements: readonly string[]): number {

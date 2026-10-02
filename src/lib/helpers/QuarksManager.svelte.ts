@@ -4,6 +4,7 @@ import {
 	DAILY_QUEST_COUNT,
 	type DailyQuest,
 	getDailyQuestCount,
+	getQuestProgress,
 	getQuestTarget,
 	pickDailyQuests,
 	QUEST_POOL,
@@ -109,14 +110,14 @@ export class QuarksManager {
 		const frozen = gameManager.dailyStats.questTargets[quest.id];
 		if (typeof frozen === 'number') return frozen;
 		// Not frozen yet (e.g. before the first sync), fall back to a live estimate.
-		return getQuestTarget(quest, gameManager.highestAPSRun);
+		return getQuestTarget(quest, this.dailyQuestContext);
 	}
 
 	getProgress(quest: DailyQuest): number {
 		if (quest.metric === 'otherDailyQuestsCompleted') {
 			return this.quests.filter((otherQuest) => otherQuest.id !== quest.id && this.isQuestComplete(otherQuest)).length;
 		}
-		return gameManager.dailyStats[quest.metric] ?? 0;
+		return getQuestProgress(quest.metric, gameManager.dailyStats);
 	}
 
 	private selectDailyQuests(dayKey: string): DailyQuest[] {

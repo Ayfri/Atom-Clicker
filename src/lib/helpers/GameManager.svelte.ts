@@ -1,5 +1,5 @@
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
-import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
+import { CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import type { DailyQuestContext, DailyStats } from '#data/dailyQuests.js';
 import { FeatureTypes } from '#data/features.js';
@@ -409,13 +409,23 @@ export class GameManager {
 		this.offlineProgressSummary = null;
 	}
 
-	/** What the daily quest pool filters on, shared by QuarksManager and the simulation so both offer the same quests. */
+	/** Counts colored photon breaks for the daily quests, the simulation passes fractional ones. */
+	countChromaticBreak(color: ChromaticColor, amount = 1) {
+		this.dailyStats.chromaticBreaks = (this.dailyStats.chromaticBreaks ?? 0) + amount;
+		(this.dailyStats.chromaticColorBreaks ??= { blue: 0, green: 0, red: 0 })[color] += amount;
+	}
+
+	/** What the daily quest pool filters and scales on, shared by QuarksManager and the simulation so both offer the same quests. */
 	dailyQuestContext(hasThirdQuestSlot: boolean): DailyQuestContext {
 		return {
+			chromaticSpawnBoost: CHROMATIC_BASE_SPAWN_INTERVAL / chromaticManager.spawnInterval,
+			fuelAffordable: (this.electrons + this.electronizeElectronsGain) * radiationManager.massPerElectron,
 			hasElectronized: this.totalElectronizesAllTime > 0,
 			hasPhotonRealm: this.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
 			hasPrism: this.totalIonizesAllTime > 0,
+			hasRadiationRealm: this.realms[RealmTypes.RADIATION]?.unlocked ?? false,
 			hasThirdQuestSlot,
+			highestAPSRun: this.highestAPSRun,
 			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
 		};
 	}
@@ -517,6 +527,13 @@ export class GameManager {
 		this.totalClicksAllTime += count;
 		this.dailyStats.clicks += count;
 		if (!this.features[isAuto ? FeatureTypes.STABLE_ATOM_AUTO_CLICK : FeatureTypes.STABLE_ATOM_CLICK]) this.lastInteractionTime = this.clock();
+	}
+
+	/** Feeds the reactor and counts the fuel toward the daily quest. */
+	injectFuel(electrons: number): boolean {
+		if (!radiationManager.bombardCore(electrons)) return false;
+		this.dailyStats.fuelInjected = (this.dailyStats.fuelInjected ?? 0) + electrons * radiationManager.massPerElectron;
+		return true;
 	}
 
 	initialize() {

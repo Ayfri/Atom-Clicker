@@ -411,7 +411,7 @@ export class SimulationEngine {
 		const reserve = gameManager.electronizeElectronsGain > 0 ? gameManager.electronizeElectronsGain * 3 : 50;
 		const surplus = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS) - reserve;
 		if (canAct() && surplus > 0 && (radiationManager.mass === 0 || radiationManager.timeToEmpty < HOUR_MS)) {
-			radiationManager.bombardCore(Math.min(Math.floor(surplus * 0.3), 20));
+			gameManager.injectFuel(Math.min(Math.floor(surplus * 0.3), 20));
 			actionsThisTick++;
 		}
 		if (canAct() && radiationManager.mass > 0 && radiationManager.controlRodLevel === 0) {
@@ -599,7 +599,7 @@ export class SimulationEngine {
 			const breaks = damage / hp;
 			currenciesManager.add(CHROMATIC[color].currency, breaks * chromaticManager.lightFor(color, blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop, gameManager.totalIonizesAllTime));
 			kills[color] += breaks;
-			gameManager.dailyStats.chromaticBreaks = (gameManager.dailyStats.chromaticBreaks ?? 0) + breaks;
+			gameManager.countChromaticBreak(color, breaks);
 		});
 		chromaticManager.kills = kills;
 		return { autoLeft: autoClicks / 2, manualLeft };

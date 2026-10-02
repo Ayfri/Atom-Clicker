@@ -55,7 +55,7 @@
 		const broken = chromatic.hit(photon, auto);
 		if (!broken) return;
 		chromaticManager.collect(broken, gameManager.totalIonizesAllTime);
-		if (!broken.half) gameManager.dailyStats.chromaticBreaks = (gameManager.dailyStats.chromaticBreaks ?? 0) + 1;
+		if (!broken.half) gameManager.countChromaticBreak(broken.color);
 		const rect = broken.drop > 0 && containerRect.current;
 		if (rect) ClickParticles.emit(RealmTypes.PHOTONS, rect.left + broken.x, rect.top + broken.y, CHROMATIC[broken.color].currency, 5);
 	}
