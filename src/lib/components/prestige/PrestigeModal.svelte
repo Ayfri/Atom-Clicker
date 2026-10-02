@@ -48,6 +48,7 @@
 
 	const ready = $derived(gain > 0);
 	const bank = $derived(currenciesManager.getAmount(currency));
+	const earnedAllTime = $derived(currenciesManager.getEarnedAllTime(currency));
 	const sourceAmount = $derived(currenciesManager.getAmount(source));
 	/** Whole percents, so the ring transition only restarts when a step changes rather than on every 50 Hz atom commit. */
 	const ringProgress = $derived(Math.floor(Math.min(Math.max(ready ? (next?.progress ?? 1) : sourceAmount / required, 0), 1) * 100) / 100);
@@ -113,6 +114,19 @@
 			class="font-mono {strong ? 'font-semibold' : ''}"
 			style:color={strong ? color : undefined}>{value}</span
 		>
+	</div>
+{/snippet}
+
+{#snippet total(label: string, value: number, classes: string)}
+	<div class="flex flex-col gap-0.5 {classes}">
+		<span class="text-xs font-semibold uppercase tracking-wider text-white/40">{label}</span>
+		<span class="flex items-center gap-1.5 font-mono font-semibold tabular-nums text-white/90">
+			<Currency
+				name={currency}
+				size={15}
+			/>
+			{formatNumber(value)}
+		</span>
 	</div>
 {/snippet}
 
@@ -237,6 +251,13 @@
 				{/if}
 			</div>
 		</div>
+
+		{#if earnedAllTime > 0}
+			<div class="grid grid-cols-2 text-sm">
+				{@render total('Current', bank, 'pr-4')}
+				{@render total('Earned all time', earnedAllTime, 'border-l border-white/10 pl-4')}
+			</div>
+		{/if}
 
 		{#if perks.length > 0}
 			<section class="flex flex-col gap-2">
