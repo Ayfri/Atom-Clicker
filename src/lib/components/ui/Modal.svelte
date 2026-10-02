@@ -49,38 +49,35 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div
-	aria-modal="true"
 	class="overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs"
-	onclick={onClose}
-	onkeydown={onKeydown}
-	role="dialog"
-	tabindex="0"
+	onclick={e => e.target === e.currentTarget && onClose()}
+	role="presentation"
 	transition:fade={{ duration: 200 }}
 >
 	<div
+		aria-label={title}
+		aria-modal="true"
 		bind:offsetHeight={modalHeight}
 		bind:offsetWidth={modalWidth}
 		class="modal flex h-dvh w-screen md:h-[85vh] md:w-[85vw] {widthClasses} flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800"
-		onclick={(e) => e.stopPropagation()}
-		onkeydown={onKeydown}
 		role="dialog"
-		tabindex="0"
+		tabindex="-1"
 		transition:fly={{ y: -100, duration: 300 }}
 	>
 		<div class="flex items-center justify-between gap-4 border-b border-white/10 bg-black/40 p-4 sm:px-6">
 			{#if header}
-				{@render header?.()}
+				{@render header()}
 			{:else if title}
 				<h2 class="flex-1 text-2xl font-bold text-white">{title}</h2>
 			{:else}
 				<div class="flex-1"></div>
 			{/if}
-			<button class="flex h-10 w-10 items-center justify-center rounded-lg transition-colors *:hover:stroke-3" onclick={onClose}>
+			<button aria-label="Close" class="flex h-10 w-10 items-center justify-center rounded-lg transition-colors *:hover:stroke-3" onclick={onClose} type="button">
 				<X class="transition-all duration-300" />
 			</button>
 		</div>
 
-		<div class="flex-1 overflow-y-auto p-4 sm:p-8 {containerClass}">
+		<div class={['flex-1 overflow-y-auto p-4 sm:p-8', containerClass]}>
 			{@render children?.()}
 		</div>
 	</div>
