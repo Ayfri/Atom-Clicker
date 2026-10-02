@@ -5,14 +5,16 @@ const APP_FRAME_PATTERN = /\/_app\//;
 const INJECTED_TOP_FRAME_PATTERN = /\(<anonymous>:\d+:\d+\)/;
 
 /**
- * Nothing to fix on our side: network failures, tabs left open across a deploy, and the
- * "Request timeout <name>Distributor.getValue" family a ChromeOS text-prediction extension rejects with.
+ * Nothing to fix on our side: network failures, tabs left open across a deploy, the
+ * "Request timeout <name>Distributor.getValue" family a ChromeOS text-prediction extension rejects with, and the
+ * "Object Not Found Matching Id" rejections of the CefSharp browser Outlook Safe Links opens emailed links in.
  */
 const IGNORED_MESSAGE_PATTERNS = [
 	/^Failed to fetch$/,
 	/^Load failed$/,
 	/^NetworkError when attempting to fetch resource/,
 	/^Request timeout /,
+	/^Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+$/,
 	/^Importing a module script failed/,
 	/^Failed to fetch dynamically imported module/,
 	/error loading dynamically imported module/,
