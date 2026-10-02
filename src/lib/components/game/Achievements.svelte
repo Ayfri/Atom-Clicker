@@ -3,7 +3,7 @@
 	import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS } from '#data/achievements.js';
 	import { isQuarkAchievement } from '#data/quarkAchievements.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarkFlight } from '#helpers/quarkFlight.js';
+	import { gatherSparks, quarkFlight } from '#helpers/quarkFlight.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import Quark from '#components/icons/Quark.svelte';
@@ -29,7 +29,9 @@
 	const undiscoveredCount = $derived(
 		ACHIEVEMENT_GROUPS.reduce((count, group) => (visibleGroups.includes(group) ? count : count + group.achievements.length), 0),
 	);
-	const claimingAll = $derived(quarksManager.isActionPending('claim-achievements'));
+	/** Claimed count held while the sparks gather, so the reward line and its button stay up until the Quarks leave it. */
+	let collecting = $state(0);
+	let list = $state<HTMLDivElement>();
 
 	/** A collapsed series only keeps its latest unlocked tier and its next target, the rest waits behind "Show all". */
 	function shownAchievements(group: AchievementGroup, unlocked: ReadonlySet<string>): Achievement[] {
@@ -44,10 +46,26 @@
 	}
 
 	/** The Quarks only fly to the nav once the server granted them, a failed claim shows its error toast instead. */
-	async function claim(event: MouseEvent & { currentTarget: HTMLButtonElement }, achievementId?: string) {
+	async function claim(event: MouseEvent & { currentTarget: HTMLButtonElement }, achievementId: string) {
 		if (!canClaimAchievements) return;
 		const launch = quarkFlight(event.currentTarget);
-		launch(await (achievementId ? quarksManager.claimAchievement(achievementId) : quarksManager.claimAchievements(claimableAchievementIds)));
+		launch(await quarksManager.claimAchievement(achievementId));
+	}
+
+	/** Sparks gather from each claimable row into the button, then the granted Quarks fly from it to the nav. */
+	async function claimAll(event: MouseEvent & { currentTarget: HTMLButtonElement }) {
+		if (!canClaimAchievements || !list) return;
+		const button = event.currentTarget;
+		const bounds = list.getBoundingClientRect();
+		/** Rows scrolled out of the list send their sparks from its edge. */
+		const sources = [...list.querySelectorAll('[data-claim]')].map(row => {
+			const rect = row.getBoundingClientRect();
+			return { x: rect.left + rect.width / 2, y: Math.min(bounds.bottom, Math.max(bounds.top, rect.top + rect.height / 2)) };
+		});
+		collecting = claimableAchievementIds.length;
+		const [granted] = await Promise.all([quarksManager.claimAchievements(claimableAchievementIds), gatherSparks(sources, button)]);
+		quarkFlight(button)(granted);
+		collecting = 0;
 	}
 </script>
 
@@ -67,17 +85,17 @@
 	<div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-white/10">
 		<div class="h-full bg-accent-400" style:width="{(gameManager.achievements.length / TOTAL_ACHIEVEMENTS) * 100}%"></div>
 	</div>
-	{#if canClaimAchievements}
-		{const count = $derived(claimableAchievementIds.length)}
+	{#if canClaimAchievements || collecting}
+		{const count = $derived(collecting || claimableAchievementIds.length)}
 		<div class="mt-2 flex items-center gap-2 border-b border-white/5 pb-2 text-xs" in:reveal={{ y: 0 }}>
 			<Quark class="shrink-0" size={18} />
 			<p class="min-w-0 flex-1 leading-tight text-white/60">
 				<span class="font-semibold text-white">{count} new {count === 1 ? 'reward' : 'rewards'}</span>, each achievement pays 1 Quark once per account
 			</p>
 			<button
-				class="flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-accent-600 px-2 py-1 font-semibold text-white transition-colors hover:bg-accent-500 disabled:cursor-wait disabled:opacity-60"
-				disabled={claimingAll}
-				onclick={event => claim(event)}
+				class="flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-accent-600 px-2 py-1 font-semibold text-white transition-colors hover:bg-accent-500 disabled:cursor-wait"
+				disabled={collecting > 0}
+				onclick={claimAll}
 			>
 				Claim +{count}
 				<Quark size={14} />
@@ -85,7 +103,7 @@
 		</div>
 	{/if}
 	<!-- Collapsed series render two rows each instead of every tier, which keeps the always-mounted panel light. -->
-	<div class="mt-1 flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar px-1 pb-1">
+	<div bind:this={list} class="mt-1 flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar px-1 pb-1">
 		{#each visibleGroups as group (group.name)}
 			{const unlockedIds = $derived(gameManager.unlockedAchievementIds)}
 			{const unlockedCount = $derived(group.achievements.filter(achievement => unlockedIds.has(achievement.id)).length)}
@@ -123,6 +141,7 @@
 								{#if claimable.has(achievement.id)}
 									<button
 										class="flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-1 text-xs font-bold text-white transition-colors hover:bg-white/20 cursor-pointer"
+										data-claim
 										onclick={event => claim(event, achievement.id)}
 										aria-label="Claim 1 Quark for {achievement.name}"
 										title="Claim 1 Quark"
