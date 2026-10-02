@@ -1,40 +1,41 @@
 <script lang="ts">
 	import { AlertTriangle, Award, Flame, RotateCcw, Sparkles, Star, TrendingUp, Wrench, Zap } from '@lucide/svelte';
 	import type { Component } from 'svelte';
-	import { BUILDING_COLORS, BUILDINGS, BuildingTypes } from '$data/buildings';
-	import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
-	import { SKILL_UPGRADES } from '$data/skillTree';
-	import { UPGRADES } from '$data/upgrades';
-	import { ACHIEVEMENTS } from '$data/achievements';
-	import BlackHoleIcon from '@components/icons/buildings/BlackHole.svelte';
-	import CrystalIcon from '@components/icons/buildings/Crystal.svelte';
-	import MicroorganismIcon from '@components/icons/buildings/Microorganism.svelte';
-	import MoleculeIcon from '@components/icons/buildings/Molecule.svelte';
-	import NanostructureIcon from '@components/icons/buildings/Nanostructure.svelte';
-	import NeutronStarIcon from '@components/icons/buildings/NeutronStar.svelte';
-	import PlanetIcon from '@components/icons/buildings/Planet.svelte';
-	import RockIcon from '@components/icons/buildings/Rock.svelte';
-	import StarIcon from '@components/icons/buildings/Star.svelte';
-	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
-	import type { SimulationAction, SpikeEvent } from '$lib/simulation/types';
+	import { GENERATOR_COLORS, GENERATORS, GeneratorTypes } from '#data/generators.js';
+	import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+	import { SKILL_UPGRADES } from '#data/skillTree.js';
+	import { UPGRADES } from '#data/upgrades.js';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import BlackHoleIcon from '#components/icons/generators/BlackHole.svelte';
+	import CrystalIcon from '#components/icons/generators/Crystal.svelte';
+	import MicroorganismIcon from '#components/icons/generators/Microorganism.svelte';
+	import MoleculeIcon from '#components/icons/generators/Molecule.svelte';
+	import NanostructureIcon from '#components/icons/generators/Nanostructure.svelte';
+	import NeutronStarIcon from '#components/icons/generators/NeutronStar.svelte';
+	import PlanetIcon from '#components/icons/generators/Planet.svelte';
+	import RockIcon from '#components/icons/generators/Rock.svelte';
+	import StarIcon from '#components/icons/generators/Star.svelte';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import type { SimulationAction, SpikeEvent } from '#lib/simulation/types.js';
+	import type { EffectStat } from '#lib/types.js';
 
 	let { index, spike }: { index: number; spike: SpikeEvent } = $props();
 
-	const APS_BOOSTER_EFFECT_TYPES = new Set(['global', 'proton_gain', 'electron_gain', 'click']);
+	const APS_BOOSTER_EFFECT_TYPES = new Set<EffectStat>(['click', 'click_aps', 'electron_gain', 'global', 'proton_gain']);
 
-	const BUILDING_ICONS: Record<string, Component<{ color?: string; size?: number }>> = {
-		[BuildingTypes.BLACK_HOLE]: BlackHoleIcon,
-		[BuildingTypes.CRYSTAL]: CrystalIcon,
-		[BuildingTypes.MICROORGANISM]: MicroorganismIcon,
-		[BuildingTypes.MOLECULE]: MoleculeIcon,
-		[BuildingTypes.NANOSTRUCTURE]: NanostructureIcon,
-		[BuildingTypes.NEUTRON_STAR]: NeutronStarIcon,
-		[BuildingTypes.PLANET]: PlanetIcon,
-		[BuildingTypes.ROCK]: RockIcon,
-		[BuildingTypes.STAR]: StarIcon,
+	const GENERATOR_ICONS: Record<string, Component<{ color?: string; size?: number }>> = {
+		[GeneratorTypes.BLACK_HOLE]: BlackHoleIcon,
+		[GeneratorTypes.CRYSTAL]: CrystalIcon,
+		[GeneratorTypes.MICROORGANISM]: MicroorganismIcon,
+		[GeneratorTypes.MOLECULE]: MoleculeIcon,
+		[GeneratorTypes.NANOSTRUCTURE]: NanostructureIcon,
+		[GeneratorTypes.NEUTRON_STAR]: NeutronStarIcon,
+		[GeneratorTypes.PLANET]: PlanetIcon,
+		[GeneratorTypes.ROCK]: RockIcon,
+		[GeneratorTypes.STAR]: StarIcon,
 	};
 
-	const BUILDING_TYPE_ORDER = Object.values(BuildingTypes);
+	const GENERATOR_TYPE_ORDER: readonly string[] = Object.values(GeneratorTypes);
 
 	interface ResolvedAction {
 		apsDelta: number;
@@ -54,13 +55,13 @@
 			case 'upgrade': {
 				const u = UPGRADES[d];
 				if (!u) return { description: d, isApsBooster: false, label: d };
-				const isApsBooster = u.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.type));
+				const isApsBooster = u.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.stat));
 				return { description: u.description, isApsBooster, label: u.name };
 			}
 			case 'skill': {
 				const s = SKILL_UPGRADES[d];
 				if (!s) return { description: d, isApsBooster: false, label: d };
-				const isApsBooster = s.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.type));
+				const isApsBooster = s.effects.some(e => APS_BOOSTER_EFFECT_TYPES.has(e.stat));
 				return { description: s.description, isApsBooster, label: s.name };
 			}
 			case 'photon_upgrade': {
@@ -72,10 +73,10 @@
 				const entry = Object.values(ACHIEVEMENTS).find(a => a.name === d);
 				return { description: entry?.description ?? d, isApsBooster: false, label: d };
 			}
-			case 'building': {
-				const buildingType = d.split(' ')[0];
-				const b = BUILDINGS[buildingType as keyof typeof BUILDINGS];
-				return { description: '', isApsBooster: false, label: b?.name ?? buildingType };
+			case 'generator': {
+				const generatorType = d.split(' ')[0];
+				const b = GENERATORS[generatorType as keyof typeof GENERATORS];
+				return { description: '', isApsBooster: false, label: b?.name ?? generatorType };
 			}
 			case 'protonise':
 				return { description: d, isApsBooster: true, label: 'Protonise' };
@@ -88,7 +89,7 @@
 		}
 	}
 
-	function parseBuildingAmount(details: string): number {
+	function parseGeneratorAmount(details: string): number {
 		const match = details.match(/x(\d+)$/);
 		return match ? parseInt(match[1]) : 1;
 	}
@@ -96,10 +97,10 @@
 	const groupedActions = $derived.by(() => {
 		const byKey = new Map<string, ResolvedAction>();
 		for (const action of spike.actions) {
-			const buildingType = action.type === 'building' ? action.details?.split(' ')[0] ?? '' : null;
-			const key = buildingType ? `building::${buildingType}` : `${action.type}::${action.details ?? ''}`;
+			const generatorType = action.type === 'generator' ? action.details?.split(' ')[0] ?? '' : null;
+			const key = generatorType ? `generator::${generatorType}` : `${action.type}::${action.details ?? ''}`;
 			const existing = byKey.get(key);
-			const bought = buildingType ? parseBuildingAmount(action.details ?? '') : 1;
+			const bought = generatorType ? parseGeneratorAmount(action.details ?? '') : 1;
 			if (existing) {
 				existing.count++;
 				existing.totalBought += bought;
@@ -126,8 +127,8 @@
 			groups[t].push(item);
 		}
 		for (const list of Object.values(groups)) {
-			if (list[0]?.raw.type === 'building') {
-				list.sort((a, b) => BUILDING_TYPE_ORDER.indexOf(a.raw.details?.split(' ')[0] as any) - BUILDING_TYPE_ORDER.indexOf(b.raw.details?.split(' ')[0] as any));
+			if (list[0]?.raw.type === 'generator') {
+				list.sort((a, b) => GENERATOR_TYPE_ORDER.indexOf(a.raw.details?.split(' ')[0] ?? '') - GENERATOR_TYPE_ORDER.indexOf(b.raw.details?.split(' ')[0] ?? ''));
 			} else {
 				list.sort((a, b) => b.count - a.count);
 			}
@@ -140,7 +141,7 @@
 
 	const TYPE_LABELS: Record<string, string> = {
 		achievement: 'Achievements',
-		building: 'Buildings',
+		generator: 'Generators',
 		electronize: 'Electronize',
 		photon_upgrade: 'Photon Upgrades',
 		power_up: 'Power-ups',
@@ -151,7 +152,7 @@
 
 	const TYPE_COLORS: Record<string, string> = {
 		achievement: 'text-purple-400 bg-purple-500/15 border-purple-500/25',
-		building: 'text-green-400 bg-green-500/15 border-green-500/25',
+		generator: 'text-green-400 bg-green-500/15 border-green-500/25',
 		electronize: 'text-blue-400 bg-blue-500/15 border-blue-500/25',
 		photon_upgrade: 'text-yellow-400 bg-yellow-500/15 border-yellow-500/25',
 		power_up: 'text-orange-400 bg-orange-500/15 border-orange-500/25',
@@ -172,7 +173,6 @@
 </script>
 
 <div class="bg-amber-500/6 border border-amber-500/20 flex flex-col gap-4 p-4 rounded-xl text-sm">
-	<!-- Header -->
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-wrap gap-x-4 gap-y-1 items-center">
 			<div class="flex gap-2 items-center">
@@ -205,10 +205,9 @@
 		</div>
 	</div>
 
-	<!-- Action groups -->
 	<div class="flex flex-col gap-2">
-		{#each Object.entries(groupedActions) as [type, items]}
-			{@const Icon = TYPE_ICONS[type]}
+		{#each Object.entries(groupedActions) as [type, items] (type)}
+			{const Icon = $derived(TYPE_ICONS[type])}
 			<div class="flex flex-col gap-1.5">
 				<div class="flex gap-2 items-center">
 					<span class="border flex gap-1 items-center font-medium px-2 py-0.5 rounded text-xs {TYPE_COLORS[type] ?? 'text-gray-400 bg-white/5 border-white/10'}">
@@ -221,14 +220,14 @@
 				</div>
 				<div class="gap-1.5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pl-2">
 					{#each items as item (item.key)}
-						{@const buildingType = item.raw.type === 'building' ? item.raw.details?.split(' ')[0] : null}
-						{@const BuildingIcon = buildingType ? BUILDING_ICONS[buildingType] : null}
-						{@const buildingColorIdx = buildingType ? BUILDING_TYPE_ORDER.indexOf(buildingType as any) : -1}
-						{@const buildingColor = buildingColorIdx >= 0 ? BUILDING_COLORS[buildingColorIdx] : null}
+						{const generatorType = $derived(item.raw.type === 'generator' ? item.raw.details?.split(' ')[0] : null)}
+						{const GeneratorIcon = $derived(generatorType ? GENERATOR_ICONS[generatorType] : null)}
+						{const generatorColorIdx = $derived(generatorType ? GENERATOR_TYPE_ORDER.indexOf(generatorType) : -1)}
+						{const generatorColor = $derived(generatorColorIdx >= 0 ? GENERATOR_COLORS[generatorColorIdx] : null)}
 						<div class="bg-black/20 border-l-2 flex flex-col gap-0.5 min-w-0 px-2.5 py-1.5 rounded-r-lg {item.isApsBooster ? 'border-amber-500/60' : 'border-white/10'}">
 							<div class="flex gap-1.5 items-center">
-								{#if BuildingIcon && buildingColor}
-									<BuildingIcon color={buildingColor} size={13} />
+								{#if GeneratorIcon && generatorColor}
+									<GeneratorIcon color={generatorColor} size={13} />
 								{:else if Icon}
 									<Icon class="shrink-0 text-gray-400" size={11} />
 								{/if}
@@ -243,7 +242,7 @@
 									<TrendingUp class="shrink-0 text-amber-400" size={10} />
 								{/if}
 							</div>
-							{#if item.raw.type === 'building' && item.apsDelta > 0}
+							{#if item.raw.type === 'generator' && item.apsDelta > 0}
 								<span class="text-green-400/70 text-xs font-mono">+{formatNumber(item.apsDelta)}/s</span>
 							{:else if item.description}
 								<span class="text-gray-500 text-xs leading-tight line-clamp-2">{item.description}</span>

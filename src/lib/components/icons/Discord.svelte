@@ -12,6 +12,7 @@
 
 <svg
 	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
 	preserveAspectRatio="xMidYMid"
 	viewBox="0 -28.5 256 256"
 	height={size}

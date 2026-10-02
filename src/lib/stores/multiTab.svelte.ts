@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import { toastStore } from '$stores/toasts.svelte';
+import { browser } from '$app/env';
+import { toastStore } from '#stores/toasts.svelte.js';
 
 export class MultiTabDetector {
 	isDuplicate = $state(false);
@@ -20,9 +20,6 @@ export class MultiTabDetector {
 
 		// Check if another tab exists
 		this.channel.postMessage('ping');
-
-		// Also listen for visibility changes to re-check?
-		// Actually BroadcastChannel is enough.
 	}
 
 	private setDuplicate() {
@@ -31,7 +28,7 @@ export class MultiTabDetector {
 		toastStore.warning({
 			title: 'Auth warning',
 			message: 'Game is already open in another tab. Auth and Cloud Save might not work correctly.',
-			is_infinite: true
+			duration: 0
 		});
 	}
 }

@@ -1,18 +1,16 @@
-import { BUILDING_LEVEL_UP_COST, type BuildingType } from '$data/buildings';
-import { CurrenciesTypes } from '$data/currencies';
-import { RealmTypes } from '$data/realms';
-import type { Building, GameState } from '$lib/types';
-import { deriveFeatureState } from '$helpers/FeaturesManager.svelte';
-import { statsConfig } from '$helpers/statConstants';
-import { getItem } from '$lib/utils/safeLocalStorage';
-import { unwrapStoredSave, wrapSaveForStorage } from '$lib/utils/saveIntegrity';
-import type { SaveErrorType } from '$stores/saveRecovery';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
+import { RealmTypes } from '#data/realms.js';
+import type { GameState, Generator } from '#lib/types.js';
+import { deriveFeatureState } from '#helpers/FeaturesManager.svelte.js';
+import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { statsConfig } from '#helpers/statConstants.js';
+import { getItem } from '#lib/utils/safeLocalStorage.js';
+import { unwrapStoredSave, wrapSaveForStorage } from '#lib/utils/saveIntegrity.js';
+import type { SaveErrorType } from '#stores/saveRecovery.svelte.js';
 
 export const SAVE_KEY = 'atomic-clicker-save';
-export const SAVE_VERSION = 24;
-
-/** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
-const PLAUSIBILITY_TIME_TOLERANCE_MS = 60_000;
+export const SAVE_VERSION = 30;
 
 export interface LoadSaveResult {
 	errorDetails?: string;
@@ -29,34 +27,6 @@ export function serializeSaveState(state: GameState): string {
 	return wrapSaveForStorage(JSON.stringify(state));
 }
 
-/** Balance-independent sanity checks (currency vs earned totals, inGameTime vs wall clock). */
-export function checkStatePlausibility(state: GameState): string[] {
-	const warnings: string[] = [];
-
-	if (state.currencies && typeof state.currencies === 'object') {
-		for (const [name, currency] of Object.entries(state.currencies)) {
-			if (!currency || typeof currency !== 'object') continue;
-			const { amount, earnedAllTime, earnedRun } = currency as { amount: number; earnedAllTime: number; earnedRun: number };
-			if (typeof amount === 'number' && typeof earnedAllTime === 'number' && amount > earnedAllTime) {
-				warnings.push(`Currency ${name}: amount (${amount}) exceeds earnedAllTime (${earnedAllTime})`);
-			}
-			if (typeof earnedRun === 'number' && typeof earnedAllTime === 'number' && earnedRun > earnedAllTime) {
-				warnings.push(`Currency ${name}: earnedRun (${earnedRun}) exceeds earnedAllTime (${earnedAllTime})`);
-			}
-		}
-	}
-
-	if (typeof state.inGameTime === 'number' && typeof state.startDate === 'number' && typeof state.lastSave === 'number') {
-		const maxPossibleInGameTime = state.lastSave - state.startDate + PLAUSIBILITY_TIME_TOLERANCE_MS;
-		if (state.inGameTime > maxPossibleInGameTime) {
-			warnings.push(`inGameTime (${state.inGameTime}) exceeds wall-clock time since startDate (${maxPossibleInGameTime})`);
-		}
-	}
-
-	return warnings;
-}
-
-// Helper functions for state management
 export function loadSavedState(): LoadSaveResult {
 	let rawData: string | null = null;
 
@@ -116,15 +86,9 @@ export function loadSavedState(): LoadSaveResult {
 		// Step 3: Validate and try to repair if needed
 		const validationResult = validateAndRepairGameState(migratedState);
 		if (validationResult.valid) {
+			if (validationResult.repaired) console.log('Game state repaired:', validationResult.repairs);
 			console.log('Valid game state:', validationResult.state);
 			const integrityWarnings = checkStatePlausibility(validationResult.state!);
-			return { integrityTampered, integrityWarnings, state: validationResult.state, success: true };
-		}
-
-		// If repair was attempted but still invalid
-		if (validationResult.repaired && validationResult.state) {
-			console.log('Game state repaired:', validationResult.repairs);
-			const integrityWarnings = checkStatePlausibility(validationResult.state);
 			return { integrityTampered, integrityWarnings, state: validationResult.state, success: true };
 		}
 
@@ -179,7 +143,7 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 				typeof val === 'object' &&
 				val !== null &&
 				typeof val.automation === 'object' &&
-				Array.isArray(val.automation?.buildings) &&
+				Array.isArray(val.automation?.generators) &&
 				typeof val.automation?.autoClick === 'boolean' &&
 				typeof val.automation?.autoClickPhotons === 'boolean' &&
 				typeof val.automation?.upgrades === 'boolean' &&
@@ -266,30 +230,24 @@ export function validateAndRepairGameState(state: unknown): ValidationResult {
 	};
 }
 
-// Simple validation check (used by cloud save)
-export function isValidGameState(state: unknown): state is GameState {
-	if (!state) return false;
-	const result = validateAndRepairGameState(structuredClone(state));
-	return result.valid || result.repaired;
-}
-
 export function migrateSavedState(savedState: unknown): GameState | undefined {
 	if (!savedState || typeof savedState !== 'object') return undefined;
 	const state = savedState as any;
 
-	if (!('buildings' in state)) return state;
+	// Generators were stored under `buildings` until v26.
+	if (!('buildings' in state) && !('generators' in state)) return state;
 
 	if (!('version' in state)) {
 		// Migrate from old format
-		state.buildings = Object.entries(state.buildings as Partial<GameState['buildings']>).reduce(
+		state.buildings = Object.entries(state.buildings as Partial<GameState['generators']>).reduce(
 			(acc, [key, value]) => {
-				acc[key as BuildingType] = {
+				acc[key as GeneratorType] = {
 					...value,
 					unlocked: true,
 				};
 				return acc;
 			},
-			{} as GameState['buildings'],
+			{} as GameState['generators'],
 		);
 	}
 
@@ -317,14 +275,14 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 		// Specific Migrations
 		if (state.version === 2) {
-			Object.entries<Partial<Building>>(state.buildings)?.forEach(([key, building]) => {
-				building.level = Math.floor((building.count ?? 0) / BUILDING_LEVEL_UP_COST);
+			Object.entries<Partial<Generator>>(state.buildings)?.forEach(([key, building]) => {
+				building.level = Math.floor((building.count ?? 0) / GENERATOR_LEVEL_UP_COST);
 				state[key] = building;
 			});
 		}
 
 		if (state.version === 4) {
-			Object.entries<Partial<Building>>(state.buildings)?.forEach(([key, building]) => {
+			Object.entries<{ cost?: number | { amount: number } }>(state.buildings)?.forEach(([key, building]) => {
 				state[key].cost = {
 					amount: typeof building.cost === 'number' ? building.cost : building.cost?.amount,
 					currency: CurrenciesTypes.ATOMS,
@@ -549,6 +507,93 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		if (state.version === 22) {
 			// Existing saves shouldn't see the first-time tutorial
 			state.tutorial = { active: false, completed: true, step: 0 };
+		}
+
+		if (state.version === 24) {
+			// The guided walkthrough became contextual hints, a finished walkthrough already taught the Atom realm ones
+			const completedHints = ['atoms:click', 'atoms:building', 'atoms:upgrade', 'atoms:protonise', 'atoms:skill-tree'];
+			state.tutorial = {
+				enabled: true,
+				seen: [...(state.tutorial?.seenRealmSteps ?? []), ...(state.tutorial?.completed ? completedHints : [])],
+			};
+		}
+
+		if (state.version === 25) {
+			// Buildings were renamed to generators, achievement and daily quest ids stay as they are since the quark claims server keys on them
+			state.generators = state.buildings ?? {};
+			state.totalGeneratorsPurchasedAllTime = state.totalBuildingsPurchasedAllTime ?? 0;
+			delete state.buildings;
+			delete state.totalBuildingsPurchasedAllTime;
+			if (state.dailyStats) {
+				state.dailyStats.generatorsPurchased = state.dailyStats.buildingsPurchased ?? 0;
+				delete state.dailyStats.buildingsPurchased;
+			}
+			if (state.settings?.automation) {
+				state.settings.automation.generators = state.settings.automation.buildings ?? [];
+				delete state.settings.automation.buildings;
+			}
+			if (Array.isArray(state.tutorial?.seen)) {
+				state.tutorial.seen = state.tutorial.seen.map((id: string) => (id === 'atoms:building' ? 'atoms:generator' : id));
+			}
+		}
+
+		if (state.version === 26) {
+			// Generators stored a copy of their base rate and cost, which kept rebalances from reaching existing saves
+			for (const generator of Object.values<Record<string, unknown>>(state.generators ?? {})) {
+				delete generator.cost;
+				delete generator.rate;
+			}
+		}
+
+		if (state.version === 27) {
+			// Stat boosts left the skill tree for the upgrade lists and the photon shop, automation and stability unlocks became skills
+			const skillToUpgrade: Record<string, string> = {
+				atomicStability: 'atomic_stability',
+				biologicalAmplifier: 'biological_amplifier',
+				clickMastery: 'click_mastery',
+				communityPower: 'proton_community_power',
+				cosmicSynergy: 'electron_cosmic_synergy',
+				electronHarvester: 'proton_electron_harvester',
+				geologicalForce: 'geological_force',
+				globalMultiplier: 'global_multiplier',
+				levelMastery: 'level_mastery',
+				molecularBoost: 'molecular_boost',
+				nanoEnhancement: 'nano_enhancement',
+				particleAccelerator: 'proton_particle_accelerator',
+				powerUpMastery: 'power_up_mastery',
+				prestigeBonus: 'proton_prestige_bonus',
+				protonCollector: 'proton_collector',
+				quantumResonance: 'proton_quantum_resonance',
+				stellarCore: 'proton_stellar_core',
+			};
+			const upgradeToSkill: Record<string, string> = {
+				electron_auto_upgrade_1: 'autoUpgrade',
+				electron_bypass_atom_autoclick_stability: 'stableAutomation',
+				electron_bypass_atom_click_stability: 'stableManipulation',
+				electron_bypass_bonus_click_stability: 'stableAnomalies',
+				electron_bypass_photon_autoclick_stability: 'stableQuantumFlux',
+				electron_bypass_photon_click_stability: 'stableInteraction',
+				proton_auto_click_1: 'autoClicker',
+				proton_offline_autobuy: 'offlineAutoUpgrades',
+				proton_offline_autoclick: 'offlineAutoClick',
+			};
+			for (const type of GENERATOR_TYPES) {
+				skillToUpgrade[`${type}Multiplier`] = `${type.toLowerCase()}_multiplier`;
+				skillToUpgrade[`${type}LevelMastery`] = `${type.toLowerCase()}_level_mastery`;
+				upgradeToSkill[`electron_auto_buy_${type}`] = `${type}AutoBuy`;
+			}
+			const skillToPhotonUpgrade: Record<string, string> = { photonEfficiency: 'photon_efficiency', photonProtonBoost: 'photon_proton_boost' };
+
+			const skills: string[] = state.skillUpgrades ?? [];
+			const upgrades: string[] = state.upgrades ?? [];
+			state.photonUpgrades ??= {};
+			for (const id of skills) {
+				const photonId = skillToPhotonUpgrade[id];
+				if (photonId) state.photonUpgrades[photonId] = Math.max(state.photonUpgrades[photonId] ?? 0, 1);
+			}
+			state.upgrades = [...upgrades.filter(id => !upgradeToSkill[id]), ...skills.flatMap(id => skillToUpgrade[id] ?? [])];
+			state.skillUpgrades = [...skills.filter(id => !skillToUpgrade[id] && !skillToPhotonUpgrade[id]), ...upgrades.flatMap(id => upgradeToSkill[id] ?? [])];
+			state.features = deriveFeatureState({ skillUpgrades: state.skillUpgrades });
 		}
 
 		state.version = nextVersion;

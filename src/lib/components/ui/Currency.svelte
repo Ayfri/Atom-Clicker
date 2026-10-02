@@ -1,12 +1,15 @@
 <script lang="ts">
 	import type { SvelteHTMLElements } from 'svelte/elements';
-	import {CURRENCIES, type CurrencyName} from '$data/currencies';
-	import AtomIcon from '@components/icons/Atom.svelte';
-	import ElectronIcon from '@components/icons/Electron.svelte';
-	import ExcitedPhotonIcon from '@components/icons/ExcitedPhoton.svelte';
-	import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
-	import ProtonIcon from '@components/icons/Proton.svelte';
-	import PhotonIcon from '@components/icons/Photon.svelte';
+	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+	import {CURRENCIES, type CurrencyName} from '#data/currencies.js';
+	import LightIcon from '#components/icons/Light.svelte';
+	import WhiteLightIcon from '#components/icons/WhiteLight.svelte';
+	import AtomIcon from '#components/icons/Atom.svelte';
+	import ElectronIcon from '#components/icons/Electron.svelte';
+	import ExcitedPhotonIcon from '#components/icons/ExcitedPhoton.svelte';
+	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+	import ProtonIcon from '#components/icons/Proton.svelte';
+	import PhotonIcon from '#components/icons/Photon.svelte';
 
 	type SvgProps = SvelteHTMLElements['svg'];
 
@@ -21,6 +24,7 @@
 	let { name, icon = true, class: className = '', ...rest }: Props = $props();
 
 	const currency = $derived(CURRENCIES[name]);
+	const chromaticColor = $derived(CHROMATIC_COLORS.find(color => CHROMATIC[color].currency === name));
 </script>
 
 {#if icon}
@@ -36,6 +40,10 @@
 		<ProtonIcon class="inline {className}" color={currency.color} {...rest} />
 	{:else if currency.id === 'photon'}
 		<PhotonIcon class="inline {className}" color={currency.color} {...rest} />
+	{:else if chromaticColor}
+		<LightIcon class="inline {className}" color={currency.color} facets={CHROMATIC[chromaticColor].facets} {...rest} />
+	{:else if currency.id === 'white-light'}
+		<WhiteLightIcon class="inline {className}" color={currency.color} {...rest} />
 	{/if}
 {:else}
 	<span class="currency">{currency.name}</span>

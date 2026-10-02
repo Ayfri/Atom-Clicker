@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Currency from '@components/ui/Currency.svelte';
-	import { CURRENCIES, type CurrencyName } from '$data/currencies';
+	import Currency from '#components/ui/Currency.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
 
 	interface Props {
 		class?: string;
@@ -13,7 +13,7 @@
 	const currency = $derived(CURRENCIES[name]);
 </script>
 
-<span class="inline-flex items-center gap-0.5 align-tFop whitespace-nowrap {className}" style="color: {currency.color}">
+<span class="inline-flex items-center gap-0.5 align-top whitespace-nowrap {className}" style="color: {currency.color}">
 	<Currency {name} {size} />
 	{currency.name}
 </span>

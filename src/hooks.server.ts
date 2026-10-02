@@ -1,5 +1,5 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
-import { logError } from '$lib/server/errorHandler.server';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
+import { logError } from '#lib/server/errorHandler.server.js';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
@@ -11,7 +11,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-export const handleError: HandleServerError = async ({ error, event, status, message }) => {
+export const handleError: HandleServerError = async ({ error, event, kind }) => {
+	// Errors thrown with `error(...)` are expected and keep their own status and message
+	if (kind === 'app') return;
+	const status = kind === 'unknown' ? 500 : error.status;
 	// Only server faults are worth an alert, everything below 500 is a bad request, most of them scanners
 	if (status < 500) {
 		return { message: status === 404 ? 'Page not found' : 'This request could not be handled.' };
@@ -26,7 +29,7 @@ export const handleError: HandleServerError = async ({ error, event, status, mes
 				platform: 'server',
 				userAgent: event.request.headers.get('user-agent')
 			},
-			errorMessage: error instanceof Error ? error.message : message || 'Unknown server error',
+			errorMessage: error instanceof Error ? error.message : kind === 'unknown' ? 'Unknown server error' : error.message,
 			stackTrace: error instanceof Error ? error.stack : null,
 			url: event.url.href
 		});

@@ -1,7 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '$lib/types/supabase'
-import { PUBLIC_SUPABASE_URL } from '$env/static/public'
-import { SUPABASE_SECRET_KEY } from '$env/static/private'
+import { createClient } from '@supabase/supabase-js';
+import { COLLIDER_COOLDOWN_SECONDS } from '#data/collider.js';
+import type { ColliderState } from '#lib/types.js';
+import type { Database } from '#lib/types/supabase.js';
+import { PUBLIC_SUPABASE_URL } from '$app/env/public';
+import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
 export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
 	auth: {
@@ -73,7 +75,71 @@ export const leaderboardService = {
 		}
 
 		return data
+	},
+
+	/** The save stays server-side, the profile route only publishes the stats it reads from it. */
+	async getPublicSave(userId: string) {
+		const { data, error } = await supabaseAdmin
+			.from('profiles')
+			.select('created_at, save')
+			.eq('id', userId)
+			.maybeSingle()
+
+		if (error) {
+			console.error('Error fetching public save:', error)
+			throw error
+		}
+
+		return data
+	},
+
+	/** Only the save fields the integrity checks read, so a score update never downloads the whole save. */
+	async getSaveIntegrityFields(userId: string) {
+		const { data, error } = await supabaseAdmin
+			.from('profiles')
+			.select(
+				'currencies:save->currencies, inGameTime:save->inGameTime, integrityFlagged:save->integrityFlagged, lastSave:save->lastSave, startDate:save->startDate, totalClicksAllTime:save->totalClicksAllTime, totalClicksRun:save->totalClicksRun, totalElectronizesAllTime:save->totalElectronizesAllTime, totalElectronizesRun:save->totalElectronizesRun, totalProtonisesAllTime:save->totalProtonisesAllTime, totalProtonisesRun:save->totalProtonisesRun',
+			)
+			.eq('id', userId)
+			.maybeSingle()
+
+		if (error) {
+			console.error('Error fetching save integrity fields:', error)
+			throw error
+		}
+
+		return data
 	}
+}
+
+export const colliderService = {
+	async get(userId: string | null): Promise<ColliderState> {
+		const { data, error } = await supabaseAdmin.rpc('get_collider', {
+			p_cooldown_seconds: COLLIDER_COOLDOWN_SECONDS,
+			p_user_id: userId ?? undefined,
+		});
+
+		if (error) {
+			console.error('Error fetching collider:', error);
+			throw error;
+		}
+
+		return data as unknown as ColliderState;
+	},
+
+	async inject(userId: string): Promise<ColliderState & { status: 'cooldown' | 'ok' }> {
+		const { data, error } = await supabaseAdmin.rpc('inject_collider', {
+			p_cooldown_seconds: COLLIDER_COOLDOWN_SECONDS,
+			p_user_id: userId,
+		});
+
+		if (error) {
+			console.error('Error injecting into the collider:', error);
+			throw error;
+		}
+
+		return data as unknown as ColliderState & { status: 'cooldown' | 'ok' };
+	},
 }
 
 interface QuarkGrantResult {
@@ -181,7 +247,7 @@ export const quarksService = {
 			throw error;
 		}
 
-		return (data ?? []).map(row => row.item_id);
+		return (data ?? []).map((row) => row.item_id);
 	},
 
 	async getClaimedAchievementIds(userId: string) {
@@ -196,7 +262,7 @@ export const quarksService = {
 			throw error;
 		}
 
-		return (data ?? []).map(row => row.ref.replace('achievement:', ''));
+		return (data ?? []).map((row) => row.ref.replace('achievement:', ''));
 	},
 
 	async getClaimedQuestIds(userId: string, dayKey: string) {
@@ -213,7 +279,7 @@ export const quarksService = {
 			throw error;
 		}
 
-		return (data ?? []).map(row => row.ref.split(':').slice(2).join(':'));
+		return (data ?? []).map((row) => row.ref.split(':').slice(2).join(':'));
 	},
 
 	async equipBanner(userId: string, itemId: string | null) {
@@ -248,13 +314,10 @@ export const quarksService = {
 	async equipTheme(userId: string, realmId: string, itemId: string | null): Promise<Record<string, string>> {
 		const current = await this.getEquippedThemes(userId);
 		const next = { ...current };
-		if (itemId) next[realmId] = itemId;
-		else delete next[realmId];
 
-		const { error } = await supabaseAdmin
-			.from('profiles')
-			.update({ equipped_themes: next })
-			.eq('id', userId);
+		if (itemId) next[realmId] = itemId; else delete next[realmId];
+
+		const { error } = await supabaseAdmin.from('profiles').update({ equipped_themes: next }).eq('id', userId);
 
 		if (error) {
 			console.error('Error equipping theme:', error);

@@ -1,5 +1,5 @@
-import { browser, dev } from '$app/environment';
-import { ACHIEVEMENTS } from '$data/achievements';
+import { browser, dev } from '$app/env';
+import { ACHIEVEMENTS } from '#data/achievements.js';
 import {
 	DAILY_QUEST_COUNT,
 	type DailyQuest,
@@ -8,20 +8,19 @@ import {
 	getQuestTarget,
 	pickDailyQuests,
 	QUEST_POOL,
-} from '$data/dailyQuests';
-import { getQuarkShopItem } from '$data/quarkShop';
-import { RealmTypes, type RealmType } from '$data/realms';
-import type { Effect } from '$lib/types';
-import { obfuscateClientData } from '$lib/utils/obfuscation';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-import { toastStore } from '$stores/toasts.svelte';
+	questAnchors,
+} from '#data/dailyQuests.js';
+import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { getQuarkShopItem } from '#data/quarkShop.js';
+import { RealmTypes, type RealmType } from '#data/realms.js';
+import { statsConfig } from '#helpers/statConstants.js';
+import type { EffectSource } from '#lib/types.js';
+import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 
-// NOTE: this manager may read `gameManager`, but `gameManager` never imports this module.
-// src/lib/simulation/engine.ts and simulation.worker.ts import GameManager and run in a Web
-// Worker with no auth context and no DOM - if QuarksManager got pulled into that import graph
-// it would attempt to fetch() from inside the worker. GameManager instead exposes a plain
-// `quarkBoostEffects` field that this manager pushes into, see GameManager.svelte.ts.
+/** GameManager never imports this module: the simulation worker imports GameManager without auth or DOM, so this pushes into `quarkBoostSources`. */
 
 interface QuarksApiState {
 	balance: number;
@@ -61,28 +60,29 @@ export class QuarksManager {
 	dailyQuestContext = $derived<DailyQuestContext>({
 		hasElectronized: gameManager.totalElectronizesAllTime > 0,
 		hasPhotonRealm: gameManager.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
+		hasPrism: gameManager.totalIonizesAllTime > 0,
 		hasThirdQuestSlot: this.dailyQuestCount > DAILY_QUEST_COUNT,
-		remainingAchievements: Object.keys(ACHIEVEMENTS).filter(id => !gameManager.achievements.includes(id)).length,
+		remainingAchievements: Object.keys(ACHIEVEMENTS).filter((id) => !gameManager.achievements.includes(id)).length
 	});
 
-	ownedBoostEffects = $derived.by<Effect[]>(() => {
-		return this.entitlements
-			.map(id => getQuarkShopItem(id))
-			.filter(item => item?.type === 'boost' || item?.type === 'convenience')
-			.flatMap(item => item?.effects ?? []);
-	});
+	ownedBoostSources = $derived.by<EffectSource[]>(() => this.entitlements.flatMap((id) => {
+		const item = getQuarkShopItem(id);
+			return item?.effects ? [{ effects: item.effects, id: item.id, name: item.name }] : [];
+		}),
+	);
 
 	hasClaimableQuest = $derived.by(() => {
-		return this.quests.some(quest => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest));
+		return this.quests.some((quest) => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest));
 	});
 
 	hasClaimableAchievement = $derived.by(() => {
-		return gameManager.achievements.some(id => id in ACHIEVEMENTS && !this.claimedAchievementIds.includes(id));
+		return gameManager.achievements.some((id) => id in ACHIEVEMENTS && !this.claimedAchievementIds.includes(id));
 	});
 
 	setDevOverride(value: boolean) {
 		if (!dev) return;
 		this.devOverride = value;
+		if (value) void this.sync();
 	}
 
 	isActionPending(actionId: string): boolean {
@@ -105,7 +105,7 @@ export class QuarksManager {
 
 	/** Pushes owned boost/convenience effects and entitlements into GameManager. Called whenever `entitlements` changes. */
 	private applyBoostEffects() {
-		gameManager.quarkBoostEffects = this.ownedBoostEffects;
+		gameManager.quarkBoostSources = this.ownedBoostSources;
 		gameManager.quarkEntitlements = this.entitlements;
 	}
 
@@ -117,23 +117,12 @@ export class QuarksManager {
 		const frozen = gameManager.dailyStats.questTargets[quest.id];
 		if (typeof frozen === 'number') return frozen;
 		// Not frozen yet (e.g. before the first sync), fall back to a live estimate.
-		return getQuestTarget(quest, {
-			achievementsUnlocked: 0,
-			atomsEarned: gameManager.highestAPS,
-			buildingsPurchased: 0,
-			clicks: 0,
-			electronizes: 0,
-			higgsBosonsCollected: 0,
-			otherDailyQuestsCompleted: 0,
-			powerUpsCollected: 0,
-			protonises: 0,
-			upgradesPurchased: 0,
-		});
+		return getQuestTarget(quest, questAnchors(gameManager.highestAPS));
 	}
 
 	getProgress(quest: DailyQuest): number {
 		if (quest.metric === 'otherDailyQuestsCompleted') {
-			return this.quests.filter(otherQuest => otherQuest.id !== quest.id && this.isQuestComplete(otherQuest)).length;
+			return this.quests.filter((otherQuest) => otherQuest.id !== quest.id && this.isQuestComplete(otherQuest)).length;
 		}
 		return gameManager.dailyStats[quest.metric] ?? 0;
 	}
@@ -141,7 +130,7 @@ export class QuarksManager {
 	private selectDailyQuests(dayKey: string): DailyQuest[] {
 		const storedQuestIds = gameManager.dailyStats.dayKey === dayKey ? gameManager.dailyStats.questIds ?? [] : [];
 		if (storedQuestIds.length === this.dailyQuestCount) {
-			return storedQuestIds.map(id => QUEST_POOL.find(quest => quest.id === id)).filter((quest): quest is DailyQuest => !!quest);
+			return storedQuestIds.map((id) => QUEST_POOL.find((quest) => quest.id === id)).filter((quest): quest is DailyQuest => !!quest);
 		}
 		return pickDailyQuests(dayKey, this.dailyQuestCount, this.dailyQuestContext);
 	}
@@ -153,7 +142,12 @@ export class QuarksManager {
 		for (const quest of this.quests) {
 			questTargets[quest.id] ??= this.getTarget(quest);
 		}
-		gameManager.dailyStats = { ...gameManager.dailyStats, questIds: this.quests.map(quest => quest.id), questTargets };
+
+		gameManager.dailyStats = {
+			...gameManager.dailyStats,
+			questIds: this.quests.map((quest) => quest.id),
+			questTargets
+		};
 	}
 
 	private async authHeaders(): Promise<Record<string, string> | null> {
@@ -172,19 +166,10 @@ export class QuarksManager {
 		}
 
 		gameManager.dailyStats = {
-			achievementsUnlocked: 0,
-			atomsEarned: 0,
-			buildingsPurchased: 0,
-			clicks: 0,
+			...statsConfig.dailyStats.defaultValue,
 			dayKey: serverDayKey,
-			electronizes: 0,
-			higgsBosonsCollected: 0,
-			otherDailyQuestsCompleted: 0,
-			powerUpsCollected: 0,
-			protonises: 0,
-			questIds: this.quests.map(quest => quest.id),
-			questTargets,
-			upgradesPurchased: 0,
+			questIds: this.quests.map((quest) => quest.id),
+			questTargets
 		};
 	}
 
@@ -207,6 +192,7 @@ export class QuarksManager {
 			this.quests = this.selectDailyQuests(dayKey);
 			this.rolloverDailyStatsIfNeeded(dayKey);
 			this.persistDailyQuestSelection(dayKey);
+			this.hasSynced = true;
 			return;
 		}
 		if (!supabaseAuth.isAuthenticated) {
@@ -276,14 +262,14 @@ export class QuarksManager {
 			toastStore.error({ message: 'Network error while talking to Quarks.', title: 'Quarks' });
 			return null;
 		} finally {
-			this.pendingActions = this.pendingActions.filter(id => id !== actionId);
+			this.pendingActions = this.pendingActions.filter((id) => id !== actionId);
 		}
 	}
 
 	async claimQuest(questId: string) {
 		if (this.devOverride) {
 			if (this.claimedQuestIds.includes(questId)) return;
-			const quest = this.quests.find(q => q.id === questId);
+			const quest = this.quests.find((q) => q.id === questId);
 			if (!quest) return;
 			this.balance += quest.reward;
 			this.claimedQuestIds = [...this.claimedQuestIds, questId];
@@ -296,39 +282,59 @@ export class QuarksManager {
 		if (result.status === 'ok') {
 			this.balance = result.balance;
 			this.claimedQuestIds = [...this.claimedQuestIds, questId];
-			const quest = this.quests.find(q => q.id === questId);
-			toastStore.info({ message: quest ? quest.description(this.getTarget(quest)) : 'Quest claimed.', title: '+1 Quark' });
+
+			const quest = this.quests.find((q) => q.id === questId);
+
+			toastStore.info({
+				message: quest
+					? quest.description(this.getTarget(quest))
+					: 'Quest claimed.',
+				title: '+1 Quark'
+			});
 		} else if (result.status === 'already_claimed') {
 			this.claimedQuestIds = [...new Set([...this.claimedQuestIds, questId])];
 		}
 	}
 
-	async claimAchievement(achievementId: string) {
-		if (this.claimedAchievementIds.includes(achievementId)) return;
+	/** Resolves to the Quarks the server granted, 0 when nothing was claimed. */
+	async claimAchievement(achievementId: string): Promise<number> {
+		if (this.claimedAchievementIds.includes(achievementId)) return 0;
+		if (this.devOverride) return this.claimAchievementsLocally([achievementId]);
 		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', {
 			achievementIds: [achievementId],
 		}, `claim-achievement:${achievementId}`);
-		if (!result) return;
+		if (!result) return 0;
 
 		this.balance = result.balance;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, achievementId])];
 		if (result.granted > 0) {
 			toastStore.info({ message: 'Achievement reward claimed.', title: '+1 Quark' });
 		}
+		return result.granted;
 	}
 
-	async claimAchievements(achievementIds: string[]) {
-		const idsToClaim = achievementIds.filter(id => !this.claimedAchievementIds.includes(id));
-		if (idsToClaim.length === 0) return;
+	/** Resolves to the Quarks the server granted, 0 when nothing was claimed. */
+	async claimAchievements(achievementIds: string[]): Promise<number> {
+		const idsToClaim = achievementIds.filter((id) => !this.claimedAchievementIds.includes(id));
+		if (idsToClaim.length === 0) return 0;
+		if (this.devOverride) return this.claimAchievementsLocally(idsToClaim);
 
 		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', { achievementIds: idsToClaim }, 'claim-achievements');
-		if (!result) return;
+		if (!result) return 0;
 
 		this.balance = result.balance;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...idsToClaim])];
 		if (result.granted > 0) {
 			toastStore.info({ message: `${result.granted} achievement rewards claimed.`, title: `+${result.granted} Quarks` });
 		}
+		return result.granted;
+	}
+
+	private claimAchievementsLocally(achievementIds: string[]): number {
+		const granted = achievementIds.filter(isQuarkAchievement).length * QUARK_ACHIEVEMENT_REWARD;
+		this.balance += granted;
+		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...achievementIds])];
+		return granted;
 	}
 
 	async collectHiggsBoson() {
@@ -379,7 +385,7 @@ export class QuarksManager {
 		if (this.devOverride) {
 			if (!this.entitlements.includes(itemId) || !item) return;
 			this.balance += item.cost;
-			this.entitlements = this.entitlements.filter(id => id !== itemId);
+			this.entitlements = this.entitlements.filter((id) => id !== itemId);
 			this.quests = this.selectDailyQuests(this.dayKey);
 			this.applyBoostEffects();
 			return;
@@ -390,7 +396,7 @@ export class QuarksManager {
 
 		if (result.status === 'ok') {
 			this.balance = result.balance;
-			this.entitlements = this.entitlements.filter(id => id !== itemId);
+			this.entitlements = this.entitlements.filter((id) => id !== itemId);
 			this.quests = this.selectDailyQuests(this.dayKey);
 			this.applyBoostEffects();
 		} else {

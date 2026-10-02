@@ -1,77 +1,48 @@
-import { BUILDING_TYPES, type BuildingType, getBuildingLevelMultiplier } from '$data/buildings';
-import { CurrenciesTypes } from '$data/currencies';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { foldEffects } from '$helpers/effects';
-import { gameManager } from '$helpers/GameManager.svelte';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { EffectTable, effectAmount } from '#helpers/effects.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
 import type { QuestTracker } from './quests';
-import type { MilestoneCheckData, SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
+import type { SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
 
 const DAY_MS = 24 * 3600 * 1000;
 
+/** Counters the engine accumulates over a run that the game managers do not track themselves. */
 export interface RunState {
+	/** Reset at every snapshot, so a snapshot holds what happened since the previous one. */
 	actionCounts: Partial<Record<SimulationActionType, number>>;
 	actions: SimulationAction[];
-	everPurchasedBuildings: Set<string>;
+	everPurchasedGenerators: Set<string>;
 	peakAtomsPerSecond: number;
 	photonsExpired: number;
 	quarksFromAchievements: number;
 	quests: QuestTracker;
 }
 
-/**
- * Milestone predicates read a handful of counters, so between-snapshot checks skip the full snapshot build.
- * The engine checks every tick, so the target object is written in place instead of allocated per call.
- */
-export function fillMilestoneData(run: RunState, target: MilestoneCheckData): MilestoneCheckData {
-	let totalBuildings = 0;
-	for (const type of BUILDING_TYPES) totalBuildings += gameManager.buildings[type]?.count ?? 0;
-
-	target.achievements = gameManager.achievements.length;
-	target.atoms = currenciesManager.getAmount(CurrenciesTypes.ATOMS);
-	target.atomsPerSecond = gameManager.atomsPerSecond;
-	target.buildingsEverPurchased = run.everPurchasedBuildings;
-	target.dayNumber = gameManager.inGameTime / DAY_MS;
-	target.electronizes = gameManager.totalElectronizesAllTime;
-	target.electrons = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
-	target.excitedPhotons = currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
-	target.photonUpgradeLevels = gameManager.photonUpgradeLevels;
-	target.playerLevel = gameManager.playerLevel;
-	target.protonises = gameManager.totalProtonisesAllTime;
-	target.protons = currenciesManager.getAmount(CurrenciesTypes.PROTONS);
-	target.quarks = run.quarksFromAchievements + run.quests.quarks;
-	target.skillPointsUsed = gameManager.skillPointsUsed;
-	target.skills = gameManager.skillUpgrades.length;
-	target.timestamp = gameManager.inGameTime;
-	target.totalBuildings = totalBuildings;
-	target.upgrades = gameManager.upgrades.length;
-	return target;
-}
-
 export function createSnapshotData(run: RunState): SimulationSnapshot {
 	const effectSources = gameManager.allEffectSources;
-	const buildings = {} as Record<BuildingType, number>;
-	const buildingLevelFactors: Partial<Record<BuildingType, number>> = {};
-	const buildingUpgradeFactors: Partial<Record<BuildingType, number>> = {};
-	let totalBuildings = 0;
-	let buildingLevels = 0;
+	const generators = {} as Record<GeneratorType, number>;
+	const generatorLevelFactors: Partial<Record<GeneratorType, number>> = {};
+	const generatorUpgradeFactors: Partial<Record<GeneratorType, number>> = {};
+	let totalGenerators = 0;
+	let generatorLevels = 0;
 
-	for (const type of BUILDING_TYPES) {
-		const building = gameManager.buildings[type];
-		const count = building?.count ?? 0;
-		buildings[type] = count;
-		totalBuildings += count;
-		buildingLevels += building?.level ?? 0;
+	for (const type of GENERATOR_TYPES) {
+		const generator = gameManager.generators[type];
+		const count = generator?.count ?? 0;
+		generators[type] = count;
+		totalGenerators += count;
+		generatorLevels += generator?.level ?? 0;
 
-		if (building && count > 0) {
-			const effectiveRate = foldEffects(effectSources, gameManager, building.rate, { target: type, type: 'building' });
-			buildingUpgradeFactors[type] = effectiveRate / building.rate;
-			buildingLevelFactors[type] = getBuildingLevelMultiplier(count, building.level);
+		if (generator && count > 0) {
+			generatorUpgradeFactors[type] = gameManager.effects.value('generator', 1, gameManager, type);
+			generatorLevelFactors[type] = getGeneratorLevelMultiplier(count, generator.level);
 		}
 	}
 
-	// One pass over the effect sources; each group used to filter the whole list on its own.
 	const skillSources: typeof effectSources = [];
 	const flatSources: typeof effectSources = [];
 	const achievementSources: typeof effectSources = [];
@@ -89,14 +60,13 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		else if (id.startsWith('protonise_boost_')) protoniseSources.push(source);
 	}
 
-	const globalOptions = { type: 'global' as const };
-	const fold = (sources: typeof effectSources) => foldEffects(sources, gameManager, 1, globalOptions);
+	const fold = (sources: typeof effectSources) => new EffectTable(sources).value('global', 1, gameManager);
 
 	const ownedUpgrades = new Set<string>(gameManager.upgrades);
 	const contributionOf = (id: string): number => {
 		if (!ownedUpgrades.has(id)) return 1;
-		const globalEffect = UPGRADES[id]?.effects.find(effect => effect.type === 'global');
-		return globalEffect ? globalEffect.apply(1, gameManager) : 1;
+		const globalEffect = UPGRADES[id]?.effects.find(effect => effect.stat === 'global');
+		return globalEffect ? effectAmount(globalEffect, gameManager) : 1;
 	};
 	const contributions = (prefix: string, count: number): number[] =>
 		Array.from({ length: count }, (_, i) => contributionOf(`${prefix}_${i + 1}`));
@@ -114,13 +84,13 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		atomsPerSecond: gameManager.atomsPerSecond,
 		atomsPerSecondRaw: gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1),
 		bonusMultiplier: gameManager.bonusMultiplier,
-		buildingLevelFactors,
-		buildingLevels,
-		buildingProductions: { ...gameManager.buildingProductions },
-		buildingUpgradeFactors,
-		buildings,
-		buildingsEverPurchased: [...run.everPurchasedBuildings],
-		buildingsPurchased: gameManager.totalBuildingsPurchasedAllTime,
+		generatorLevelFactors,
+		generatorLevels,
+		generatorProductions: { ...gameManager.generatorProductions },
+		generatorUpgradeFactors,
+		generators,
+		generatorsEverPurchased: [...run.everPurchasedGenerators],
+		generatorsPurchased: gameManager.totalGeneratorsPurchasedAllTime,
 		clicks: gameManager.totalClicksAllTime,
 		dayNumber: gameManager.inGameTime / DAY_MS,
 		electrons: currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
@@ -158,11 +128,11 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		questsCompletedTotal: run.quests.completedTotal,
 		questsOfferedTotal: run.quests.offeredTotal,
 		radiationMultiplier: gameManager.radiationMultiplier,
-		skillPointsUsed: gameManager.skillPointsUsed,
+		boostPointsUsed: gameManager.boostPointsUsed,
 		skills: gameManager.skillUpgrades.length,
 		stabilityMultiplier: gameManager.stabilityMultiplier,
 		timestamp: gameManager.inGameTime,
-		totalBuildings,
+		totalGenerators,
 		totalUpgrades: gameManager.totalUpgradesPurchasedAllTime,
 		totalXP: gameManager.totalXP,
 		upgrades: gameManager.upgrades.length,

@@ -1,13 +1,8 @@
 <script lang="ts">
-	/** Comparison chart: two runs overlaid, each scaled to their actual duration. */
-	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
-
-	export interface ChartSeries {
-		color: string;
-		data: number[];
-		fillOpacity?: number;
-		label: string;
-	}
+	/** Two runs overlaid, each scaled to its actual duration. */
+	import type { ChartSeries } from '#lib/components/benchmark/BaseChart.svelte';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import type { Attachment } from 'svelte/attachments';
 
 	interface Props {
 		comparisonDurationHours?: number;
@@ -42,15 +37,14 @@
 
 	const padding = { bottom: 35, left: 70, right: 20, top: 25 };
 
-	function resize(node: HTMLElement) {
-		const observer = new ResizeObserver(entries => {
-			for (const entry of entries) {
-				if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
-			}
+	/** Skips the 0 width of a hidden chart, where `bind:clientWidth` would collapse it. */
+	const resize: Attachment<HTMLElement> = node => {
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
 		});
 		observer.observe(node);
-		return { destroy() { observer.disconnect(); } };
-	}
+		return () => observer.disconnect();
+	};
 
 	const chartWidth = $derived(Math.max(0, containerWidth - padding.left - padding.right));
 	const chartHeight = $derived(Math.max(0, height - padding.top - padding.bottom));
@@ -213,7 +207,7 @@
 	</div>
 
 	<div
-		use:resize
+		{@attach resize}
 		class="bg-black/20 border border-white/5 overflow-hidden relative rounded-xl select-none w-full"
 		style="height: {height}px;"
 		onpointermove={handlePointerMove}
@@ -235,29 +229,26 @@
 			</defs>
 			<rect width="100%" height="100%" fill="url(#cmpBg)"></rect>
 
-			<!-- Grid lines & Y axis -->
 			<g font-family="'Inter', system-ui, sans-serif" font-size="10">
-				{#each Array(6) as _, i (i)}
-					{@const y = padding.top + (chartHeight * i) / 5}
-					{@const valRatio = 1 - i / 5}
-					{@const valRaw = useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio}
-					{@const text = formatNumber(valRaw < 0.0001 ? 0 : valRaw)}
+				{#each { length: 6 }, i}
+					{const y = $derived(padding.top + (chartHeight * i) / 5)}
+					{const valRatio = $derived(1 - i / 5)}
+					{const valRaw = $derived(useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio)}
+					{const text = $derived(formatNumber(valRaw < 0.0001 ? 0 : valRaw))}
 					<line x1={padding.left} y1={y} x2={containerWidth - padding.right} y2={y} stroke={i === 5 ? '#475569' : '#334155'} stroke-width="1"></line>
 					<text x={padding.left - 10} {y} text-anchor="end" dominant-baseline="middle" fill="#64748b">{text}{yAxisSuffix}</text>
 				{/each}
 			</g>
 
-			<!-- X axis using effectiveTotalHours -->
 			<g font-family="'Inter', system-ui, sans-serif" font-size="10">
-				{#each Array(7) as _, i (i)}
-					{@const x = padding.left + (chartWidth * i) / 6}
-					{@const hour = (effectiveTotalHours * i) / 6}
+				{#each { length: 7 }, i}
+					{const x = $derived(padding.left + (chartWidth * i) / 6)}
+					{const hour = $derived((effectiveTotalHours * i) / 6)}
 					<text {x} y={height - 12} text-anchor="middle" dominant-baseline="auto" fill="#64748b">{hour.toFixed(1)}h</text>
 				{/each}
 			</g>
 
 			<g transform="translate({padding.left}, {padding.top})">
-				<!-- Primary series (solid) — scaled to primaryScale -->
 				{#each primarySeries as s (s.label)}
 					{#if s.data?.length > 0}
 						{#if s.fillOpacity && s.fillOpacity > 0 && s.data.length > 1}
@@ -269,7 +260,6 @@
 					{/if}
 				{/each}
 
-				<!-- Comparison series (dashed) — scaled to comparisonScale -->
 				{#if hasComparison}
 					{#each comparisonSeries as s (s.label)}
 						{#if s.data?.length > 1}
@@ -286,47 +276,41 @@
 						{/if}
 					{/each}
 
-					<!-- End-of-run marker for comparison if shorter than primary -->
 					{#if comparisonDurationHours < totalHours}
-						{@const markerX = chartWidth * comparisonScale}
+						{const markerX = $derived(chartWidth * comparisonScale)}
 						<line x1={markerX} y1="0" x2={markerX} y2={chartHeight} stroke="#475569" stroke-width="1" stroke-dasharray="3 3"></line>
 						<text x={markerX + 4} y="10" font-size="9" fill="#64748b" font-family="'Inter', system-ui, sans-serif">end</text>
 					{/if}
 				{/if}
 
-				<!-- Hover line -->
 				{#if hoveredX !== null}
 					<line x1={hoveredX} y1="0" x2={hoveredX} y2={chartHeight} stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-dasharray="4 4"></line>
 				{/if}
 
-				<!-- Primary dots -->
 				{#if primaryDotX !== null}
 					{#each primaryTooltipData as { color, label, val } (label)}
-						{@const v = Math.max(0, transformValue(val))}
-						{@const y = chartHeight - chartHeight * (v / maxVal)}
+						{const v = $derived(Math.max(0, transformValue(val)))}
+						{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 						<circle cx={primaryDotX} cy={y} r="5" fill={color} stroke="#0f172a" stroke-width="2"></circle>
 					{/each}
 				{/if}
 
-				<!-- Comparison dots (outlined) -->
 				{#if comparisonDotX !== null}
 					{#each comparisonTooltipData as { color, label, val } (label)}
-						{@const v = Math.max(0, transformValue(val))}
-						{@const y = chartHeight - chartHeight * (v / maxVal)}
+						{const v = $derived(Math.max(0, transformValue(val)))}
+						{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 						<circle cx={comparisonDotX} cy={y} r="5" fill="#0f172a" stroke={color} stroke-width="2" stroke-dasharray="3 2"></circle>
 					{/each}
 				{/if}
 			</g>
 		</svg>
 
-		<!-- Tooltip -->
 		{#if hoveredX !== null && (primaryTooltipData.length > 0 || comparisonTooltipData.length > 0)}
 			<div
 				class="absolute backdrop-blur-md bg-slate-900/95 border border-slate-600/50 p-3 pointer-events-none rounded-2xl shadow-2xl text-[11px] z-10"
 				style={tooltipStyle}
 			>
 				{#if hasComparison && comparisonHoveredIndex !== null}
-					<!-- Header: run names + times -->
 					<div class="grid mb-2 pb-2 border-b border-slate-700" style="grid-template-columns: 1fr auto auto; gap: 0.5rem;">
 						<span class="text-slate-500"></span>
 						<span class="font-semibold text-emerald-400 text-[10px] text-right truncate">{primaryTitle}</span>
@@ -337,10 +321,9 @@
 						<span class="text-slate-400 text-right">{primaryHoveredIndex !== null ? formatSimTimePrecise(primaryTimeMs) : '—'}</span>
 						<span class="text-slate-400 text-right">{formatSimTimePrecise(comparisonTimeMs)}</span>
 					</div>
-					<!-- One row per metric: label | primary value | comparison value -->
 					<div class="flex flex-col gap-1">
 						{#each primaryTooltipData as { color, label, val }, i (label)}
-							{@const cmpVal = comparisonTooltipData[i]?.val}
+							{const cmpVal = $derived(comparisonTooltipData[i]?.val)}
 							<div class="grid items-center" style="grid-template-columns: 1fr auto auto; gap: 0.5rem;">
 								<div class="flex gap-1.5 items-center min-w-0">
 									<span class="h-2 rounded-full shrink-0 w-2" style="background-color: {color}"></span>
@@ -352,7 +335,6 @@
 						{/each}
 					</div>
 				{:else}
-					<!-- Only primary visible at this X -->
 					<div class="font-bold mb-2 text-slate-50">
 						{primaryHoveredIndex !== null ? formatSimTimePrecise(primaryTimeMs) : ''}
 					</div>

@@ -1,8 +1,8 @@
-import { browser, dev, version } from '$app/environment';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { gameManager } from '$helpers/GameManager.svelte';
-import { isNoiseError } from '$lib/utils/errorNoise';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+import { browser, dev, version } from '$app/env';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { isNoiseError } from '#lib/utils/errorNoise.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 /** Client context, stored as `browser_info`, everything here identifies the runtime rather than the player. */
 export interface BrowserInfo {
@@ -86,10 +86,10 @@ function captureGameState(): Record<string, unknown> | null {
 			achievements: state.achievements?.length ?? 0,
 			activePowerUps: state.activePowerUps?.length ?? 0,
 			atoms: amount(CurrenciesTypes.ATOMS),
-			buildings: Object.entries(state.buildings || {}).reduce(
-				(acc, [key, building]) => {
-					if (building) {
-						acc[key] = { count: building.count, level: building.level };
+			generators: Object.entries(state.generators || {}).reduce(
+				(acc, [key, generator]) => {
+					if (generator) {
+						acc[key] = { count: generator.count, level: generator.level };
 					}
 					return acc;
 				},
@@ -108,7 +108,7 @@ function captureGameState(): Record<string, unknown> | null {
 			radiationUnlocked: state.radiation?.unlocked ?? false,
 			// Every realm stays mounted, so this is the visible one only
 			realm: state.selectedRealmId ?? null,
-			saveTampered: gameManager.saveIntegrityTampered,
+			saveTampered: gameManager.integrityFlagged,
 			saveWarnings: gameManager.saveIntegrityWarnings,
 			skillUpgrades: state.skillUpgrades?.length ?? 0,
 			totalClicks: state.totalClicksAllTime ?? 0,

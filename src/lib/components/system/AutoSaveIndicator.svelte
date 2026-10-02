@@ -1,46 +1,33 @@
 <script lang="ts">
 	import { CloudUpload } from '@lucide/svelte';
-	import { autoSave } from '$stores/autoSave.svelte';
+	import { autoSave } from '#stores/autoSave.svelte.js';
 
-	const SAVE_ANIMATION_DURATION = 1000;
-	let animationTimeout: ReturnType<typeof setTimeout>;
-	let isSaving = $state(false);
-	let saveStartTime = $state(0);
+	const MIN_DURATION = 1000;
+	let shownAt = 0;
+	let visible = $state(false);
 
-	function startSaveAnimation(startTime: number) {
-		isSaving = true;
-		saveStartTime = startTime;
-		if (animationTimeout) clearTimeout(animationTimeout);
-		animationTimeout = setTimeout(() => {
-			isSaving = false;
-		}, SAVE_ANIMATION_DURATION);
-	}
-
-	function stopSaveAnimation() {
-		if (animationTimeout) clearTimeout(animationTimeout);
-		const remaining = Math.max(0, SAVE_ANIMATION_DURATION - (Date.now() - saveStartTime));
-		if (remaining > 0) {
-			animationTimeout = setTimeout(() => {
-				isSaving = false;
-			}, remaining);
-		} else {
-			isSaving = false;
-		}
-	}
-
+	/** The icon stays up at least MIN_DURATION so a fast save is still noticeable. */
 	$effect(() => {
-		if (autoSave.isSaving && !isSaving) startSaveAnimation(Date.now());
-		else if (!autoSave.isSaving && isSaving) stopSaveAnimation();
+		if (autoSave.isSaving) {
+			shownAt = Date.now();
+			visible = true;
+			return;
+		}
+		if (!shownAt) return;
+		const timeout = setTimeout(() => {
+			shownAt = 0;
+			visible = false;
+		}, Math.max(0, MIN_DURATION - (Date.now() - shownAt)));
+		return () => clearTimeout(timeout);
 	});
 </script>
 
-{#if isSaving}
-	<div class="fixed bottom-4 right-4 z-50 pointer-events-none">
+<div class="sr-only" aria-live="polite" role="status">{visible ? 'Saving to the cloud' : ''}</div>
+
+{#if visible}
+	<div class="pointer-events-none fixed right-4 bottom-[calc(var(--mobile-nav-height,0px)+1rem)] z-50">
 		<div class="animate-bounce">
-			<CloudUpload
-				size={28}
-				class="text-accent drop-shadow-lg"
-			/>
+			<CloudUpload aria-hidden="true" class="text-accent drop-shadow-lg" size={28} />
 		</div>
 	</div>
 {/if}

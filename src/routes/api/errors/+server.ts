@@ -1,7 +1,6 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { logError } from '$lib/server/errorHandler.server';
-import { resolveUserFromRequest } from '$lib/server/supabase.server';
+import { logError } from '#lib/server/errorHandler.server.js';
+import { resolveUserFromRequest } from '#lib/server/supabase.server.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_MESSAGE_LENGTH = 2_000;
@@ -39,18 +38,18 @@ function clampJson(value: unknown): Record<string, unknown> | null {
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	try {
 		if (isRateLimited(getClientAddress())) {
-			return json({ error: 'Rate limit exceeded' }, { status: 429 });
+			return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });
 		}
 
 		const rawBody = await request.text();
 		if (rawBody.length > MAX_BODY_BYTES) {
-			return json({ error: 'Payload too large' }, { status: 413 });
+			return Response.json({ error: 'Payload too large' }, { status: 413 });
 		}
 
 		const body: Record<string, unknown> = JSON.parse(rawBody);
 		const errorMessage = clampString(body.errorMessage, MAX_MESSAGE_LENGTH);
 		if (!errorMessage) {
-			return json({ error: 'Missing error message' }, { status: 400 });
+			return Response.json({ error: 'Missing error message' }, { status: 400 });
 		}
 
 		// The reporter's identity comes from its session token, never from the payload.
@@ -65,9 +64,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			userId
 		});
 
-		return json({ id: result?.id ?? null, success: true });
+		return Response.json({ id: result?.id ?? null, success: true });
 	} catch (error) {
 		console.error('[ErrorAPI] Failed to process error report:', error);
-		return json({ error: 'Failed to log error' }, { status: 500 });
+		return Response.json({ error: 'Failed to log error' }, { status: 500 });
 	}
 };

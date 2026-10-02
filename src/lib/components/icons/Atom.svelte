@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SvelteHTMLElements } from 'svelte/elements';
-	import { CURRENCIES } from '$data/currencies';
+	import { CURRENCIES } from '#data/currencies.js';
 
 	type SvgProps = SvelteHTMLElements['svg'];
 
@@ -14,6 +14,7 @@
 
 <svg
 	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
 	viewBox="0 0 24 24"
 	fill="none"
 	width={size}

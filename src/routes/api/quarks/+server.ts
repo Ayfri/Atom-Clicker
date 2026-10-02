@@ -1,7 +1,6 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getDailyCap, getDailyQuestCount, pickDailyQuests } from '$data/dailyQuests';
-import { leaderboardService, quarksService, resolveUserFromRequest } from '$lib/server/supabase.server';
+import { getDailyCap, getDailyQuestCount, pickDailyQuests } from '#data/dailyQuests.js';
+import { leaderboardService, quarksService, resolveUserFromRequest } from '#lib/server/supabase.server.js';
 
 function todayUtcDayKey(): string {
 	return new Date().toISOString().slice(0, 10);
@@ -14,7 +13,7 @@ export const GET: RequestHandler = async ({ request }) => {
 
 		if (!userId) {
 			const quests = pickDailyQuests(dayKey);
-			return json({
+			return Response.json({
 				balance: 0,
 				claimedAchievementIds: [],
 				claimedQuestIds: [],
@@ -37,7 +36,7 @@ export const GET: RequestHandler = async ({ request }) => {
 		const profile = await leaderboardService.getProfile(userId);
 		const typedProfile = profile as { equipped_banner?: string | null; equipped_themes?: Record<string, string> } | null;
 
-		return json({
+		return Response.json({
 			balance: balanceRow?.balance ?? 0,
 			claimedAchievementIds,
 			claimedQuestIds,
@@ -50,6 +49,6 @@ export const GET: RequestHandler = async ({ request }) => {
 		});
 	} catch (error) {
 		console.error('Failed to fetch quarks state:', error);
-		return json({ error: 'Failed to fetch quarks state' }, { status: 500 });
+		return Response.json({ error: 'Failed to fetch quarks state' }, { status: 500 });
 	}
 };

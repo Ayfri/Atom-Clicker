@@ -1,6 +1,5 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { supabaseAdmin } from '$lib/server/supabase.server';
+import { supabaseAdmin } from '#lib/server/supabase.server.js';
 
 export const GET: RequestHandler = async () => {
 	try {
@@ -10,7 +9,7 @@ export const GET: RequestHandler = async () => {
 
 		if (error) throw error;
 
-		return json({
+		return Response.json({
 			totalUsers: count || 0
 		}, {
 			headers: {
@@ -19,6 +18,6 @@ export const GET: RequestHandler = async () => {
 		});
 	} catch (error) {
 		console.error('Failed to fetch user count:', error);
-		return json({ error: 'Failed to fetch user count' }, { status: 500 });
+		return Response.json({ error: 'Failed to fetch user count' }, { status: 500 });
 	}
 };

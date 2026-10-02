@@ -1,8 +1,14 @@
-import { CURRENCIES, CurrenciesTypes } from '$data/currencies';
+import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 
 /** Both photon icons are authored in a 24x24 viewBox, see Photon.svelte / ExcitedPhoton.svelte. */
 const ICON_VIEWBOX = 24;
 const PULSE_DURATION = 2000;
+
+/** Client center of the photon field, photon and prism purchases aim their background comets at it. */
+export function photonFieldCenter() {
+	const rect = document.querySelector('[data-photon-realm]')?.getBoundingClientRect();
+	return rect && { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
 
 /** Tailwind's `animate-pulse` timing function: cubic-bezier(0.4, 0, 0.6, 1). */
 function pulseEase(progress: number): number {
@@ -28,9 +34,46 @@ export function pulseOpacity(elapsedMs: number): number {
 	return progress < 0.5 ? 1 - 0.5 * pulseEase(progress * 2) : 0.5 + 0.5 * pulseEase(progress * 2 - 1);
 }
 
+/** Corners of the facet inside a Light glyph, in the 24x24 icon space with a point facing up. */
+export function facetPoints(facets: number, radius = 5.5): [number, number][] {
+	return Array.from({ length: facets }, (_, i) => {
+		const angle = -Math.PI / 2 + (i * Math.PI * 2) / facets;
+		return [12 + Math.cos(angle) * radius, 12 + Math.sin(angle) * radius];
+	});
+}
+
+/** Draws a Light glyph centered on the current origin, matching `#components/icons/Light.svelte`. */
+export function drawLightIcon(ctx: CanvasRenderingContext2D, color: string, facets: number, size: number, alpha: number) {
+	ctx.save();
+	ctx.scale(size / ICON_VIEWBOX, size / ICON_VIEWBOX);
+	ctx.translate(-ICON_VIEWBOX / 2, -ICON_VIEWBOX / 2);
+	ctx.fillStyle = color;
+	ctx.strokeStyle = color;
+	ctx.lineJoin = 'round';
+
+	ctx.beginPath();
+	ctx.arc(12, 12, 10, 0, Math.PI * 2);
+	ctx.globalAlpha = alpha * 0.14;
+	ctx.fill();
+	ctx.globalAlpha = alpha;
+	ctx.lineWidth = 1;
+	ctx.stroke();
+
+	ctx.beginPath();
+	for (const [x, y] of facetPoints(facets)) ctx.lineTo(x, y);
+	ctx.closePath();
+	ctx.globalAlpha = alpha * 0.25;
+	ctx.fill();
+	ctx.globalAlpha = alpha;
+	ctx.lineWidth = 1.75;
+	ctx.stroke();
+
+	ctx.restore();
+}
+
 /**
  * Draws a photon icon centered on the current origin, matching the SVG markup of
- * `@components/icons/Photon.svelte` and `@components/icons/ExcitedPhoton.svelte`.
+ * `#components/icons/Photon.svelte` and `#components/icons/ExcitedPhoton.svelte`.
  */
 export function drawPhotonIcon(ctx: CanvasRenderingContext2D, excited: boolean, size: number, alpha: number) {
 	const color = excited ? CURRENCIES[CurrenciesTypes.EXCITED_PHOTONS].color : CURRENCIES[CurrenciesTypes.PHOTONS].color;

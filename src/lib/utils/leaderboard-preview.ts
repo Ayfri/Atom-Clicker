@@ -1,26 +1,18 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import type { LeaderboardEntry } from '$lib/types/leaderboard';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+import { untrack } from 'svelte';
 
+/** Atoms are read untracked, otherwise every 50 Hz commit rebuilds each banner preview row. */
 export function createCurrentPlayerPreview(bannerId: string): LeaderboardEntry {
-	const username =
-		supabaseAuth.profile?.username ??
-		supabaseAuth.user?.user_metadata?.username ??
-		supabaseAuth.user?.user_metadata?.full_name ??
-		supabaseAuth.user?.email?.split('@')[0] ??
-		'Preview Player';
-
 	return {
-		atoms: gameManager.atoms,
+		atoms: untrack(() => gameManager.atoms),
 		equippedBanner: bannerId,
 		is_online: supabaseAuth.isAuthenticated,
-		lastUpdated: Date.now(),
+		lastSeen: Date.now(),
 		level: gameManager.playerLevel,
-		picture:
-			supabaseAuth.profile?.picture ??
-			supabaseAuth.user?.user_metadata?.avatar_url ??
-			supabaseAuth.user?.user_metadata?.picture,
+		picture: supabaseAuth.avatarUrl ?? undefined,
 		rank: 1,
-		username,
+		username: supabaseAuth.displayName ?? 'Preview Player',
 	};
 }

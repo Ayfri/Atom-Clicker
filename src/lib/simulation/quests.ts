@@ -1,5 +1,6 @@
-import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests } from '$data/dailyQuests';
-import { gameManager } from '$helpers/GameManager.svelte';
+import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests, questAnchors } from '#data/dailyQuests.js';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { statsConfig } from '#helpers/statConstants.js';
 import type { QuestBehavior } from './types';
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -14,18 +15,7 @@ export class QuestTracker {
 	offeredTotal = 0;
 	quarks = 0;
 
-	constructor(private behavior: QuestBehavior) {}
-
-	reset(behavior: QuestBehavior) {
-		this.behavior = behavior;
-		this.completedToday = 0;
-		this.completedTotal = 0;
-		this.dayIndex = -1;
-		this.offeredTotal = 0;
-		this.quarks = 0;
-		this.quests = [];
-		this.targets = {};
-	}
+	constructor(private readonly behavior: QuestBehavior) {}
 
 	get hasOpenDay(): boolean {
 		return this.dayIndex !== -1;
@@ -41,35 +31,15 @@ export class QuestTracker {
 		this.dayIndex = dayIndex;
 		this.quests = pickDailyQuests(`sim-${dayIndex}`);
 		this.targets = {};
-		const anchors = {
-			achievementsUnlocked: 0,
-			atomsEarned: gameManager.highestAPS,
-			buildingsPurchased: 0,
-			clicks: 0,
-			electronizes: 0,
-			higgsBosonsCollected: 0,
-			otherDailyQuestsCompleted: 0,
-			powerUpsCollected: 0,
-			protonises: 0,
-			upgradesPurchased: 0,
-		};
+		const anchors = questAnchors(gameManager.highestAPS);
 		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, anchors);
 		this.offeredTotal += this.quests.length;
 
 		gameManager.dailyStats = {
-			achievementsUnlocked: 0,
-			atomsEarned: 0,
-			buildingsPurchased: 0,
-			clicks: 0,
+			...statsConfig.dailyStats.defaultValue,
 			dayKey: `sim-${dayIndex}`,
-			electronizes: 0,
-			higgsBosonsCollected: 0,
-			otherDailyQuestsCompleted: 0,
-			powerUpsCollected: 0,
-			protonises: 0,
 			questIds: this.quests.map(quest => quest.id),
 			questTargets: this.targets,
-			upgradesPurchased: 0,
 		};
 	}
 

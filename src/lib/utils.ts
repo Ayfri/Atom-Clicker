@@ -1,4 +1,6 @@
-const SUFFIXES = [
+import type { NumberNotation } from '#lib/types.js';
+
+export const SUFFIXES = [
 	'',
 	'K',
 	'M',
@@ -114,7 +116,13 @@ const SUFFIXES = [
 
 const EPSILON = 0.0001;
 
-export function formatNumber(num: number, precision = 2): string {
+/** GameManager points `read` at its reactive settings, so every formatted value in a template rerenders when the player switches notation. */
+export const numberNotation: { read: () => NumberNotation } = { read: () => 'suffix' };
+
+/**
+ * @example formatNumber(1.5e15) // '1.50Qa', or '1.50e15' with the scientific notation
+ */
+export function formatNumber(num: number, precision = 2, notation = numberNotation.read()): string {
 	if (!Number.isFinite(num)) {
 		return '∞';
 	}
@@ -130,6 +138,8 @@ export function formatNumber(num: number, precision = 2): string {
 			return `${num.toFixed(precision)}`;
 		}
 	}
+
+	if (notation === 'scientific') return num.toExponential(precision).replace('+', '');
 
 	const exponent = Math.floor(Math.log(absNum) / Math.log(1000));
 	const suffixIndex = Math.min(exponent, SUFFIXES.length - 1);
@@ -147,14 +157,16 @@ export function formatNumberFull(num: number): string {
 	return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-const SIM_TIME_FORMAT = new Intl.DurationFormat('en', { style: 'narrow' });
+/** Built on first use: constructing it loads ICU duration data, which costs ~0.5s in Bun on every import of this module. */
+let simTimeFormat: Intl.DurationFormat | undefined;
 
 export function formatSimTimePrecise(ms: number): string {
 	const h = Math.floor(ms / 3600000);
 	const m = Math.floor((ms % 3600000) / 60000);
 	const s = Math.floor((ms % 60000) / 1000);
 	const msRem = Math.floor(ms % 1000);
-	return SIM_TIME_FORMAT.format({ hours: h, milliseconds: msRem, minutes: m, seconds: s });
+	simTimeFormat ??= new Intl.DurationFormat('en', { style: 'narrow' });
+	return simTimeFormat.format({ hours: h, milliseconds: msRem, minutes: m, seconds: s });
 }
 
 export function formatDuration(ms: number): string {

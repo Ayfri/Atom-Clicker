@@ -1,7 +1,9 @@
-export class PrestigeStore {
-	animation = $state<'electronize' | 'protonise' | null>(null);
+export type PrestigeAnimationType = 'electronize' | 'ionize' | 'protonise';
 
-	trigger(type: 'electronize' | 'protonise') {
+export class PrestigeStore {
+	animation = $state<PrestigeAnimationType | null>(null);
+
+	trigger(type: PrestigeAnimationType) {
 		this.animation = type;
 	}
 

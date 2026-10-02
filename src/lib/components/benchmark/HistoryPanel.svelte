@@ -1,14 +1,16 @@
 <script lang="ts">
-	import type { BenchmarkConfig } from '$lib/simulation/types';
-	import { formatNumber } from '$lib/utils';
+	import type { BenchmarkConfig } from '#lib/simulation/types.js';
+	import { formatNumber } from '#lib/utils.js';
 	import {
 		clearAllReports,
 		deleteReport,
 		listReports,
 		renameReport,
 		type BenchmarkReportSummary,
-	} from '$lib/stores/benchmarkHistory.svelte';
+	} from '#lib/stores/benchmarkHistory.svelte.js';
 	import { Check, Eye, GitCompare, History, Pencil, Search, SlidersHorizontal, Trash2, X } from '@lucide/svelte';
+	import { onMount } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 
 	interface Props {
 		comparisonId: string | null;
@@ -38,9 +40,7 @@
 	let deletingId = $state<string | null>(null);
 	let clearConfirm = $state(false);
 
-	$effect(() => {
-		loadReports();
-	});
+	onMount(loadReports);
 
 	async function loadReports() {
 		loading = true;
@@ -118,10 +118,10 @@
 		else if (e.key === 'Escape') editingId = null;
 	}
 
-	function focusOnMount(node: HTMLInputElement) {
+	const focusOnMount: Attachment<HTMLInputElement> = node => {
 		node.focus();
 		node.select();
-	}
+	};
 
 	function formatRelativeTime(ts: number): string {
 		const diff = ts - Date.now();
@@ -145,7 +145,6 @@
 </script>
 
 <div class="backdrop-blur-xl bg-slate-900/95 border border-white/10 flex flex-col h-full overflow-hidden rounded-2xl">
-	<!-- Header -->
 	<div class="border-b border-white/10 flex items-center justify-between px-4 py-3 shrink-0">
 		<div class="flex gap-2.5 items-center">
 			<History
@@ -169,7 +168,6 @@
 		</button>
 	</div>
 
-	<!-- Search + Sort -->
 	{#if reports.length > 0}
 		<div class="border-b border-white/5 flex flex-col gap-2 px-3 py-2.5 shrink-0">
 			<div class="bg-white/5 flex gap-2 items-center px-2.5 py-1.5 rounded-lg">
@@ -219,11 +217,10 @@
 		</div>
 	{/if}
 
-	<!-- List -->
 	<div class="flex-1 overflow-y-auto px-3 py-3">
 		{#if loading}
 			<div class="flex flex-col gap-2 pt-2">
-				{#each Array(3) as _}
+				{#each { length: 3 }}
 					<div class="animate-pulse bg-white/5 h-28 rounded-xl"></div>
 				{/each}
 			</div>
@@ -243,10 +240,10 @@
 		{:else}
 			<div class="flex flex-col gap-2">
 				{#each filteredReports as report (report.id)}
-					{@const isLoaded = loadedId === report.id}
-					{@const isCompared = comparisonId === report.id}
-					{@const isDeleting = deletingId === report.id}
-					{@const isEditing = editingId === report.id}
+					{const isLoaded = $derived(loadedId === report.id)}
+					{const isCompared = $derived(comparisonId === report.id)}
+					{const isDeleting = $derived(deletingId === report.id)}
+					{const isEditing = $derived(editingId === report.id)}
 					<div
 						class="border flex flex-col gap-3 group/card p-3 rounded-xl transition-colors {isLoaded
 							? 'bg-amber-500/8 border-amber-500/40'
@@ -254,7 +251,6 @@
 								? 'bg-cyan-500/8 border-cyan-500/40'
 								: 'bg-white/4 border-white/8 hover:border-white/15'}"
 					>
-						<!-- Name + meta -->
 						<div class="flex flex-col gap-1 min-w-0">
 							{#if isEditing}
 								<div class="flex gap-1.5 items-center">
@@ -262,7 +258,7 @@
 										bind:value={editingName}
 										onkeydown={onEditKeydown}
 										onblur={commitEdit}
-										use:focusOnMount
+										{@attach focusOnMount}
 										class="bg-white/10 border border-white/20 flex-1 min-w-0 outline-none px-2 py-0.5 rounded text-gray-100 text-sm"
 									/>
 									<button
@@ -305,7 +301,6 @@
 							</div>
 						</div>
 
-						<!-- Result summary -->
 						<div class="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px]">
 							<span class="text-pink-400">{formatNumber(report.finalAPS)}/s</span>
 							<span class="text-green-400">{formatNumber(report.finalAtoms)} atoms</span>
@@ -313,7 +308,6 @@
 							<span class="text-cyan-400">{report.milestoneCount} milestones</span>
 						</div>
 
-						<!-- Actions -->
 						<div class="flex gap-1.5 items-center">
 							<button
 								onclick={() => onLoad(report.id)}

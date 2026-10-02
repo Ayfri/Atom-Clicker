@@ -1,6 +1,7 @@
-import { RealmTypes, type RealmType } from '$data/realms';
-import type { IconStackSpec } from '$helpers/iconStacks';
-import type { Effect } from '$lib/types';
+import { RealmTypes, type RealmType } from '#data/realms.js';
+import { mul } from '#helpers/effects.js';
+import type { IconStackSpec } from '#helpers/iconStacks.js';
+import type { Effect } from '#lib/types.js';
 
 export interface ThemeDefinition {
 	/** Optional secondary accent, e.g. for buttons/borders. Falls back to `accent` when unset. */
@@ -18,14 +19,17 @@ export type BannerPattern =
 	| 'chevrons'
 	| 'cloud'
 	| 'constellation'
+	| 'facets'
 	| 'hazard'
 	| 'lattice'
 	| 'nucleus'
 	| 'orbitals'
 	| 'rays'
 	| 'rings'
+	| 'split'
 	| 'stripes'
-	| 'waves';
+	| 'waves'
+	| 'weave';
 
 export interface BannerDefinition {
 	/** 2-3 hex colors forming a CSS linear-gradient, rendered behind the leaderboard row. */
@@ -57,14 +61,8 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	boost_click_power: {
 		cost: 60,
-		description: 'Permanently doubles click power.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Double click power',
-				type: 'click',
-			},
-		],
+		description: 'Doubles click power while owned.',
+		effects: [mul('click', 2), mul('click_aps', 2)],
 		iconStack: { icon: 'click' },
 		id: 'boost_click_power',
 		name: 'Heavy Click Boost',
@@ -72,29 +70,17 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	boost_global_production: {
 		cost: 120,
-		description: 'Permanently increases all production by 10%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.1,
-				description: '+10% global production',
-				type: 'global',
-			},
-		],
-		iconStack: { icon: 'trendingUp' },
+		description: 'Increases all production by 10% while owned.',
+		effects: [mul('global', 1.1)],
+		iconStack: { icon: 'globe' },
 		id: 'boost_global_production',
 		name: 'Global Production Boost',
 		type: 'boost',
 	},
 	boost_xp_gain: {
 		cost: 50,
-		description: 'Permanently increases XP gain by 25%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.25,
-				description: '+25% XP gain',
-				type: 'xp_gain',
-			},
-		],
+		description: 'Increases XP gain by 25% while owned.',
+		effects: [mul('xp_gain', 1.25)],
 		iconStack: { icon: 'level' },
 		id: 'boost_xp_gain',
 		name: 'Experience Boost',
@@ -102,14 +88,8 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	convenience_auto_buy_speed: {
 		cost: 80,
-		description: 'Permanently increases auto-buyer speed by 20%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.2,
-				description: '+20% auto-buy speed',
-				type: 'auto_speed',
-			},
-		],
+		description: 'Increases auto-buyer speed by 20% while owned.',
+		effects: [mul('auto_speed', 1.2)],
 		iconStack: { icon: 'speed' },
 		id: 'convenience_auto_buy_speed',
 		name: 'Faster Auto-Buyers',
@@ -117,33 +97,19 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 	},
 	convenience_power_up_duration: {
 		cost: 70,
-		description: 'Permanently increases power-up duration by 20%.',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.2,
-				description: '+20% power-up duration',
-				type: 'power_up_duration',
-			},
-		],
-		iconStack: { icon: 'offline' },
+		description: 'Increases power-up duration by 20% while owned.',
+		effects: [mul('power_up_duration', 1.2)],
+		iconStack: { icon: 'higgsBoson' },
 		id: 'convenience_power_up_duration',
-		name: 'Extended Power-Ups',
+		name: 'Extended Power-ups',
 		type: 'convenience',
 	},
 	convenience_keep_currency_boosts: {
 		cost: 60,
-		description: 'Keeps your Currency Boosts through Protonise and Electronize.',
-		iconStack: { icon: 'stabilityMeter' },
+		description: 'Keeps your Currency Boosts through Protonize and Electronize.',
+		iconStack: { icon: 'currencyBoost' },
 		id: 'convenience_keep_currency_boosts',
-		name: 'Stable Currency Boosts',
-		type: 'convenience',
-	},
-	convenience_keep_skill_tree: {
-		cost: 80,
-		description: 'Keeps your Skill Tree entries through Protonise and Electronize.',
-		iconStack: { icon: 'skillTreeMaster' },
-		id: 'convenience_keep_skill_tree',
-		name: 'Stable Skill Tree',
+		name: 'Lasting Currency Boosts',
 		type: 'convenience',
 	},
 	theme_atoms_amethyst: {
@@ -254,6 +220,20 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 			accentSecondary: '#94a3b8',
 			background:
 				'linear-gradient(135deg, rgba(226, 232, 240, 0.1) 0%, rgba(15, 15, 15, 0.1) 50%, rgba(148, 163, 184, 0.1) 100%)',
+			realmId: RealmTypes.PHOTONS,
+		},
+		type: 'theme',
+	},
+	theme_photons_prism: {
+		cost: 40,
+		description: 'Splits the Photon Realm into Red, Green and Blue light.',
+		id: 'theme_photons_prism',
+		name: 'Prism',
+		theme: {
+			accent: '#7dd3fc',
+			accentSecondary: '#f472b6',
+			background:
+				'radial-gradient(circle at 15% 20%, rgba(255, 77, 94, 0.12) 0%, transparent 45%), radial-gradient(circle at 85% 30%, rgba(46, 230, 160, 0.1) 0%, transparent 45%), radial-gradient(circle at 50% 90%, rgba(77, 141, 255, 0.12) 0%, transparent 50%)',
 			realmId: RealmTypes.PHOTONS,
 		},
 		type: 'theme',
@@ -424,6 +404,30 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 		description: 'A violet banner carrying a photon travelling as a wave.',
 		id: 'banner_photon',
 		name: 'Photon',
+		type: 'banner',
+	},
+	banner_red_light: {
+		banner: { gradient: ['#b4232f', '#5a1219', '#14070a'], pattern: 'facets' },
+		cost: 40,
+		description: 'A red banner glowing like the Light of a tough Red photon.',
+		id: 'banner_red_light',
+		name: 'Red Light',
+		type: 'banner',
+	},
+	banner_green_light: {
+		banner: { gradient: ['#0f8a5f', '#08452f', '#04140e'], pattern: 'weave' },
+		cost: 40,
+		description: 'A green banner weaving like a darting Green photon.',
+		id: 'banner_green_light',
+		name: 'Green Light',
+		type: 'banner',
+	},
+	banner_blue_light: {
+		banner: { gradient: ['#1f4fb8', '#11285c', '#070c1a'], pattern: 'split' },
+		cost: 40,
+		description: 'A blue banner rippling like a Blue photon splitting in two.',
+		id: 'banner_blue_light',
+		name: 'Blue Light',
 		type: 'banner',
 	},
 };

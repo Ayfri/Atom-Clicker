@@ -1,15 +1,20 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import { browser } from '$app/environment';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-import type { LeaderboardEntry } from '$lib/types/leaderboard';
-import { obfuscateClientData } from '$lib/utils/obfuscation';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import { browser } from '$app/env';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
+import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 
 export const REFRESH_INTERVAL = 60_000; // 1 minute between leaderboard refreshes
+const RANKS_KEY = 'atomic-clicker-leaderboard-ranks';
 const MIN_UPDATE_INTERVAL = 30_000; // 30 seconds minimum between updates
 
 const MIN_ATOMS_CHANGE_PERCENT = 0.05; // 5% minimum change in atoms
 
 interface LeaderboardStats {
+	/** Players with a score, which a leaderboard reset brings far below the account count. */
+	rankedPlayers: number;
+	/** Every account, the community upgrade scales with it. */
 	totalUsers: number;
 }
 
@@ -19,11 +24,46 @@ interface LeaderboardData {
 }
 
 export class LeaderboardStore {
-	entries = $state<LeaderboardEntry[]>([]);
-	stats = $state<LeaderboardStats>({ totalUsers: 0 });
+	entries = $state.raw<LeaderboardEntry[]>([]);
+	/** Bumped on every successful fetch, restarts the header's refresh countdown. */
+	fetchedAt = $state(0);
+	stats = $state<LeaderboardStats>({ rankedPlayers: 0, totalUsers: 0 });
 	isUpdating = $state(false);
+	onlineCount = $derived(this.entries.reduce((count, entry) => count + (entry.is_online ? 1 : 0), 0));
+	playerIndex = $derived(this.entries.findIndex((entry) => entry.self));
+	playerRank = $derived(this.playerIndex >= 0 ? this.entries[this.playerIndex].rank : null);
+	playerPercentile = $derived(this.percentile(this.playerRank));
+	/** Ranks from the previous time the leaderboard was open, null on a first visit so no row claims to be new. */
+	previousRanks = $state.raw<Record<string, number> | null>(null);
 
 	private hasFetched = false;
+	private visiting = false;
+
+	/** Rank 1 of 100 is the top 1%, never shown as 0%. */
+	percentile(rank: number | null): number | null {
+		return rank && this.stats.rankedPlayers
+			? Math.max(1, Math.ceil(rank / this.stats.rankedPlayers * 100))
+			: null;
+	}
+
+	/** Places climbed since the previous visit, positive when moving up, null for a player absent back then. */
+	rankDelta(entry: LeaderboardEntry): number | null {
+		const previous = entry.userId ? this.previousRanks?.[entry.userId] : undefined;
+		return previous === undefined ? null : previous - entry.rank;
+	}
+
+	startVisit() {
+		this.visiting = true;
+		this.previousRanks = getJSON<Record<string, number> | null>(RANKS_KEY, null);
+	}
+
+	endVisit() {
+		this.visiting = false;
+	}
+
+	private saveRanks() {
+		setItem(RANKS_KEY, JSON.stringify(Object.fromEntries(this.entries.filter((entry) => entry.userId).map((entry) => [entry.userId, entry.rank]))));
+	}
 
 	/** Nothing on the main screen shows leaderboard data, so the list is only pulled once a panel asks for it. */
 	async ensureLoaded() {
@@ -40,6 +80,8 @@ export class LeaderboardStore {
 			const data: LeaderboardData = await response.json();
 			this.entries = data.entries;
 			this.stats = data.stats;
+			this.fetchedAt = Date.now();
+			if (this.visiting) this.saveRanks();
 		} catch (error) {
 			console.error('Error fetching leaderboard:', error);
 		}
@@ -47,8 +89,8 @@ export class LeaderboardStore {
 
 	async updateScore(atoms: number, level: number) {
 		if (!browser || this.isUpdating) return;
-		// Skip submission for saves flagged by the local integrity check, see saves.ts.
-		if (gameManager.saveIntegrityTampered || gameManager.saveIntegrityWarnings.length > 0) return;
+		// Skip submission for saves flagged by the integrity checks, see plausibility.ts.
+		if (gameManager.integrityFlagged || gameManager.saveIntegrityWarnings.length > 0) return;
 
 		try {
 			this.isUpdating = true;
@@ -57,21 +99,11 @@ export class LeaderboardStore {
 			const accessToken = await supabaseAuth.getAccessToken();
 			if (!accessToken) return;
 
-			const username =
-				supabaseAuth.profile?.username ??
-				supabaseAuth.user.user_metadata?.username ??
-				supabaseAuth.user.user_metadata?.full_name ??
-				supabaseAuth.user.email?.split('@')[0] ??
-				'Anonymous';
-
 			const data = {
-				username,
+				username: supabaseAuth.displayName ?? 'Anonymous',
 				atoms,
 				level,
-				picture:
-					supabaseAuth.profile?.picture ??
-					supabaseAuth.user.user_metadata?.avatar_url ??
-					supabaseAuth.user.user_metadata?.picture,
+				picture: supabaseAuth.avatarUrl ?? undefined,
 			};
 
 			const obfuscatedData = obfuscateClientData(data);
@@ -94,7 +126,6 @@ export class LeaderboardStore {
 				throw new Error('Failed to update leaderboard');
 			}
 
-			// Refresh leaderboard after update
 			await this.fetchLeaderboard();
 		} catch (error) {
 			console.error('Error updating leaderboard:', error);
@@ -114,7 +145,6 @@ export class LeaderboardStore {
 					const atoms = gameManager.atoms;
 					const level = gameManager.playerLevel;
 
-					// Safely check for supabaseAuth presence
 					if (!supabaseAuth || !supabaseAuth.isAuthenticated) return;
 
 					const now = Date.now();
@@ -123,8 +153,8 @@ export class LeaderboardStore {
 					const atomsChange = Math.abs(atoms - lastAtoms) / Math.max(lastAtoms, 1);
 					const shouldUpdate =
 						lastAtoms === 0 || // First update
-						atomsChange > MIN_ATOMS_CHANGE_PERCENT || // Significant change in atoms
-						level !== lastLevel; // Level change
+					atomsChange > MIN_ATOMS_CHANGE_PERCENT || // Significant change in atoms
+					level !== lastLevel; // Level change
 
 					if (shouldUpdate) {
 						lastAtoms = atoms;

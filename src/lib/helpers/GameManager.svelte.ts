@@ -1,423 +1,455 @@
-import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '$data/achievements';
-import { type BuildingType, BUILDINGS, BUILDING_LEVEL_UP_COST, getBuildingLevelMultiplier } from '$data/buildings';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import type { DailyStats } from '$data/dailyQuests';
-import { FeatureTypes } from '$data/features';
-import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '$data/photonUpgrades';
-import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '$data/powerUp';
-import { REALMS, RealmTypes } from '$data/realms';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { BUILDING_COST_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '$lib/constants';
-import {
-	type Building,
-	type CurrencyBoosts,
-	type Effect,
-	type FeatureState,
-	type GameState,
-	type OfflineProgressSummary,
-	type PowerUp,
-	type Price,
-	type RealmState,
-	type Settings,
-	type SkillUpgrade,
-	type Upgrade,
-} from '$lib/types';
-import { setItem } from '$lib/utils/safeLocalStorage';
-import { currenciesManager } from '$helpers/CurrenciesManager.svelte';
-import { foldEffects } from '$helpers/effects';
-import { FeaturesManager } from '$helpers/FeaturesManager.svelte';
-import { applyOfflineProgress } from '$helpers/offlineProgress';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import { realmManager } from '$helpers/RealmManager.svelte';
-import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '$helpers/saves';
-import { LAYERS, type LayerType, statsConfig } from '$helpers/statConstants';
-import { TutorialManager } from '$helpers/TutorialManager.svelte';
-import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '$helpers/xp';
-import { leaderboard } from '$stores/leaderboard.svelte';
-import { saveRecovery } from '$stores/saveRecovery';
-import { toastStore } from '$stores/toasts.svelte';
+import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
+import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import type { DailyStats } from '#data/dailyQuests.js';
+import { FeatureTypes } from '#data/features.js';
+import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
+import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
+import { REALMS, RealmTypes } from '#data/realms.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
+import type {
+	ChromaticState,
+	CurrencyBoosts,
+	EffectSource,
+	FeatureState,
+	GameState,
+	Generator,
+	OfflineProgressSummary,
+	PowerUp,
+	Price,
+	RealmState,
+	Settings,
+	SkillUpgrade,
+} from '#lib/types.js';
+import { numberNotation } from '#lib/utils.js';
+import { setItem } from '#lib/utils/safeLocalStorage.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { EffectTable } from '#helpers/effects.js';
+import { FeaturesManager } from '#helpers/FeaturesManager.svelte.js';
+import { applyOfflineProgress } from '#helpers/offlineProgress.js';
+import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
+import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/saves.js';
+import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
+import { TutorialManager } from '#helpers/TutorialManager.svelte.js';
+import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '#helpers/xp.js';
+import { leaderboard } from '#stores/leaderboard.svelte.js';
+import { saveRecovery } from '#stores/saveRecovery.svelte.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 
-/** `tick` already drops expired power-ups on the simulated clock, so this timer is a precision helper and must never hold a headless runtime open. */
+const AUTO_PURCHASE_BASE_INTERVAL = 30_000;
+const AUTO_PURCHASE_MIN_INTERVAL = 1000;
+const STABILITY_BASE_TIME_MS = 600_000;
+
+/** `tick` already drops expired power-ups on `clock`, so this timer only adds sub-second precision and must never hold a headless runtime open. */
 function scheduleExpiry(callback: () => void, delay: number) {
 	const timer = setTimeout(callback, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
 	timer.unref?.();
 }
 
 export class GameManager {
-	// State
-	achievements = $state<string[]>([]);
-	activePowerUps = $state<PowerUp[]>([]);
-	buildings = $state<Partial<Record<BuildingType, Building>>>({});
-	dailyStats = $state<DailyStats>({
-		achievementsUnlocked: 0,
-		atomsEarned: 0,
-		buildingsPurchased: 0,
-		clicks: 0,
-		dayKey: '',
-		electronizes: 0,
-		higgsBosonsCollected: 0,
-		otherDailyQuestsCompleted: 0,
-		powerUpsCollected: 0,
-		protonises: 0,
-		questIds: [],
-		questTargets: {},
-		upgradesPurchased: 0,
-	});
+	achievements = $state.raw<string[]>([]);
+	activePowerUps = $state.raw<PowerUp[]>([]);
+	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseGenerator/purchaseUpgrade directly. */
+	applyingOfflineProgress = false;
+	/** The simulation swaps this for its own clock, a 24h benchmark run finishes in seconds of wall time. */
+	clock: () => number = () => Date.now();
+	/** Pushed in by ColliderManager, it stays at 0 in the simulation, which has no server to read the shared counter from. */
+	colliderBonus = $state(0);
+	currencyBoosts = $state.raw<CurrencyBoosts>({});
+	dailyStats = $state<DailyStats>(structuredClone(statsConfig.dailyStats.defaultValue));
 	featuresManager = new FeaturesManager();
+	generators = $state.raw<Partial<Record<GeneratorType, Generator>>>({});
 	highestAPS = $state(0);
 	inGameTime = $state(0);
+	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
+	integrityFlagged = $state(false);
 	lastInteractionTime = $state(Date.now());
-	/**
-	 * Source of "now" for the interaction clock the stability field runs on. Real time in the game; the simulation
-	 * swaps it for its own clock, because a 24h benchmark run finishes in seconds of wall time and would otherwise
-	 * read the stability field off whatever the machine happened to be doing.
-	 */
-	clock: () => number = () => Date.now();
-	lastLoadedSave = $state(0);
 	lastSave = $state(Date.now());
-
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
-	photonUpgrades = $state<Record<string, number>>({});
+	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
-	/**
-	 * Effects of owned Quark shop boosts, pushed in by QuarksManager after sync/purchase/refund.
-	 * GameManager never imports QuarksManager directly, since simulation.worker.ts imports GameManager
-	 * and has no auth/DOM context - see QuarksManager.svelte.ts for the one-way dependency rule.
-	 */
-	quarkBoostEffects = $state<Effect[]>([]);
-	/**
-	 * IDs of owned Quark shop items, pushed in by QuarksManager after sync/purchase/refund. Used to
-	 * gate prestige-persistence behaviors (e.g. keeping skill tree/currency boosts) that the generic
-	 * Effect pipeline can't express. Same one-way dependency rule as `quarkBoostEffects`.
-	 */
+	/** Pushed in by QuarksManager, which GameManager never imports so the simulation worker stays free of fetch and auth code. */
+	quarkBoostSources = $state<EffectSource[]>([]);
+	/** Owned Quark shop item ids, gating prestige-persistence behaviors the effect pipeline can't express. */
 	quarkEntitlements = $state<string[]>([]);
-	radiationUpgrades = $state<Record<string, number>>({});
-	realms = $state<Record<string, RealmState>>({
-		[RealmTypes.ATOMS]: { unlocked: true },
-		[RealmTypes.PHOTONS]: { unlocked: false },
-		[RealmTypes.RADIATION]: { unlocked: false },
-	});
-	/** True once the loaded save fails its checksum, see saveIntegrity.ts. */
-	saveIntegrityTampered = $state(false);
-	/** Plausibility warnings from checkStatePlausibility, see saves.ts. */
+	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
 	saveIntegrityWarnings = $state<string[]>([]);
-	settings = $state<Settings>({
-		automation: {
-			autoClick: false,
-			autoClickPhotons: false,
-			buildings: [],
-			upgrades: false,
-		},
-		gameplay: {
-			offlineProgressEnabled: true,
-		},
-		upgrades: {
-			displayAlreadyBought: false,
-		},
-	});
-	skillUpgrades = $state<string[]>([]);
-	skillPointBoosts = $state<CurrencyBoosts>({});
+	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
+	skillUpgrades = $state.raw<string[]>([]);
 	startDate = $state(Date.now());
-	totalBuildingsPurchasedAllTime = $state(0);
 	totalClicksAllTime = $state(0);
 	totalClicksRun = $state(0);
 	totalElectronizesAllTime = $state(0);
 	totalElectronizesRun = $state(0);
+	totalGeneratorsPurchasedAllTime = $state(0);
 	totalProtonisesAllTime = $state(0);
 	totalProtonisesRun = $state(0);
 	totalUpgradesPurchasedAllTime = $state(0);
-	totalUsers = $derived(leaderboard.stats.totalUsers);
 	totalXP = $state(0);
 	tutorialManager = new TutorialManager();
-	upgrades = $state<string[]>([]);
+	upgrades = $state.raw<string[]>([]);
 
-	// Configuration
-	private statsConfig = statsConfig;
 	private gameInterval: ReturnType<typeof setInterval> | null = null;
-	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseBuilding/purchaseUpgrade directly. */
-	applyingOfflineProgress = false;
 
-	initialize() {
-		this.loadGame();
-		this.setupInterval();
+	get atoms() {
+		return currenciesManager.getAmount(CurrenciesTypes.ATOMS);
+	}
+
+	/** ChromaticManager owns the colored photon state, these accessors only expose it to the save and reset loops. */
+	get chromatic(): ChromaticState {
+		return chromaticManager.getState();
+	}
+	set chromatic(state: ChromaticState) {
+		chromaticManager.loadState(state);
+	}
+
+	get chromaticUpgrades() {
+		return chromaticManager.upgradeLevels;
+	}
+	set chromaticUpgrades(levels: Record<string, number>) {
+		chromaticManager.upgradeLevels = levels;
+	}
+
+	get currencies() {
+		return currenciesManager.currencies;
+	}
+	/** A save from before a currency existed has no entry for it, which `add` would crash on. */
+	set currencies(value) {
+		for (const type of Object.values(CurrenciesTypes)) value[type] ??= { amount: 0, earnedAllTime: 0, earnedRun: 0 };
+		currenciesManager.currencies = value;
+	}
+
+	get electrons() {
+		return currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
+	}
+
+	get excitedPhotons() {
+		return currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
+	}
+
+	get features() {
+		return this.featuresManager.state;
+	}
+	set features(value: FeatureState) {
+		this.featuresManager.state = value;
+	}
+
+	get photons() {
+		return currenciesManager.getAmount(CurrenciesTypes.PHOTONS);
+	}
+
+	get protons() {
+		return currenciesManager.getAmount(CurrenciesTypes.PROTONS);
+	}
+
+	/** RadiationManager owns the count since it sets the ionization line, this accessor exposes it to the save and reset loops. */
+	get totalIonizesAllTime() {
+		return radiationManager.ionizes;
+	}
+	set totalIonizesAllTime(count: number) {
+		radiationManager.ionizes = count;
+	}
+
+	/** RadiationManager owns the levels, this accessor only exposes them to the save and reset loops. */
+	get radiationUpgrades() {
+		return radiationManager.upgradeLevels;
+	}
+	set radiationUpgrades(levels: Record<string, number>) {
+		radiationManager.upgradeLevels = levels;
+	}
+
+	allEffectSources = $derived.by((): EffectSource[] => {
+		const photonUpgrades = Object.entries(this.photonUpgrades).flatMap(([id, level]) => {
+			const upgrade = ALL_PHOTON_UPGRADES[id];
+			return level > 0 && upgrade ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
+		});
+		const chromaticUpgrades = Object.entries(this.chromaticUpgrades).flatMap(([id, level]) => {
+			const upgrade = CHROMATIC_UPGRADES[id];
+			return level > 0 && upgrade?.effects ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
+		});
+		return [...this.currentUpgradesBought, ...photonUpgrades, ...chromaticUpgrades, ...this.quarkBoostSources];
+	});
+
+	/** Rebuilt only on a purchase, every stat below reads its value from here. */
+	effects = $derived(new EffectTable(this.allEffectSources));
+
+	/** Achievement conditions read these every sweep, so the totals are folded once per generators change. */
+	generatorTotals = $derived.by(() => {
+		let count = 0;
+		let levels = 0;
+		for (const generator of Object.values(this.generators)) {
+			if (!generator) continue;
+			count += generator.count;
+			levels += generator.level;
+		}
+		return { count, levels };
+	});
+
+	playerLevel = $derived(levelFromTotalXP(this.totalXP));
+
+	radiationMultiplier = $derived(radiationManager.radiationMultiplier);
+
+	atomsPerSecond = $derived.by(() => {
+		let baseProduction = 0;
+		for (const production of Object.values(this.generatorProductions)) baseProduction += production;
+		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
+	});
+
+	/** Auto-buy period of each generator the player automated, in the order its upgrades were bought. */
+	autoBuyIntervals = $derived.by(() => {
+		const intervals: Partial<Record<GeneratorType, number>> = {};
+		const speed = this.effects.value('auto_speed', 1, this);
+		for (const target of this.effects.targets('auto_buy')) {
+			if (!this.settings.automation.generators.includes(target)) continue;
+			intervals[target] = Math.max(AUTO_PURCHASE_MIN_INTERVAL, this.effects.value('auto_buy', AUTO_PURCHASE_BASE_INTERVAL, this, target)) / speed;
+		}
+		return intervals;
+	});
+
+	autoClicksPerSecond = $derived(this.settings.automation.autoClick ? this.effects.value('auto_click', 0, this) : 0);
+
+	autoUpgradeInterval = $derived(
+		this.settings.automation.upgrades && this.effects.has('auto_upgrade')
+			? Math.max(AUTO_PURCHASE_MIN_INTERVAL, this.effects.value('auto_upgrade', AUTO_PURCHASE_BASE_INTERVAL, this))
+			: 0,
+	);
+
+	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
+
+	/** One currency boost point per generator level, each worth 10%, capped at MAX_BOOST_POINTS per currency. */
+	boostPointsTotal = $derived(this.generatorTotals.levels);
+
+	boostPointsUsed = $derived(Object.values(this.currencyBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
+
+	boostPointsAvailable = $derived(this.boostPointsTotal - this.boostPointsUsed);
+
+	canProtonise = $derived(this.atoms >= PROTONS_ATOMS_REQUIRED || this.protons > 0);
+
+	/** The share of atoms per second stays outside the click multipliers, which would otherwise scale it by ~250,000x late game. */
+	clickPower = $derived(
+		(this.effects.value('click', 1, this) + this.effects.value('click_aps', 0, this) * this.atomsPerSecond) * this.bonusMultiplier,
+	);
+
+	currentLevelXP = $derived(Math.max(0, this.totalXP - totalXPForLevel(this.playerLevel)));
+
+	currentUpgradesBought = $derived([...this.upgrades, ...this.skillUpgrades].flatMap(id => UPGRADES[id] ?? SKILL_UPGRADES[id] ?? []));
+
+	/** Multiplies the whole electron gain by one more per decade of protons past the threshold: 1e9 gives x1, 1e12 gives x4. */
+	electronizeBaseGain = $derived(this.protons < ELECTRONS_PROTONS_REQUIRED ? 0 : Math.floor(1 + Math.log10(this.protons / ELECTRONS_PROTONS_REQUIRED)));
+
+	electronizeElectronsGain = $derived(
+		this.electronizeBaseGain * this.effects.value('electron_gain', 1, this) * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS),
+	);
+
+	excitedPhotonChance = $derived(this.effects.value('excited_photon_chance', 0.002, this));
+
+	excitedPhotonDoubleChance = $derived(this.effects.value('excited_photon_double', 0, this));
+
+	excitedPhotonFromMaxBonus = $derived(this.effects.value('excited_photon_from_max', 0, this));
+
+	generatorProductions = $derived.by(() => {
+		const productions = {} as Record<GeneratorType, number>;
+		for (const type of GENERATOR_TYPES) productions[type] = (this.generators[type]?.count ?? 0) * this.generatorUnitProductions[type];
+		return productions;
+	});
+
+	/** Atoms per second of one generator of each type at its current count and level, owned or not, so the panel can preview a first purchase. */
+	generatorUnitProductions = $derived.by(() => {
+		const productions = {} as Record<GeneratorType, number>;
+		const commonMultiplier = this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
+		for (const type of GENERATOR_TYPES) {
+			const generator = this.generators[type];
+			const rate = this.effects.value('generator', GENERATORS[type].rate, this, type);
+			productions[type] = rate * getGeneratorLevelMultiplier(generator?.count ?? 0, generator?.level ?? 0) * commonMultiplier;
+		}
+		return productions;
+	});
+
+	globalMultiplier = $derived(this.effects.value('global', 1, this) * this.radiationMultiplier);
+
+	hasAvailableSkillUpgrades = $derived(Object.values(SKILL_UPGRADES).some(skill => this.canPurchaseSkill(skill)));
+
+	hasBonus = $derived(this.activePowerUps.length > 0);
+
+	nextLevelXP = $derived(xpForLevel(this.playerLevel + 1));
+
+	photonAutoClicksPer5Seconds = $derived(this.settings.automation.autoClickPhotons ? this.effects.value('photon_auto_click', 0, this) : 0);
+
+	photonDoubleChance = $derived(this.effects.value('photon_double_chance', 0, this));
+
+	photonSpawnInterval = $derived(this.effects.value('photon_spawn_interval', 2000, this));
+
+	/** Summing a `$state` record walks the proxy for every key, and the milestone check reads this on every tick. */
+	photonUpgradeLevels = $derived(Object.values(this.photonUpgrades).reduce((sum, level) => sum + (level ?? 0), 0));
+
+	photonValueBonus = $derived(this.effects.value('photon_value', 0, this));
+
+	powerUpDurationMultiplier = $derived(this.effects.value('power_up_duration', 1, this));
+
+	powerUpEffectMultiplier = $derived(this.effects.value('power_up_multiplier', 1, this));
+
+	powerUpInterval = $derived(
+		POWER_UP_DEFAULT_INTERVAL.map(interval => Math.max(POWER_UP_MIN_INTERVAL, this.effects.value('power_up_interval', interval, this))) as [
+			number,
+			number,
+		],
+	);
+
+	protoniseProtonsGain = $derived(
+		this.atoms < PROTONS_ATOMS_REQUIRED
+			? 0
+			: this.effects.value('proton_gain', Math.floor(Math.sqrt(this.atoms / PROTONS_ATOMS_REQUIRED)), this) *
+					this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS),
+	);
+
+	stabilityCapacity = $derived(this.effects.value('stability_capacity', 1, this));
+
+	stabilityMaxBoost = $derived(this.effects.value('stability_boost', 2, this));
+
+	/** Full Stability Field multiplier, reached once `stabilityProgress` hits 1. */
+	stabilityMax = $derived(1 + (this.stabilityMaxBoost - 1) * this.stabilityCapacity);
+
+	/** 0 to 1 share of the idle time needed to fill the field. */
+	stabilityProgress = $derived.by(() => {
+		/** `clock` isn't reactive, reading inGameTime re-runs this every tick. */
+		this.inGameTime;
+		return Math.min(Math.max((this.clock() - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1);
+	});
+
+	/** Fills linearly while idle, up to `stabilityMax`, paused while a power-up is live. */
+	stabilityMultiplier = $derived(
+		!this.features[FeatureTypes.STABILITY_FIELD] || this.activePowerUps.length > 0 ? 1 : 1 + (this.stabilityMax - 1) * this.stabilityProgress,
+	);
+
+	stabilitySpeed = $derived(this.effects.value('stability_speed', 1, this));
+
+	/** Idle time to fill the stability field: 10 minutes, stretched by capacity and shortened by speed. */
+	stabilityTimeRequired = $derived((STABILITY_BASE_TIME_MS * this.stabilityCapacity) / this.stabilitySpeed);
+
+	totalUsers = $derived(leaderboard.stats.totalUsers);
+
+	/** Membership lookups run over every achievement each tick, so the array is mirrored into a set once per change. */
+	unlockedAchievementIds = $derived(new Set(this.achievements));
+
+	xpGainMultiplier = $derived(this.effects.value('xp_gain', 1, this));
+
+	xpProgress = $derived((this.currentLevelXP / this.nextLevelXP) * 100);
+
+	addAtoms(amount: number) {
+		currenciesManager.add(CurrenciesTypes.ATOMS, amount);
+		if (amount <= 0) return;
+		if (this.features[FeatureTypes.LEVELS]) this.totalXP += amount * XP_PER_ATOM * this.xpGainMultiplier;
+		this.dailyStats.atomsEarned += amount;
+	}
+
+	addCurrencyBoost(currency: CurrencyName): boolean {
+		const points = this.currencyBoosts[currency] ?? 0;
+		if (this.boostPointsAvailable <= 0 || points >= MAX_BOOST_POINTS) return false;
+		this.currencyBoosts = { ...this.currencyBoosts, [currency]: points + 1 };
+		return true;
+	}
+
+	addPowerUp(powerUp: PowerUp) {
+		const newPowerUp = { ...powerUp, startTime: powerUp.startTime || this.clock() };
+		this.activePowerUps = [...this.activePowerUps, newPowerUp];
+		this.powerUpsCollected++;
+		this.dailyStats.powerUpsCollected++;
+		if (!this.features[FeatureTypes.STABLE_BONUS_CLICK]) this.lastInteractionTime = this.clock();
+		scheduleExpiry(() => this.removePowerUp(newPowerUp.id), newPowerUp.duration);
+	}
+
+	assignAllCurrencyBoosts(currency: CurrencyName) {
+		const points = this.currencyBoosts[currency] ?? 0;
+		const added = Math.min(this.boostPointsAvailable, MAX_BOOST_POINTS - points);
+		if (added > 0) this.currencyBoosts = { ...this.currencyBoosts, [currency]: points + added };
+	}
+
+	canAfford(price: Price): boolean {
+		return currenciesManager.getAmount(price.currency) >= price.amount;
+	}
+
+	canPurchaseSkill(skill: SkillUpgrade): boolean {
+		return (
+			!this.skillUpgrades.includes(skill.id) &&
+			(skill.requires?.every(id => this.skillUpgrades.includes(id)) ?? true) &&
+			(skill.condition?.(this) ?? true) &&
+			this.canAfford(skill.cost)
+		);
+	}
+
+	checkRealmUnlocks() {
+		for (const { condition, id } of Object.values(REALMS)) {
+			this.realms[id] ??= { unlocked: false };
+			if (!this.realms[id].unlocked && condition(this.features)) this.realms[id].unlocked = true;
+		}
 	}
 
 	cleanup() {
 		if (this.gameInterval) clearInterval(this.gameInterval);
 	}
 
-	// Derived Props (Sorted Alphabetically)
-
-	allEffectSources = $derived.by(() => {
-		const baseUpgrades = this.currentUpgradesBought;
-		const photonUpgrades = Object.entries(this.photonUpgrades)
-			.filter(([id, level]) => level > 0 && ALL_PHOTON_UPGRADES[id])
-			.map(([id, level]) => ({
-				effects: ALL_PHOTON_UPGRADES[id].effects(level),
-				id,
-			}));
-
-		const quarkBoosts = this.quarkBoostEffects.length > 0 ? [{ effects: this.quarkBoostEffects, id: 'quark_boosts' }] : [];
-
-		return [...baseUpgrades, ...photonUpgrades, ...quarkBoosts] as (Upgrade | SkillUpgrade)[];
-	});
-
-	atomsPerSecond = $derived.by(() => {
-		let baseProduction = 0;
-		for (const production of Object.values(this.buildingProductions)) baseProduction += production;
-		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
-	});
-
-	autoClicksPerSecond = $derived.by(() => {
-		if (!this.settings.automation.autoClick) return 0;
-		const options = { type: 'auto_click' as const };
-		return foldEffects(this.allEffectSources, this, 0, options);
-	});
-
-	photonAutoClicksPer5Seconds = $derived.by(() => {
-		if (!this.settings.automation.autoClickPhotons) return 0;
-		const options = { type: 'photon_auto_click' as const };
-		return foldEffects(this.allEffectSources, this, 0, options);
-	});
-
-	bonusMultiplier = $derived(this.activePowerUps.reduce((acc, powerUp) => acc * powerUp.multiplier, 1));
-
-	/** Achievement conditions read these every sweep, so the totals are folded once per buildings change. */
-	buildingTotals = $derived.by(() => {
-		let count = 0;
-		let levels = 0;
-		for (const building of Object.values(this.buildings)) {
-			if (!building) continue;
-			count += building.count;
-			levels += building.level;
-		}
-		return { count, levels };
-	});
-
-	// Currency Boost System (from building levels, 10% boost per point, MAX_BOOST_POINTS per currency)
-	skillPointsTotal = $derived(this.buildingTotals.levels);
-	skillPointsUsed = $derived(Object.values(this.skillPointBoosts).reduce((sum, points) => sum + (points ?? 0), 0));
-	/** Summing a `$state` record walks the proxy for every key, and the milestone check reads this on every tick. */
-	photonUpgradeLevels = $derived(Object.values(this.photonUpgrades).reduce((sum, level) => sum + (level ?? 0), 0));
-	skillPointsAvailable = $derived(this.skillPointsTotal - this.skillPointsUsed);
-
-	buildingProductions = $derived.by(() => {
-		const productions = {} as Record<BuildingType, number>;
-		const commonMultiplier = this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
-
-		for (const [type, building] of Object.entries(this.buildings)) {
-			if (!building) {
-				productions[type as BuildingType] = 0;
-				continue;
-			}
-
-			const options = { target: type as BuildingType, type: 'building' as const };
-			const multiplier = foldEffects(this.allEffectSources, this, building.rate, options);
-			const levelMultiplier = getBuildingLevelMultiplier(building.count, building.level);
-			productions[type as BuildingType] = building.count * multiplier * levelMultiplier * commonMultiplier;
-		}
-
-		return productions;
-	});
-
-	canProtonise = $derived(this.atoms >= PROTONS_ATOMS_REQUIRED || this.protons > 0);
-
-	clickPower = $derived.by(() => {
-		const options = { type: 'click' as const };
-		return foldEffects(this.allEffectSources, this, 1, options) * this.bonusMultiplier;
-	});
-
-	currentLevelXP = $derived.by(() => {
-		const level = this.getLevelFromTotalXP(this.totalXP);
-		if (level === 0) return this.totalXP;
-		return Math.max(0, this.totalXP - totalXPForLevel(level));
-	});
-
-	currentUpgradesBought = $derived.by(() => {
-		const allUpgradeIds = [...this.upgrades, ...this.skillUpgrades];
-		return allUpgradeIds.filter(id => UPGRADES[id] || SKILL_UPGRADES[id]).map(id => UPGRADES[id] || SKILL_UPGRADES[id]);
-	});
-
-	electronizeElectronsGain = $derived.by(() => {
-		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return 0;
-		const options = { type: 'electron_gain' as const };
-		const baseGain = foldEffects(this.allEffectSources, this, 1, options);
-		return baseGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.ELECTRONS);
-	});
-
-	excitedPhotonChance = $derived.by(() => {
-		const baseChance = 0.002; // 0.2%
-		const options = { type: 'excited_photon_chance' as const };
-		return foldEffects(this.allEffectSources, this, baseChance, options);
-	});
-
-	radiationMultiplier = $derived(radiationManager.radiationMultiplier);
-
-	globalMultiplier = $derived.by(() => {
-		const options = { type: 'global' as const };
-		const baseMultiplier = foldEffects(this.allEffectSources, this, 1, options);
-		// Radiation multiplier is applied multiplicatively
-		return baseMultiplier * this.radiationMultiplier;
-	});
-
-	hasAvailableSkillUpgrades = $derived.by(() => {
-		return Object.values(SKILL_UPGRADES).some(skill => {
-			if (this.skillUpgrades.includes(skill.id)) return false;
-			if (skill.condition && !skill.condition(this)) return false;
-			if (skill.requires && !skill.requires.every(req => this.skillUpgrades.includes(req))) return false;
-			// Check if can afford
-			const currency = skill.cost.currency;
-			const amount = currenciesManager.getAmount(currency);
-			return amount >= skill.cost.amount;
-		});
-	});
-
-	hasBonus = $derived(this.activePowerUps.length > 0);
-
-	nextLevelXP = $derived.by(() => {
-		const level = this.getLevelFromTotalXP(this.totalXP);
-		return this.getXPForLevel(level + 1);
-	});
-
-	photonSpawnInterval = $derived.by(() => {
-		const baseSpawnRate = 2000;
-		const options = { type: 'photon_spawn_interval' as const };
-		return foldEffects(this.allEffectSources, this, baseSpawnRate, options);
-	});
-
-	playerLevel = $derived(this.getLevelFromTotalXP(this.totalXP));
-
-	powerUpDurationMultiplier = $derived.by(() => {
-		const options = { type: 'power_up_duration' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
-
-	powerUpEffectMultiplier = $derived.by(() => {
-		const options = { type: 'power_up_multiplier' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
-
-	powerUpInterval = $derived.by(() => {
-		const options = { type: 'power_up_interval' as const };
-		return POWER_UP_DEFAULT_INTERVAL.map(interval =>
-			Math.max(POWER_UP_MIN_INTERVAL, foldEffects(this.allEffectSources, this, interval, options))
-		) as [number, number];
-	});
-
-	protoniseProtonsGain = $derived.by(() => {
-		if (this.atoms < PROTONS_ATOMS_REQUIRED) return 0;
-
-		const baseGain = Math.floor(Math.sqrt(this.atoms / PROTONS_ATOMS_REQUIRED));
-		const options = { type: 'proton_gain' as const };
-		const boostedGain = foldEffects(this.allEffectSources, this, baseGain, options);
-		return boostedGain * this.getCurrencyBoostMultiplier(CurrenciesTypes.PROTONS);
-	});
-
-	stabilityCapacity = $derived.by(() => {
-		const options = { type: 'stability_capacity' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
-
-	stabilityMaxBoost = $derived.by(() => {
-		const options = { type: 'stability_boost' as const };
-		return foldEffects(this.allEffectSources, this, 2, options);
-	});
-
-	stabilityMultiplier = $derived.by(() => {
-		// 1. Check unlock & pause conditions
-		if (!this.features[FeatureTypes.STABILITY_FIELD]) return 1;
-		if (this.activePowerUps.length > 0) return 1;
-
-		// 2. Calculate Time Requirements
-		// Base time: 10 minutes (600,000 ms)
-		// Modified by Capacity (increases time) and Speed (decreases time)
-		const BASE_TIME_MS = 600_000;
-		const timeRequired = (BASE_TIME_MS * this.stabilityCapacity) / this.stabilitySpeed;
-
-		// 3. Calculate Progress (0 to 1)
-		// Reactivity trigger: this.inGameTime changes every second
-		this.inGameTime;
-		const elapsed = this.clock() - this.lastInteractionTime;
-		const progress = Math.min(Math.max(elapsed / timeRequired, 0), 1);
-
-		if (progress <= 0) return 1;
-
-		// 4. Calculate Max Possible Boost
-		// The max boost is determined by the Base Max Boost (from boosts upgrades)
-		// scaled by the Capacity multiplier.
-		// Formula: 1 + (BaseBonus * CapacityMultiplier)
-		const baseBonus = this.stabilityMaxBoost - 1; // e.g., if MaxBoost is 2x, bonus is 1x (100%)
-		const scaledBonus = baseBonus * this.stabilityCapacity;
-
-		// 5. Apply Curve (Linear)
-		// The current boost is simply the Max Possible Boost scaled linearly by progress
-		// e.g., 50% progress = 50% of the possible bonus
-		const currentBoost = 1 + scaledBonus * progress;
-
-		return currentBoost;
-	});
-
-	stabilitySpeed = $derived.by(() => {
-		const options = { type: 'stability_speed' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
-
-	/** Membership lookups run over every achievement each tick, so the array is mirrored into a set once per change. */
-	unlockedAchievementIds = $derived(new Set(this.achievements));
-
-	xpGainMultiplier = $derived.by(() => {
-		const options = { type: 'xp_gain' as const };
-		return foldEffects(this.allEffectSources, this, 1, options);
-	});
-
-	xpProgress = $derived((this.currentLevelXP / this.nextLevelXP) * 100);
-
-	// Stats Getters for Currencies
-	get atoms() {
-		return currenciesManager.getAmount(CurrenciesTypes.ATOMS);
-	}
-	get currencies() {
-		return currenciesManager.currencies;
-	}
-	get electrons() {
-		return currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
-	}
-	get excitedPhotons() {
-		return currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
-	}
-	get features() {
-		return this.featuresManager.state;
-	}
-	get photons() {
-		return currenciesManager.getAmount(CurrenciesTypes.PHOTONS);
-	}
-	get protons() {
-		return currenciesManager.getAmount(CurrenciesTypes.PROTONS);
+	/** Pays away time at the offline rates, since the last save on load or `awayMs` of a frozen tab, and returns whether any was paid. */
+	catchUpOffline(awayMs?: number): boolean {
+		this.applyingOfflineProgress = true;
+		const summary = applyOfflineProgress(this, awayMs);
+		this.applyingOfflineProgress = false;
+		if (summary) this.offlineProgressSummary = summary;
+		return summary !== null;
 	}
 
-	set currencies(value) {
-		currenciesManager.currencies = value;
+	clearOfflineProgressSummary() {
+		this.offlineProgressSummary = null;
 	}
 
-	set features(value: FeatureState) {
-		this.featuresManager.state = value;
+	electronize() {
+		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return false;
+		this.totalElectronizesAllTime++;
+		this.totalElectronizesRun++;
+		this.dailyStats.electronizes = (this.dailyStats.electronizes ?? 0) + 1;
+		this.prestige(LAYERS.ELECTRONIZE, { amount: this.electronizeElectronsGain, currency: CurrenciesTypes.ELECTRONS });
+		this.save();
+		return true;
 	}
 
-	// Methods
+	/**
+	 * Layer 4 prestige once the reactor held its ionization line for a minute. The core and the electrons that fuel it are emptied too,
+	 * neither resets by layer, and a kept electron bank refuelled the reactor for another Ionize a minute later.
+	 */
+	ionize() {
+		if (!radiationManager.ionizeReady) return false;
+		this.totalIonizesAllTime++;
+		this.prestige(LAYERS.RADIATION_REALM);
+		currenciesManager.remove(CurrenciesTypes.ELECTRONS, this.electrons);
+		this.totalElectronizesRun = 0;
+		radiationManager.reset();
+		this.save();
+		return true;
+	}
 
-	// State Management
+	getCurrencyBoostMultiplier(currency: CurrencyName): number {
+		return 1 + (this.currencyBoosts[currency] ?? 0) * 0.1;
+	}
+
 	getCurrentState(): GameState {
 		return {
 			achievements: this.achievements,
 			activePowerUps: this.activePowerUps,
-			buildings: this.buildings,
+			chromatic: this.chromatic,
+			chromaticUpgrades: this.chromaticUpgrades,
 			currencies: this.currencies,
-			currencyBoosts: this.skillPointBoosts,
+			currencyBoosts: this.currencyBoosts,
 			dailyStats: this.dailyStats,
 			features: this.features,
+			generators: this.generators,
 			highestAPS: this.highestAPS,
 			inGameTime: this.inGameTime,
+			integrityFlagged: this.integrityFlagged,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
 			photonUpgrades: this.photonUpgrades,
@@ -429,11 +461,12 @@ export class GameManager {
 			settings: this.settings,
 			skillUpgrades: this.skillUpgrades,
 			startDate: this.startDate,
-			totalBuildingsPurchasedAllTime: this.totalBuildingsPurchasedAllTime,
 			totalClicksAllTime: this.totalClicksAllTime,
 			totalClicksRun: this.totalClicksRun,
 			totalElectronizesAllTime: this.totalElectronizesAllTime,
 			totalElectronizesRun: this.totalElectronizesRun,
+			totalGeneratorsPurchasedAllTime: this.totalGeneratorsPurchasedAllTime,
+			totalIonizesAllTime: this.totalIonizesAllTime,
 			totalProtonisesAllTime: this.totalProtonisesAllTime,
 			totalProtonisesRun: this.totalProtonisesRun,
 			totalUpgradesPurchasedAllTime: this.totalUpgradesPurchasedAllTime,
@@ -445,338 +478,185 @@ export class GameManager {
 		};
 	}
 
-	// Skill Point Boost Methods
-	getCurrencyBoostMultiplier(currency: CurrencyName): number {
-		const points = this.skillPointBoosts[currency] ?? 0;
-		return 1 + points * 0.1; // 10% per point
+	getGeneratorCost(type: GeneratorType, amount: number): number {
+		const r = GENERATOR_COST_MULTIPLIER;
+		const next = GENERATORS[type].cost.amount * r ** (this.generators[type]?.count ?? 0);
+		return Math.round((next * (r ** amount - 1)) / (r - 1));
 	}
 
-	addCurrencyBoost(currency: CurrencyName): boolean {
-		if (this.skillPointsAvailable <= 0) return false;
-		const currentPoints = this.skillPointBoosts[currency] ?? 0;
-		if (currentPoints >= MAX_BOOST_POINTS) return false;
-
-		this.skillPointBoosts = {
-			...this.skillPointBoosts,
-			[currency]: currentPoints + 1,
-		};
-		return true;
+	getMaxAffordableGenerator(type: GeneratorType): number {
+		const { cost } = GENERATORS[type];
+		const r = GENERATOR_COST_MULTIPLIER;
+		const next = cost.amount * r ** (this.generators[type]?.count ?? 0);
+		const owned = currenciesManager.getAmount(cost.currency);
+		return owned < next ? 0 : Math.floor(Math.log((owned * (r - 1)) / next + 1) / Math.log(r));
 	}
 
-	assignAllCurrencyBoosts(currency: CurrencyName) {
-		const currentPoints = this.skillPointBoosts[currency] ?? 0;
-		const added = Math.min(this.skillPointsAvailable, MAX_BOOST_POINTS - currentPoints);
-		if (added <= 0) return;
-
-		this.skillPointBoosts = {
-			...this.skillPointBoosts,
-			[currency]: currentPoints + added,
-		};
+	incrementBonusHiggsBosonClicks() {
+		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 1);
+		this.dailyStats.higgsBosonsCollected = (this.dailyStats.higgsBosonsCollected ?? 0) + 1;
+		if (!this.features[FeatureTypes.STABLE_BONUS_CLICK]) this.lastInteractionTime = this.clock();
 	}
 
-	/** Reassigns every point round-robin over the given currencies so they end up within one point of each other. */
-	splitCurrencyBoostsEvenly(currencies: CurrencyName[]) {
-		if (currencies.length === 0) return;
-		const boosts: CurrencyBoosts = {};
-		let remaining = this.skillPointsTotal;
-
-		for (let i = 0; remaining > 0 && i < currencies.length * MAX_BOOST_POINTS; i++) {
-			const currency = currencies[i % currencies.length];
-			const points = boosts[currency] ?? 0;
-			if (points >= MAX_BOOST_POINTS) continue;
-			boosts[currency] = points + 1;
-			remaining--;
-		}
-
-		this.skillPointBoosts = boosts;
+	incrementClicks(isAuto = false, count = 1) {
+		this.totalClicksRun += count;
+		this.totalClicksAllTime += count;
+		this.dailyStats.clicks += count;
+		if (!this.features[isAuto ? FeatureTypes.STABLE_ATOM_AUTO_CLICK : FeatureTypes.STABLE_ATOM_CLICK]) this.lastInteractionTime = this.clock();
 	}
 
-	resetCurrencyBoosts() {
-		this.skillPointBoosts = {};
-	}
-
-	removeCurrencyBoost(currency: CurrencyName): boolean {
-		const currentPoints = this.skillPointBoosts[currency] ?? 0;
-		if (currentPoints <= 0) return false;
-
-		this.skillPointBoosts = {
-			...this.skillPointBoosts,
-			[currency]: currentPoints - 1,
-		};
-		return true;
+	initialize() {
+		this.loadGame();
+		this.setupInterval();
 	}
 
 	loadGame() {
 		const result = loadSavedState();
 
-		if (result.success && result.state) {
-			this.loadSaveData(result.state);
-			this.syncFeatures();
-			this.checkRealmUnlocks();
-			this.lastLoadedSave = typeof result.state.lastSave === 'number' ? result.state.lastSave : 0;
-			this.saveIntegrityTampered = result.integrityTampered ?? false;
-			this.saveIntegrityWarnings = result.integrityWarnings ?? [];
-			if (this.saveIntegrityTampered || this.saveIntegrityWarnings.length > 0) {
-				console.warn('Save integrity check flagged this save:', {
-					tampered: this.saveIntegrityTampered,
-					warnings: this.saveIntegrityWarnings,
-				});
-				toastStore.warning({
-					title: 'Save check',
-					message: 'This save looks like it was edited outside the game. Leaderboard submission is disabled for this session.',
-				});
-			}
-			this.applyingOfflineProgress = true;
-			const offlineSummary = applyOfflineProgress(this);
-			this.applyingOfflineProgress = false;
-			if (offlineSummary) {
-				this.offlineProgressSummary = offlineSummary;
-			}
-			console.log('Game loaded successfully');
-			this.save();
-		} else if (!result.success && result.errorType) {
+		if (!result.success || !result.state) {
+			if (result.success || !result.errorType) return;
 			saveRecovery.setError(result.errorType, result.errorDetails || 'Unknown error loading save', result.rawData ?? null);
 			console.error('Save load failed:', result.errorType, result.errorDetails);
-		}
-	}
-
-	clearOfflineProgressSummary() {
-		this.offlineProgressSummary = null;
-	}
-
-	syncFeatures() {
-		this.featuresManager.syncFromState(this);
-	}
-
-	loadSaveData(data: Partial<GameState>) {
-		for (const key of Object.keys(this.statsConfig)) {
-			if (key in data) {
-				if (key === 'settings') {
-					const savedSettings = data.settings as Settings;
-					const defaultSettings = this.statsConfig.settings.defaultValue as Settings;
-
-					this.settings = {
-						...defaultSettings,
-						...savedSettings,
-						automation: {
-							...defaultSettings.automation,
-							...(savedSettings?.automation ?? {}),
-						},
-						gameplay: {
-							...defaultSettings.gameplay,
-							...(savedSettings?.gameplay ?? {}),
-						},
-						upgrades: {
-							...defaultSettings.upgrades,
-							...(savedSettings?.upgrades ?? {}),
-						},
-					};
-				} else if (key === 'currencyBoosts') {
-					this.skillPointBoosts = data.currencyBoosts ?? {};
-				} else if (key === 'radiation') {
-					// Radiation state is handled by RadiationManager
-					if (data.radiation) {
-						radiationManager.loadState(data.radiation, data.radiationUpgrades ?? {});
-					}
-				} else if (key === 'radiationUpgrades') {
-					this.radiationUpgrades = data.radiationUpgrades ?? {};
-					radiationManager.upgradeLevels = this.radiationUpgrades;
-				} else if (key === 'selectedRealmId') {
-					if (data.selectedRealmId) {
-						realmManager.selectRealm(data.selectedRealmId);
-					}
-				} else if (key === 'tutorial') {
-					this.tutorialManager.state = { ...(this.statsConfig.tutorial.defaultValue as GameState['tutorial']), ...data.tutorial };
-				} else {
-					this[key as keyof this] = data[key as keyof GameState] as any;
-				}
-			}
-		}
-		if (data.lastInteractionTime) {
-			this.lastInteractionTime = data.lastInteractionTime;
+			return;
 		}
 
-		// Filter expired power-ups and setup removal timeouts
-		if (this.activePowerUps.length > 0) {
-			const now = Date.now();
-			this.activePowerUps = this.activePowerUps.filter(p => {
-				if (!p.startTime) return false; // Remove malformed power-ups
-				return now < p.startTime + p.duration;
-			});
-			this.activePowerUps.forEach(p => {
-				scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
-			});
-		}
-	}
-
-	save() {
-		this.lastSave = Date.now();
-		const saveData = this.getCurrentState();
-		setItem(SAVE_KEY, serializeSaveState(saveData));
-	}
-
-	// Reset Logic
-	reset() {
-		this.resetAll();
-		this.startDate = Date.now();
+		this.loadSaveData(result.state);
+		this.syncFeatures();
+		this.checkRealmUnlocks();
+		if (result.integrityTampered) this.integrityFlagged = true;
+		this.reportIntegrity(result.integrityWarnings ?? []);
+		this.catchUpOffline();
 		this.save();
 	}
 
-	resetAll() {
-		for (const [key, config] of Object.entries(this.statsConfig)) {
-			if (key === 'currencies') {
-				currenciesManager.hardReset();
-			} else if (key === 'features') {
-				this.featuresManager.reset();
-			} else if (key === 'currencyBoosts') {
-				this.skillPointBoosts = {};
-			} else if (key === 'tutorial') {
-				this.tutorialManager.reset();
-			} else {
-				this[key as keyof this] = config.defaultValue;
-			}
-		}
+	/** Replaces the game with a cloud save, syncing features and realms like a local load and writing it to this device at once. */
+	loadCloudSave(state: GameState) {
+		const flagged = this.integrityFlagged;
+		this.loadSaveData(state);
+		this.integrityFlagged ||= flagged;
+		this.syncFeatures();
+		this.checkRealmUnlocks();
+		this.reportIntegrity(checkStatePlausibility(state));
+		this.save();
 	}
 
-	resetLayer(layer: LayerType) {
-		for (const [key, config] of Object.entries(this.statsConfig)) {
-			if (config.layer > 0 && config.layer <= layer) {
-				if (key === 'features') {
-					this.featuresManager.reset();
-				} else if (key === 'currencyBoosts') {
-					if (!this.quarkEntitlements.includes('convenience_keep_currency_boosts')) {
-						this.skillPointBoosts = {};
-					}
-				} else if (key === 'tutorial') {
-					this.tutorialManager.reset();
-				} else {
-					this[key as keyof this] = config.defaultValue;
+	private reportIntegrity(warnings: string[]) {
+		this.saveIntegrityWarnings = warnings;
+		if (!this.integrityFlagged && warnings.length === 0) return;
+		console.warn('Save integrity check flagged this save:', { flagged: this.integrityFlagged, warnings });
+		toastStore.warning({
+			message: 'This save looks like it was edited outside the game, so it no longer submits to the leaderboard.',
+			title: 'Save check',
+		});
+	}
+
+	loadSaveData(data: Partial<GameState>) {
+		for (const key of Object.keys(statsConfig)) {
+			if (!(key in data)) continue;
+			switch (key) {
+				case 'currencyBoosts':
+					this.currencyBoosts = data.currencyBoosts ?? {};
+					break;
+				case 'radiation':
+					if (data.radiation) radiationManager.loadState(data.radiation, data.radiationUpgrades ?? {});
+					break;
+				case 'radiationUpgrades':
+					this.radiationUpgrades = data.radiationUpgrades ?? {};
+					break;
+				case 'selectedRealmId':
+					if (data.selectedRealmId) realmManager.selectRealm(data.selectedRealmId);
+					break;
+				case 'settings': {
+					const defaults = statsConfig.settings.defaultValue;
+					const saved = data.settings;
+					this.settings = {
+						...defaults,
+						...saved,
+						automation: { ...defaults.automation, ...saved?.automation },
+						display: { ...defaults.display, ...saved?.display },
+						gameplay: { ...defaults.gameplay, ...saved?.gameplay },
+						upgrades: { ...defaults.upgrades, ...saved?.upgrades },
+					};
+					break;
 				}
+				case 'tutorial':
+					this.tutorialManager.state = { ...statsConfig.tutorial.defaultValue, ...data.tutorial };
+					break;
+				default:
+					Reflect.set(this, key, data[key as keyof GameState]);
 			}
 		}
-		currenciesManager.reset(layer);
+		if (data.lastInteractionTime) this.lastInteractionTime = data.lastInteractionTime;
+
+		if (this.activePowerUps.length === 0) return;
+		const now = this.clock();
+		this.activePowerUps = this.activePowerUps.filter(p => p.startTime && now < p.startTime + p.duration);
+		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
-	// Currency & Affordability
-	canAfford(price: Price): boolean {
-		return this.getCurrency(price) >= price.amount;
+	/** Proton and electron upgrades survive every prestige and photon upgrades survive Ionize, skills never reset. */
+	private prestige(layer: LayerType, gain?: Price) {
+		const upgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
+		const photonUpgrades = this.photonUpgrades;
+
+		this.resetLayer(layer);
+		this.upgrades = upgrades;
+		this.photonUpgrades = photonUpgrades;
+		this.syncFeatures();
+		this.checkRealmUnlocks();
+		if (gain) currenciesManager.add(gain.currency, gain.amount);
+		this.lastInteractionTime = this.clock();
 	}
 
-	getCurrency(price: Price): number {
-		return currenciesManager.getAmount(price.currency);
-	}
-
-	spendCurrency(price: Price): boolean {
-		if (!this.canAfford(price)) return false;
-		currenciesManager.remove(price.currency, price.amount);
+	protonise() {
+		if (this.atoms < PROTONS_ATOMS_REQUIRED) return false;
+		this.totalProtonisesAllTime++;
+		this.totalProtonisesRun++;
+		this.dailyStats.protonises++;
+		this.prestige(LAYERS.PROTONIZER, { amount: this.protoniseProtonsGain, currency: CurrenciesTypes.PROTONS });
+		currenciesManager.add(CurrenciesTypes.ATOMS, this.effects.value('start_atoms', 0, this));
+		this.save();
 		return true;
 	}
 
-	// Building Helpers
-	getBuildingCost(type: BuildingType, amount: number): number {
-		const building = BUILDINGS[type];
-		const currentCount = this.buildings[type]?.count ?? 0;
-		const baseCost = building.cost.amount;
-		const r = BUILDING_COST_MULTIPLIER;
-		const a = baseCost * r ** currentCount;
-		const cost = (a * (Math.pow(r, amount) - 1)) / (r - 1);
-		return Math.round(cost);
-	}
-
-	getMaxAffordableBuilding(type: BuildingType): number {
-		const building = BUILDINGS[type];
-		const currency = this.getCurrency(building.cost);
-		const currentCount = this.buildings[type]?.count ?? 0;
-		const baseCost = building.cost.amount;
-		const r = BUILDING_COST_MULTIPLIER;
-		const a = baseCost * r ** currentCount;
-
-		if (currency < a) return 0;
-
-		const n = Math.log((currency * (r - 1)) / a + 1) / Math.log(r);
-		return Math.floor(n);
-	}
-
-	// Purchasing
-	purchaseBuilding(type: BuildingType, amount: number = 1) {
-		const building = BUILDINGS[type];
-		const currentBuilding =
-			this.buildings[type] ??
-			({
-				cost: building.cost,
-				rate: building.rate,
-				level: 0,
-				count: 0,
-				unlocked: true,
-			} as Building);
-
-		const totalCost = this.getBuildingCost(type, amount);
-
-		const cost = {
-			amount: totalCost,
-			currency: currentBuilding.cost.currency,
-		};
-
-		if (!this.spendCurrency(cost)) return false;
-
-		const newCount = currentBuilding.count + amount;
-		const newBuilding = {
-			...currentBuilding,
-			cost: {
-				amount: this.getBuildingCost(type, 1),
-				currency: cost.currency,
-			},
-			count: newCount,
-			level: Math.floor(newCount / BUILDING_LEVEL_UP_COST),
-		};
-
-		this.buildings = {
-			...this.buildings,
-			[type]: newBuilding,
-		};
-
-		this.totalBuildingsPurchasedAllTime += amount;
-		if (!this.applyingOfflineProgress) {
-			this.dailyStats = { ...this.dailyStats, buildingsPurchased: this.dailyStats.buildingsPurchased + amount };
+	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline. Returns the purchased ids. */
+	purchaseAffordableUpgrades(): string[] {
+		const owned = new Set(this.upgrades);
+		const candidates = Object.values(UPGRADES)
+			.filter(upgrade => !owned.has(upgrade.id) && (upgrade.condition?.(this) ?? true))
+			.sort((a, b) => a.cost.amount - b.cost.amount);
+		const purchased: string[] = [];
+		for (const upgrade of candidates) {
+			if (this.canAfford(upgrade.cost) && this.purchaseUpgrade(upgrade.id)) purchased.push(upgrade.id);
 		}
+		return purchased;
+	}
+
+	purchaseGenerator(type: GeneratorType, amount = 1) {
+		if (!this.spendCurrency({ amount: this.getGeneratorCost(type, amount), currency: GENERATORS[type].cost.currency })) return false;
+
+		const count = (this.generators[type]?.count ?? 0) + amount;
+		this.generators = { ...this.generators, [type]: { count, level: Math.floor(count / GENERATOR_LEVEL_UP_COST), unlocked: true } };
+		this.totalGeneratorsPurchasedAllTime += amount;
+		if (!this.applyingOfflineProgress) this.dailyStats.generatorsPurchased += amount;
 		return true;
 	}
 
 	purchasePhotonUpgrade(upgradeId: string) {
-		const currentLevel = this.photonUpgrades[upgradeId] || 0;
 		const upgrade = ALL_PHOTON_UPGRADES[upgradeId];
+		const level = this.photonUpgrades[upgradeId] ?? 0;
+		if (!upgrade || level >= upgrade.maxLevel || !(upgrade.condition?.(this) ?? true)) return false;
+		if (!this.spendCurrency({ amount: getPhotonUpgradeCost(upgrade, level), currency: upgrade.currency || CurrenciesTypes.PHOTONS })) return false;
 
-		if (!upgrade || currentLevel >= upgrade.maxLevel) {
-			return false;
-		}
-
-		const cost = {
-			amount: getPhotonUpgradeCost(upgrade, currentLevel),
-			currency: upgrade.currency || CurrenciesTypes.PHOTONS,
-		};
-
-		if (this.spendCurrency(cost)) {
-			this.photonUpgrades = {
-				...this.photonUpgrades,
-				[upgradeId]: currentLevel + 1,
-			};
-			this.syncFeatures();
-			this.checkRealmUnlocks();
-			return true;
-		}
-		return false;
+		this.photonUpgrades = { ...this.photonUpgrades, [upgradeId]: level + 1 };
+		this.syncFeatures();
+		this.checkRealmUnlocks();
+		return true;
 	}
 
 	purchaseSkill(skillId: string) {
 		const skill = SKILL_UPGRADES[skillId];
-		if (!skill) return false;
-
-		if (this.skillUpgrades.includes(skillId)) return false;
-		if (skill.requires && !skill.requires.every(req => this.skillUpgrades.includes(req))) return false;
-		if (skill.condition && !skill.condition(this)) return false;
-
-		// Spend currency
-		if (!this.spendCurrency(skill.cost)) return false;
+		if (!skill || !this.canPurchaseSkill(skill) || !this.spendCurrency(skill.cost)) return false;
 
 		this.skillUpgrades = [...this.skillUpgrades, skillId];
 		this.syncFeatures();
@@ -786,316 +666,180 @@ export class GameManager {
 
 	purchaseUpgrade(id: string) {
 		const upgrade = UPGRADES[id];
-		if (!upgrade) return false;
-		if (upgrade.condition && !upgrade.condition(this)) return false;
-		const purchased = this.upgrades.includes(id);
+		if (!upgrade || this.upgrades.includes(id) || !(upgrade.condition?.(this) ?? true) || !this.spendCurrency(upgrade.cost)) return false;
 
-		if (!purchased && this.spendCurrency(upgrade.cost)) {
-			this.upgrades = [...this.upgrades, id];
-			this.syncFeatures();
-
-			this.checkRealmUnlocks();
-
-			this.totalUpgradesPurchasedAllTime += 1;
-			if (!this.applyingOfflineProgress) {
-				this.dailyStats = { ...this.dailyStats, upgradesPurchased: this.dailyStats.upgradesPurchased + 1 };
-			}
-			return true;
-		}
-		return false;
+		this.upgrades = [...this.upgrades, id];
+		this.syncFeatures();
+		this.checkRealmUnlocks();
+		this.totalUpgradesPurchasedAllTime++;
+		if (!this.applyingOfflineProgress) this.dailyStats.upgradesPurchased++;
+		return true;
 	}
 
-	checkRealmUnlocks() {
-		const features = this.features;
-		for (const realmDef of Object.values(REALMS)) {
-			if (!this.realms[realmDef.id]) {
-				this.realms[realmDef.id] = { unlocked: false };
-			}
-			const realmState = this.realms[realmDef.id];
-			if (!realmState.unlocked && realmDef.condition(features)) {
-				realmState.unlocked = true;
-			}
-		}
-	}
-
-	unlockBuilding(type: BuildingType) {
-		if (type in this.buildings) return;
-
-		this.buildings = {
-			...this.buildings,
-			[type]: {
-				cost: BUILDINGS[type].cost,
-				rate: BUILDINGS[type].rate,
-				level: 0,
-				count: 0,
-				unlocked: true,
-			},
-		};
-	}
-
-	// Prestige
-	electronize() {
-		const electronGain = this.electronizeElectronsGain;
-
-		if (this.protons >= ELECTRONS_PROTONS_REQUIRED || electronGain > 0) {
-			const persistentUpgrades = this.upgrades.filter(id => id.startsWith('electron') || id.startsWith('proton'));
-			const persistentSkills =
-				this.quarkEntitlements.includes('convenience_keep_skill_tree') ?
-					this.skillUpgrades
-				:	this.skillUpgrades.filter(id => {
-						const skill = SKILL_UPGRADES[id];
-						return (
-							!!skill?.feature ||
-							skill?.cost.currency === CurrenciesTypes.PROTONS ||
-							skill?.cost.currency === CurrenciesTypes.ELECTRONS
-						);
-					});
-
-			this.totalElectronizesRun += 1;
-			this.totalElectronizesAllTime += 1;
-			this.totalProtonisesRun = 0;
-			this.dailyStats = { ...this.dailyStats, electronizes: (this.dailyStats.electronizes ?? 0) + 1 };
-
-			this.resetLayer(LAYERS.ELECTRONIZE);
-
-			this.upgrades = persistentUpgrades;
-			this.skillUpgrades = persistentSkills;
-			this.syncFeatures();
-			this.checkRealmUnlocks();
-			currenciesManager.add(CurrenciesTypes.ELECTRONS, electronGain);
-
-			this.lastInteractionTime = this.clock();
-			this.save();
-			return true;
-		}
-		return false;
-	}
-
-	protonise() {
-		const protonGain = this.protoniseProtonsGain;
-
-		if (this.atoms >= PROTONS_ATOMS_REQUIRED || protonGain > 0) {
-			const persistentUpgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
-			const persistentSkills =
-				this.quarkEntitlements.includes('convenience_keep_skill_tree') ?
-					this.skillUpgrades
-				:	this.skillUpgrades.filter(id => {
-						const skill = SKILL_UPGRADES[id];
-						return (
-							!!skill?.feature ||
-							skill?.cost.currency === CurrenciesTypes.PROTONS ||
-							skill?.cost.currency === CurrenciesTypes.ELECTRONS
-						);
-					});
-
-			this.totalProtonisesRun += 1;
-			this.totalProtonisesAllTime += 1;
-			this.dailyStats = { ...this.dailyStats, protonises: this.dailyStats.protonises + 1 };
-
-			this.resetLayer(LAYERS.PROTONIZER);
-
-			this.upgrades = persistentUpgrades;
-			this.skillUpgrades = persistentSkills;
-			this.syncFeatures();
-			this.checkRealmUnlocks();
-			currenciesManager.add(CurrenciesTypes.PROTONS, protonGain);
-
-			this.lastInteractionTime = this.clock();
-			this.save();
-			return true;
-		}
-		return false;
-	}
-
-	// Stats & Progression
-	addAtoms(amount: number) {
-		currenciesManager.add(CurrenciesTypes.ATOMS, amount);
-		if (amount > 0) {
-			if (this.features[FeatureTypes.LEVELS]) {
-				this.totalXP += amount * XP_PER_ATOM * this.xpGainMultiplier;
-			}
-			this.dailyStats.atomsEarned += amount;
-		}
-	}
-
-	incrementBonusHiggsBosonClicks() {
-		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 1);
-		this.dailyStats = { ...this.dailyStats, higgsBosonsCollected: (this.dailyStats.higgsBosonsCollected ?? 0) + 1 };
-		if (!this.upgrades.includes('electron_bypass_bonus_click_stability')) {
-			this.lastInteractionTime = this.clock();
-		}
-	}
-
-	incrementClicks(isAuto = false) {
-		this.totalClicksRun += 1;
-		this.totalClicksAllTime += 1;
-		this.dailyStats.clicks += 1;
-
-		const shouldUpdate =
-			isAuto ?
-				!this.upgrades.includes('electron_bypass_atom_autoclick_stability')
-			:	!this.upgrades.includes('electron_bypass_atom_click_stability');
-
-		if (shouldUpdate) {
-			this.lastInteractionTime = this.clock();
-		}
-	}
-
-	/**
-	 * Set from outside (see +layout.svelte) rather than imported here, so GameManager never
-	 * statically imports QuarksManager - simulation.worker.ts imports GameManager and has no
-	 * auth/DOM context, see QuarksManager.svelte.ts for the full one-way dependency rule.
-	 */
-	onAchievementUnlocked: ((achievementId: string) => void) | null = null;
-
-	unlockAchievement(achievementId: string) {
-		if (!this.achievements.includes(achievementId)) {
-			this.achievements = [...this.achievements, achievementId];
-			this.dailyStats = { ...this.dailyStats, achievementsUnlocked: (this.dailyStats.achievementsUnlocked ?? 0) + 1 };
-			const achievement = ACHIEVEMENTS[achievementId];
-			if (achievement) {
-				toastStore.info({
-					title: 'Achievement unlocked',
-					message: `${achievement.name}\n${achievement.description}`,
-					duration: 10000,
-					icon: achievement.iconStack ?? achievement.icon ?? 'Trophy',
-				});
-			}
-			this.onAchievementUnlocked?.(achievementId);
-		}
-	}
-
-	// Power-Ups
-	addPowerUp(powerUp: PowerUp) {
-		const newPowerUp = { ...powerUp };
-		if (!newPowerUp.startTime) newPowerUp.startTime = this.clock();
-		this.activePowerUps = [...this.activePowerUps, newPowerUp];
-		this.powerUpsCollected += 1;
-		this.dailyStats = { ...this.dailyStats, powerUpsCollected: this.dailyStats.powerUpsCollected + 1 };
-		if (!this.upgrades.includes('electron_bypass_bonus_click_stability')) {
-			this.lastInteractionTime = this.clock();
-		}
-
-		scheduleExpiry(() => this.removePowerUp(newPowerUp.id), newPowerUp.duration);
+	removeCurrencyBoost(currency: CurrencyName): boolean {
+		const points = this.currencyBoosts[currency] ?? 0;
+		if (points <= 0) return false;
+		this.currencyBoosts = { ...this.currencyBoosts, [currency]: points - 1 };
+		return true;
 	}
 
 	removePowerUp(id: string) {
 		this.activePowerUps = this.activePowerUps.filter(p => p.id !== id);
 	}
 
-	// Automation
-	toggleAutomation(buildingType: BuildingType) {
-		const buildings = [...this.settings.automation.buildings];
-		const index = buildings.indexOf(buildingType);
+	reset() {
+		this.resetAll();
+		this.saveIntegrityWarnings = [];
+		this.startDate = Date.now();
+		this.save();
+	}
 
-		if (index === -1) {
-			buildings.push(buildingType);
-		} else {
-			buildings.splice(index, 1);
+	resetAll() {
+		for (const [key, config] of Object.entries(statsConfig)) this.resetStat(key, config.defaultValue);
+	}
+
+	resetCurrencyBoosts() {
+		this.currencyBoosts = {};
+	}
+
+	resetLayer(layer: LayerType) {
+		const keepBoosts = this.quarkEntitlements.includes('convenience_keep_currency_boosts');
+		for (const [key, config] of Object.entries(statsConfig)) {
+			if (config.layer <= 0 || config.layer > layer || (key === 'currencyBoosts' && keepBoosts)) continue;
+			this.resetStat(key, config.defaultValue);
 		}
-
-		this.settings = {
-			...this.settings,
-			automation: {
-				...this.settings.automation,
-				buildings,
-			},
-		};
+		currenciesManager.reset(layer);
 	}
 
-	toggleAutoClick() {
-		this.settings = {
-			...this.settings,
-			automation: {
-				...this.settings.automation,
-				autoClick: !this.settings.automation.autoClick,
-			},
-		};
+	private resetStat(key: string, defaultValue: unknown) {
+		switch (key) {
+			case 'currencies':
+				currenciesManager.hardReset();
+				break;
+			case 'features':
+				this.featuresManager.reset();
+				break;
+			case 'radiation':
+				radiationManager.loadState({ ...statsConfig.radiation.defaultValue, lastTick: Date.now() }, {});
+				break;
+			case 'selectedRealmId':
+				realmManager.selectRealm(RealmTypes.ATOMS);
+				break;
+			case 'tutorial':
+				this.tutorialManager.reset();
+				break;
+			default:
+				Reflect.set(this, key, structuredClone(defaultValue));
+		}
 	}
 
-	toggleAutoClickPhotons() {
-		this.settings = {
-			...this.settings,
-			automation: {
-				...this.settings.automation,
-				autoClickPhotons: !this.settings.automation.autoClickPhotons,
-			},
-		};
+	save() {
+		this.lastSave = Date.now();
+		setItem(SAVE_KEY, serializeSaveState(this.getCurrentState()));
 	}
 
-	toggleUpgradeAutomation() {
-		this.settings = {
-			...this.settings,
-			automation: {
-				...this.settings.automation,
-				upgrades: !this.settings.automation.upgrades,
-			},
-		};
+	setupInterval() {
+		this.cleanup();
+		this.gameInterval = setInterval(() => this.tick(1000, false, true), 1000);
 	}
 
-	// XP Helpers
-	getLevelFromTotalXP(totalXP: number) {
-		if (!isFinite(totalXP) || totalXP <= 0) return 0;
-		return levelFromTotalXP(totalXP);
+	spendCurrency(price: Price): boolean {
+		if (!this.canAfford(price)) return false;
+		currenciesManager.remove(price.currency, price.amount);
+		return true;
 	}
 
-	getXPForLevel(level: number) {
-		return xpForLevel(level);
+	/** Reassigns every point round-robin over the given currencies so they end up within one point of each other. */
+	splitCurrencyBoostsEvenly(currencies: CurrencyName[]) {
+		if (currencies.length === 0) return;
+		const boosts: CurrencyBoosts = {};
+		let remaining = this.boostPointsTotal;
+		for (let i = 0; remaining > 0 && i < currencies.length * MAX_BOOST_POINTS; i++) {
+			const currency = currencies[i % currencies.length];
+			const points = boosts[currency] ?? 0;
+			if (points >= MAX_BOOST_POINTS) continue;
+			boosts[currency] = points + 1;
+			remaining--;
+		}
+		this.currencyBoosts = boosts;
+	}
+
+	syncFeatures() {
+		this.featuresManager.syncFromState(this);
 	}
 
 	/**
-	 * `skipProduction` is what the browser passes: there the atoms are summed per frame in `+page.svelte` for a smooth
-	 * counter, and crediting them here too would pay every building twice. The simulation has no frame loop and pays here.
+	 * `skipProduction` is what the browser passes: there generator and auto-click atoms are summed per commit in
+	 * `+page.svelte` for a smooth counter and XP bar, crediting them here too would pay them twice. The simulation has no
+	 * commit loop and pays here.
 	 */
-	tick(deltaTime: number = 1000, skipAchievements = false, skipProduction = false) {
+	tick(deltaTime = 1000, skipAchievements = false, skipProduction = false) {
+		const seconds = deltaTime / 1000;
 		this.inGameTime += deltaTime;
 
-		// Production - atoms per second scaled by deltaTime
-		const production = skipProduction ? 0 : this.atomsPerSecond * (deltaTime / 1000);
-		if (production > 0) {
-			this.addAtoms(production);
+		if (!skipProduction) {
+			if (this.atomsPerSecond > 0) this.addAtoms(this.atomsPerSecond * seconds);
+			if (this.autoClicksPerSecond > 0) this.addAtoms(this.clickPower * this.autoClicksPerSecond * seconds);
 		}
+		if (this.atomsPerSecond > this.highestAPS) this.highestAPS = this.atomsPerSecond;
 
-		// Auto-click atoms
-		if (this.settings.automation.autoClick && this.autoClicksPerSecond > 0) {
-			const autoClicks = this.autoClicksPerSecond * (deltaTime / 1000);
-			this.addAtoms(this.clickPower * autoClicks);
-		}
-
-		// Update highest APS
-		if (this.atomsPerSecond > this.highestAPS) {
-			this.highestAPS = this.atomsPerSecond;
-		}
-
-		// Process radiation decay
 		radiationManager.tick(deltaTime);
 
-		// Check achievements
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;
 			for (const [id, achievement] of ACHIEVEMENT_ENTRIES) {
-				if (!unlocked.has(id) && achievement.condition(this)) {
-					this.unlockAchievement(id);
-				}
+				if (!unlocked.has(id) && achievement.condition(this)) this.unlockAchievement(id);
 			}
 		}
 
-		// Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live.
+		/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
 		if (this.activePowerUps.length > 0) {
-			const expireTime = this.inGameTime;
-			const remaining = this.activePowerUps.filter(p => expireTime - (p.startTime ?? 0) < p.duration);
+			const now = this.clock();
+			const remaining = this.activePowerUps.filter(p => now - (p.startTime ?? 0) < p.duration);
 			if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
 		}
 	}
 
-	// Intervals
-	setupInterval() {
-		if (this.gameInterval) clearInterval(this.gameInterval);
+	toggleAutoClick() {
+		this.settings.automation.autoClick = !this.settings.automation.autoClick;
+	}
 
-		this.gameInterval = setInterval(() => {
-			this.tick(1000, false, true);
-		}, 1000);
+	toggleAutoClickPhotons() {
+		this.settings.automation.autoClickPhotons = !this.settings.automation.autoClickPhotons;
+	}
+
+	toggleAutomation(generatorType: GeneratorType) {
+		const { automation } = this.settings;
+		automation.generators =
+			automation.generators.includes(generatorType) ?
+				automation.generators.filter(type => type !== generatorType)
+			:	[...automation.generators, generatorType];
+	}
+
+	toggleUpgradeAutomation() {
+		this.settings.automation.upgrades = !this.settings.automation.upgrades;
+	}
+
+	unlockAchievement(achievementId: string) {
+		if (this.achievements.includes(achievementId)) return;
+		this.achievements = [...this.achievements, achievementId];
+		this.dailyStats.achievementsUnlocked = (this.dailyStats.achievementsUnlocked ?? 0) + 1;
+		const achievement = ACHIEVEMENTS[achievementId];
+		if (achievement) {
+			toastStore.info({
+				duration: 10000,
+				icon: achievement.iconStack ?? achievement.icon ?? 'Trophy',
+				message: `${achievement.name}\n${achievement.description}`,
+				title: 'Achievement unlocked',
+			});
+		}
+	}
+
+	unlockGenerator(type: GeneratorType) {
+		if (type in this.generators) return;
+		this.generators = { ...this.generators, [type]: { count: 0, level: 0, unlocked: true } };
 	}
 }
 
 export const gameManager = new GameManager();
+numberNotation.read = () => gameManager.settings.display.notation;

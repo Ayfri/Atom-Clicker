@@ -1,6 +1,6 @@
 ﻿<script lang="ts">
-	/** SVG chart with hover, tooltip, toggle series. */
-	import { formatNumber, formatSimTimePrecise } from '$lib/utils';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import type { Attachment } from 'svelte/attachments';
 
 	export interface ChartSeries {
 		color: string;
@@ -27,26 +27,19 @@
 	let hoveredIndex = $state<number | null>(null);
 	let hiddenLabels = $state<Set<string>>(new Set());
 
-	function resize(node: HTMLElement) {
-		const observer = new ResizeObserver(entries => {
-			for (const entry of entries) {
-				if (entry.contentRect.width > 0) {
-					containerWidth = entry.contentRect.width;
-				}
-			}
+	/** Skips the 0 width of a hidden chart, where `bind:clientWidth` would collapse it. */
+	const resize: Attachment<HTMLElement> = node => {
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
 		});
 		observer.observe(node);
-		return {
-			destroy() {
-				observer.disconnect();
-			},
-		};
-	}
+		return () => observer.disconnect();
+	};
 
 	const chartWidth = $derived(Math.max(0, containerWidth - padding.left - padding.right));
 	const chartHeight = $derived(Math.max(0, height - padding.top - padding.bottom));
 	const maxVal = $derived.by(() => {
-		let max = useLog ? 0 : 0;
+		let max = 0;
 		let hasData = false;
 
 		series.forEach(s => {
@@ -166,14 +159,11 @@
 			{/if}
 		</div>
 
-		<!-- Interactive Legend -->
 		<div class="flex flex-wrap gap-x-4 gap-y-2 justify-end">
-			{#each series as s, i}
+			{#each series as s (s.label)}
 				<button
 					onclick={() => toggleSeries(s.label)}
-					class="flex gap-2 group items-center text-xs transition-all"
-					class:opacity-40={hiddenLabels.has(s.label)}
-					class:grayscale={hiddenLabels.has(s.label)}
+					class={['flex gap-2 group items-center text-xs transition-all', hiddenLabels.has(s.label) && 'opacity-40 grayscale']}
 					aria-label="Toggle {s.label}"
 				>
 					<span
@@ -203,7 +193,7 @@
 	</div>
 
 	<div
-		use:resize
+		{@attach resize}
 		class="bg-black/20 border border-white/5 overflow-hidden relative rounded-xl select-none w-full"
 		style="height: {height}px;"
 		onpointermove={handlePointerMove}
@@ -211,15 +201,12 @@
 		role="application"
 		aria-label="Interactive chart"
 	>
-		<!-- SVG Chart -->
 		<svg
 			width={containerWidth}
 			{height}
 			viewBox="0 0 {containerWidth} {height}"
 			class="block h-full pointer-events-none w-full"
-			style:pointer-events="none"
 		>
-			<!-- Background -->
 			<defs>
 				<linearGradient
 					id="chartBgGradient"
@@ -244,20 +231,18 @@
 				fill="url(#chartBgGradient)"
 			></rect>
 
-			<!-- Grid Lines & Y Axis Labels -->
 			<g
 				class="text-[10px] font-sans text-slate-400"
 				font-family="'Inter', system-ui, sans-serif"
 				font-size="10"
 			>
-				{#each Array(6) as _, i}
-					{@const y = padding.top + (chartHeight * i) / 5}
-					{@const valRatio = 1 - i / 5}
-					{@const valRaw = useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio}
-					{@const val = valRaw < 0.0001 ? 0 : valRaw}
-					{@const text = formatNumber(val).length > 8 ? val.toExponential(1) : formatNumber(val)}
+				{#each { length: 6 }, i}
+					{const y = $derived(padding.top + (chartHeight * i) / 5)}
+					{const valRatio = $derived(1 - i / 5)}
+					{const valRaw = $derived(useLog ? Math.pow(10, maxVal * valRatio) : maxVal * valRatio)}
+					{const val = $derived(valRaw < 0.0001 ? 0 : valRaw)}
+					{const text = $derived(formatNumber(val).length > 8 ? val.toExponential(1) : formatNumber(val))}
 
-					<!-- Grid Line -->
 					<line
 						x1={padding.left}
 						y1={y}
@@ -267,7 +252,6 @@
 						stroke-width="1"
 					></line>
 
-					<!-- Label -->
 					<text
 						x={padding.left - 8}
 						{y}
@@ -278,15 +262,14 @@
 				{/each}
 			</g>
 
-			<!-- X Axis Labels -->
 			<g
 				class="text-[10px] font-sans text-slate-400"
 				font-family="'Inter', system-ui, sans-serif"
 				font-size="10"
 			>
-				{#each Array(7) as _, i}
-					{@const x = padding.left + (chartWidth * i) / 6}
-					{@const hour = (totalHours * i) / 6}
+				{#each { length: 7 }, i}
+					{const x = $derived(padding.left + (chartWidth * i) / 6)}
+					{const hour = $derived((totalHours * i) / 6)}
 					<text
 						{x}
 						y={height - 10}
@@ -297,7 +280,6 @@
 				{/each}
 			</g>
 
-			<!-- Chart Content Group -->
 			<g transform="translate({padding.left}, {padding.top})">
 				{#if !hasVisibleSeries}
 					<text
@@ -310,10 +292,8 @@
 						font-style="italic">No data visible</text
 					>
 				{:else}
-					<!-- Series Paths -->
-					{#each series as s, i}
+					{#each series as s (s.label)}
 						{#if !hiddenLabels.has(s.label) && s.data?.length > 0}
-							<!-- Area Fill -->
 							{#if s.fillOpacity && s.fillOpacity > 0 && s.data.length > 1}
 								<path
 									d={getAreaPath(s.data)}
@@ -322,7 +302,6 @@
 								></path>
 							{/if}
 
-							<!-- Line Stroke -->
 							{#if s.data.length > 1}
 								<path
 									d={getLinePath(s.data)}
@@ -333,9 +312,8 @@
 									stroke-linejoin="round"
 								></path>
 							{:else}
-								<!-- Single Dot -->
-								{@const val = Math.max(0, transformValue(s.data[0]))}
-								{@const y = chartHeight - chartHeight * (val / maxVal)}
+								{const val = $derived(Math.max(0, transformValue(s.data[0])))}
+								{const y = $derived(chartHeight - chartHeight * (val / maxVal))}
 								<circle
 									cx="0"
 									cy={y}
@@ -346,9 +324,7 @@
 						{/if}
 					{/each}
 
-					<!-- Interactive Overlay Elements -->
 					{#if hoveredIndex !== null && tooltipData.length > 0}
-						<!-- Vertical Line -->
 						<line
 							x1={tooltipX}
 							y1="0"
@@ -359,10 +335,9 @@
 							stroke-dasharray="4 4"
 						></line>
 
-						<!-- Hover Dots -->
-						{#each tooltipData as { s, val }}
-							{@const v = Math.max(0, transformValue(val))}
-							{@const y = chartHeight - chartHeight * (v / maxVal)}
+						{#each tooltipData as { s, val } (s.label)}
+							{const v = $derived(Math.max(0, transformValue(val)))}
+							{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 							<circle
 								cx={tooltipX}
 								cy={y}
@@ -377,7 +352,6 @@
 			</g>
 		</svg>
 
-		<!-- Tooltip HTML Overlay -->
 		{#if hoveredIndex !== null && tooltipData.length > 0}
 			<div
 				class="absolute backdrop-blur-md bg-slate-900/95 border border-slate-600/50 p-3 pointer-events-none rounded-2xl shadow-2xl text-xs z-10"
@@ -385,7 +359,7 @@
 			>
 				<div class="font-bold mb-2 text-slate-50">Time: {formatSimTimePrecise(simulatedTimeMs)}</div>
 				<div class="flex flex-col gap-1.5">
-					{#each tooltipData as { s, val }}
+					{#each tooltipData as { s, val } (s.label)}
 						<div class="flex items-center justify-between gap-4">
 							<div class="flex gap-2 items-center overflow-hidden">
 								<span

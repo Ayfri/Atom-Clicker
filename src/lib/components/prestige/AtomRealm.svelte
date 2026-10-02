@@ -1,30 +1,63 @@
 <script lang="ts">
-	import Achievements from '@components/game/Achievements.svelte';
-	import ActivePowerUps from '@components/hud/ActivePowerUps.svelte';
-	import Atom from '@components/game/Atom.svelte';
-	import Bonus from '@components/game/Bonus.svelte';
-	import Buildings from '@components/game/Buildings.svelte';
-	import Canvas from '@components/game/Canvas.svelte';
-	import Counter from '@components/game/Counter.svelte';
-	import Upgrades from '@components/game/Upgrades.svelte';
-	import { getQuarkShopItem } from '$data/quarkShop';
-	import { RealmTypes } from '$data/realms';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { mobile } from '$stores/window.svelte';
+	import Achievements from '#components/game/Achievements.svelte';
+	import ActivePowerUps from '#components/hud/ActivePowerUps.svelte';
+	import Ambient from '#components/game/Ambient.svelte';
+	import Atom from '#components/game/Atom.svelte';
+	import Bonus from '#components/game/Bonus.svelte';
+	import Counter from '#components/game/Counter.svelte';
+	import Generators from '#components/game/Generators.svelte';
+	import Upgrades from '#components/game/Upgrades.svelte';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
+	import { getQuarkShopItem } from '#data/quarkShop.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { mobile } from '#stores/window.svelte.js';
+	import { ArrowBigUpDash, Factory, Trophy } from '@lucide/svelte';
 
-	let activeTab: 'achievements' | 'buildings' | 'upgrades' = $state('upgrades');
+	type Tab = keyof typeof TAB_LABELS;
+
+	const TAB_ICONS = { achievements: Trophy, generators: Factory, upgrades: ArrowBigUpDash } as const;
+	const TAB_LABELS = { achievements: 'Achievements', generators: 'Generators', upgrades: 'Upgrades' } as const;
+
+	let activeTab: Tab = $state('upgrades');
+
+	/** Generators only get a tab on phones, desktop gives them their own column. */
+	const tabs = $derived(
+		(['upgrades', 'generators', 'achievements'] as const).filter(tab =>
+			tab === 'generators' ? mobile.current && reveals.generators : reveals[tab],
+		),
+	);
+	const shownTab = $derived(tabs.includes(activeTab) ? activeTab : tabs[0]);
 
 	const themeAccent = $derived.by(() => {
 		const themeId = quarksManager.equippedThemes[RealmTypes.ATOMS];
 		return themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined;
 	});
+
+	/** Each owned generator adds a mote in its level color, each prestige and realm reached thickens the dust. */
+	const ambience = $derived.by(() => {
+		const owned = GENERATOR_TYPES.flatMap(type => gameManager.generators[type]?.count ? [gameManager.generators[type]] : []);
+		const colors = new Set([CURRENCIES[CurrenciesTypes.ATOMS].color, ...owned.map(generator => getGeneratorColor(generator.level))]);
+		const protonised = gameManager.totalProtonisesAllTime > 0;
+		const electronized = gameManager.totalElectronizesAllTime > 0;
+		if (protonised) colors.add(CURRENCIES[CurrenciesTypes.PROTONS].color);
+		if (electronized) colors.add(CURRENCIES[CurrenciesTypes.ELECTRONS].color);
+		const realms = [RealmTypes.PHOTONS, RealmTypes.RADIATION].filter(realm => gameManager.realms[realm]?.unlocked).length;
+		const density = 2 + owned.length + (protonised ? 3 : 0) + (electronized ? 3 : 0) + realms * 2;
+		// A Higgs power-up turns the dust gold and makes it rise twice as fast, like the atom spinning faster.
+		if (gameManager.hasBonus) {
+			const higgs = CURRENCIES[CurrenciesTypes.HIGGS_BOSON].color;
+			return { colors: [higgs, higgs, ...colors], density: density + 6, pace: 2 };
+		}
+		return { colors: [...colors], density };
+	});
 </script>
 
-<div class="relative pt-12 transition-all duration-1000 ease-in-out lg:pt-8 {mobile.current ? 'min-h-screen pb-8' : ''}">
-	<Canvas />
-
+<div class={['relative transition-all duration-1000 ease-in-out lg:pt-8', mobile.current && 'min-h-screen pb-8']}>
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
 		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
 			{#if gameManager.totalProtonisesAllTime > 0}
@@ -34,64 +67,69 @@
 				<div class="absolute bg-green-500/15 blur-[180px] bottom-[10%] h-80 left-[10%] rounded-full w-80"></div>
 			{/if}
 		</div>
+		<Ambient accent={themeAccent ?? CURRENCIES[CurrenciesTypes.ATOMS].color} {ambience} realm={RealmTypes.ATOMS} />
 	{/if}
 	<Bonus />
+	<ActivePowerUps />
 
-	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 lg:p-8 text-sm xl:max-w-360">
-		<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
-			<div class="grid grid-flow-col gap-2 auto-cols-fr">
-				<button
-					class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-						activeTab === 'upgrades'
-					) ?
-						'text-white'
-					:	'bg-white/5 hover:bg-white/10'}"
-					style={activeTab === 'upgrades' ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-					data-tutorial-target="upgrades-tab"
-					onclick={() => (activeTab = 'upgrades')}>Upgrades</button
-				>
-				{#if mobile.current}
-					<button
-						class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-							activeTab === 'buildings'
-						) ?
-							'text-white'
-						:	'bg-white/5 hover:bg-white/10'}"
-						style={activeTab === 'buildings' ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-						data-tutorial-target="buildings-tab"
-						onclick={() => (activeTab = 'buildings')}>Buildings</button
-					>
+	<!-- On desktop the side panels are 100dvh - 204px tall: this padding, the tabs row (or the generators' pt-12) and the footer. -->
+	<div class="game-container gap-8 grid lg:max-w-4xl mx-auto p-4 max-lg:pt-1 lg:p-8 text-sm xl:max-w-360">
+		{#if tabs.length > 0}
+			<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
+				{#if tabs.length > 1}
+					<!-- No backdrop blur: the ambient dust behind moves every frame, so the blur would be recomputed every frame too. -->
+					<div class="rounded-xl bg-black/25 p-1" in:reveal style:--c={themeAccent ?? 'var(--color-accent-400)'}>
+						<div class="relative grid auto-cols-fr grid-flow-col" role="tablist">
+							<!-- One pill slides under the tabs with `translate` only, the tabs themselves never repaint a background. -->
+							<div
+								aria-hidden="true"
+								class="pointer-events-none absolute inset-y-0 left-0 w-[calc(100%/var(--n))] translate-x-[calc(var(--i)*100%)] rounded-lg border border-(--c)/45 bg-(--c)/20 shadow-[0_0_14px_-5px_var(--c)] transition-[translate] duration-300 ease-[cubic-bezier(0.34,1.3,0.64,1)]"
+								style:--i={tabs.indexOf(shownTab)}
+								style:--n={tabs.length}
+							></div>
+							{#each tabs as tab (tab)}
+								{const Icon = $derived(TAB_ICONS[tab])}
+								{const selected = $derived(shownTab === tab)}
+								<button
+									aria-selected={selected}
+									class={[
+										'group relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-1.5 text-xs font-medium transition-colors sm:text-sm',
+										selected ? 'text-white' : 'text-white/55 hover:text-white/85',
+									]}
+									data-hint="{tab}-tab"
+									id="tab-{tab}"
+									in:reveal={{ y: 0 }}
+									onclick={() => (activeTab = tab)}
+									role="tab"
+								>
+									<Icon class="size-4 shrink-0 transition-transform duration-300 max-[22rem]:hidden {selected ? 'scale-110 text-(--c)' : 'group-hover:scale-110'}" />
+									{TAB_LABELS[tab]}
+								</button>
+							{/each}
+						</div>
+					</div>
 				{/if}
-				<button
-					class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-						activeTab === 'achievements'
-					) ?
-						'text-white'
-					:	'bg-white/5 hover:bg-white/10'}"
-					id="tab-achievements"
-					style={activeTab === 'achievements' ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-					onclick={() => (activeTab = 'achievements')}
-				>
-					Achievements
-				</button>
+				<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
+				<div>
+					{#if reveals.upgrades}
+						<div class={['rounded-lg', shownTab !== 'upgrades' && 'hidden']} in:reveal><Upgrades /></div>
+					{/if}
+					{#if reveals.achievements}
+						<div class={['rounded-lg', shownTab !== 'achievements' && 'hidden']} in:reveal><Achievements /></div>
+					{/if}
+					{#if mobile.current && reveals.generators}
+						<div class={['rounded-lg', shownTab !== 'generators' && 'hidden']} in:reveal><Generators /></div>
+					{/if}
+				</div>
 			</div>
-			<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
-			<div class="mt-1">
-				<div class:hidden={activeTab !== 'upgrades'}><Upgrades /></div>
-				<div class:hidden={activeTab !== 'achievements'}><Achievements /></div>
-				{#if mobile.current}
-					<div class:hidden={activeTab !== 'buildings'}><Buildings /></div>
-				{/if}
-			</div>
-		</div>
-		<div class="grid-area-[atom] relative z-0 flex flex-col items-center justify-start">
+		{/if}
+		<div class="grid-area-[atom] relative z-0 flex flex-col items-center justify-start max-lg:landscape:sticky max-lg:landscape:top-0">
 			<Counter />
 			<Atom />
-			<ActivePowerUps />
 		</div>
-		{#if !mobile.current}
-			<div class="grid-area-[buildings] pt-12" data-tutorial-target="buildings-panel">
-				<Buildings />
+		{#if !mobile.current && reveals.generators}
+			<div class="grid-area-[generators] pt-12">
+				<div class="rounded-lg" in:reveal><Generators /></div>
 			</div>
 		{/if}
 	</div>
@@ -99,7 +137,7 @@
 
 <style>
 	.game-container {
-		grid-template-areas: 'upgrades atom buildings';
+		grid-template-areas: 'upgrades atom generators';
 		grid-template-columns: 300px 1fr 300px;
 	}
 
@@ -115,10 +153,20 @@
 	/* Must stay in sync with MOBILE_QUERY, the `mobile` rune decides which children are rendered into these areas. */
 	@media (width < 64rem) {
 		.game-container {
-			grid-template-areas: 'atom' 'upgrades' 'buildings';
+			grid-template-areas: 'atom' 'upgrades' 'generators';
 			grid-template-columns: minmax(0, 1fr);
 			max-width: 100%;
 			overflow-x: hidden;
+		}
+	}
+
+	/* A phone on its side has no height for the stacked layout, so the atom stays in view beside the tabs. */
+	@media (width < 64rem) and (orientation: landscape) {
+		.game-container {
+			align-items: start;
+			gap: 1rem;
+			grid-template-areas: 'atom upgrades';
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		}
 	}
 </style>

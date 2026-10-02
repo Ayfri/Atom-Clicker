@@ -1,21 +1,26 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { ClassValue } from 'svelte/elements';
 
 	interface Props {
 		children: Snippet;
-		class?: string;
+		class?: ClassValue;
 		disabled?: boolean;
 		holdDuration?: number;
 		onHoldComplete: () => void;
 		style?: string;
 	}
 
-	let { children, class: className = '', disabled = false, holdDuration = 2000, onHoldComplete, style = '' }: Props = $props();
+	let { children, class: className, disabled = false, holdDuration = 2000, onHoldComplete, style = '' }: Props = $props();
 
 	let progress = $state(0);
 	let holding = $state(false);
 	let frame: number | null = null;
 	let startTime = 0;
+
+	$effect(() => () => {
+		if (frame !== null) cancelAnimationFrame(frame);
+	});
 
 	const clipPath = $derived(`inset(0 ${100 - progress}% 0 0)`);
 	const glowSpread = $derived(6 + (progress / 100) * 22);
@@ -39,15 +44,23 @@
 		frame = requestAnimationFrame(tick);
 	}
 
-	function startHold(event: PointerEvent) {
+	function startHold() {
 		if (disabled || holding) return;
+		holding = true;
+		startTime = performance.now();
+		frame = requestAnimationFrame(tick);
+	}
+
+	function startPointerHold(event: PointerEvent) {
 		// Capture keeps the hold alive when the finger drifts off the button, which touch devices do constantly.
 		try {
 			(event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
 		} catch {}
-		holding = true;
-		startTime = performance.now();
-		frame = requestAnimationFrame(tick);
+		startHold();
+	}
+
+	function startKeyHold(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') startHold();
 	}
 
 	function cancelHold() {
@@ -59,13 +72,15 @@
 </script>
 
 <button
-	class="hold-button relative overflow-hidden {className}"
-	class:holding
+	class={['hold-button relative overflow-hidden', className, { holding }]}
 	{disabled}
 	{style}
 	style:box-shadow={boxShadow}
+	onblur={cancelHold}
+	onkeydown={startKeyHold}
+	onkeyup={cancelHold}
 	onpointercancel={cancelHold}
-	onpointerdown={startHold}
+	onpointerdown={startPointerHold}
 	onpointerleave={cancelHold}
 	onpointerup={cancelHold}
 >
@@ -78,7 +93,7 @@
 
 	{#if holding}
 		<div class="hold-button-sparks absolute inset-0">
-			{#each Array(10) as _, i}
+			{#each { length: 10 }, i}
 				<span
 					class="hold-spark"
 					style="--i: {i}; --left: {8 + Math.random() * 84}%; --delay: {Math.random() * 0.6}s; --duration: {0.7 + Math.random() * 0.5}s;"
@@ -95,7 +110,9 @@
 
 <style>
 	.hold-button {
-		transition: box-shadow 0.15s ease-out;
+		transition:
+			box-shadow 0.15s ease-out,
+			translate 0.2s ease-out;
 		touch-action: none;
 	}
 
@@ -165,6 +182,13 @@
 		box-shadow: 0 0 8px 2px var(--hold-glow, rgba(255, 255, 255, 0.6));
 		opacity: 0;
 		animation: spark-rise var(--duration) ease-out var(--delay) infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.hold-button.holding .hold-button-shimmer,
+		.hold-spark {
+			animation: none;
+		}
 	}
 
 	@keyframes spark-rise {

@@ -1,35 +1,37 @@
 <script lang="ts">
-	import { FeatureTypes } from '$data/features';
-	import { getQuarkShopItem } from '$data/quarkShop';
-	import type { RealmConfig } from '$helpers/RealmManager.svelte';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { quarksManager } from '$helpers/QuarksManager.svelte';
-	import { realmManager } from '$helpers/RealmManager.svelte';
-	import { setGlobals } from '$lib/globals';
-	import { formatNumber } from '$lib/utils';
-	import { isLocalStorageUnavailable } from '$lib/utils/safeLocalStorage';
-	import { autoBuyManager } from '$stores/autoBuy.svelte';
-	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import { saveRecovery } from '$stores/saveRecovery';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-	import { toastStore } from '$stores/toasts.svelte';
-	import { ui } from '$stores/ui.svelte';
-	import { mobile } from '$stores/window.svelte';
-	import Levels from '@components/game/Levels.svelte';
-	import NavBar from '@components/layout/NavBar.svelte';
-	import RealmFooter from '@components/layout/RealmFooter.svelte';
-	import RemoteBanner from '@components/layout/RemoteBanner.svelte';
-	import Toaster from '@components/layout/Toaster.svelte';
-	import OfflineProgress from '@components/modals/OfflineProgress.svelte';
-	import SaveRecovery from '@components/modals/SaveRecovery.svelte';
-	import AtomRealm from '@components/prestige/AtomRealm.svelte';
-	import PhotonRealm from '@components/prestige/PhotonRealm.svelte';
-	import RadiationRealm from '@components/prestige/RadiationRealm.svelte';
-	import AutoSaveIndicator from '@components/system/AutoSaveIndicator.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import { onDestroy, onMount, untrack, type Component } from 'svelte';
+	import { COLLIDER_REFRESH_MS } from '#data/collider.js';
+	import { FeatureTypes } from '#data/features.js';
+	import { getQuarkShopItem } from '#data/quarkShop.js';
+	import type { RealmConfig } from '#helpers/RealmManager.svelte.js';
+	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { reveals } from '#helpers/reveals.svelte.js';
+	import { setGlobals } from '#lib/globals.js';
+	import { isLocalStorageUnavailable } from '#lib/utils/safeLocalStorage.js';
+	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
+	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
+	import { mobile } from '#stores/window.svelte.js';
+	import Canvas from '#components/game/Canvas.svelte';
+	import Levels from '#components/game/Levels.svelte';
+	import NavBar from '#components/layout/NavBar.svelte';
+	import RealmFooter from '#components/layout/RealmFooter.svelte';
+	import RealmSwitcher from '#components/layout/RealmSwitcher.svelte';
+	import RemoteBanner from '#components/layout/RemoteBanner.svelte';
+	import Toaster from '#components/layout/Toaster.svelte';
+	import OfflineProgress from '#components/modals/OfflineProgress.svelte';
+	import SaveRecovery from '#components/modals/SaveRecovery.svelte';
+	import AtomRealm from '#components/prestige/AtomRealm.svelte';
+	import PhotonRealm from '#components/prestige/PhotonRealm.svelte';
+	import RadiationRealm from '#components/prestige/RadiationRealm.svelte';
+	import AutoSaveIndicator from '#components/system/AutoSaveIndicator.svelte';
+	import { onMount, untrack, type Component } from 'svelte';
 
-	// Realm component mapping
 	const realmComponents: Record<string, Component> = {
 		AtomRealm: AtomRealm,
 		PhotonRealm: PhotonRealm,
@@ -43,24 +45,29 @@
 		return theme?.background ?? realm.background;
 	}
 
+	const selectedIndex = $derived(realmManager.selectedIndex);
+
 	autoBuyManager.init();
 	autoUpgradeManager.init();
 
 	const SAVE_INTERVAL = 1000;
 	const CLOUD_PULL_WARNING_THRESHOLD_MS = 5_000;
-	// Long gaps (background tab, stalled frame) are clamped so production never jumps, offline progress handles those.
-	const MAX_FRAME_MS = 100;
+	/**
+	 * Gaps up to a second are paid in full at the online rate, covering stalled frames and background tabs, whose timers
+	 * run at 1 Hz. Anything longer means the tab was frozen or throttled to one timer per minute, see `awayMs`.
+	 */
+	const MAX_ONLINE_GAP_MS = 1000;
 	/**
 	 * Production is committed on a timer at this rate, not from a rAF loop: a pending rAF makes Chrome run a full main
 	 * frame at the display rate (179 per second on a 179 Hz screen), while the counters only change at 50 Hz.
 	 */
 	const COMMIT_INTERVAL_MS = 20;
-	let saveLoop: ReturnType<typeof setInterval>;
-	let commitLoop: ReturnType<typeof setInterval>;
 	let hasCheckedCloudSaveOnLoad = false;
 	let accountBootstrapped = $state(false);
 	let lastUpdateTime = 0;
 	let pendingAtoms = 0;
+	/** Time past `MAX_ONLINE_GAP_MS`, piled up while hidden and paid at the offline rates once the player is back. */
+	let awayMs = 0;
 	let quarkUserId: string | null = null;
 
 	function commitPendingAtoms() {
@@ -71,9 +78,16 @@
 
 	function update() {
 		const now = performance.now();
-		pendingAtoms += (gameManager.atomsPerSecond * Math.min(now - lastUpdateTime, MAX_FRAME_MS)) / 1000;
+		const elapsed = now - lastUpdateTime;
+		const paidMs = Math.min(elapsed, MAX_ONLINE_GAP_MS);
+		pendingAtoms += ((gameManager.atomsPerSecond + gameManager.clickPower * gameManager.autoClicksPerSecond) * paidMs) / 1000;
 		lastUpdateTime = now;
 		commitPendingAtoms();
+
+		awayMs += elapsed - paidMs;
+		if (document.hidden) return;
+		if (awayMs > 0 && gameManager.catchUpOffline(awayMs) && !ui.activeModal) ui.openModal(OfflineProgress);
+		awayMs = 0;
 	}
 
 	async function checkCloudSaveOnLoad() {
@@ -123,6 +137,24 @@
 		});
 	});
 
+	/** Late enough that the One Tap prompt offers to keep real progress instead of greeting a new player with a login. */
+	const ONE_TAP_PLAY_TIME_MS = 10 * 60_000;
+	const oneTapReady = $derived(accountBootstrapped && !supabaseAuth.isAuthenticated && gameManager.inGameTime >= ONE_TAP_PLAY_TIME_MS);
+
+	$effect(() => {
+		if (oneTapReady) supabaseAuth.promptGoogleOneTap();
+	});
+
+	/** Signing in or out swaps the player half of the Collider state, so it re-syncs on each change. */
+	$effect(() => {
+		if (!accountBootstrapped || !gameManager.features[FeatureTypes.COLLIDER]) return;
+
+		const signedIn = supabaseAuth.isAuthenticated;
+		untrack(() => colliderManager.sync(signedIn));
+		const interval = setInterval(() => colliderManager.sync(), COLLIDER_REFRESH_MS);
+		return () => clearInterval(interval);
+	});
+
 	onMount(() => {
 		gameManager.initialize();
 
@@ -138,17 +170,14 @@
 			ui.openModal(OfflineProgress);
 		}
 
-		const tutorial = gameManager.tutorialManager.state;
-		if (!tutorial.completed && !tutorial.active) {
-			gameManager.tutorialManager.start();
-		}
+		reveals.arm();
 
 		lastUpdateTime = performance.now();
-		commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
+		const commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
 
 		setGlobals();
 
-		saveLoop = setInterval(() => {
+		const saveLoop = setInterval(() => {
 			try {
 				commitPendingAtoms();
 				gameManager.save();
@@ -158,13 +187,13 @@
 		}, SAVE_INTERVAL);
 
 		bootstrapAccount();
-	});
 
-	onDestroy(() => {
-		if (saveLoop) clearInterval(saveLoop);
-		clearInterval(commitLoop);
-		commitPendingAtoms();
-		gameManager.cleanup();
+		return () => {
+			clearInterval(saveLoop);
+			clearInterval(commitLoop);
+			commitPendingAtoms();
+			gameManager.cleanup();
+		};
 	});
 </script>
 
@@ -173,33 +202,8 @@
 	<NavBar />
 	<Toaster />
 	<AutoSaveIndicator />
-
-	{#if realmManager.availableRealms.length > 1}
-		<!-- The panel itself is click-through: at phone widths it sits over the top of the nav grid, and its
-		     own padding would otherwise swallow taps meant for the button underneath. -->
-		<div
-			class="fixed right-4 z-30 bg-black/10 backdrop-blur-xs border border-white/10 rounded-lg p-1 transition-all duration-300 pointer-events-none"
-			style="top: {mobile.current ? 'calc(var(--mobile-nav-bottom, 33vh) + 1rem)' : 'calc(var(--banner-height) + 5rem)'}"
-		>
-			<div class="flex flex-col gap-1">
-				{#each realmManager.availableRealms as realm (realm.id)}
-					<button
-						class="flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all duration-200 hover:scale-105 pointer-events-auto {(
-							realmManager.selectedRealmId === realm.id
-						) ?
-							'bg-accent-500/60 border-accent-400/50'
-						:	'bg-white/5 hover:bg-white/10'}"
-						id="realm-{realm.id}"
-						onclick={() => realmManager.selectRealm(realm.id)}
-						title="{realm.title} - {formatNumber(realmManager.realmValues[realm.id] ?? 0)} {realm.currency.name.toLowerCase()}"
-					>
-						<Currency name={realm.currency.name} />
-						<div class="text-xs text-white/80">{formatNumber(realmManager.realmValues[realm.id] ?? 0, 1)}</div>
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
+	<Canvas />
+	<RealmSwitcher />
 
 	<main
 		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : (
@@ -211,31 +215,32 @@
 			<Levels />
 		{/if}
 
-		<!-- Use transform and opacity for virtual desktop swipe effect -->
+		<!-- Realms sit side by side and swing in like the faces of a cube, the leaving one first, the arriving one after
+		     a short delay adding up to REALM_SWITCH_MS. Layout containment makes the panel the containing block of its fixed
+		     children, even with reduced motion where it has no transform. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
-			{@const RealmComponent = realmComponents[realm.componentId]}
-			{@const background = getRealmBackground(realm)}
+			{const RealmComponent = $derived(realmComponents[realm.componentId])}
+			{const background = $derived(getRealmBackground(realm))}
+			{const side = $derived(Math.sign(i - selectedIndex))}
 
 			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
-			     animations. `transition-discrete` holds it visible until the slide out ends. -->
+			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
+			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
 			<div
-				class="absolute inset-x-0 bottom-0 transition-all transition-discrete duration-300 ease-in-out overflow-hidden {(
-					realmManager.selectedRealm.id !== realm.id
+				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
+					side
 				) ?
-					'[content-visibility:hidden]'
-				:	''}"
-				class:opacity-100={realmManager.selectedRealm.id === realm.id}
-				class:translate-x-0={realmManager.selectedRealm.id === realm.id}
-				class:opacity-0={realmManager.selectedRealm.id !== realm.id}
-				class:pointer-events-none={realmManager.selectedRealm.id !== realm.id}
-				style="top: {mobile.current ? 'calc(3rem + var(--banner-height))' : '0'}; transform: translateX({(
-					realmManager.selectedRealm.id === realm.id
-				) ?
-					'0'
-				: i > realmManager.availableRealms.findIndex(r => r.id === realmManager.selectedRealm.id) ? '100%'
-				: '-100%'}); {background ? `background-image: ${background};` : ''}"
+					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
+				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
+				style="top: {mobile.current ? 'var(--banner-height)' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
+					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`
+				:	'translateX(0)'}; {background ? `background-image: ${background};` : ''}"
 			>
-				<div class="absolute inset-0 overflow-y-auto custom-scrollbar">
+				<!-- On phones the realm background runs behind the level bar while the content scrolls below it. -->
+				<div
+					class="absolute inset-0 overflow-y-auto custom-scrollbar"
+					style:top={mobile.current && gameManager.features[FeatureTypes.LEVELS] ? '3rem' : undefined}
+				>
 					<div class="flex flex-col min-h-full">
 						<div class="flex-1">
 							<RealmComponent />
@@ -246,7 +251,7 @@
 			</div>
 		{/each}
 
-		{#if $saveRecovery.hasError}
+		{#if saveRecovery.hasError}
 			<SaveRecovery onClose={() => saveRecovery.clearError()} />
 		{/if}
 	</main>

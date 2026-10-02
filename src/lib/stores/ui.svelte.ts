@@ -1,4 +1,4 @@
-import type { Component } from 'svelte';
+import { type Component, untrack } from 'svelte';
 
 type ModalComponent = Component<{ onClose: () => void }>;
 type ModalLoader = () => Promise<{ default: ModalComponent }>;
@@ -7,6 +7,7 @@ class UIStore {
 	#activeModal = $state<ModalComponent | null>(null);
 	#activeModalId = $state<string | null>(null);
 	#activeTab = $state<string | null>(null);
+	#covers = $state(0);
 	#loaded = new Map<string, ModalComponent>();
 	#settingsLoader: ModalLoader | null = null;
 
@@ -18,7 +19,7 @@ class UIStore {
 		this.#activeModal = value;
 	}
 
-	/** Identity of the open modal, so gated tutorial steps can match it without importing its (lazily loaded) component. */
+	/** Identity of the open modal, so hints can match it without importing its (lazily loaded) component. */
 	get activeModalId() {
 		return this.#activeModalId;
 	}
@@ -29,6 +30,20 @@ class UIStore {
 
 	set activeTab(value: string | null) {
 		this.#activeTab = value;
+	}
+
+	/**
+	 * A modal fills the whole viewport, so the realm canvases behind it pause: an IntersectionObserver doesn't see an overlay,
+	 * and a loop left running forces a main frame per vsync that also restyles every animation of the modal.
+	 */
+	get covered() {
+		return this.#covers > 0;
+	}
+
+	/** Registers a viewport-filling overlay, returns its release. Untracked, so an effect calling it doesn't depend on the count it changes. */
+	cover() {
+		untrack(() => this.#covers++);
+		return () => untrack(() => this.#covers--);
 	}
 
 	openModal(component: ModalComponent, tab: string | null = null, id: string | null = null) {

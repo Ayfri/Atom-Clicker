@@ -1,7 +1,7 @@
-import { browser } from '$app/environment';
-import { getJSON, setItem } from '$lib/utils/safeLocalStorage';
-import { supabaseAuth } from '$stores/supabaseAuth.svelte';
-import type { GameMessage } from '$lib/types/supabase';
+import { browser } from '$app/env';
+import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+import type { GameMessage } from '#lib/types/supabase.js';
 
 export class RemoteMessageStore {
 	message = $state<GameMessage | null>(null);

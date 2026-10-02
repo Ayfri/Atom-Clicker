@@ -1,82 +1,61 @@
-import { gameManager } from '$helpers/GameManager.svelte';
-import { getUpgradesWithEffects } from '$helpers/effects';
-import type { BuildingType } from '$data/buildings';
-import { browser } from '$app/environment';
+import { gameManager } from '#helpers/GameManager.svelte.js';
+import type { GeneratorType } from '#data/generators.js';
+import { browser } from '$app/env';
+import { untrack } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
+
+/** Auto-buy periods are 1s at best, so a quarter-second check keeps every purchase within 250ms of its schedule. */
+const CHECK_INTERVAL_MS = 250;
 
 class AutoBuyManager {
-	recentlyAutoPurchasedBuildings = $state(new Map<BuildingType, number>());
-	nextFireTimes = $state(new Map<BuildingType, number>());
-	private timers: Record<string, ReturnType<typeof setInterval>> = {};
+	recentlyAutoPurchasedGenerators = new SvelteMap<GeneratorType, number>();
+	nextFireTimes = new SvelteMap<GeneratorType, number>();
 
-	get autoBuyIntervals() {
-		const autoBuyUpgrades = getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_buy' });
-		const intervals: Partial<Record<BuildingType, number>> = {};
+	purchaseGenerator(type: GeneratorType) {
+		if (!gameManager.purchaseGenerator(type, 1)) return;
 
-		autoBuyUpgrades.forEach((upgrade) => {
-			if (!upgrade.effects) return;
-
-			upgrade.effects.forEach((effect) => {
-				if (effect.type === 'auto_buy' && effect.target) {
-					const buildingType = effect.target as BuildingType;
-					// Only set up interval if automation is enabled for this building
-					if (gameManager.settings.automation.buildings.includes(buildingType)) {
-						intervals[buildingType] = effect.apply(intervals[buildingType] || 30000, gameManager);
-					}
-				}
-			});
-		});
-
-		return intervals;
+		this.recentlyAutoPurchasedGenerators.set(type, (this.recentlyAutoPurchasedGenerators.get(type) ?? 0) + 1);
+		setTimeout(() => {
+			const current = this.recentlyAutoPurchasedGenerators.get(type) ?? 0;
+			if (current <= 1) this.recentlyAutoPurchasedGenerators.delete(type);
+			else this.recentlyAutoPurchasedGenerators.set(type, current - 1);
+		}, 2000);
 	}
 
-	purchaseBuilding(type: BuildingType) {
-		try {
-			const success = gameManager.purchaseBuilding(type, 1);
+	/**
+	 * Schedules live in `nextFireTimes` instead of one `setInterval` per generator: every upgrade purchase rebuilds the
+	 * interval map, and restarting the timers on each rebuild pushed pending auto-buys back for as long as upgrades kept coming.
+	 */
+	private check() {
+		const now = Date.now();
+		const intervals = gameManager.autoBuyIntervals;
 
-			if (success) {
-				// Add visual feedback
-				const current = this.recentlyAutoPurchasedBuildings.get(type) || 0;
-				this.recentlyAutoPurchasedBuildings.set(type, current + 1);
+		for (const type of this.nextFireTimes.keys()) {
+			if (!(type in intervals)) this.nextFireTimes.delete(type);
+		}
 
-				setTimeout(() => {
-					const current = this.recentlyAutoPurchasedBuildings.get(type) || 0;
-					if (current <= 1) {
-						this.recentlyAutoPurchasedBuildings.delete(type);
-					} else {
-						this.recentlyAutoPurchasedBuildings.set(type, current - 1);
-					}
-				}, 2000);
+		for (const [type, interval] of Object.entries(intervals) as [GeneratorType, number][]) {
+			const next = this.nextFireTimes.get(type);
+			if (next === undefined) {
+				this.nextFireTimes.set(type, now + interval);
+			} else if (now >= next) {
+				this.purchaseGenerator(type);
+				this.nextFireTimes.set(type, Math.max(next + interval, now));
 			}
-			return success;
-		} catch (error) {
-			return false;
 		}
 	}
 
 	init() {
-		if (browser) {
-			$effect(() => {
-				const intervals = this.autoBuyIntervals;
-
-				// Clear existing timers
-				Object.values(this.timers).forEach(clearInterval);
-				this.timers = {};
-				this.nextFireTimes.clear();
-
-				Object.entries(intervals).forEach(([buildingType, interval]) => {
-					const type = buildingType as BuildingType;
-					this.nextFireTimes.set(type, Date.now() + interval);
-					this.timers[buildingType] = setInterval(() => {
-						this.purchaseBuilding(type);
-						this.nextFireTimes.set(type, Date.now() + interval);
-					}, interval);
-				});
-
-				return () => {
-					Object.values(this.timers).forEach(clearInterval);
-				};
-			});
-		}
+		if (!browser) return;
+		$effect(() => {
+			if (Object.keys(gameManager.autoBuyIntervals).length === 0) {
+				untrack(() => this.nextFireTimes.clear());
+				return;
+			}
+			untrack(() => this.check());
+			const timer = setInterval(() => this.check(), CHECK_INTERVAL_MS);
+			return () => clearInterval(timer);
+		});
 	}
 }
 

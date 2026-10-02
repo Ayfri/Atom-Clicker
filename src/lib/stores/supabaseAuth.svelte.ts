@@ -1,19 +1,30 @@
 import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
-import { browser } from '$app/environment';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$env/static/public';
-import type { GameState } from '$lib/types';
-import type { Database, Json, Profile } from '$lib/types/supabase';
-import { isLocalStorageAvailable } from '$lib/utils/safeLocalStorage';
-import { multiTabDetector } from '$stores/multiTab.svelte';
-import { isValidGameState, SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '$helpers/saves';
+import { browser } from '$app/env';
+import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
+import type { GameState } from '#lib/types.js';
+import type { Database, Json, Profile } from '#lib/types/supabase.js';
+import { isLocalStorageAvailable } from '#lib/utils/safeLocalStorage.js';
+import { multiTabDetector } from '#stores/multiTab.svelte.js';
+import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/saves.js';
 
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
 export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
 
+/** The profile columns the client reads, the save blob stays out of it and is only fetched by the cloud save calls. */
+type AccountProfile = Pick<Profile, 'id' | 'picture' | 'username'>;
+const PROFILE_COLUMNS = 'id, picture, username';
+
+export type CloudSaveInfo = GameState & { lastSaveDate: number | null };
+
 export class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
-	profile = $state<Profile | null>(null);
+	profile = $state.raw<AccountProfile | null>(null);
+	/** The profile row wins over the OAuth provider metadata, which only seeds it. */
+	avatarUrl = $derived<string | null>(this.profile?.picture || this.user?.user_metadata?.avatar_url || this.user?.user_metadata?.picture || null);
+	displayName = $derived<string | null>(
+		this.profile?.username || this.user?.user_metadata?.username || this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || null,
+	);
 	loading = $state(true);
 	supabase = $state<SupabaseClient<Database> | null>(null);
 	error = $state<Error | null>(null);
@@ -100,13 +111,13 @@ export class SupabaseAuth {
 
 				console.log('Auth state change for user:', user.id);
 
-				let { data: profile, error } = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
+				let { data: profile, error } = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 
 				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
 				if (error && error.code === 'PGRST116') {
 					console.log('Profile not found yet, retrying in 1s...');
-					await new Promise(resolve => setTimeout(resolve, 1000));
-					const retry = await this.supabase!.from('profiles').select('*').eq('id', user.id).single();
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+					const retry = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 					profile = retry.data;
 					error = retry.error;
 				}
@@ -116,12 +127,7 @@ export class SupabaseAuth {
 					console.log('Found profile:', profile.username);
 
 					// Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence.
-					void this.supabase!.from('profiles')
-						.update({
-							is_online: true,
-							updated_at: new Date().toISOString(),
-						})
-						.eq('id', user.id);
+					void (this.supabase!).from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id);
 
 					this.startHeartbeat();
 				} else {
@@ -149,20 +155,20 @@ export class SupabaseAuth {
 	private startHeartbeat() {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
-			if (this.currentSession?.access_token) {
-				try {
-					await fetch('/api/auth/status', {
-						method: 'POST',
-						headers: {
-							'Authorization': `Bearer ${this.currentSession.access_token}`,
+				if (this.currentSession?.access_token) {
+					try {
+						await fetch('/api/auth/status', {
+							method: 'POST',
+							headers: {
+								'Authorization': `Bearer ${this.currentSession.access_token}`,
 							'Content-Type': 'application/json',
-						},
+							},
 						body: JSON.stringify({ is_online: true }),
-					});
+						});
 				} catch (err) {
-					console.error('Heartbeat failed:', err);
+						console.error('Heartbeat failed:', err);
+					}
 				}
-			}
 		}, 45_000); // Pulse every 45 seconds
 	}
 
@@ -223,6 +229,48 @@ export class SupabaseAuth {
 		}
 	}
 
+	private oneTapPrompted = false;
+
+	/** Signs in from Google's One Tap prompt without leaving the page, Google itself backs off for days once a player dismisses it. */
+	async promptGoogleOneTap() {
+		// FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't.
+		if (!PUBLIC_GOOGLE_CLIENT_ID || !this.supabase || this.isAuthenticated || this.oneTapPrompted || window.self !== window.top) return;
+		this.oneTapPrompted = true;
+
+		try {
+			await new Promise((resolve, reject) => {
+				const script = document.createElement('script');
+				script.src = 'https://accounts.google.com/gsi/client';
+				script.onload = resolve;
+				script.onerror = reject;
+				document.head.append(script);
+			});
+
+			/** Google signs the SHA-256 of the nonce into the ID token, Supabase hashes the raw one to compare them. */
+			const nonce = crypto.randomUUID();
+			const hashedNonce = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce))).toHex();
+
+			window.google!.accounts.id.initialize({
+				callback: async ({ credential }) => {
+					const { error } = await this.supabase!.auth.signInWithIdToken({ nonce, provider: 'google', token: credential });
+					if (error) {
+						console.error('Google One Tap sign in error:', error);
+						this.error = error;
+					}
+				},
+				client_id: PUBLIC_GOOGLE_CLIENT_ID,
+				context: 'signin',
+				itp_support: true,
+				nonce: hashedNonce,
+				use_fedcm_for_prompt: true,
+			});
+			window.google!.accounts.id.prompt();
+		} catch (err) {
+			// Content blockers commonly block the Google script, the regular sign in dialog still works without it.
+			console.warn('Google One Tap unavailable:', err);
+		}
+	}
+
 	private popupListener: ((event: MessageEvent) => void) | null = null;
 
 	private listenForPopupCallback(popup: Window) {
@@ -238,9 +286,8 @@ export class SupabaseAuth {
 			const accessToken = hash.get('access_token');
 			const refreshToken = hash.get('refresh_token');
 			try {
-				if (code) await this.supabase!.auth.exchangeCodeForSession(code);
-				else if (accessToken && refreshToken) await this.supabase!.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-			} catch (err) {
+				if (code) await (this.supabase!).auth.exchangeCodeForSession(code); else if (accessToken && refreshToken) await (this.supabase!).auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+			} catch(err) {
 				console.error('Popup sign in error:', err);
 				this.error = err as Error;
 			}
@@ -252,17 +299,14 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (user) {
+			if (this.user) {
 				await this.supabase
 					.from('profiles')
 					.update({
 						is_online: false,
 						updated_at: new Date().toISOString(),
 					})
-					.eq('id', user.id);
+					.eq('id', this.user.id);
 			}
 
 			const { error } = await this.supabase.auth.signOut();
@@ -276,14 +320,11 @@ export class SupabaseAuth {
 		}
 	}
 
-	async updateProfile(updates: Partial<Profile>) {
+	async updateProfile(updates: Partial<Pick<Profile, 'picture' | 'username'>>) {
 		if (!browser || !this.supabase) return;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) throw new Error('No authenticated user');
+			if (!this.user) throw new Error('No authenticated user');
 
 			const { error } = await this.supabase
 				.from('profiles')
@@ -291,7 +332,7 @@ export class SupabaseAuth {
 					...updates,
 					updated_at: new Date().toISOString(),
 				})
-				.eq('id', user.id);
+				.eq('id', this.user.id);
 
 			if (error) throw error;
 
@@ -304,38 +345,25 @@ export class SupabaseAuth {
 		}
 	}
 
-	async saveGameToCloud(currentState: GameState) {
-		if (!browser || !this.supabase) return;
+	/** Returns what now sits in the cloud, a snapshot so it stops following the live game state. */
+	async saveGameToCloud(currentState: GameState): Promise<CloudSaveInfo | null> {
+		if (!browser || !this.supabase) return null;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) throw new Error('No authenticated user');
+			if (!this.user) throw new Error('No authenticated user');
 
-			const saveData = {
-				...currentState,
-				version: SAVE_VERSION,
-				lastSaveDate: Date.now(),
-			} as unknown as Json;
+			const saveData: CloudSaveInfo = $state.snapshot({ ...currentState, lastSaveDate: Date.now(), version: SAVE_VERSION });
 
 			const { error } = await this.supabase
 				.from('profiles')
 				.update({
-					save: saveData,
+					save: saveData as unknown as Json,
 					updated_at: new Date().toISOString(),
 				})
-				.eq('id', user.id);
+				.eq('id', this.user.id);
 
 			if (error) throw error;
-
-			if (this.profile) {
-				this.profile = {
-					...this.profile,
-					save: saveData,
-					updated_at: new Date().toISOString(),
-				};
-			}
+			return saveData;
 		} catch (err) {
 			console.error('Error saving game to cloud:', err);
 			throw err;
@@ -346,22 +374,15 @@ export class SupabaseAuth {
 		if (!browser || !this.supabase) return null;
 
 		try {
-			const {
-				data: { user },
-			} = await this.supabase.auth.getUser();
-			if (!user) throw new Error('No authenticated user');
+			if (!this.user) throw new Error('No authenticated user');
 
-			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', user.id).single();
+			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
 
 			if (error) throw error;
 			if (!profile?.save) return null;
 
-			const migratedState = migrateSavedState(profile.save);
-
-			if (migratedState && isValidGameState(migratedState)) {
-				return migratedState as GameState;
-			}
-			return null;
+			/** The repaired state, since `loadSaveData` skips missing keys and would keep this device's values for them. */
+			return validateAndRepairGameState(migrateSavedState(profile.save)).state;
 		} catch (err) {
 			console.error('Error loading game from cloud:', err);
 			throw err;
@@ -388,12 +409,11 @@ export class SupabaseAuth {
 		}
 	}
 
-	async getCloudSaveInfo() {
+	async getCloudSaveInfo(): Promise<CloudSaveInfo | null> {
 		if (!browser || !this.supabase || !this.user) return null;
 
 		try {
-			const user = this.user;
-			const { data: profile, error } = await this.supabase.from('profiles').select('save, last_updated').eq('id', user.id).single();
+			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
 
 			if (error) throw error;
 			if (!profile?.save) return null;

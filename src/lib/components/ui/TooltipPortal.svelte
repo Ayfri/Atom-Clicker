@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '$stores/tooltip.svelte';
+	import { tooltip } from '#stores/tooltip.svelte.js';
 	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 
 	let tooltipElement = $state<HTMLDivElement>();
@@ -56,7 +56,6 @@
 
 	function handleGlobalClick(event: MouseEvent) {
 		if (!tooltipElement) return;
-		// If click is outside the tooltip, hide it
 		if (!tooltipElement.contains(event.target as Node)) {
 			tooltip.hide();
 		}

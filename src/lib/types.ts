@@ -1,12 +1,14 @@
-import type { BuildingType } from '$data/buildings';
-import type { CurrencyName } from '$data/currencies';
-import type { DailyStats } from '$data/dailyQuests';
-import type { IconName } from '$data/icons';
-import type { RealmType } from '$data/realms';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import type { IconStackSpec } from '$helpers/iconStacks';
-import type { LayerType } from '$helpers/statConstants';
-import type { ToastIcon } from '$stores/toasts.svelte';
+import type { ChromaticColor } from '#data/chromatic.js';
+import type { CurrencyName } from '#data/currencies.js';
+import type { DailyStats } from '#data/dailyQuests.js';
+import type { FeatureType } from '#data/features.js';
+import type { GeneratorType } from '#data/generators.js';
+import type { IconName } from '#data/icons.js';
+import type { RealmType } from '#data/realms.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import type { IconStackSpec } from '#helpers/iconStacks.js';
+import type { LayerType } from '#helpers/statConstants.js';
+import type { ToastIcon } from '#stores/toasts.svelte.js';
 
 export interface Achievement {
 	condition: (manager: GameManager) => boolean;
@@ -20,12 +22,22 @@ export interface Achievement {
 	name: string;
 }
 
-export interface Building {
-	cost: Price;
-	count: number;
-	level: number;
-	rate: number;
-	unlocked: boolean;
+export interface AchievementGroup {
+	achievements: Achievement[];
+	name: string;
+	/** Ordered tiers of one goal, the list only shows the unlocked ones and the next target until expanded. */
+	tiered: boolean;
+}
+
+export interface ChromaticState {
+	kills: Record<ChromaticColor, number>;
+}
+
+/** `injections` and `readyInMs` stay at 0 for a signed-out player. */
+export interface ColliderState {
+	injections: number;
+	readyInMs: number;
+	total: number;
 }
 
 export interface Currency {
@@ -43,56 +55,65 @@ export interface CurrencyState {
 	earnedRun: number;
 }
 
-export type BuildingCountMap = Partial<Record<BuildingType, number>>;
-
 export type CurrencyAmountMap = Partial<Record<CurrencyName, number>>;
 
 export type CurrencyStateMap = Record<CurrencyName, CurrencyState>;
 
-export interface Effect {
-	apply: (currentValue: number, manager: GameManager) => number;
-	description: string;
-	/** Effects sharing a group have their contributions summed, then applied once as a single multiplier, instead of stacking multiplicatively. */
-	group?: string;
-	target?: BuildingType;
-	type:
-		| 'auto_buy'
-		| 'auto_click'
-		| 'auto_speed'
-		| 'auto_upgrade'
-		| 'building'
-		| 'click'
-		| 'electron_gain'
-		| 'excited_auto_click'
-		| 'excited_photon_chance'
-		| 'excited_photon_double'
-		| 'excited_photon_duration'
-		| 'excited_photon_from_max'
-		| 'excited_photon_stability'
-		| 'global'
-		| 'photon_auto_click'
-		| 'photon_double_chance'
-		| 'photon_duration'
-		| 'photon_size'
-		| 'photon_spawn_interval'
-		| 'photon_stability'
-		| 'power_up_duration'
-		| 'power_up_interval'
-		| 'power_up_multiplier'
-		| 'proton_gain'
-		| 'radiation_control_precision'
-		| 'radiation_critical_chance'
-		| 'radiation_enrichment'
-		| 'radiation_mass_preservation'
-		| 'radiation_mass_regen'
-		| 'radiation_max_cpm'
-		| 'stability_boost'
-		| 'stability_capacity'
-		| 'stability_speed'
-		| 'xp_gain';
+export type EffectStat =
+	| 'auto_buy'
+	| 'auto_click'
+	| 'auto_speed'
+	| 'auto_upgrade'
+	| 'click'
+	| 'click_aps'
+	| 'electron_gain'
+	| 'excited_photon_chance'
+	| 'excited_photon_double'
+	| 'excited_photon_duration'
+	| 'excited_photon_from_max'
+	| 'excited_photon_stability'
+	| 'generator'
+	| 'global'
+	| 'photon_auto_click'
+	| 'photon_double_chance'
+	| 'photon_duration'
+	| 'photon_size'
+	| 'photon_spawn_interval'
+	| 'photon_stability'
+	| 'photon_value'
+	| 'power_up_duration'
+	| 'power_up_interval'
+	| 'power_up_multiplier'
+	| 'proton_gain'
+	| 'stability_boost'
+	| 'stability_capacity'
+	| 'stability_speed'
+	| 'start_atoms'
+	| 'xp_gain';
+
+export type EffectAmount = number | ((manager: GameManager) => number);
+
+/** Built with `add`, `mul` and `sum` from `#helpers/effects.js`, a stat resolves to `(base + adds) × muls × Π(1 + per × Σsum)`. */
+export type Effect =
+	| { amount: EffectAmount; kind: 'add' | 'mul'; stat: EffectStat; target?: GeneratorType }
+	| { amount: number; kind: 'sum'; per: (manager: GameManager) => number; stat: EffectStat };
+
+export interface EffectSource {
+	effects: readonly Effect[];
+	id: string;
+	name: string;
 }
 
-export type FeatureState = Record<string, boolean>;
+export type FeatureState = Record<FeatureType, boolean>;
+
+/** Base rate and cost always come from `GENERATORS`, so a rebalance reaches existing saves. */
+export interface Generator {
+	count: number;
+	level: number;
+	unlocked: boolean;
+}
+
+export type GeneratorCountMap = Partial<Record<GeneratorType, number>>;
 
 export interface PhotonUpgrade {
 	baseCost: number;
@@ -116,23 +137,24 @@ export interface RadiationState {
 }
 
 export interface TutorialState {
-	active: boolean;
-	completed: boolean;
-	/** Composite `${realmId}:${stepId}` keys of realm-tutorial steps already dismissed. */
-	seenRealmSteps: string[];
-	step: number;
+	enabled: boolean;
+	/** `realm:name` ids of the hints already completed or dismissed. */
+	seen: string[];
 }
 
 export interface GameState {
 	achievements: string[];
 	activePowerUps: PowerUp[];
-	buildings: Partial<Record<BuildingType, Building>>;
+	chromatic: ChromaticState;
+	chromaticUpgrades: Record<string, number>;
 	currencies: CurrencyStateMap;
 	currencyBoosts: CurrencyBoosts;
 	dailyStats: DailyStats;
 	features: FeatureState;
+	generators: Partial<Record<GeneratorType, Generator>>;
 	highestAPS: number;
 	inGameTime: number;
+	integrityFlagged: boolean;
 	lastInteractionTime: number;
 	lastSave: number;
 	photonUpgrades: Record<string, number>;
@@ -144,11 +166,12 @@ export interface GameState {
 	settings: Settings;
 	skillUpgrades: string[];
 	startDate: number;
-	totalBuildingsPurchasedAllTime: number;
 	totalClicksAllTime: number;
 	totalClicksRun: number;
 	totalElectronizesAllTime: number;
 	totalElectronizesRun: number;
+	totalGeneratorsPurchasedAllTime: number;
+	totalIonizesAllTime: number;
 	totalProtonisesAllTime: number;
 	totalProtonisesRun: number;
 	totalUpgradesPurchasedAllTime: number;
@@ -163,7 +186,7 @@ export interface OfflineProgressSummary {
 	appliedMs: number;
 	atomAutoClickEnabled: boolean;
 	atomAutoClicks: number;
-	autoBuyCounts: BuildingCountMap;
+	autoBuyCounts: GeneratorCountMap;
 	autoBuyEnabled: boolean;
 	autoBuyFactor: number;
 	autoUpgradeEnabled: boolean;
@@ -197,6 +220,12 @@ export interface PowerUp {
 	startTime: number;
 }
 
+/** One line of a prestige modal's Resets, Keeps or Next run lists, led by the icons of the currencies it concerns. */
+export interface PrestigeListItem {
+	currencies?: CurrencyName[];
+	label: string;
+}
+
 export interface Price {
 	amount: number;
 	currency: CurrencyName;
@@ -206,12 +235,17 @@ export interface RealmState {
 	unlocked: boolean;
 }
 
+export type NumberNotation = 'scientific' | 'suffix';
+
 export interface Settings {
 	automation: {
 		autoClick: boolean;
 		autoClickPhotons: boolean;
-		buildings: BuildingType[];
+		generators: GeneratorType[];
 		upgrades: boolean;
+	};
+	display: {
+		notation: NumberNotation;
 	};
 	gameplay: {
 		offlineProgressEnabled: boolean;
@@ -221,12 +255,16 @@ export interface Settings {
 	};
 }
 
+export type SkillBranch = 'automation' | 'boosts' | 'core' | 'idle' | 'realms';
+
 export interface SkillUpgrade {
+	branch: SkillBranch;
 	condition?: (manager: GameManager) => boolean;
 	cost: Price;
 	description: string;
 	effects: Effect[];
-	feature?: string;
+	feature?: FeatureType;
+	icon: IconName;
 	id: string;
 	name: string;
 	position: { x: number; y: number };

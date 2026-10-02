@@ -1,21 +1,12 @@
 <script lang="ts">
-	import Discord from '@components/icons/Discord.svelte';
-	import GitHub from '@components/icons/GitHub.svelte';
-	import { supabaseAuth } from '$stores/supabaseAuth.svelte';
+	import Discord from '#components/icons/Discord.svelte';
+	import GitHub from '#components/icons/GitHub.svelte';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
-	// Generate the Tally URL with email parameter if user is logged in
 	const tallyUrl = $derived.by(() => {
-		const baseUrl = 'https://tally.so/embed/mO8OxM';
-		const params = new URLSearchParams({
-			'align-left': '1',
-			'transparent-background': '1',
-		});
-
-		if (supabaseAuth.user?.email) {
-			params.set('email', supabaseAuth.user.email);
-		}
-
-		return `${baseUrl}?${params.toString()}`;
+		const params = new URLSearchParams({ 'align-left': '1', 'transparent-background': '1' });
+		if (supabaseAuth.user?.email) params.set('email', supabaseAuth.user.email);
+		return `https://tally.so/embed/mO8OxM?${params}`;
 	});
 </script>
 
@@ -48,7 +39,8 @@
             <iframe
                 src={tallyUrl}
                 class="w-full h-full"
-                title="Feedback Form"
+                loading="lazy"
+                title="Feedback form"
             ></iframe>
         </div>
     </div>

@@ -1,193 +1,153 @@
 <script lang="ts">
-	import {gameManager} from '$helpers/GameManager.svelte';
-	import {realmManager} from '$helpers/RealmManager.svelte';
-	import {RealmTypes} from '$data/realms';
-	import {BUILDING_TYPES, BUILDING_COLORS, BUILDING_LEVEL_UP_COST} from '$data/buildings';
-	import {onDestroy} from 'svelte';
-	import {createClickParticleSync, createClickTextParticleSync, type Particle} from '$helpers/particles';
-	import {formatNumber} from '$lib/utils';
-	import {shouldCreateParticles, addParticles} from '$stores/canvas';
-	import { CurrenciesTypes } from '$data/currencies';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
+	import { REALMS, RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/AtomRenderer.js';
+	import { CachedRect } from '#helpers/CachedRect.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { ClickParticles } from '#helpers/particles.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { ui } from '#stores/ui.svelte.js';
+	import { untrack } from 'svelte';
+
+	const prestigeColors = $derived([
+		CURRENCIES[CurrenciesTypes.ATOMS].color,
+		...(gameManager.totalProtonisesAllTime > 0 ? [CURRENCIES[CurrenciesTypes.PROTONS].color] : []),
+		...(gameManager.totalElectronizesAllTime > 0 ? [CURRENCIES[CurrenciesTypes.ELECTRONS].color] : []),
+	]);
+
+	/** The nucleus starts as a lone nucleon and gains one each time the generator count, then the protonise count, doubles. */
+	const scene: AtomScene = $derived({
+		auras: prestigeColors,
+		bonus: gameManager.hasBonus,
+		energy: Math.min(1, Math.log10(1 + gameManager.atomsPerSecond) / 12),
+		nucleonColors: [
+			...prestigeColors,
+			...[REALMS[RealmTypes.PHOTONS], REALMS[RealmTypes.RADIATION]].filter(realm => gameManager.realms[realm.id]?.unlocked).map(realm => realm.color),
+		],
+		nucleons: Math.min(
+			NUCLEON_RANGE.max,
+			NUCLEON_RANGE.min +
+				Math.floor(Math.log2(1 + gameManager.generatorTotals.count)) +
+				Math.floor(Math.log2(1 + gameManager.totalProtonisesAllTime)),
+		),
+		shells: GENERATOR_TYPES.flatMap(name => gameManager.generators[name] ?? []).map((data, line) => ({
+			color: getGeneratorColor(data.level),
+			count: data.count % GENERATOR_LEVEL_UP_COST,
+			line,
+		})),
+	});
 
 	let atomElement = $state<HTMLButtonElement>();
+	let renderer = $state.raw<AtomRenderer>();
 
-	// getBoundingClientRect forces a synchronous reflow, so the auto-clicker reuses the last measurement instead of taking one per click.
-	let cachedRect: DOMRect | null = null;
-
-	function getRect() {
-		if (!cachedRect && atomElement) cachedRect = atomElement.getBoundingClientRect();
-		return cachedRect;
+	function mountRenderer(canvas: HTMLCanvasElement) {
+		const instance = new AtomRenderer(canvas, untrack(() => scene), GENERATOR_TYPES.length);
+		renderer = instance;
+		return () => {
+			instance.destroy();
+			renderer = undefined;
+		};
 	}
 
 	$effect(() => {
-		const invalidate = () => (cachedRect = null);
-		window.addEventListener('resize', invalidate, { passive: true });
-		window.addEventListener('scroll', invalidate, { capture: true, passive: true });
-		return () => {
-			window.removeEventListener('resize', invalidate);
-			window.removeEventListener('scroll', invalidate, { capture: true });
-		};
+		if (!renderer) return;
+		renderer.scene = scene;
+		renderer.setActive(realmManager.selectedRealmId === RealmTypes.ATOMS && !ui.covered);
 	});
 
-	function simulateClick() {
-		const rect = getRect();
-		if (!rect) return;
+	const atomRect = new CachedRect(RealmTypes.ATOMS, () => atomElement);
+	/** Click power only changes on purchases, so the label isn't formatted again on every auto-click. */
+	const clickLabel = $derived(`+${formatNumber(gameManager.clickPower)}`);
 
-		click(rect.left + Math.random() * rect.width, rect.top + Math.random() * rect.height, true);
-	}
+	/**
+	 * Auto-clickers tick at up to 50 Hz, faster ones are batched: one timer, reactive flush and particle burst per click
+	 * cost more than the rest of the game at 70 clicks/s on a phone. One burst per tick already saturates the particle caps.
+	 */
+	const MIN_AUTO_CLICK_INTERVAL_MS = 20;
+	const CLICK_ICONS = 5;
 
-	let interval: ReturnType<typeof setInterval>;
 	$effect(() => {
 		const value = gameManager.autoClicksPerSecond;
-		if (interval) clearInterval(interval);
-		if (value > 0) {
-			interval = setInterval(simulateClick, 1000 / value);
-		}
+		if (value <= 0) return;
+
+		const intervalMs = Math.max(1000 / value, MIN_AUTO_CLICK_INTERVAL_MS);
+		const clicksPerTick = (value * intervalMs) / 1000;
+		let pending = 0;
+		const interval = setInterval(() => {
+			pending += clicksPerTick;
+			const count = Math.floor(pending + 1e-9);
+			if (count < 1) return;
+			pending -= count;
+
+			// Auto-click atoms are credited with production by the commit loop in +page.svelte, this interval only drives the counters and the visuals.
+			gameManager.incrementClicks(true, count);
+			const rect = atomRect.current;
+			if (!rect) return;
+			ClickParticles.emit(
+				RealmTypes.ATOMS,
+				rect.left + Math.random() * rect.width,
+				rect.top + Math.random() * rect.height,
+				CurrenciesTypes.ATOMS,
+				CLICK_ICONS,
+				clickLabel,
+			);
+			const angle = Math.random() * Math.PI * 2;
+			const radius = rect.width * 0.4;
+			AmbientField.emit(
+				RealmTypes.ATOMS,
+				'hum',
+				{ x: rect.left + rect.width / 2 + Math.cos(angle) * radius, y: rect.top + rect.height / 2 + Math.sin(angle) * radius },
+				{ angle },
+			);
+		}, intervalMs);
+		return () => clearInterval(interval);
 	});
 
-	function click(x: number, y: number, isAuto: boolean) {
-		const clickPower = gameManager.clickPower;
-		// Auto-click atoms are credited once per second by GameManager.tick(), this interval only drives the counters and the visuals.
-		if (!isAuto) gameManager.addAtoms(clickPower);
-		gameManager.incrementClicks(isAuto);
-
-		// The atom realm stays mounted while another one is on screen, so its auto-click particles would drift over that realm.
-		if (!shouldCreateParticles() || realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
-
-		const newParticles: Particle[] = [];
-		const textParticle = createClickTextParticleSync(x + Math.random() * 10, y + Math.random() * 10, `+${formatNumber(clickPower)}`);
-		if (textParticle) newParticles.push(textParticle);
-
-		for (let i = 0; i < 5; i++) {
-			const particle = createClickParticleSync(x + Math.random() * 10, y + Math.random() * 10, CurrenciesTypes.ATOMS);
-			if (particle) newParticles.push(particle);
-		}
-
-		if (newParticles.length > 0) addParticles(newParticles);
+	function click(x: number, y: number) {
+		gameManager.addAtoms(gameManager.clickPower);
+		gameManager.incrementClicks();
+		ClickParticles.emit(RealmTypes.ATOMS, x, y, CurrenciesTypes.ATOMS, CLICK_ICONS, clickLabel);
+		AmbientField.emit(RealmTypes.ATOMS, 'spark', { x, y });
+		const rect = atomRect.current;
+		if (rect) renderer?.pulse(x - rect.left - rect.width / 2, y - rect.top - rect.height / 2);
 	}
 
 	/** Every finger fires its own pointerdown, where a click only fires once per tap gesture. Keyboard activation still comes through click with detail 0. */
 	function handlePointerDown(event: PointerEvent) {
 		if (event.button !== 0) return;
-		click(event.clientX, event.clientY, false);
+		click(event.clientX, event.clientY);
 	}
 
 	function handleClick(event: MouseEvent) {
 		if (event.detail !== 0) return;
-		const rect = getRect();
-		if (rect) click(rect.left + rect.width / 2, rect.top + rect.height / 2, false);
+		const rect = atomRect.current;
+		if (rect) click(rect.left + rect.width / 2, rect.top + rect.height / 2);
 	}
-
-	onDestroy(() => clearInterval(interval));
 </script>
 
 <button
-	class="atom relative mt-20 flex size-64 sm:size-75 md:size-90 lg:size-112.5 items-center justify-center cursor-pointer bg-transparent"
-	class:bonus={gameManager.hasBonus}
-	data-tutorial-target="atom-click"
+	class="atom relative mt-8 flex size-64 sm:size-75 md:size-90 lg:size-112.5 max-lg:landscape:mt-0 max-lg:landscape:size-[clamp(8rem,100dvh-14rem,18rem)]! items-center justify-center cursor-pointer bg-transparent"
+	aria-label="Atom"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
 	bind:this={atomElement}
 >
-	{#each BUILDING_TYPES.filter(name => name in gameManager.buildings) as name, i}
-		{@const data = gameManager.buildings[name]}
-
-		{#if data && data.count % BUILDING_LEVEL_UP_COST > 0}
-			{@const count = data.count % BUILDING_LEVEL_UP_COST}
-			<!-- One round-capped dash per electron: `pathLength` spaces them evenly, where a div per electron cost a style and paint pass each. -->
-			<svg class="electron-shell" style="--line: {i}; --color: {BUILDING_COLORS[data.level]};">
-				<circle class="orbit" cx="50%" cy="50%" />
-				<circle class="electrons" cx="50%" cy="50%" pathLength={count} stroke-dasharray="0 1" stroke-dashoffset={(-count * i * 20) / 360} />
-			</svg>
-		{/if}
-	{/each}
-	<div class="nucleus h-15 w-15 rounded-full md:h-12.5 md:w-12.5"></div>
+	<canvas
+		class="pointer-events-none absolute left-1/2 top-1/2 -translate-1/2"
+		style:height="{100 * CANVAS_OVERFLOW}%"
+		style:width="{100 * CANVAS_OVERFLOW}%"
+		{@attach mountRenderer}
+	></canvas>
+	<div class="size-1/5 rounded-full" data-hint="atom"></div>
 </button>
 
 <style>
 	.atom {
-		--electron-line-spacing: 50px;
-		--initial-electrons-spacing: 130px;
-		--nucleus-size: 60px;
-		--speed: 1;
 		-webkit-tap-highlight-color: transparent;
 		touch-action: manipulation;
 		user-select: none;
-
-		&.bonus {
-			--speed: 2;
-		}
-
-		@media screen and (width < 64rem) {
-			--electron-line-spacing: 40px;
-			--initial-electrons-spacing: 110px;
-		}
-
-		@media screen and (width < 40rem) {
-			--electron-line-spacing: 30px;
-			--initial-electrons-spacing: 100px;
-			--nucleus-size: 50px;
-		}
-	}
-
-	.nucleus {
-		background: radial-gradient(circle at 30% 30%, #4a90e2, #2c3e50);
-		box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
-	}
-
-	.electron-shell {
-		--radius: calc(var(--initial-electrons-spacing) + var(--line) * var(--electron-line-spacing));
-		animation: rotate calc((4s + var(--line) * 2s) / var(--speed)) linear infinite;
-		height: var(--radius);
-		overflow: visible;
-		position: absolute;
-		width: var(--radius);
-	}
-
-	.orbit {
-		fill: none;
-		r: calc(var(--radius) / 2 - 1px);
-		stroke: color-mix(in oklab, var(--color) 10%, transparent 10%);
-		stroke-width: 2px;
-	}
-
-	.electrons {
-		fill: none;
-		filter: drop-shadow(0 0 5px color-mix(in oklab, var(--color) 50%, transparent 10%));
-		r: calc(var(--radius) / 2);
-		stroke: var(--color);
-		stroke-linecap: round;
-		stroke-width: calc(5px + var(--line) * 1px);
-	}
-
-	@keyframes rotate {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	:global(.bounce) {
-		animation: bounce 0.6s ease-in-out;
-	}
-
-	@keyframes bounce {
-		0% {
-			transform: scale(1);
-		}
-		25% {
-			transform: scale(1.025);
-		}
-		50% {
-			transform: scale(0.99);
-		}
-		75% {
-			transform: scale(1.005);
-		}
-		100% {
-			transform: scale(1);
-		}
 	}
 </style>

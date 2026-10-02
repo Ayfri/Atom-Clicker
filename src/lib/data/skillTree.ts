@@ -1,11 +1,23 @@
-import { BUILDINGS, BUILDING_TYPES, type BuildingData, type BuildingType } from '$data/buildings';
-import { CurrenciesTypes } from '$data/currencies';
-import { FeatureTypes } from '$data/features';
-import type { SkillUpgrade } from '$lib/types';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
+import { GENERATOR_ICON_NAMES } from '#data/icons.js';
+import { add, mul } from '#helpers/effects.js';
+import type { SkillBranch, SkillUpgrade } from '#lib/types.js';
 
-export const SKILL_GRID = {
-	x: 440,
-	y: 240,
+const SKILL_GRID = {
+	x: 550,
+	y: 264,
+};
+
+export const SKILL_NODE_SIZE = { height: 160, width: 340 };
+
+export const SKILL_BRANCH_COLORS: Record<SkillBranch, string> = {
+	automation: '#fb923c',
+	boosts: '#4a90e2',
+	core: '#facc15',
+	idle: '#2dd4bf',
+	realms: '#b57bff',
 };
 
 function gridPos(x: number, y: number) {
@@ -15,561 +27,279 @@ function gridPos(x: number, y: number) {
 	};
 }
 
-/** Lays out the i-th node of a 3-tall block column by column, alternating direction so consecutive nodes stay adjacent, odd columns sit half a cell lower. */
-function snakePos(startX: number, startY: number, i: number, direction: 1 | -1) {
-	const column = Math.floor(i / 3);
-	const row = column % 2 === 0 ? i % 3 : 2.5 - (i % 3);
-	return gridPos(startX + column * direction, startY + row);
+/** Lays out the i-th node in tight rows of 3 that alternate direction like bricks, odd rows shifted half a node right. */
+function brickPos(startX: number, startY: number, i: number) {
+	const row = Math.floor(i / 3);
+	const column = row % 2 === 0 ? i % 3 : 2 - (i % 3);
+	return gridPos(startX + column * 0.7 + (row % 2) * 0.35, startY + row * 0.75);
 }
 
-function createBuildingsSkillUpgrades(
-	skillData: (buildingType: BuildingType, building: BuildingData, i: number) => SkillUpgrade,
-): Record<string, SkillUpgrade> {
-	return Object.fromEntries(
-		Object.entries(BUILDINGS).map(([buildingType, building], i) => {
-			const builtSkillData = skillData?.(buildingType as BuildingType, building, i);
-			return [builtSkillData.id, builtSkillData];
-		}),
-	);
-}
-
+/**
+ * Every skill unlocks a mechanic, stat boosts live in `UPGRADES` and the photon shops.
+ * Branches leave Unlock Levels by theme: currency boosts north, realms west, automation south, idle play (offline, stability) east.
+ */
 export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
-	// TIER 1 - FOUNDATION (Atoms, cheap)
-
-	globalMultiplier: {
-		cost: { amount: 5_000, currency: CurrenciesTypes.ATOMS },
-		description: '2x atoms production',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply all production by 2',
-				type: 'global',
-			},
-		],
-		id: 'globalMultiplier',
-		name: 'Global Multiplier',
-		position: gridPos(0, 0),
-	},
-
 	unlockLevels: {
+		branch: 'core',
 		cost: { amount: 10_000, currency: CurrenciesTypes.ATOMS },
 		description: 'Unlock the leveling system',
 		effects: [],
 		feature: FeatureTypes.LEVELS,
+		icon: 'level',
 		id: 'unlockLevels',
 		name: 'Unlock Levels',
-		position: gridPos(1, 0),
-		requires: ['globalMultiplier'],
+		position: gridPos(0, 0),
 	},
 
-	// TIER 2 - EARLY PROGRESSION (Atoms, medium)
-
-	atomicStability: {
-		cost: { amount: 100_000, currency: CurrenciesTypes.ATOMS },
-		description: '1.5x production for first 3 building types',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.5,
-				description: 'Multiply Molecule production by 1.5',
-				target: 'molecule',
-				type: 'building',
-			},
-			{
-				apply: currentValue => currentValue * 1.5,
-				description: 'Multiply Crystal production by 1.5',
-				target: 'crystal',
-				type: 'building',
-			},
-			{
-				apply: currentValue => currentValue * 1.5,
-				description: 'Multiply Nanostructure production by 1.5',
-				target: 'nanostructure',
-				type: 'building',
-			},
-		],
-		id: 'atomicStability',
-		name: 'Atomic Stability',
-		position: gridPos(-1, 0),
-		requires: ['globalMultiplier'],
-	},
-
-	clickMastery: {
-		cost: { amount: 250_000, currency: CurrenciesTypes.ATOMS },
-		description: '+10% production per 100 total clicks',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const clickBonus = Math.floor((state.totalClicksRun || 0) / 100) * 0.1;
-					return currentValue * (1 + clickBonus);
-				},
-				description: 'Add 10% production per 100 total clicks',
-				type: 'global',
-			},
-		],
-		id: 'clickMastery',
-		name: 'Click Mastery',
-		position: gridPos(1, 1),
-		requires: ['unlockLevels'],
-	},
-
-	levelMastery: {
-		cost: { amount: 500_000, currency: CurrenciesTypes.ATOMS },
-		description: '+20% atoms production per 10 levels',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const levelBonus = Math.floor((state.playerLevel || 0) / 10) * 0.2;
-					return currentValue * (1 + levelBonus);
-				},
-				description: 'Add 20% atoms production per 10 levels',
-				type: 'global',
-			},
-		],
-		id: 'levelMastery',
-		name: 'Level Mastery',
-		position: gridPos(2, 0),
-		requires: ['unlockLevels'],
-	},
-
-	molecularBoost: {
-		cost: { amount: 1_000_000, currency: CurrenciesTypes.ATOMS },
-		description: '3x Molecule and Crystal production',
-		effects: [
-			{
-				apply: currentValue => currentValue * 3,
-				description: 'Multiply Molecule production by 3',
-				target: 'molecule',
-				type: 'building',
-			},
-			{
-				apply: currentValue => currentValue * 3,
-				description: 'Multiply Crystal production by 3',
-				target: 'crystal',
-				type: 'building',
-			},
-		],
-		id: 'molecularBoost',
-		name: 'Molecular Boost',
-		position: gridPos(-2, 0),
-		requires: ['atomicStability'],
-	},
-
-	// TIER 3 - MID GAME (Atoms expensive / Protons cheap)
-
-	nanoEnhancement: {
-		cost: { amount: 2_500_000, currency: CurrenciesTypes.ATOMS },
-		description: '2.5x Nanostructure production',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2.5,
-				description: 'Multiply Nanostructure production by 2.5',
-				target: 'nanostructure',
-				type: 'building',
-			},
-		],
-		id: 'nanoEnhancement',
-		name: 'Nano Enhancement',
-		position: gridPos(-2, 1),
-		requires: ['molecularBoost'],
-	},
-
-	offlineProgress: {
-		cost: { amount: 2_000_000, currency: CurrenciesTypes.ATOMS },
-		description: 'Enable offline progress when you are away',
-		effects: [],
-		feature: FeatureTypes.OFFLINE_PROGRESS,
-		id: 'offlineProgress',
-		name: 'Offline Progress',
-		position: gridPos(2, 1),
-		requires: ['clickMastery'],
-	},
-
-	biologicalAmplifier: {
-		cost: { amount: 5_000_000, currency: CurrenciesTypes.ATOMS },
-		description: '2.5x Micro-organism production',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2.5,
-				description: 'Multiply Micro-organism production by 2.5',
-				target: 'microorganism',
-				type: 'building',
-			},
-		],
-		id: 'biologicalAmplifier',
-		name: 'Biological Amplifier',
-		position: gridPos(-1, 1),
-		requires: ['nanoEnhancement'],
-	},
-
-	geologicalForce: {
-		cost: { amount: 15_000_000, currency: CurrenciesTypes.ATOMS },
-		description: '2x Rock and Planet production',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply Rock production by 2',
-				target: 'rock',
-				type: 'building',
-			},
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply Planet production by 2',
-				target: 'planet',
-				type: 'building',
-			},
-		],
-		id: 'geologicalForce',
-		name: 'Geological Force',
-		position: gridPos(-1, 2),
-		requires: ['biologicalAmplifier'],
-	},
-
-	powerUpMastery: {
-		cost: { amount: 10_000_000, currency: CurrenciesTypes.ATOMS },
-		description: '0.9x power-up interval, 1.1x duration',
-		effects: [
-			{
-				apply: currentValue => currentValue * 0.9,
-				description: 'Multiply power-up interval by 0.9',
-				type: 'power_up_interval',
-			},
-			{
-				apply: currentValue => currentValue * 1.1,
-				description: 'Multiply power-up duration by 1.1',
-				type: 'power_up_duration',
-			},
-		],
-		id: 'powerUpMastery',
-		name: 'Power-up Mastery',
-		position: gridPos(2, 2),
-		requires: ['offlineProgress'],
-	},
-
-	purpleRealm: {
-		cost: { amount: 10_000_000_000, currency: CurrenciesTypes.ATOMS },
-		description: 'Unlock the mysterious purple realm',
-		effects: [],
-		feature: FeatureTypes.PURPLE_REALM,
-		id: 'purpleRealm',
-		name: 'Purple Realm',
-		position: gridPos(1, 2.5),
-		requires: ['powerUpMastery'],
-	},
-
-	// TIER 4 - PROTON BRANCH (Protons) - Snakes UP on the left (negative y)
-
-	stabilityField: {
-		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
-		description: 'Unlock the Stability Meter (Passive Idle Bonus)',
-		effects: [],
-		feature: FeatureTypes.STABILITY_FIELD,
-		id: 'stabilityField',
-		name: 'Stability Field',
-		position: gridPos(0, -1),
-		requires: ['globalMultiplier'],
-	},
+	// CURRENCY BOOSTS (north)
 
 	boostAssignAll: {
+		branch: 'boosts',
 		cost: { amount: 100, currency: CurrenciesTypes.PROTONS },
-		description: 'Adds a Max button to each currency boost that assigns every free point at once',
+		description: 'Adds a button to each currency boost that assigns every free point at once',
 		effects: [],
 		feature: FeatureTypes.BOOST_ASSIGN_ALL,
+		icon: 'boostMax',
 		id: 'boostAssignAll',
 		name: 'Boost Dump',
-		position: gridPos(0, -2),
-		requires: ['stabilityField'],
+		position: gridPos(-0.35, -1.1),
+		requires: ['unlockLevels'],
 	},
 
 	boostEvenSplit: {
+		branch: 'boosts',
 		cost: { amount: 500, currency: CurrenciesTypes.PROTONS },
 		description: 'Adds a Balance button that spreads your boost points evenly across every currency you have earned',
 		effects: [],
 		feature: FeatureTypes.BOOST_EVEN_SPLIT,
+		icon: 'balance',
 		id: 'boostEvenSplit',
 		name: 'Boost Balancer',
-		position: gridPos(0, -3),
+		position: gridPos(0.35, -1.1),
 		requires: ['boostAssignAll'],
 	},
 
-	electronHarvester: {
-		cost: { amount: 2_500, currency: CurrenciesTypes.PROTONS },
-		description: '2x electron gain',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply electron gain by 2',
-				type: 'electron_gain',
-			},
-		],
-		id: 'electronHarvester',
-		name: 'Electron Harvester',
-		position: gridPos(-1, -1),
-		requires: ['stabilityField'],
+	collider: {
+		branch: 'boosts',
+		cost: { amount: 1_000_000, currency: CurrenciesTypes.PROTONS },
+		description: 'Unlock the Collider, shared by every player: inject a particle once a minute, every 1,000 injected boosts production by 0.1%',
+		effects: [mul('global', manager => 1 + manager.colliderBonus)],
+		feature: FeatureTypes.COLLIDER,
+		icon: 'collider',
+		id: 'collider',
+		name: 'Collider',
+		position: gridPos(0, -1.85),
+		requires: ['boostEvenSplit'],
 	},
 
-	protonCollector: {
-		cost: { amount: 25_000, currency: CurrenciesTypes.PROTONS },
-		description: '1.5x proton gain',
-		effects: [
-			{
-				apply: currentValue => currentValue * 1.5,
-				description: 'Multiply proton gain by 1.5',
-				type: 'proton_gain',
-			},
-		],
-		id: 'protonCollector',
-		name: 'Proton Collector',
-		position: gridPos(-2, -1.5),
-		requires: ['electronHarvester'],
-	},
+	// REALMS (west)
 
-	prestigeBonus: {
-		cost: { amount: 250_000, currency: CurrenciesTypes.PROTONS },
-		description: '+1% production per Electronize',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const electronizeBonus = (state.totalElectronizesAllTime || 0) * 0.01;
-					return currentValue * (1 + electronizeBonus);
-				},
-				description: 'Add 1% production per Electronize performed',
-				type: 'global',
-			},
-		],
-		id: 'prestigeBonus',
-		name: 'Prestige Bonus',
-		position: gridPos(-2, -2.5),
-		requires: ['protonCollector'],
-	},
-
-	quantumResonance: {
-		cost: { amount: 2_500_000, currency: CurrenciesTypes.PROTONS },
-		description: '+20% production per 100 buildings owned',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const totalBuildings = Object.values(state.buildings || {}).reduce((sum, building) => sum + (building?.count || 0), 0);
-					const bonus = Math.floor(totalBuildings / 100) * 0.2;
-					return currentValue * (1 + bonus);
-				},
-				description: 'Add 20% production per 100 buildings owned',
-				type: 'global',
-			},
-		],
-		id: 'quantumResonance',
-		name: 'Quantum Resonance',
-		position: gridPos(-1, -2),
-		requires: ['prestigeBonus'],
-	},
-
-	stellarCore: {
-		condition: state => (state.buildings.star?.count ?? 0) >= 5,
-		cost: { amount: 25_000_000, currency: CurrenciesTypes.PROTONS },
-		requirement: 'Own 5 Stars',
-		description: '2x production for Star and higher buildings',
-		effects: [
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply Star production by 2',
-				target: 'star',
-				type: 'building',
-			},
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply Neutron Star production by 2',
-				target: 'neutronStar',
-				type: 'building',
-			},
-			{
-				apply: currentValue => currentValue * 2,
-				description: 'Multiply Black Hole production by 2',
-				target: 'blackHole',
-				type: 'building',
-			},
-		],
-		id: 'stellarCore',
-		name: 'Stellar Core',
-		position: gridPos(-1, -3),
-		requires: ['quantumResonance'],
-	},
-
-	particleAccelerator: {
-		cost: { amount: 250_000_000, currency: CurrenciesTypes.PROTONS },
-		description: '+25% production per Protonise',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const protoniseBonus = (state.totalProtonisesRun || 0) * 0.25;
-					return currentValue * (1 + protoniseBonus);
-				},
-				description: 'Add 25% production per Protonise performed',
-				type: 'global',
-			},
-		],
-		id: 'particleAccelerator',
-		name: 'Particle Accelerator',
-		position: gridPos(-2, -3.5),
-		requires: ['stellarCore'],
-	},
-
-	// TIER 5 - ELECTRON/PHOTON BRANCH (Snakes UP on the right)
-
-	communityPower: {
-		cost: { amount: 1_000, currency: CurrenciesTypes.PROTONS },
-		description: '1% atom boost per thousand registered players',
-		effects: [
-			{
-				apply: (currentValue, manager) => {
-					const boost = (manager.totalUsers / 1000) * 0.01;
-					return currentValue * (1 + boost);
-				},
-				description: '1% atom boost per thousand players',
-				type: 'global',
-			},
-		],
-		id: 'communityPower',
-		name: 'Community Power',
-		position: gridPos(1, -1),
-		requires: ['stabilityField'],
-	},
-
-	cosmicSynergy: {
-		cost: { amount: 10, currency: CurrenciesTypes.ELECTRONS },
-		description: '+5% production per building type owned',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const ownedBuildings = Object.values(state.buildings || {}).filter(b => b && b.count > 0).length;
-					return currentValue * (1 + ownedBuildings * 0.05);
-				},
-				description: 'Add 5% production per building type owned',
-				type: 'global',
-			},
-		],
-		id: 'cosmicSynergy',
-		name: 'Cosmic Synergy',
-		position: gridPos(2, -1.5),
-		requires: ['communityPower'],
+	purpleRealm: {
+		branch: 'realms',
+		cost: { amount: 10_000_000_000, currency: CurrenciesTypes.ATOMS },
+		description: 'Unlock the mysterious Photon Realm',
+		effects: [],
+		feature: FeatureTypes.PURPLE_REALM,
+		icon: 'photon',
+		id: 'purpleRealm',
+		name: 'Photon Realm',
+		position: gridPos(-1.2, 0.2),
+		requires: ['unlockLevels'],
 	},
 
 	hoverCollection: {
-		condition: manager => Object.keys(manager.photonUpgrades || {}).length >= 1,
+		branch: 'realms',
+		condition: manager => Object.keys(manager.photonUpgrades).length >= 1,
 		cost: { amount: 1_000, currency: CurrenciesTypes.PHOTONS },
-		requirement: 'Own 1 photon upgrade',
-		description: 'Collect photons by hovering over them',
+		description: 'Collect photons by hovering over them or touching them',
 		effects: [],
 		feature: FeatureTypes.HOVER_COLLECTION,
+		icon: 'magnet',
 		id: 'hoverCollection',
 		name: 'Quantum Magnetism',
-		position: gridPos(2, -2.5),
-		requires: ['cosmicSynergy'],
-	},
-
-	photonEfficiency: {
-		condition: state => Object.keys(state.photonUpgrades || {}).length >= 3,
-		cost: { amount: 5_000, currency: CurrenciesTypes.PHOTONS },
-		requirement: 'Own 3 photon upgrades',
-		description: '+1% all production per photon upgrade owned',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const photonUpgradeCount = Object.values(state.photonUpgrades || {}).reduce((sum, level) => sum + level, 0);
-					return currentValue * (1 + photonUpgradeCount * 0.01);
-				},
-				description: 'Add 1% production per photon upgrade owned',
-				type: 'global',
-			},
-		],
-		id: 'photonEfficiency',
-		name: 'Photon Efficiency',
-		position: gridPos(1, -2),
-		requires: ['hoverCollection'],
-	},
-
-	photonProtonBoost: {
-		cost: { amount: 10_000, currency: CurrenciesTypes.PHOTONS },
-		description: 'Add 1% protons per photon upgrade owned',
-		effects: [
-			{
-				apply: (currentValue, state) => {
-					const photonUpgradeCount = Object.values(state.photonUpgrades || {}).reduce((sum, level) => sum + level, 0);
-					return currentValue * (1 + photonUpgradeCount * 0.01);
-				},
-				description: 'Add 1% protons per photon upgrade owned',
-				type: 'proton_gain',
-			},
-		],
-		id: 'photonProtonBoost',
-		name: 'Photon Proton Boost',
-		position: gridPos(1, -3),
-		requires: ['photonEfficiency'],
+		position: gridPos(-1.2, -0.55),
+		requirement: 'Own 1 photon upgrade',
+		requires: ['purpleRealm'],
 	},
 
 	radiationRealm: {
+		branch: 'realms',
 		cost: { amount: 100, currency: CurrenciesTypes.ELECTRONS },
-		description: 'Unlock the Radiation Realm - harness nuclear decay',
+		description: 'Unlock the Radiation Realm and harness nuclear decay',
 		effects: [],
 		feature: FeatureTypes.RADIATION_REALM,
+		icon: 'radiation',
 		id: 'radiationRealm',
 		name: 'Radiation Realm',
-		position: gridPos(2, -3.5),
-		requires: ['photonProtonBoost'],
+		position: gridPos(-2.3, 0.5),
+		requires: ['purpleRealm'],
 	},
 
-	// BUILDING MULTIPLIER BRANCH (Left side, requires 100 of each building)
+	// AUTOMATION (south)
 
-	...createBuildingsSkillUpgrades((buildingType, building, i) => {
-		const previousBuildingType = BUILDING_TYPES[i - 1];
-		const baseCost = 1_000_000 * Math.pow(10, i);
+	autoClicker: {
+		branch: 'automation',
+		cost: { amount: 31, currency: CurrenciesTypes.PROTONS },
+		description: 'Automatically clicks the atom once per second',
+		effects: [add('auto_click', 1)],
+		icon: 'click',
+		id: 'autoClicker',
+		name: 'Auto Clicker',
+		position: gridPos(0, 1.1),
+		requires: ['unlockLevels'],
+	},
 
-		return {
-			condition: manager => (manager.buildings[buildingType]?.count ?? 0) >= 100,
-			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
-			requirement: `Own 100 ${building.name}`,
-			description: `2x ${building.name} production`,
-			effects: [
+	autoUpgrade: {
+		branch: 'automation',
+		cost: { amount: 25, currency: CurrenciesTypes.ELECTRONS },
+		description: 'Automatically buys the cheapest available upgrade every 30 seconds',
+		effects: [add('auto_upgrade', 0)],
+		icon: 'upgrade',
+		id: 'autoUpgrade',
+		name: 'Auto Upgrade',
+		position: gridPos(-0.7, 1.1),
+		requires: ['autoClicker'],
+	},
+
+	...Object.fromEntries(
+		GENERATOR_TYPES.map((generatorType: GeneratorType, i): [string, SkillUpgrade] => {
+			const { name } = GENERATORS[generatorType];
+			const id = `${generatorType}AutoBuy`;
+			return [
+				id,
 				{
-					apply: currentValue => currentValue * 2,
-					description: `Multiply ${building.name} production by 2`,
-					target: buildingType,
-					type: 'building',
+					branch: 'automation',
+					cost: { amount: 2 + i, currency: CurrenciesTypes.ELECTRONS },
+					description: `Automatically buys 1 ${name} every 30 seconds`,
+					effects: [add('auto_buy', 0, generatorType)],
+					icon: GENERATOR_ICON_NAMES[generatorType],
+					id,
+					name: `Auto ${name}`,
+					position: brickPos(-0.35, 2.05, i),
+					requires: [i === 0 ? 'autoClicker' : `${GENERATOR_TYPES[i - 1]}AutoBuy`],
 				},
-			],
-			id: `${buildingType}Multiplier`,
-			name: `${building.name} Multiplier`,
-			position: snakePos(-2, 2, i, -1),
-			requires: previousBuildingType ? [`${previousBuildingType}Multiplier`] : ['geologicalForce'],
-		} satisfies SkillUpgrade;
-	}),
+			];
+		}),
+	),
 
-	// BUILDING LEVEL MASTERY BRANCH (Right side, building level-based bonuses)
+	// IDLE PLAY (east)
 
-	...createBuildingsSkillUpgrades((buildingType, building, i) => {
-		const previousBuildingType = BUILDING_TYPES[i - 1];
-		// 30x per node so the branch spans several protonise runs instead of being fully bought at 5e14 atoms in the first one.
-		const baseCost = 5_000_000 * Math.pow(30, i);
+	offlineProgress: {
+		branch: 'idle',
+		cost: { amount: 2_000_000, currency: CurrenciesTypes.ATOMS },
+		description: 'Keep producing atoms while you are away',
+		effects: [],
+		feature: FeatureTypes.OFFLINE_PROGRESS,
+		icon: 'offline',
+		id: 'offlineProgress',
+		name: 'Offline Progress',
+		position: gridPos(1.2, -0.1),
+		requires: ['unlockLevels'],
+	},
 
-		return {
-			cost: { amount: baseCost, currency: CurrenciesTypes.ATOMS },
-			description: `+10% ${building.name} production per 25 ${building.name} levels`,
-			effects: [
-				{
-					apply: (currentValue, state) => {
-						const buildingLevel = state.buildings[buildingType]?.level || 0;
-						const levelBonus = Math.floor(buildingLevel / 25) * 0.1;
-						return currentValue * (1 + levelBonus);
-					},
-					description: `Add 10% ${building.name} production per 25 ${building.name} levels`,
-					target: buildingType,
-					type: 'building',
-				},
-			],
-			id: `${buildingType}LevelMastery`,
-			name: `${building.name} Level Mastery`,
-			position: snakePos(3, 0, i, 1),
-			requires: previousBuildingType ? [`${previousBuildingType}LevelMastery`] : ['levelMastery'],
-		} satisfies SkillUpgrade;
-	}),
+	offlineAutoUpgrades: {
+		branch: 'idle',
+		cost: { amount: 120, currency: CurrenciesTypes.PROTONS },
+		description: 'Auto-upgrade keeps buying while you are away, at 1/120 speed',
+		effects: [],
+		feature: FeatureTypes.OFFLINE_AUTO_UPGRADE,
+		icon: 'moon',
+		id: 'offlineAutoUpgrades',
+		name: 'Offline Auto-upgrades',
+		position: gridPos(2.2, -0.45),
+		requires: ['offlineProgress'],
+	},
+
+	offlineAutoClick: {
+		branch: 'idle',
+		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
+		description: 'The auto-clicker keeps clicking while you are away, at 1/120 speed',
+		effects: [],
+		feature: FeatureTypes.OFFLINE_AUTO_CLICK,
+		icon: 'moonStar',
+		id: 'offlineAutoClick',
+		name: 'Offline Auto-click',
+		position: gridPos(1.2, 0.75),
+		requires: ['autoClicker', 'offlineProgress'],
+	},
+
+	stabilityField: {
+		branch: 'idle',
+		cost: { amount: 250, currency: CurrenciesTypes.PROTONS },
+		description: 'Unlock the Stability Field, a production bonus that builds up while you do not click and resets when you do',
+		effects: [],
+		feature: FeatureTypes.STABILITY_FIELD,
+		icon: 'stabilityField',
+		id: 'stabilityField',
+		name: 'Stability Field',
+		position: gridPos(1.3, -1.1),
+		requires: ['offlineProgress'],
+	},
+
+	stableAutomation: {
+		branch: 'idle',
+		cost: { amount: 50, currency: CurrenciesTypes.ELECTRONS },
+		description: 'The Atom Realm auto-clicker no longer resets the Stability Field',
+		effects: [],
+		feature: FeatureTypes.STABLE_ATOM_AUTO_CLICK,
+		icon: 'shieldCog',
+		id: 'stableAutomation',
+		name: 'Steady Auto-clicker',
+		position: gridPos(0.95, -1.95),
+		requires: ['stabilityField'],
+	},
+
+	stableManipulation: {
+		branch: 'idle',
+		cost: { amount: 400, currency: CurrenciesTypes.ELECTRONS },
+		description: 'Clicking the atom no longer resets the Stability Field',
+		effects: [],
+		feature: FeatureTypes.STABLE_ATOM_CLICK,
+		icon: 'shieldCheck',
+		id: 'stableManipulation',
+		name: 'Steady Hands',
+		position: gridPos(0.95, -2.7),
+		requires: ['stableAutomation'],
+	},
+
+	stableQuantumFlux: {
+		branch: 'idle',
+		cost: { amount: 100, currency: CurrenciesTypes.ELECTRONS },
+		description: 'The Photon Realm auto-clicker no longer resets the Stability Field',
+		effects: [],
+		feature: FeatureTypes.STABLE_PHOTON_AUTO_CLICK,
+		icon: 'shieldCog',
+		id: 'stableQuantumFlux',
+		name: 'Steady Photon Auto-clicker',
+		position: gridPos(2, -1.8),
+		requires: ['stabilityField'],
+	},
+
+	stableInteraction: {
+		branch: 'idle',
+		cost: { amount: 250, currency: CurrenciesTypes.ELECTRONS },
+		description: 'Clicking in the Photon Realm no longer resets the Stability Field',
+		effects: [],
+		feature: FeatureTypes.STABLE_PHOTON_CLICK,
+		icon: 'shieldCheck',
+		id: 'stableInteraction',
+		name: 'Steady Photon Hands',
+		position: gridPos(2, -2.55),
+		requires: ['stableQuantumFlux'],
+	},
+
+	stableAnomalies: {
+		branch: 'idle',
+		cost: { amount: 500, currency: CurrenciesTypes.ELECTRONS },
+		description: 'Catching a Higgs Boson power-up no longer resets the Stability Field',
+		effects: [],
+		feature: FeatureTypes.STABLE_BONUS_CLICK,
+		icon: 'shieldPlus',
+		id: 'stableAnomalies',
+		name: 'Steady Catch',
+		position: gridPos(1.475, -3.5),
+		requires: ['stableInteraction', 'stableManipulation'],
+	},
 };
 
 // Check for duplicate positions in dev mode

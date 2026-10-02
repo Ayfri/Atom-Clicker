@@ -26,6 +26,7 @@
 	--color-realm-900: #4a1e64;
 	--color-realm-950: #2d1142;
 
+	--color-page: #1a1a1a;
 	--color-radiation: #39ff14;
 }
 
@@ -36,17 +37,30 @@
 @layer base {
 	:root {
 		--banner-height: 0rem;
-		background-color: #1a1a1a;
+		background-color: var(--color-page);
 		color: rgba(255, 255, 255, 0.87);
 		color-scheme: light dark;
 		font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 		font-synthesis: none;
 		font-weight: 400;
 		line-height: 1.5;
-		min-height: 100dvh;
 		min-height: 100vh;
+		min-height: 100dvh;
 		text-rendering: optimizeLegibility;
 		touch-action: manipulation;
+	}
+
+	/* Phone nav dock plus the realm tab bar above it once a second realm opens, the realms and everything floating at the
+	   bottom sit above both. Mirrors MOBILE_QUERY. */
+	@media (width < 64rem) {
+		:root {
+			--mobile-dock-height: 3.5rem;
+			--mobile-nav-height: calc(var(--mobile-dock-height) + var(--realm-bar-height, 0rem));
+		}
+
+		:root:has(#realm-bar) {
+			--realm-bar-height: 3.25rem;
+		}
 	}
 
 	* {

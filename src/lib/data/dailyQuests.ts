@@ -1,12 +1,13 @@
-import { formatNumber } from '$lib/utils';
-import { simpleHash } from '$lib/utils/signing';
+import { formatNumber } from '#lib/utils.js';
+import { simpleHash } from '#lib/utils/signing.js';
 
 export type DailyStatMetric =
 	| 'achievementsUnlocked'
 	| 'atomsEarned'
-	| 'buildingsPurchased'
+	| 'chromaticBreaks'
 	| 'clicks'
 	| 'electronizes'
+	| 'generatorsPurchased'
 	| 'higgsBosonsCollected'
 	| 'otherDailyQuestsCompleted'
 	| 'powerUpsCollected'
@@ -16,25 +17,42 @@ export type DailyStatMetric =
 export interface DailyStats {
 	achievementsUnlocked: number;
 	atomsEarned: number;
-	buildingsPurchased: number;
+	chromaticBreaks: number;
 	clicks: number;
 	dayKey: string;
 	electronizes: number;
+	generatorsPurchased: number;
 	higgsBosonsCollected: number;
 	otherDailyQuestsCompleted: number;
 	powerUpsCollected: number;
 	protonises: number;
 	questIds: string[];
-	/** Frozen at rollover, keyed by quest id. Never recomputed live, see dailyQuests.ts. */
+	/** Frozen at rollover, keyed by quest id, never recomputed live. */
 	questTargets: Record<string, number>;
 	upgradesPurchased: number;
 }
 
 export type DailyQuestAnchors = Record<DailyStatMetric, number>;
 
+/** Every target scales from its floor except atoms, which scale with the best production rate. */
+export const questAnchors = (highestAPS: number): DailyQuestAnchors => ({
+	achievementsUnlocked: 0,
+	atomsEarned: highestAPS,
+	chromaticBreaks: 0,
+	clicks: 0,
+	electronizes: 0,
+	generatorsPurchased: 0,
+	higgsBosonsCollected: 0,
+	otherDailyQuestsCompleted: 0,
+	powerUpsCollected: 0,
+	protonises: 0,
+	upgradesPurchased: 0,
+});
+
 export interface DailyQuestContext {
 	hasElectronized: boolean;
 	hasPhotonRealm: boolean;
+	hasPrism: boolean;
 	hasThirdQuestSlot: boolean;
 	remainingAchievements: number;
 }
@@ -61,15 +79,25 @@ export const QUEST_POOL: DailyQuest[] = [
 		id: 'atoms_earned',
 		metric: 'atomsEarned',
 		reward: 1,
-		scale: 10_800, // roughly one hours of production at the player's best-ever rate
+		scale: 10_800, // three hours of production at the player's best-ever rate
 	},
 	{
-		description: target => `Purchase ${target} buildings today.`,
+		description: target => `Purchase ${target} generators today.`,
 		floor: 15,
+		/** The id predates the generators rename, the server picks and stores daily claims under it. */
 		id: 'buildings_purchased',
-		metric: 'buildingsPurchased',
+		metric: 'generatorsPurchased',
 		reward: 1,
 		scale: 2.5,
+	},
+	{
+		description: target => `Break ${target} colored photons today.`,
+		floor: 20,
+		id: 'chromatic_breaks',
+		isAvailable: context => context.hasPrism,
+		metric: 'chromaticBreaks',
+		reward: 1,
+		scale: 1,
 	},
 	{
 		description: target => `Click ${target} times today.`,
@@ -132,7 +160,7 @@ export const QUEST_POOL: DailyQuest[] = [
 		scale: 1,
 	},
 	{
-		description: () => `Protonise at least once today.`,
+		description: () => `Protonize at least once today.`,
 		floor: 1,
 		id: 'protonise_once',
 		metric: 'protonises',

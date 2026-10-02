@@ -1,26 +1,28 @@
 <script lang="ts">
-	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '$data/currencies';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '$data/upgrades';
-	import { ICONS } from '$data/icons';
-	import AutoButton from '@components/ui/AutoButton.svelte';
-	import Currency from '@components/ui/Currency.svelte';
-	import Value from '@components/ui/Value.svelte';
-	import { getUpgradesWithEffects } from '$helpers/effects';
-	import { autoUpgradeManager } from '$stores/autoUpgrade.svelte';
-	import { clock } from '$stores/clock.svelte';
-	import CurrencyLabel from '@components/ui/CurrencyLabel.svelte';
-	import HelpIcon from '@components/ui/HelpIcon.svelte';
+	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '#data/currencies.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { AtomRenderer } from '#helpers/AtomRenderer.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '#data/upgrades.js';
+	import { ICONS } from '#data/icons.js';
+	import { RealmTypes } from '#data/realms.js';
+	import type { Upgrade } from '#lib/types.js';
+	import AutoButton from '#components/ui/AutoButton.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import Value from '#components/ui/Value.svelte';
+	import { reveal, reveals } from '#helpers/reveals.svelte.js';
+	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	import { clock } from '#stores/clock.svelte.js';
+	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
+	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { Eye, EyeOff } from '@lucide/svelte';
 
 	let selectedCurrency: CurrencyName = $state(CurrenciesTypes.ATOMS);
 
-	// Show proton upgrades if player has protons, has protonised before, or has purchased any proton upgrade
 	const hasProtonUpgrades = $derived(gameManager.upgrades.some(id => id.startsWith('proton')));
 	const showProtons = $derived(gameManager.protons > 0 || gameManager.totalProtonisesAllTime > 0 || hasProtonUpgrades);
 
-	// Show electron upgrades if player has electrons or has purchased any electron upgrade
 	const hasElectronUpgrades = $derived(gameManager.upgrades.some(id => id.startsWith('electron')));
 	const showElectrons = $derived(gameManager.electrons > 0 || gameManager.totalElectronizesAllTime > 0 || hasElectronUpgrades);
 
@@ -43,19 +45,36 @@
 			});
 	});
 
-	let hasAutomation = $derived(getUpgradesWithEffects(gameManager.currentUpgradesBought, { type: 'auto_upgrade' }).length > 0);
+	let hasAutomation = $derived(gameManager.effects.has('auto_upgrade'));
 
 	const gatedBoostTiers = $derived(selectedCurrency === CurrenciesTypes.ATOMS ? boostTiersUnlockedByNextProtonise(gameManager) : 0);
 
 	const affordableCount = $derived(availableUpgrades.filter(upgrade => !boughtUpgrades.has(upgrade.id) && gameManager.canAfford(upgrade.cost)).length);
 
-	function buyAll() {
+	function buyAll(event: MouseEvent) {
 		// availableUpgrades is sorted cheapest first, so this drains the balance into as many upgrades as possible.
-		for (const upgrade of availableUpgrades) gameManager.purchaseUpgrade(upgrade.id);
+		let bought = 0;
+		for (const upgrade of availableUpgrades) if (gameManager.purchaseUpgrade(upgrade.id)) bought++;
+		const nucleus = AtomRenderer.current?.target();
+		if (bought > 0) {
+			AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, {
+				color: CURRENCIES[selectedCurrency].color,
+				count: 10 + Math.min(14, bought),
+				surge: Math.min(20, 4 + bought * 2),
+				// One comet per upgrade bought, streaming into the nucleus.
+				target: nucleus && Array.from({ length: Math.min(10, bought) }, () => nucleus),
+			});
+		}
+	}
+
+	function buy(upgrade: Upgrade, event: MouseEvent) {
+		if (!gameManager.purchaseUpgrade(upgrade.id)) return;
+		// Upgrades boost the whole atom, so the comet lands on the nucleus.
+		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[upgrade.cost.currency].color, surge: 6, target: AtomRenderer.current?.target() });
 	}
 </script>
 
-<div id="upgrades" class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100vh-180px)]">
+<div id="upgrades" class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100dvh-204px)]">
 	<div class="header flex justify-between items-center gap-2">
 		<div class="flex items-center gap-2 justify-between w-full">
 			<div class="flex items-center gap-1.5">
@@ -71,24 +90,27 @@
 				</HelpIcon>
 			</div>
 			<div class="flex items-center gap-1">
-				<button
-					class="flex items-center justify-center p-1 rounded-md transition-all duration-200 border {gameManager.settings.upgrades.displayAlreadyBought ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25' : 'bg-transparent text-gray-400 border-white/10 hover:bg-white/5'}"
-					onclick={() => gameManager.settings.upgrades.displayAlreadyBought = !gameManager.settings.upgrades.displayAlreadyBought}
-					title={gameManager.settings.upgrades.displayAlreadyBought ? 'Hide bought upgrades' : 'Show bought upgrades'}
-				>
-					{#if gameManager.settings.upgrades.displayAlreadyBought}
-						<Eye size={18} />
-					{:else}
-						<EyeOff size={18} />
-					{/if}
-				</button>
+				{#if reveals.boughtUpgradesToggle}
+					<button
+						class="flex items-center justify-center p-1 rounded-md transition-all duration-200 border {gameManager.settings.upgrades.displayAlreadyBought ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25' : 'bg-transparent text-gray-400 border-white/10 hover:bg-white/5'}"
+						in:reveal={{ y: 0 }}
+						onclick={() => gameManager.settings.upgrades.displayAlreadyBought = !gameManager.settings.upgrades.displayAlreadyBought}
+						title={gameManager.settings.upgrades.displayAlreadyBought ? 'Hide bought upgrades' : 'Show bought upgrades'}
+					>
+						{#if gameManager.settings.upgrades.displayAlreadyBought}
+							<Eye size={18} />
+						{:else}
+							<EyeOff size={18} />
+						{/if}
+					</button>
+				{/if}
 				{#if hasAutomation}
 					{#snippet autoUpgradeTooltip()}
 						<div class="flex flex-col gap-1">
 							<p class="text-xs text-white/80">Automatically buys the cheapest affordable upgrade.</p>
-							{#if gameManager.settings.automation.upgrades && autoUpgradeManager.autoUpgradeInterval}
+							{#if gameManager.settings.automation.upgrades && gameManager.autoUpgradeInterval}
 								<p class="text-xs text-white/60">
-									Checks every {(autoUpgradeManager.autoUpgradeInterval / 1000).toFixed(1)}s
+									Checks every {(gameManager.autoUpgradeInterval / 1000).toFixed(1)}s
 									{#if autoUpgradeManager.nextFireTime}
 										- next in {Math.max(0, (autoUpgradeManager.nextFireTime - clock.now) / 1000).toFixed(1)}s
 									{/if}
@@ -111,8 +133,7 @@
 
 	<div class="currency-tabs flex gap-1">
 		<button
-			class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
-			class:active={selectedCurrency === CurrenciesTypes.ATOMS}
+			class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.ATOMS && 'active']}
 			onclick={() => selectedCurrency = CurrenciesTypes.ATOMS}
 			title={CURRENCIES[CurrenciesTypes.ATOMS].name}
 		>
@@ -120,8 +141,8 @@
 		</button>
 		{#if showProtons}
 			<button
-				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
-				class:active={selectedCurrency === CurrenciesTypes.PROTONS}
+				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.PROTONS && 'active']}
+				in:reveal={{ y: 0 }}
 				onclick={() => selectedCurrency = CurrenciesTypes.PROTONS}
 				title={CURRENCIES[CurrenciesTypes.PROTONS].name}
 			>
@@ -130,8 +151,8 @@
 		{/if}
 		{#if showElectrons}
 			<button
-				class="currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5"
-				class:active={selectedCurrency === CurrenciesTypes.ELECTRONS}
+				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.ELECTRONS && 'active']}
+				in:reveal={{ y: 0 }}
 				onclick={() => selectedCurrency = CurrenciesTypes.ELECTRONS}
 				title={CURRENCIES[CurrenciesTypes.ELECTRONS].name}
 			>
@@ -152,18 +173,18 @@
 	<div id="upgrades-list" class="flex-1 overflow-y-auto px-1 custom-scrollbar">
 		<div class="grid gap-1.5">
 			{#each availableUpgrades as upgrade (upgrade.id)}
-				{@const isBought = boughtUpgrades.has(upgrade.id)}
-				{@const affordable = gameManager.canAfford(upgrade.cost) && !isBought}
-				{@const wasAutoPurchased = autoUpgradeManager.recentlyAutoPurchased.has(upgrade.id)}
-				{@const Icon = upgrade.icon ? ICONS[upgrade.icon] : null}
+				{const isBought = $derived(boughtUpgrades.has(upgrade.id))}
+				{const affordable = $derived(gameManager.canAfford(upgrade.cost) && !isBought)}
+				{const wasAutoPurchased = $derived(autoUpgradeManager.recentlyAutoPurchased.has(upgrade.id))}
+				{const Icon = $derived(upgrade.icon ? ICONS[upgrade.icon] : null)}
 				<button
 					class="relative text-start rounded-lg p-2 transition-all duration-200 border
 					{isBought
 						? 'bg-green-300/3 cursor-default'
 						: `bg-white/5 hover:bg-white/10 cursor-pointer ${affordable ? 'opacity-100 border-white/10' : 'opacity-45 cursor-not-allowed border-transparent'}`
 					}"
-					onclick={() => {
-						if (affordable && !isBought) gameManager.purchaseUpgrade(upgrade.id);
+					onclick={event => {
+						if (affordable && !isBought) buy(upgrade, event);
 					}}
 					disabled={isBought}
 				>
@@ -195,7 +216,7 @@
 			{/each}
 			{#if gatedBoostTiers > 0}
 				<p class="rounded-lg border border-dashed border-white/10 p-2 text-center text-xs text-white/50">
-					{gatedBoostTiers} more Boost tiers unlock after your next Protonise
+					{gatedBoostTiers} more Boost tiers unlock after your next Protonize
 				</p>
 			{/if}
 		</div>

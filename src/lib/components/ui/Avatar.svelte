@@ -1,18 +1,16 @@
 <script lang="ts">
+	import type { ClassValue } from 'svelte/elements';
+
 	interface Props {
 		alt?: string;
-		class?: string;
+		class?: ClassValue;
 		src?: string | null | undefined;
 	}
 
-	let { alt = '?', class: className = '', src }: Props = $props();
-	let hasError = $state(false);
-
-	$effect(() => {
-		// Reset error state if src changes
-		void src;
-		hasError = false;
-	});
+	let { alt = '?', class: className, src }: Props = $props();
+	/** Remembers which picture failed, so a new `src` gets its own try. */
+	let failedSrc = $state<Props['src']>();
+	const hasError = $derived(failedSrc === src);
 
 	const initials = $derived.by(() => {
 		const name = alt.trim();
@@ -25,11 +23,11 @@
 	});
 </script>
 
-<div class="aspect-square flex-none overflow-hidden rounded-full {className}">
+<div class={['aspect-square flex-none overflow-hidden rounded-full', className]}>
 	{#if src && !hasError}
 		<img
 			class="h-full object-cover w-full"
-			onerror={() => (hasError = true)}
+			onerror={() => (failedSrc = src)}
 			{alt}
 			{src}
 		/>

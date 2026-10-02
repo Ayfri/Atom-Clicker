@@ -1,4 +1,5 @@
-import type { ActivityPattern, BenchmarkConfig, QuestBehavior } from './types';
+import { DEFAULT_SEED } from './random';
+import type { BenchmarkConfig, QuestBehavior } from './types';
 
 export const ACTIVITY_PRESETS = {
 	always: {
@@ -23,7 +24,7 @@ export type ActivityPresetId = keyof typeof ACTIVITY_PRESETS;
 export const PLAYSTYLE_PRESETS = {
 	afk: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: false,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -40,7 +41,7 @@ export const PLAYSTYLE_PRESETS = {
 	},
 	automated: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: true,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -57,7 +58,7 @@ export const PLAYSTYLE_PRESETS = {
 	},
 	balanced: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: true,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -74,7 +75,7 @@ export const PLAYSTYLE_PRESETS = {
 	},
 	tryhard: {
 		autoBuy: true,
-		autoBuyBuildings: true,
+		autoBuyGenerators: true,
 		autoBuyPhotonUpgrades: true,
 		autoBuySkills: true,
 		autoBuyUpgrades: true,
@@ -139,71 +140,65 @@ export const PRESTIGE_PRESETS = {
 
 export type PrestigePresetId = keyof typeof PRESTIGE_PRESETS;
 
-/** Infer preset IDs from a saved config so the form (selects, target hours) can be updated. */
-export function configToPresets(config: BenchmarkConfig): {
+/** Everything the benchmark page and the CLI pick; `buildBenchmarkConfig` expands it into a full config. */
+export interface BenchmarkForm {
 	activityId: ActivityPresetId;
 	playstyleId: PlaystylePresetId;
 	prestigeId: PrestigePresetId;
 	questBehavior: QuestBehavior;
+	seed: number;
+	snapshotInterval: number;
 	targetHours: number;
-} {
-	const { botBehavior, prestigeStrategy, snapshotInterval, targetHours, tickRate } = config;
-
-	const activityId: ActivityPresetId = (() => {
-		const ap = botBehavior.activityPattern;
-		if (!ap) return 'always';
-		const key = Object.entries(ACTIVITY_PRESETS).find(
-			([_, a]) =>
-				'activityPattern' in a &&
-				a.activityPattern?.activeMinutes === ap.activeMinutes &&
-				a.activityPattern?.inactiveMinutes === ap.inactiveMinutes,
-		)?.[0];
-		return (key as ActivityPresetId) ?? 'always';
-	})();
-
-	const prestigeId: PrestigePresetId = (() => {
-		const key = Object.entries(PRESTIGE_PRESETS).find(
-			([_, p]) =>
-				p.protoniseThreshold === prestigeStrategy.protoniseThreshold &&
-				p.electronizeThreshold === prestigeStrategy.electronizeThreshold,
-		)?.[0];
-		return (key as PrestigePresetId) ?? 'balanced';
-	})();
-
-	const playstyleId: PlaystylePresetId = (() => {
-		const key = Object.entries(PLAYSTYLE_PRESETS).find(
-			([_, p]) =>
-				p.tickRate === tickRate &&
-				p.snapshotInterval === snapshotInterval &&
-				p.buyStrategy === botBehavior.buyStrategy &&
-				p.clicksPerSecond === botBehavior.clicksPerSecond,
-		)?.[0];
-		return (key as PlaystylePresetId) ?? 'balanced';
-	})();
-
-	// Reports saved before questBehavior existed have no value to read.
-	const questBehavior: QuestBehavior = botBehavior.questBehavior ?? 'passive';
-
-	return { activityId, playstyleId, prestigeId, questBehavior, targetHours };
 }
 
-export function buildBenchmarkConfig(
-	activityId: ActivityPresetId,
-	playstyleId: PlaystylePresetId,
-	prestigeId: PrestigePresetId,
-	targetHours: number,
-	snapshotIntervalOverride?: number,
-	questBehaviorOverride?: QuestBehavior,
-): BenchmarkConfig {
-	const activity = ACTIVITY_PRESETS[activityId];
-	const playstyle = PLAYSTYLE_PRESETS[playstyleId];
-	const prestige = PRESTIGE_PRESETS[prestigeId];
-	const activityPattern = 'activityPattern' in activity ? activity.activityPattern : undefined;
+const findKey = <T extends Record<string, object>>(presets: T, match: (preset: T[keyof T]) => boolean): keyof T | undefined =>
+	(Object.keys(presets) as (keyof T)[]).find(key => match(presets[key]));
+
+/** Infers the preset ids back from a saved config so its settings can be reloaded into the form. */
+export function configToPresets(config: BenchmarkConfig): BenchmarkForm {
+	const { botBehavior, prestigeStrategy } = config;
+	const pattern = botBehavior.activityPattern;
+	return {
+		activityId:
+			findKey(
+				ACTIVITY_PRESETS,
+				preset =>
+					'activityPattern' in preset &&
+					preset.activityPattern.activeMinutes === pattern?.activeMinutes &&
+					preset.activityPattern.inactiveMinutes === pattern.inactiveMinutes,
+			) ?? 'always',
+		playstyleId:
+			findKey(
+				PLAYSTYLE_PRESETS,
+				preset =>
+					preset.tickRate === config.tickRate &&
+					preset.buyStrategy === botBehavior.buyStrategy &&
+					preset.clicksPerSecond === botBehavior.clicksPerSecond,
+			) ?? 'balanced',
+		prestigeId:
+			findKey(
+				PRESTIGE_PRESETS,
+				preset =>
+					preset.protoniseThreshold === prestigeStrategy.protoniseThreshold &&
+					preset.electronizeThreshold === prestigeStrategy.electronizeThreshold,
+			) ?? 'balanced',
+		/** Reports saved before quests were simulated have no value to read. */
+		questBehavior: botBehavior.questBehavior ?? 'passive',
+		seed: config.seed ?? DEFAULT_SEED,
+		snapshotInterval: config.snapshotInterval,
+		targetHours: config.targetHours,
+	};
+}
+
+export function buildBenchmarkConfig(form: BenchmarkForm): BenchmarkConfig {
+	const activity = ACTIVITY_PRESETS[form.activityId];
+	const playstyle = PLAYSTYLE_PRESETS[form.playstyleId];
+	const prestige = PRESTIGE_PRESETS[form.prestigeId];
 	return {
 		botBehavior: {
-			...(activityPattern && { activityPattern }),
+			...('activityPattern' in activity && { activityPattern: activity.activityPattern }),
 			autoBuy: playstyle.autoBuy,
-			autoBuyBuildings: playstyle.autoBuyBuildings,
+			autoBuyGenerators: playstyle.autoBuyGenerators,
 			autoBuyPhotonUpgrades: playstyle.autoBuyPhotonUpgrades,
 			autoBuySkills: playstyle.autoBuySkills,
 			autoBuyUpgrades: playstyle.autoBuyUpgrades,
@@ -211,10 +206,8 @@ export function buildBenchmarkConfig(
 			clicksPerSecond: playstyle.clicksPerSecond,
 			gameKnowledge: playstyle.gameKnowledge,
 			...(playstyle.maxActionsPerTick !== undefined && { maxActionsPerTick: playstyle.maxActionsPerTick }),
-			...(playstyle.maxPrestigesPerActiveWindow !== undefined && {
-				maxPrestigesPerActiveWindow: playstyle.maxPrestigesPerActiveWindow,
-			}),
-			questBehavior: questBehaviorOverride ?? playstyle.questBehavior,
+			...(playstyle.maxPrestigesPerActiveWindow !== undefined && { maxPrestigesPerActiveWindow: playstyle.maxPrestigesPerActiveWindow }),
+			questBehavior: form.questBehavior,
 		},
 		name: `${activity.name} · ${playstyle.name} · ${prestige.name}`,
 		prestigeStrategy: {
@@ -223,31 +216,25 @@ export function buildBenchmarkConfig(
 			electronizeThreshold: prestige.electronizeThreshold,
 			protoniseThreshold: prestige.protoniseThreshold,
 		},
-		snapshotInterval: snapshotIntervalOverride ?? playstyle.snapshotInterval,
-		targetHours,
+		seed: form.seed,
+		snapshotInterval: form.snapshotInterval,
+		targetHours: form.targetHours,
 		tickRate: playstyle.tickRate,
 	};
 }
 
 export const BOT_PROFILES = {
-	afk: {
-		activityId: 'afk_15' as const,
-		playstyleId: 'afk' as const,
-		prestigeId: 'balanced' as const,
-	},
-	automated: {
-		activityId: 'always' as const,
-		playstyleId: 'automated' as const,
-		prestigeId: 'ultra' as const,
-	},
-	balanced: {
-		activityId: 'always' as const,
-		playstyleId: 'balanced' as const,
-		prestigeId: 'balanced' as const,
-	},
-	tryhard: {
-		activityId: 'always' as const,
-		playstyleId: 'tryhard' as const,
-		prestigeId: 'patient' as const,
-	},
-} as const;
+	afk: { activityId: 'afk_15', name: 'AFK', playstyleId: 'afk', prestigeId: 'balanced' },
+	automated: { activityId: 'always', name: 'Automated', playstyleId: 'automated', prestigeId: 'ultra' },
+	balanced: { activityId: 'always', name: 'Balanced', playstyleId: 'balanced', prestigeId: 'balanced' },
+	tryhard: { activityId: 'always', name: 'Tryhard', playstyleId: 'tryhard', prestigeId: 'patient' },
+} as const satisfies Record<string, { activityId: ActivityPresetId; name: string; playstyleId: PlaystylePresetId; prestigeId: PrestigePresetId }>;
+
+export type BotProfileId = keyof typeof BOT_PROFILES;
+
+/** A named profile with its playstyle's default quest behavior and snapshot interval. */
+export function profileForm(id: BotProfileId, targetHours: number, seed = DEFAULT_SEED): BenchmarkForm {
+	const { activityId, playstyleId, prestigeId } = BOT_PROFILES[id];
+	const { questBehavior, snapshotInterval } = PLAYSTYLE_PRESETS[playstyleId];
+	return { activityId, playstyleId, prestigeId, questBehavior, seed, snapshotInterval, targetHours };
+}

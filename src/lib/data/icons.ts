@@ -1,25 +1,58 @@
 import type { Component } from 'svelte';
-import { BuildingTypes, type BuildingType } from '$data/buildings';
-import { CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import AtomIcon from '@components/icons/Atom.svelte';
-import BlackHoleIcon from '@components/icons/buildings/BlackHole.svelte';
-import CrystalIcon from '@components/icons/buildings/Crystal.svelte';
-import MicroorganismIcon from '@components/icons/buildings/Microorganism.svelte';
-import MoleculeIcon from '@components/icons/buildings/Molecule.svelte';
-import NanostructureIcon from '@components/icons/buildings/Nanostructure.svelte';
-import NeutronStarIcon from '@components/icons/buildings/NeutronStar.svelte';
-import PlanetIcon from '@components/icons/buildings/Planet.svelte';
-import RockIcon from '@components/icons/buildings/Rock.svelte';
-import StarIcon from '@components/icons/buildings/Star.svelte';
-import DiscordIcon from '@components/icons/Discord.svelte';
-import ElectronIcon from '@components/icons/Electron.svelte';
-import ExcitedPhotonIcon from '@components/icons/ExcitedPhoton.svelte';
-import GitHubIcon from '@components/icons/GitHub.svelte';
-import HiggsBosonIcon from '@components/icons/HiggsBoson.svelte';
-import PhotonIcon from '@components/icons/Photon.svelte';
-import ProtonIcon from '@components/icons/Proton.svelte';
-import QuarkIcon from '@components/icons/Quark.svelte';
-import { Activity, ArrowBigUp, Award, Building2, Clock, Coffee, FileText, Gauge, Globe, Layers, Milestone, MousePointerClick, Network, Radiation, Sparkles, TrendingUp, Trophy, Zap } from '@lucide/svelte';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { GeneratorTypes, type GeneratorType } from '#data/generators.js';
+import AtomIcon from '#components/icons/Atom.svelte';
+import DiscordIcon from '#components/icons/Discord.svelte';
+import ElectronIcon from '#components/icons/Electron.svelte';
+import ExcitedPhotonIcon from '#components/icons/ExcitedPhoton.svelte';
+import BlackHoleIcon from '#components/icons/generators/BlackHole.svelte';
+import CrystalIcon from '#components/icons/generators/Crystal.svelte';
+import MicroorganismIcon from '#components/icons/generators/Microorganism.svelte';
+import MoleculeIcon from '#components/icons/generators/Molecule.svelte';
+import NanostructureIcon from '#components/icons/generators/Nanostructure.svelte';
+import NeutronStarIcon from '#components/icons/generators/NeutronStar.svelte';
+import PlanetIcon from '#components/icons/generators/Planet.svelte';
+import RockIcon from '#components/icons/generators/Rock.svelte';
+import StarIcon from '#components/icons/generators/Star.svelte';
+import GitHubIcon from '#components/icons/GitHub.svelte';
+import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+import PhotonIcon from '#components/icons/Photon.svelte';
+import ProtonIcon from '#components/icons/Proton.svelte';
+import QuarkIcon from '#components/icons/Quark.svelte';
+import {
+	Activity,
+	ArrowBigUp,
+	ChevronsUp,
+	CircleArrowUp,
+	Clock,
+	Coffee,
+	Diamond,
+	Factory,
+	FileText,
+	Gauge,
+	Globe,
+	Hexagon,
+	Hourglass,
+	Magnet,
+	Milestone,
+	Moon,
+	MoonStar,
+	MousePointerClick,
+	Network,
+	Orbit,
+	Radiation,
+	Rainbow,
+	Scale,
+	ShieldCheck,
+	ShieldCog,
+	ShieldPlus,
+	SquareArrowOutUpRight,
+	TrendingUp,
+	Triangle,
+	Trophy,
+	Users,
+	Zap,
+} from '@lucide/svelte';
 
 /** Every icon component in the game accepts at least these two props, which is all `IconStack` needs. */
 export type IconComponent = Component<{ color?: string; size?: number }>;
@@ -31,62 +64,80 @@ export type IconComponent = Component<{ color?: string; size?: number }>;
  */
 export const ICONS = {
 	atom: AtomIcon,
-	award: Award,
+	balance: Scale,
 	blackHole: BlackHoleIcon,
-	buildingLevel: Building2,
+	blueLight: Hexagon,
+	boostMax: ChevronsUp,
 	changelog: FileText,
 	click: MousePointerClick,
 	coffee: Coffee,
+	collider: Orbit,
 	crystal: CrystalIcon,
+	currencyBoost: Zap,
 	discord: DiscordIcon,
 	electron: ElectronIcon,
 	excitedPhoton: ExcitedPhotonIcon,
+	generator: Factory,
 	github: GitHubIcon,
 	globe: Globe,
+	greenLight: Diamond,
 	higgsBoson: HiggsBosonIcon,
-	layers: Layers,
 	level: ArrowBigUp,
+	magnet: Magnet,
 	microorganism: MicroorganismIcon,
 	milestone: Milestone,
 	molecule: MoleculeIcon,
+	moon: Moon,
+	moonStar: MoonStar,
 	nanostructure: NanostructureIcon,
 	neutronStar: NeutronStarIcon,
-	offline: Clock,
+	offline: Hourglass,
 	photon: PhotonIcon,
 	planet: PlanetIcon,
+	playTime: Clock,
+	players: Users,
 	proton: ProtonIcon,
 	quark: QuarkIcon,
 	radiation: Radiation,
+	redLight: Triangle,
 	rock: RockIcon,
+	shieldCheck: ShieldCheck,
+	shieldCog: ShieldCog,
+	shieldPlus: ShieldPlus,
 	skillTreeMaster: Network,
 	speed: Gauge,
-	sparkles: Sparkles,
-	stabilityMeter: Activity,
+	stabilityField: Activity,
 	star: StarIcon,
 	trendingUp: TrendingUp,
 	trophy: Trophy,
-	upgrade: Zap,
+	upgrade: CircleArrowUp,
+	website: SquareArrowOutUpRight,
+	whiteLight: Rainbow,
 } as const satisfies Record<string, IconComponent>;
 
 export type IconName = keyof typeof ICONS;
 
-export const BUILDING_ICON_NAMES: Record<BuildingType, IconName> = {
-	[BuildingTypes.BLACK_HOLE]: 'blackHole',
-	[BuildingTypes.CRYSTAL]: 'crystal',
-	[BuildingTypes.MICROORGANISM]: 'microorganism',
-	[BuildingTypes.MOLECULE]: 'molecule',
-	[BuildingTypes.NANOSTRUCTURE]: 'nanostructure',
-	[BuildingTypes.NEUTRON_STAR]: 'neutronStar',
-	[BuildingTypes.PLANET]: 'planet',
-	[BuildingTypes.ROCK]: 'rock',
-	[BuildingTypes.STAR]: 'star',
-};
-
 export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.ATOMS]: 'atom',
+	[CurrenciesTypes.BLUE_LIGHT]: 'blueLight',
 	[CurrenciesTypes.ELECTRONS]: 'electron',
 	[CurrenciesTypes.EXCITED_PHOTONS]: 'excitedPhoton',
+	[CurrenciesTypes.GREEN_LIGHT]: 'greenLight',
 	[CurrenciesTypes.HIGGS_BOSON]: 'higgsBoson',
 	[CurrenciesTypes.PHOTONS]: 'photon',
 	[CurrenciesTypes.PROTONS]: 'proton',
+	[CurrenciesTypes.RED_LIGHT]: 'redLight',
+	[CurrenciesTypes.WHITE_LIGHT]: 'whiteLight',
+};
+
+export const GENERATOR_ICON_NAMES: Record<GeneratorType, IconName> = {
+	[GeneratorTypes.BLACK_HOLE]: 'blackHole',
+	[GeneratorTypes.CRYSTAL]: 'crystal',
+	[GeneratorTypes.MICROORGANISM]: 'microorganism',
+	[GeneratorTypes.MOLECULE]: 'molecule',
+	[GeneratorTypes.NANOSTRUCTURE]: 'nanostructure',
+	[GeneratorTypes.NEUTRON_STAR]: 'neutronStar',
+	[GeneratorTypes.PLANET]: 'planet',
+	[GeneratorTypes.ROCK]: 'rock',
+	[GeneratorTypes.STAR]: 'star',
 };

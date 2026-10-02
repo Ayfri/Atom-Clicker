@@ -1,9 +1,12 @@
 <script lang="ts">
-	import Value from '@components/ui/Value.svelte';
-	import type { CurrencyName } from '$data/currencies';
-	import { getPhotonUpgradeCost, canAffordPhotonUpgrade } from '$data/photonUpgrades';
-	import { gameManager } from '$helpers/GameManager.svelte';
-	import type { PhotonUpgrade } from '$lib/types';
+	import Value from '#components/ui/Value.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+	import { canAffordPhotonUpgrade, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { photonFieldCenter } from '#helpers/photonCanvas.js';
+	import type { PhotonUpgrade } from '#lib/types.js';
 
 	interface Props {
 		currency: CurrencyName;
@@ -18,9 +21,9 @@
 	const isMaxed = $derived(currentLevel >= upgrade.maxLevel);
 	const affordable = $derived(canAffordPhotonUpgrade(upgrade, currentLevel, gameManager) && !isMaxed);
 
-	function onPurchase() {
-		if (affordable && !isMaxed) {
-			gameManager.purchasePhotonUpgrade(upgrade.id);
+	function onPurchase(event: MouseEvent) {
+		if (affordable && gameManager.purchasePhotonUpgrade(upgrade.id)) {
+			AmbientField.emit(RealmTypes.PHOTONS, 'bloom', event, { color: CURRENCIES[currency].color, surge: 6, target: photonFieldCenter() });
 		}
 	}
 </script>
@@ -31,6 +34,7 @@
 		? `${isExcited ? 'bg-yellow-900/10' : 'bg-realm-900/10'} opacity-85 cursor-default`
 		: `${isExcited ? 'bg-yellow-900/10 hover:bg-yellow-900/20 border-yellow-500/20 hover:border-yellow-500/40' : 'bg-realm-900/20 hover:bg-realm-900/30 border-realm-500/20 hover:border-realm-500/40'} ${affordable ? 'opacity-100 cursor-pointer' : 'opacity-45 cursor-not-allowed'}`
 	}"
+	aria-disabled={!isMaxed && !affordable}
 	onclick={onPurchase}
 	disabled={isMaxed}
 >

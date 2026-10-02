@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Tooltip from '@components/ui/Tooltip.svelte';
-	import { type TooltipPosition, type TooltipSize } from '$stores/tooltip.svelte';
+	import Tooltip from '#components/ui/Tooltip.svelte';
+	import { type TooltipPosition, type TooltipSize } from '#stores/tooltip.svelte.js';
 	import { CircleHelp } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
@@ -15,5 +15,5 @@
 </script>
 
 <Tooltip {content} {position} {size} class="text-white/40 hover:text-white/80 transition-colors {className}">
-	<CircleHelp size={15} />
+	<CircleHelp aria-label="Help" size={15} />
 </Tooltip>

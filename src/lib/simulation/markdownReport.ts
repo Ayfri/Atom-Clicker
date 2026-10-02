@@ -1,11 +1,12 @@
 /** Turns a simulation result into a compact markdown balance report meant to be pasted into a chat for analysis. */
-import { ACHIEVEMENTS } from '$data/achievements';
-import { BUILDINGS, BUILDING_TYPES } from '$data/buildings';
-import { ALL_PHOTON_UPGRADES } from '$data/photonUpgrades';
-import { SKILL_UPGRADES } from '$data/skillTree';
-import { UPGRADES } from '$data/upgrades';
-import { formatDuration, formatNumber } from '$lib/utils';
+import { ACHIEVEMENTS } from '#data/achievements.js';
+import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { formatDuration, formatNumber } from '#lib/utils.js';
 import { MILESTONES } from './milestones';
+import { DEFAULT_SEED } from './random';
 import { totalActionCount, type SimulationAction, type SimulationResult, type SimulationSnapshot } from './types';
 
 const CURVE_ROWS = 16;
@@ -56,10 +57,6 @@ interface FamilyStats {
 	lastTime: number;
 	maxIndex: number;
 	total: number;
-}
-
-function collectActions(snapshots: SimulationSnapshot[]): SimulationAction[] {
-	return snapshots.flatMap(s => s.actions);
 }
 
 function buildFamilies(actions: SimulationAction[], catalog: Record<string, unknown>, type: SimulationAction['type']): FamilyStats[] {
@@ -237,19 +234,19 @@ function multiplierBreakdown(s: SimulationSnapshot): string {
 	);
 }
 
-function buildingTable(s: SimulationSnapshot): string {
-	const totalProduction = BUILDING_TYPES.reduce((sum, t) => sum + (s.buildingProductions[t] ?? 0), 0);
+function generatorTable(s: SimulationSnapshot): string {
+	const totalProduction = GENERATOR_TYPES.reduce((sum, t) => sum + (s.generatorProductions[t] ?? 0), 0);
 	return table(
-		['building', 'count', 'APS', 'share', 'upgrade ×', 'level ×'],
-		BUILDING_TYPES.map(type => {
-			const production = s.buildingProductions[type] ?? 0;
+		['generator', 'count', 'APS', 'share', 'upgrade ×', 'level ×'],
+		GENERATOR_TYPES.map(type => {
+			const production = s.generatorProductions[type] ?? 0;
 			return [
-				BUILDINGS[type].name,
-				`${s.buildings[type] ?? 0}`,
+				GENERATORS[type].name,
+				`${s.generators[type] ?? 0}`,
 				formatNumber(production),
 				totalProduction > 0 ? pct(production / totalProduction) : '-',
-				mult(s.buildingUpgradeFactors[type] ?? 1),
-				mult(s.buildingLevelFactors[type] ?? 1),
+				mult(s.generatorUpgradeFactors[type] ?? 1),
+				mult(s.generatorLevelFactors[type] ?? 1),
 			];
 		}),
 	);
@@ -267,7 +264,7 @@ function curveTable(snapshots: SimulationSnapshot[]): string {
 			formatNumber(peakAps(s)),
 			formatNumber(s.atomsPerClick),
 			mult(s.globalMultiplier),
-			`${s.totalBuildings}`,
+			`${s.totalGenerators}`,
 			`${s.upgrades}`,
 			`${s.achievements}`,
 			`${s.playerLevel}`,
@@ -282,24 +279,16 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	const final = snapshots.at(-1);
 	if (!final) return '# Atom Clicker Benchmark\n\nNo snapshot recorded.';
 
-	const actions = collectActions(snapshots);
+	const actions = snapshots.flatMap(s => s.actions);
 	const reachedIds = new Set(result.milestones.map(m => m.milestone.id));
 	const missing = MILESTONES.filter(m => !reachedIds.has(m.id));
 	const stalls = findStalls(snapshots);
 	// Snapshots keep counts for every action type but detail only the ones looked up by id, so totals come from the counters.
 	let totalActions = 0;
 	const actionsByType = new Map<string, number>();
-	for (const snapshot of snapshots) {
-		const counts = snapshot.actionCounts;
-		if (!counts) {
-			for (const action of snapshot.actions) actionsByType.set(action.type, (actionsByType.get(action.type) ?? 0) + 1);
-			totalActions += snapshot.actions.length;
-			continue;
-		}
-		totalActions += totalActionCount(counts);
-		for (const [type, count] of Object.entries(counts)) {
-			actionsByType.set(type, (actionsByType.get(type) ?? 0) + (count ?? 0));
-		}
+	for (const { actionCounts } of snapshots) {
+		totalActions += totalActionCount(actionCounts);
+		for (const [type, count] of Object.entries(actionCounts)) actionsByType.set(type, (actionsByType.get(type) ?? 0) + (count ?? 0));
 	}
 
 	const lines: string[] = [];
@@ -312,6 +301,7 @@ export function buildMarkdownReport(result: SimulationResult): string {
 		table(
 			['setting', 'value'],
 			[
+				['seed', `${config.seed ?? DEFAULT_SEED}`],
 				['tick rate', `${config.tickRate} ms`],
 				['snapshot interval', `${config.snapshotInterval} s`],
 				['clicks/s', `${config.botBehavior.clicksPerSecond}`],
@@ -346,9 +336,9 @@ export function buildMarkdownReport(result: SimulationResult): string {
 				['circles expired', formatNumber(final.photonsExpired ?? 0), 'quarks', formatNumber(final.quarks ?? 0)],
 				['protonises', `${final.protonises}`, 'electronizes', `${final.electronizes}`],
 				['player level', `${final.playerLevel}`, 'total XP', formatNumber(final.totalXP)],
-				['buildings', `${final.totalBuildings}`, 'building levels', `${final.buildingLevels}`],
+				['generators', `${final.totalGenerators}`, 'generator levels', `${final.generatorLevels}`],
 				['upgrades owned', `${final.upgrades}`, 'upgrades all-time', `${final.totalUpgrades}`],
-				['skills', `${final.skills}`, 'boost points spent', `${final.skillPointsUsed}`],
+				['skills', `${final.skills}`, 'boost points spent', `${final.boostPointsUsed}`],
 				['achievements', `${final.achievements}/${ACHIEVEMENT_TOTAL}`, 'photon upgrade levels', `${final.photonUpgradeLevels}`],
 				['clicks', formatNumber(final.clicks), 'actions', `${totalActions}`],
 			],
@@ -438,9 +428,9 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	);
 
 	lines.push('');
-	lines.push('## Buildings (final)');
+	lines.push('## Generators (final)');
 	lines.push('');
-	lines.push(buildingTable(final));
+	lines.push(generatorTable(final));
 
 	lines.push('');
 	lines.push('## Actions');

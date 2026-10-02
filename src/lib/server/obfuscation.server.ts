@@ -1,4 +1,4 @@
-import { generateSignature } from '$lib/utils/signing';
+import { generateSignature } from '#lib/utils/signing.js';
 
 const SIGNATURE_WINDOW_MS = 5000;
 

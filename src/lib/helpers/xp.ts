@@ -36,6 +36,7 @@ export function totalXPForLevel(level: number): number {
 }
 
 export function levelFromTotalXP(totalXP: number): number {
+	if (!Number.isFinite(totalXP) || totalXP <= 0) return 0;
 	let level = 1;
 	// The curve is exponential, so doubling reaches any reachable level in a handful of steps.
 	extendTo(level);

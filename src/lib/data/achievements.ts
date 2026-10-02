@@ -1,12 +1,12 @@
-import type { Achievement } from '$lib/types';
-import type { GameManager } from '$helpers/GameManager.svelte';
-import { tierIconStack } from '$helpers/iconStacks';
-import { radiationManager } from '$helpers/RadiationManager.svelte';
-import { formatNumber } from '$lib/utils';
-import { BUILDING_TYPES, BUILDINGS, type BuildingType } from '$data/buildings';
-import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '$data/currencies';
-import { BUILDING_ICON_NAMES, CURRENCY_ICON_NAMES } from '$data/icons';
-import { SKILL_UPGRADES } from '$data/skillTree';
+import type { Achievement, AchievementGroup } from '#lib/types.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
+import { tierIconStack } from '#helpers/iconStacks.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { formatNumber } from '#lib/utils.js';
+import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
+import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/icons.js';
+import { SKILL_UPGRADES } from '#data/skillTree.js';
 
 const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{
@@ -40,49 +40,49 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		id: 'play_time_10min',
 		name: 'Getting Started',
 		description: 'Play for 10 minutes',
-		iconStack: { count: 1, icon: 'award' },
+		iconStack: { count: 1, icon: 'playTime' },
 		condition: (manager: GameManager) => manager.inGameTime >= 600000, // 10 minutes in ms
 	},
 	{
 		id: 'play_time_2h',
 		name: 'Dedicated Player',
 		description: 'Play for 2 hours',
-		iconStack: { count: 2, icon: 'award' },
+		iconStack: { count: 2, icon: 'playTime' },
 		condition: (manager: GameManager) => manager.inGameTime >= 7200000, // 2 hours in ms
 	},
 	{
 		id: 'play_time_30h',
 		name: 'Atomic Addict',
 		description: 'Play for 30 hours',
-		iconStack: { count: 3, icon: 'award' },
+		iconStack: { count: 3, icon: 'playTime' },
 		condition: (manager: GameManager) => manager.inGameTime >= 108000000, // 30 hours in ms
 	},
 	{
 		id: 'play_time_123h',
 		name: 'Time Lord',
 		description: 'Play for 123 hours',
-		iconStack: { count: 3, icon: 'award', label: '123h' },
+		iconStack: { count: 3, icon: 'playTime', label: '123h' },
 		condition: (manager: GameManager) => manager.inGameTime >= 442800000, // 123 hours in ms
 	},
 	{
 		id: 'time_since_start_10d',
 		name: 'Decade Player',
 		description: 'Play for 10 days total',
-		iconStack: { count: 3, icon: 'award', label: '10d' },
+		iconStack: { count: 3, icon: 'playTime', label: '10d' },
 		condition: (manager: GameManager) => Date.now() - manager.startDate >= 864000000, // 10 days in ms
 	},
 	{
 		id: 'time_since_start_123d',
 		name: 'Century Gamer',
 		description: 'Play for 123 days total',
-		iconStack: { count: 3, icon: 'award', label: '123d' },
+		iconStack: { count: 3, icon: 'playTime', label: '123d' },
 		condition: (manager: GameManager) => Date.now() - manager.startDate >= 10627200000, // 123 days in ms
 	},
 	{
 		id: 'website_click',
 		name: 'Website Visitor',
 		description: "Visited the creator's website",
-		iconStack: { count: 1, icon: 'globe' },
+		iconStack: { count: 1, icon: 'website' },
 		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('website_click'),
 		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('website_click'),
 	},
@@ -142,29 +142,27 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	},
 ];
 
-function createBuildingAchievements(buildingId: BuildingType): Achievement[] {
-	const name = BUILDINGS[buildingId].name;
+function createGeneratorAchievements(generatorId: GeneratorType): Achievement[] {
+	const name = GENERATORS[generatorId].name;
 
-	function createBuildingCountAchievement(
+	function createGeneratorCountAchievement(
 		countName: string,
 		number: number,
 		tierIndex: number,
-		description = `Own ${number} ${name} buildings`,
+		description = `Own ${number} ${name} generators`,
 	): Achievement {
 		return {
-			id: `${number}_${buildingId}`,
+			id: `${number}_${generatorId}`,
 			name: `${countName} ${name}`,
 			description,
-			iconStack: tierIconStack(BUILDING_ICON_NAMES[buildingId], tierIndex, number),
-			hiddenCondition: (manager: GameManager) =>
-				manager.buildings[buildingId] === undefined || manager.buildings[buildingId].count === 0,
-			condition: (manager: GameManager) =>
-				manager.buildings[buildingId] !== undefined && manager.buildings[buildingId].count >= number,
+			iconStack: tierIconStack(GENERATOR_ICON_NAMES[generatorId], tierIndex, number),
+			hiddenCondition: (manager: GameManager) => !manager.generators[generatorId]?.count,
+			condition: (manager: GameManager) => (manager.generators[generatorId]?.count ?? 0) >= number,
 		};
 	}
 
 	const tiers: { count: number; description?: string; name: string }[] = [
-		{ count: 1, description: `Buy your first ${name} building`, name: 'One' },
+		{ count: 1, description: `Buy your first ${name}`, name: 'One' },
 		{ count: 10, name: 'Ten' },
 		{ count: 50, name: 'Fifty' },
 		{ count: 100, name: 'Hundred' },
@@ -175,46 +173,51 @@ function createBuildingAchievements(buildingId: BuildingType): Achievement[] {
 		{ count: 2000, name: 'Two thousand' },
 	];
 
-	return tiers.map((tier, index) => createBuildingCountAchievement(tier.name, tier.count, index, tier.description));
+	return tiers.map((tier, index) => createGeneratorCountAchievement(tier.name, tier.count, index, tier.description));
 }
 
-function createBuildingTotalAchievements(): Achievement[] {
-	function createBuildingTotalAchievement(count: number, tierIndex: number): Achievement {
+function createGeneratorTotalAchievements(): Achievement[] {
+	function createGeneratorTotalAchievement(count: number, tierIndex: number): Achievement {
 		return {
 			id: `total_${count}`,
-			name: `${count} Buildings`,
-			description: `Own a total of ${count} buildings`,
-			iconStack: tierIconStack('layers', tierIndex, count),
-			hiddenCondition: (manager: GameManager) => manager.buildingTotals.count === 0,
-			condition: (manager: GameManager) => manager.buildingTotals.count >= count,
+			name: `${count} Generators`,
+			description: `Own a total of ${count} generators`,
+			iconStack: tierIconStack('generator', tierIndex, count),
+			hiddenCondition: (manager: GameManager) => manager.generatorTotals.count === 0,
+			condition: (manager: GameManager) => manager.generatorTotals.count >= count,
 		};
 	}
 
-	return [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1500, 2000, 2500, 3000].map(createBuildingTotalAchievement);
+	return [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1500, 2000, 2500, 3000].map(createGeneratorTotalAchievement);
 }
 
-function createBuildingLevelsAchievements(): Achievement[] {
-	function createBuildingLevelAchievement(level: number, tierIndex: number): Achievement {
+function createGeneratorLevelsAchievements(): Achievement[] {
+	function createGeneratorLevelAchievement(level: number, tierIndex: number): Achievement {
 		return {
+			/** The id predates the generators rename, quark claims are stored server side under it. */
 			id: `buildings_levels_${level}`,
 			name: `Levels ${level}`,
-			description: `Have a total of ${level} buildings levels`,
-			iconStack: tierIconStack('buildingLevel', tierIndex, level),
-			hiddenCondition: (manager: GameManager) => manager.buildingTotals.levels === 0,
-			condition: (manager: GameManager) => manager.buildingTotals.levels >= level,
+			description: `Have a total of ${level} generator levels`,
+			iconStack: tierIconStack('generator', tierIndex, level),
+			hiddenCondition: (manager: GameManager) => manager.generatorTotals.levels === 0,
+			condition: (manager: GameManager) => manager.generatorTotals.levels >= level,
 		};
 	}
 
-	return [1, 2, 3, 5, 7, 10, 15, 20, 30, 50].map(createBuildingLevelAchievement);
+	return [1, 2, 3, 5, 7, 10, 15, 20, 30, 50].map(createGeneratorLevelAchievement);
 }
 
 function createAtomsPerSecondAchievements(): Achievement[] {
 	function createAtomsPerSecondAchievement(count: number, tierIndex: number): Achievement {
-		const formattedCount = formatNumber(count);
 		return {
-			id: `aps_${formattedCount.toLowerCase()}`,
-			name: `${formattedCount} Atoms per Second`,
-			description: `Produce ${formattedCount} atoms per second`,
+			/** Quark claims store this id server-side, so it stays in suffix notation whatever the player picks. */
+			id: `aps_${formatNumber(count, 2, 'suffix').toLowerCase()}`,
+			get name() {
+				return `${formatNumber(count)} Atoms per Second`;
+			},
+			get description() {
+				return `Produce ${formatNumber(count)} atoms per second`;
+			},
 			iconStack: tierIconStack('speed', tierIndex, count),
 			condition: (manager: GameManager) => manager.atomsPerSecond >= count,
 		};
@@ -230,8 +233,12 @@ function createTotalClicksAchievements(): Achievement[] {
 	function createTotalClicksAchievement(count: number, tierIndex: number): Achievement {
 		return {
 			id: `clicks_${count}`,
-			name: `${formatNumber(count)} Clicks`,
-			description: `Click ${formatNumber(count)} times`,
+			get name() {
+				return `${formatNumber(count)} Clicks`;
+			},
+			get description() {
+				return `Click ${formatNumber(count)} times`;
+			},
 			iconStack: tierIconStack('click', tierIndex, count),
 			hiddenCondition: (manager: GameManager) => manager.totalClicksAllTime === 0,
 			condition: (manager: GameManager) => manager.totalClicksAllTime >= count,
@@ -247,8 +254,12 @@ function createTotalLevelsAchievements(): Achievement[] {
 	function createTotalLevelsAchievement(count: number, tierIndex: number): Achievement {
 		return {
 			id: `levels_${count}`,
-			name: `Level ${formatNumber(count, 0)}`,
-			description: `Be at least ${formatNumber(count, 0)} xp level`,
+			get name() {
+				return `Level ${formatNumber(count, 0)}`;
+			},
+			get description() {
+				return `Be at least ${formatNumber(count, 0)} xp level`;
+			},
 			iconStack: tierIconStack('level', tierIndex, count),
 			condition: (manager: GameManager) => manager.playerLevel >= count,
 		};
@@ -261,11 +272,11 @@ function createProtoniseAchievements(): Achievement[] {
 	const tiers = [1, 2, 3, 5, 10, 20, 50, 100, 250, 500, 1000];
 	return tiers.map((tier, index) => ({
 		id: `protonises_${tier}`,
-		name: `${tier} Protonises`,
-		description: `Protonise ${tier} times`,
+		name: `${tier} Protonizes`,
+		description: `Protonize ${tier} times`,
 		iconStack: tierIconStack('proton', index, tier),
-		condition: (manager: GameManager) => manager.currencies[CurrenciesTypes.PROTONS].earnedAllTime >= tier,
-		hiddenCondition: (manager: GameManager) => manager.currencies[CurrenciesTypes.PROTONS].earnedAllTime === 0,
+		condition: (manager: GameManager) => manager.totalProtonisesAllTime >= tier,
+		hiddenCondition: (manager: GameManager) => manager.totalProtonisesAllTime === 0,
 	}));
 }
 
@@ -276,18 +287,20 @@ function createElectronizeAchievements(): Achievement[] {
 		name: `${tier} Electronizes`,
 		description: `Electronize ${tier} times`,
 		iconStack: tierIconStack('electron', index, tier),
-		condition: (manager: GameManager) => manager.currencies[CurrenciesTypes.ELECTRONS].earnedAllTime >= tier,
-		hiddenCondition: (manager: GameManager) => manager.currencies[CurrenciesTypes.ELECTRONS].earnedAllTime === 0,
+		condition: (manager: GameManager) => manager.totalElectronizesAllTime >= tier,
+		hiddenCondition: (manager: GameManager) => manager.totalElectronizesAllTime === 0,
 	}));
 }
 
-function createCurrencyAchievements(): Achievement[] {
+function createCurrencyAchievements(): AchievementGroup[] {
 	return Object.values(CURRENCIES)
 		.filter(c => c.achievementTiers && c.stat)
-		.flatMap(currency => {
-			return currency.achievementTiers!.map((tier, index) => {
-				let name = `${formatNumber(tier)} ${currency.name}`;
-				let description = `Collect ${formatNumber(tier)} ${currency.name.toLowerCase()}`;
+		.map(currency => ({
+			name: currency.name,
+			tiered: true,
+			achievements: currency.achievementTiers!.map((tier, index) => {
+				let name = () => `${formatNumber(tier)} ${currency.name}`;
+				let description = () => `Collect ${formatNumber(tier)} ${currency.name.toLowerCase()}`;
 
 				if (currency.name === CurrenciesTypes.HIGGS_BOSON) {
 					const countNames: Record<number, string> = {
@@ -297,10 +310,10 @@ function createCurrencyAchievements(): Achievement[] {
 						512: '512',
 						4096: '4096',
 					};
-					name = `${countNames[tier] || tier} Bonus Higgs Boson`;
-					description = `Click ${formatNumber(tier, 0)} bonus higgs boson${tier === 1 ? '' : 's'}`;
+					name = () => `${countNames[tier] || tier} Bonus Higgs Boson`;
+					description = () => `Click ${formatNumber(tier, 0)} bonus higgs boson${tier === 1 ? '' : 's'}`;
 				} else if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) {
-					name = `Excited ${
+					name = () => `Excited ${
 						tier >= 1000 ?
 							tier >= 400000 ?
 								'4'
@@ -308,10 +321,10 @@ function createCurrencyAchievements(): Achievement[] {
 						: tier >= 20 ? '2'
 						: ''
 					}`;
-					description = `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
+					description = () => `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
 				}
 
-				// Prefix mapping for backward compatibility and cleanliness
+				// Quark claims store these ids server-side, so the prefixes never change.
 				let prefix = currency.id;
 				if (currency.name === CurrenciesTypes.ATOMS) prefix = 'atoms';
 				if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) prefix = 'excited_photons';
@@ -320,8 +333,12 @@ function createCurrencyAchievements(): Achievement[] {
 
 				return {
 					id: `${prefix}_${tier}`,
-					name,
-					description,
+					get name() {
+						return name();
+					},
+					get description() {
+						return description();
+					},
 					iconStack: tierIconStack(CURRENCY_ICON_NAMES[currency.name as CurrencyName], index, tier),
 					condition: (manager: GameManager) => {
 						const currencyData = manager.currencies[currency.stat as CurrencyName];
@@ -332,14 +349,13 @@ function createCurrencyAchievements(): Achievement[] {
 						return (currencyData?.earnedAllTime || 0) === 0;
 					},
 				};
-			});
-		});
+			}),
+		}));
 }
 
 function createPhotonUpgradeAchievements(): Achievement[] {
 	const achievements: Achievement[] = [];
 
-	// Achievement for total photon upgrades
 	achievements.push({
 		id: 'photon_collector',
 		name: 'Photon Collector',
@@ -363,10 +379,10 @@ function createCurrencyBoostAchievements(): Achievement[] {
 		{
 			id: 'first_boost',
 			name: 'Power Amplifier',
-			description: 'Allocate your first skill point to a currency boost',
-			iconStack: { count: 1, icon: 'upgrade' },
+			description: 'Allocate your first boost point to a currency boost',
+			iconStack: { count: 1, icon: 'currencyBoost' },
 			condition: (manager: GameManager) => {
-				const totalBoosts = Object.values(manager.skillPointBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
+				const totalBoosts = Object.values(manager.currencyBoosts || {}).reduce((sum, points) => sum + (points ?? 0), 0);
 				return totalBoosts >= 1;
 			},
 			hiddenCondition: (manager: GameManager) => manager.totalProtonisesAllTime < 1,
@@ -375,12 +391,12 @@ function createCurrencyBoostAchievements(): Achievement[] {
 			id: 'max_single_boost',
 			name: 'Laser Focus',
 			description: 'Maximize a single currency boost (20 points)',
-			iconStack: { count: 3, icon: 'upgrade', label: '20' },
+			iconStack: { count: 3, icon: 'currencyBoost', label: '20' },
 			condition: (manager: GameManager) => {
-				const boosts = Object.values(manager.skillPointBoosts || {});
+				const boosts = Object.values(manager.currencyBoosts || {});
 				return boosts.some(points => (points ?? 0) >= 20);
 			},
-			hiddenCondition: (manager: GameManager) => manager.skillPointsTotal < 5,
+			hiddenCondition: (manager: GameManager) => manager.boostPointsTotal < 5,
 		},
 	];
 }
@@ -413,7 +429,7 @@ function createRadiationAchievements(): Achievement[] {
 		{
 			id: 'radiation_upgrades_20',
 			name: 'Nuclear Engineer',
-			description: 'Purchase 20 radiation upgrades',
+			description: 'Purchase 20 Reactor Upgrades',
 			iconStack: { count: 3, icon: 'upgrade', label: '20' },
 			condition: (manager: GameManager) => {
 				const upgrades = manager.radiationUpgrades || {};
@@ -425,23 +441,23 @@ function createRadiationAchievements(): Achievement[] {
 	];
 }
 
-const achievementsArray: Achievement[] = [
-	...BUILDING_TYPES.map(createBuildingAchievements).flat(),
-	...createBuildingTotalAchievements(),
-	...createBuildingLevelsAchievements(),
-	...createAtomsPerSecondAchievements(),
-	...createTotalClicksAchievements(),
-	...createTotalLevelsAchievements(),
-	...createProtoniseAchievements(),
-	...createElectronizeAchievements(),
+export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
+	...GENERATOR_TYPES.map(type => ({ achievements: createGeneratorAchievements(type), name: GENERATORS[type].name, tiered: true })),
+	{ achievements: createGeneratorTotalAchievements(), name: 'Generators Owned', tiered: true },
+	{ achievements: createGeneratorLevelsAchievements(), name: 'Generator Levels', tiered: true },
+	{ achievements: createAtomsPerSecondAchievements(), name: 'Atoms per Second', tiered: true },
+	{ achievements: createTotalClicksAchievements(), name: 'Clicks', tiered: true },
+	{ achievements: createTotalLevelsAchievements(), name: 'Player Level', tiered: true },
+	{ achievements: createProtoniseAchievements(), name: 'Protonizes', tiered: true },
+	{ achievements: createElectronizeAchievements(), name: 'Electronizes', tiered: true },
 	...createCurrencyAchievements(),
-	...createCurrencyBoostAchievements(),
-	...createPhotonUpgradeAchievements(),
-	...createRadiationAchievements(),
-	...SPECIAL_ACHIEVEMENTS,
+	{ achievements: createCurrencyBoostAchievements(), name: 'Currency Boosts', tiered: false },
+	{ achievements: createPhotonUpgradeAchievements(), name: 'Photon Upgrades', tiered: false },
+	{ achievements: createRadiationAchievements(), name: 'Reactor', tiered: false },
+	{ achievements: SPECIAL_ACHIEVEMENTS, name: 'Special', tiered: false },
 ];
 
-export const ACHIEVEMENTS = Object.fromEntries(achievementsArray.map(achievement => [achievement.id, achievement]));
+export const ACHIEVEMENTS = Object.fromEntries(ACHIEVEMENT_GROUPS.flatMap(group => group.achievements).map(achievement => [achievement.id, achievement]));
 
 /** Pre-built so the per-tick achievement sweep does not rebuild an entries array every second. */
 export const ACHIEVEMENT_ENTRIES = Object.entries(ACHIEVEMENTS);

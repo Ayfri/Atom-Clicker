@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ICONS, type IconName } from '$data/icons';
-	import { MAX_STACK_COUNT } from '$helpers/iconStacks';
+	import { ICONS, type IconName } from '#data/icons.js';
+	import { MAX_STACK_COUNT } from '#helpers/iconStacks.js';
 
 	interface Props {
 		class?: string;

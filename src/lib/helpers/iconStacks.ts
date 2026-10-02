@@ -1,5 +1,5 @@
-import type { IconName } from '$data/icons';
-import { formatNumber } from '$lib/utils';
+import type { IconName } from '#data/icons.js';
+import { formatNumber } from '#lib/utils.js';
 
 /** Beyond this many copies a stack stops reading as "several" and just looks noisy, so the count moves into the label. */
 export const MAX_STACK_COUNT = 3;
@@ -21,6 +21,13 @@ export interface IconStackSpec {
  */
 export function tierIconStack(icon: IconName, tierIndex: number, tierValue?: number, color?: string): IconStackSpec {
 	const count = Math.min(tierIndex + 1, MAX_STACK_COUNT);
-	const label = tierIndex >= MAX_STACK_COUNT && tierValue !== undefined ? formatNumber(tierValue, 0) : undefined;
-	return { color, count, icon, label };
+	if (tierIndex < MAX_STACK_COUNT || tierValue === undefined) return { color, count, icon };
+	return {
+		color,
+		count,
+		icon,
+		get label() {
+			return formatNumber(tierValue, 0);
+		},
+	};
 }

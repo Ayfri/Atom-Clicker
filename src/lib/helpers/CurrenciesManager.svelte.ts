@@ -1,13 +1,12 @@
 
-import { CurrenciesTypes, type CurrencyName, CURRENCIES } from '$data/currencies';
-import { type LayerType, LAYERS } from '$helpers/statConstants';
-import type { CurrencyStateMap } from '$lib/types';
+import { CurrenciesTypes, type CurrencyName, CURRENCIES } from '#data/currencies.js';
+import { type LayerType, LAYERS } from '#helpers/statConstants.js';
+import type { CurrencyStateMap } from '#lib/types.js';
 
 export class CurrenciesManager {
 	currencies = $state<CurrencyStateMap>({} as CurrencyStateMap);
 
 	constructor() {
-		// Initialize all currencies with 0
 		for (const type of Object.values(CurrenciesTypes)) {
 			this.currencies[type] = {
 				amount: 0,
@@ -20,9 +19,10 @@ export class CurrenciesManager {
 	add(type: CurrencyName, amount: number) {
 		if (amount <= 0) return;
 
-		this.currencies[type].amount += amount;
-		this.currencies[type].earnedRun += amount;
-		this.currencies[type].earnedAllTime += amount;
+		const currency = this.currencies[type];
+		currency.amount += amount;
+		currency.earnedRun += amount;
+		currency.earnedAllTime += amount;
 	}
 
 	remove(type: CurrencyName, amount: number) {
@@ -32,10 +32,6 @@ export class CurrenciesManager {
 
 	getAmount(type: CurrencyName) {
 		return this.currencies[type]?.amount || 0;
-	}
-
-	getEarnedRun(type: CurrencyName) {
-		return this.currencies[type]?.earnedRun || 0;
 	}
 
 	getEarnedAllTime(type: CurrencyName) {

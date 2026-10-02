@@ -1,3 +1,30 @@
+# What's new 02-10-2026
+
+## New
+
+- **Ionize & the Prism**: Run your reactor above 10K CPM for a minute to unlock Ionize, a deeper prestige whose Prism sends Red, Green and Blue photons into the Photon Realm, their Light boosting every realm.
+- **Collider**: A particle ring shared by every player, where each signed-in player injects a particle a minute and every 1,000 particles boost everyone's production.
+- **Living Backgrounds**: Every realm fills with drifting motes that thicken as you progress, and each click or purchase sends a comet to what it powers.
+- **Tutorial**: Small tips replace the popups and point at what to do next, while the interface opens up panel by panel as you unlock things.
+- **Quark Shop**: A Prism theme for the Photon Realm and a banner for each colored Light.
+- **Player Profiles**: Tap anyone on the leaderboard to see their journey, stats and generators.
+- **Install the Game**: Add Atom Clicker to your home screen or desktop as an app, and keep playing even without a connection.
+
+## Redesigned
+
+- **The Atom**: Now in 3D, with your generators' electrons orbiting a nucleus that grows and takes the color of each realm you unlock.
+- **Counters**: Bolder atom and photon counters with all your currencies at a glance, and a Stability Field gauge that fills while you idle.
+- **Generators**: Buildings are now Generators, each showing its share of your production and how close it is to its next level.
+- **Skill Tree**: An animated tree whose skills unlock new mechanics and stay through every prestige, while production boosts moved to Upgrades.
+- **Realms**: The photon field glows with light waves, and the reactor is now in 3D with rods and a core that react to your power lever.
+- **Prestige**: Protonize and Electronize show your gain and what each reset keeps, and every reset gets its own icon that glows when ready.
+- **Achievements**: Grouped by theme, each series showing only your latest tier and the next one.
+- **Offline Progress**: A Welcome Back screen counts up your loot and shows what your automation did while you were away.
+- **Leaderboard**: A podium for the top 3, a bar showing the next player to pass, Near me and Online tabs, and arrows for who moved since your last visit.
+- **Settings**: A cleaner menu with a visual Profile, a cloud save comparison, a Changelog that flags new updates, scientific notation for big numbers, and a way to turn off Google Analytics.
+- **Mobile**: A bottom bar replaces the floating icons, and the game fits your phone in landscape.
+- **Sign In**: A clearer sign in dialog showing what an account unlocks, and Google players can now sign in with one tap without leaving the game.
+
 # What's new 19-09-2026
 
 - **Upgrades**: A Buy All button grabs every upgrade you can afford in one tap, cheapest first, and higher building Boost tiers now unlock one band per Protonise, with the atom tab telling you what your next Protonise opens.
