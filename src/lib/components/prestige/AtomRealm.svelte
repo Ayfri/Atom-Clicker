@@ -57,7 +57,7 @@
 	});
 </script>
 
-<div class={['relative transition-all duration-1000 ease-in-out lg:pt-8', mobile.current && 'min-h-screen pb-8']}>
+<div class={['relative transition-all duration-1000 ease-in-out lg:pt-8', mobile.current && 'pb-8']}>
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
 		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
 			{#if gameManager.totalProtonisesAllTime > 0}
