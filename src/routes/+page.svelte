@@ -138,6 +138,13 @@
 		});
 	});
 
+	/** Quests roll over at UTC midnight, a tab left open overnight resyncs then instead of keeping yesterday's quests and counters. */
+	$effect(() => {
+		if (!quarksManager.dayKey) return;
+		const timer = setTimeout(() => quarksManager.sync(), Date.parse(quarksManager.dayKey) + 86_400_000 - Date.now() + 1000);
+		return () => clearTimeout(timer);
+	});
+
 	/** Late enough that the One Tap prompt offers to keep real progress instead of greeting a new player with a login. */
 	const ONE_TAP_PLAY_TIME_MS = 10 * 60_000;
 	const oneTapReady = $derived(accountBootstrapped && !supabaseAuth.isAuthenticated && gameManager.inGameTime >= ONE_TAP_PLAY_TIME_MS);
