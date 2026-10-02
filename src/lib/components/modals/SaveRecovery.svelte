@@ -5,7 +5,7 @@
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { AlertTriangle, CloudDownload, Database, RefreshCw, Trash2, Trophy, X } from '@lucide/svelte';
+	import { CloudDownload, Database, RefreshCw, Trash2, TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -75,7 +75,7 @@
 >
 	<div class="flex flex-col gap-6">
 		<div class="flex items-start gap-4 rounded-xl bg-red-500/20 p-4 border border-red-500/30">
-			<AlertTriangle
+			<TriangleAlert
 				size={32}
 				class="shrink-0 text-red-400 mt-0.5"
 			/>

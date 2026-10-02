@@ -15,5 +15,5 @@
 </script>
 
 <Tooltip {content} {position} {size} class="text-white/40 hover:text-white/80 transition-colors {className}">
-	<CircleHelp size={15} />
+	<CircleHelp aria-label="Help" size={15} />
 </Tooltip>

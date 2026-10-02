@@ -74,7 +74,7 @@
 			<span class="relative shrink-0 rounded-full ring-4 ring-accent-900" style:box-shadow={metal ? `0 0 0 7px ${metal}, 0 0 28px ${metal}80` : undefined}>
 				<Avatar alt={entry.username} class="size-20 text-2xl sm:size-24" src={entry.picture} />
 				{#if entry.is_online}
-					<span class="absolute right-1 bottom-1 size-4 rounded-full bg-green-500 ring-3 ring-accent-900" title="Online"></span>
+					<span class="absolute right-1 bottom-1 size-4 rounded-full bg-green-500 ring-3 ring-accent-900" aria-label="Online" role="img" title="Online"></span>
 				{/if}
 			</span>
 			<div class="flex min-w-0 flex-1 flex-col items-center gap-1 sm:items-start">
@@ -117,7 +117,7 @@
 	{/if}
 
 	{#await request}
-		<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+		<div class="grid grid-cols-2 gap-3 md:grid-cols-3" aria-busy="true" aria-label="Loading profile" role="status">
 			{#each { length: 6 }, index (index)}
 				<div class="h-15 animate-pulse rounded-xl bg-white/5"></div>
 			{/each}

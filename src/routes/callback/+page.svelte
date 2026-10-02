@@ -34,7 +34,7 @@
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-gray-900">
-	<div class="rounded-lg bg-gray-800 p-8 text-center shadow-xl">
+	<div class="rounded-lg bg-gray-800 p-8 text-center shadow-xl" role={error ? 'alert' : 'status'}>
 		{#if isLoading}
 			<div class="mb-4">
 				<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>

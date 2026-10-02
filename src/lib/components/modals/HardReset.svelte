@@ -62,7 +62,7 @@
 		<div class="relative mx-auto mb-4 flex size-16 items-center justify-center">
 			<span class="absolute inset-0 animate-ping rounded-full bg-red-500/20"></span>
 			<span class="relative flex size-16 items-center justify-center rounded-full border border-red-500/50 bg-red-500/20 text-red-300">
-				<TriangleAlert size={30} />
+				<TriangleAlert aria-hidden="true" size={30} />
 			</span>
 		</div>
 

@@ -4,9 +4,9 @@
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { GENERATOR_LEVEL_UP_COST } from '#data/generators.js';
-	import { MAX_BOOST_POINTS } from '#lib/constants.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { MAX_BOOST_POINTS } from '#lib/constants.js';
 	import { ChevronsRight, Minus, Plus, RotateCcw, Scale, Zap } from '@lucide/svelte';
 
 	interface Props {
@@ -20,7 +20,7 @@
 		CurrenciesTypes.PROTONS,
 		CurrenciesTypes.ELECTRONS,
 		CurrenciesTypes.PHOTONS,
-		CurrenciesTypes.EXCITED_PHOTONS
+		CurrenciesTypes.EXCITED_PHOTONS,
 	];
 
 	const canAssignAll = $derived(gameManager.features[FeatureTypes.BOOST_ASSIGN_ALL]);
@@ -82,6 +82,7 @@
 					</div>
 					<div class="flex items-center gap-2">
 						<button
+							aria-label="Remove a boost point from {currencyName}"
 							class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
 							disabled={points <= 0}
 							onclick={() => gameManager.removeCurrencyBoost(currencyName)}
@@ -90,6 +91,7 @@
 						</button>
 						<span class="w-8 text-center font-mono text-lg font-bold text-white">{points}</span>
 						<button
+							aria-label="Add a boost point to {currencyName}"
 							class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
 							disabled={gameManager.boostPointsAvailable <= 0 || points >= MAX_BOOST_POINTS}
 							onclick={() => gameManager.addCurrencyBoost(currencyName)}
@@ -98,6 +100,7 @@
 						</button>
 						{#if canAssignAll}
 							<button
+								aria-label="Assign all free points to {currencyName}"
 								class="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/15 text-yellow-300 transition hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-30"
 								disabled={gameManager.boostPointsAvailable <= 0 || points >= MAX_BOOST_POINTS}
 								onclick={() => gameManager.assignAllCurrencyBoosts(currencyName)}
@@ -110,5 +113,5 @@
 				</div>
 			{/each}
 		</div>
-</div>
+	</div>
 </Modal>

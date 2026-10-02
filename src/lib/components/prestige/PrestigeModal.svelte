@@ -1,4 +1,8 @@
 <script lang="ts">
+	import Currency from '#components/ui/Currency.svelte';
+	import HoldButton from '#components/ui/HoldButton.svelte';
+	import Modal from '#components/ui/Modal.svelte';
+	import Tooltip from '#components/ui/Tooltip.svelte';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { RealmTypes } from '#data/realms.js';
@@ -10,10 +14,6 @@
 	import type { EffectStat, PrestigeListItem } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
-	import Currency from '#components/ui/Currency.svelte';
-	import HoldButton from '#components/ui/HoldButton.svelte';
-	import Modal from '#components/ui/Modal.svelte';
-	import Tooltip from '#components/ui/Tooltip.svelte';
 	import { Check, Info, RotateCcw, Sparkles, Vault, X } from '@lucide/svelte';
 
 	interface Props {

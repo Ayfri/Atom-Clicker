@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PrestigeModal from '#components/prestige/PrestigeModal.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { boostTiersUnlockedByNextProtonise } from '#data/upgrades.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -6,7 +7,6 @@
 	import { PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 	import type { PrestigeListItem } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
-	import PrestigeModal from '#components/prestige/PrestigeModal.svelte';
 
 	interface Props {
 		onClose: () => void;

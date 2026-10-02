@@ -115,7 +115,7 @@
 			<div
 				class="absolute inset-[12%] rounded-full bg-radial from-accent-400/25 to-transparent to-70% transition-opacity duration-500 {canInject ? 'opacity-100' : 'opacity-0'}"
 			></div>
-			<svg class="relative size-full -rotate-90 overflow-visible" viewBox="0 0 100 100">
+			<svg aria-hidden="true" class="relative size-full -rotate-90 overflow-visible" viewBox="0 0 100 100">
 				<path class="stroke-white/15" d={MINOR_TICKS} stroke-width="0.4" />
 				<path class="stroke-white/35" d={MAJOR_TICKS} stroke-width="0.6" />
 				<circle class="fill-none stroke-white/10" cx="50" cy="50" r="44" stroke-width="3" />
@@ -141,7 +141,7 @@
 					{/each}
 				</g>
 			</svg>
-			<canvas class="-top-[35%] -left-[10%] h-[170%] w-[120%]" {@attach mountRenderer}></canvas>
+			<canvas aria-hidden="true" class="-top-[35%] -left-[10%] h-[170%] w-[120%]" {@attach mountRenderer}></canvas>
 			<span class="absolute inset-0 flex flex-col items-center justify-center gap-1">
 				{#if charging}
 					<span class="animate-pulse text-sm font-bold tracking-[0.2em] text-white/70 uppercase">Accelerating</span>

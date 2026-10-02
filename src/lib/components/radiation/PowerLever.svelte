@@ -44,6 +44,7 @@
 		{/if}
 		<input
 			aria-label="Reactor power"
+			aria-valuetext="{(level * 100).toFixed(0)}%"
 			class={['lever absolute inset-0 size-full cursor-grab active:cursor-grabbing', { vertical }]}
 			max="1"
 			min="0"

@@ -4,8 +4,8 @@
 	import { RealmTypes } from '#data/realms.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { ReactorRenderer } from '#helpers/ReactorRenderer.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { ReactorRenderer } from '#helpers/ReactorRenderer.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { Fuel } from '@lucide/svelte';
 
@@ -39,6 +39,7 @@
 		<div class="flex gap-0.5 rounded-md bg-white/5 p-0.5">
 			{#each SHARES as option (option.label)}
 				<button
+					aria-pressed={share === option.share}
 					class="cursor-pointer rounded-sm px-2 py-0.5 text-xs transition-colors duration-200 {share === option.share ?
 						'bg-white/20 text-white'
 					:	'text-white/60 hover:bg-white/10 hover:text-white'}"

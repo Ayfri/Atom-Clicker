@@ -83,7 +83,7 @@
 	width="sm"
 >
 	{#if error}
-		<div class="mb-4 rounded-lg bg-red-500/20 p-4 text-red-200">
+		<div class="mb-4 rounded-lg bg-red-500/20 p-4 text-red-200" role="alert">
 			{error}
 		</div>
 	{/if}
@@ -92,10 +92,11 @@
 		{#each AUTH_CONNECTIONS as connection (connection.id)}
 			<button
 				onclick={() => handleLogin(connection)}
+				type="button"
 				class="flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold transition-colors duration-200
 				{connection.backgroundColor} {connection.hoverBackgroundColor} {connection.textColor}"
 			>
-				<img src={connection.icon} alt={connection.name} class="h-6 w-6"/>
+				<img src={connection.icon} alt="" class="h-6 w-6"/>
 				Continue with {connection.name}
 			</button>
 		{/each}

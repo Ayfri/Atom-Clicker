@@ -45,6 +45,7 @@
 				ui.closeModal();
 				gameManager.tutorialManager.forget();
 			}}
+			type="button"
 		>
 			Replay
 		</button>

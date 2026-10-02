@@ -45,7 +45,7 @@
 						<Avatar alt={entry.username} class="{step.avatar} text-lg" src={entry.picture} />
 					</span>
 					{#if entry.is_online}
-						<span class="absolute right-0.5 bottom-0.5 size-3.5 rounded-full bg-green-500 ring-2 ring-black" title="Online"></span>
+						<span class="absolute right-0.5 bottom-0.5 size-3.5 rounded-full bg-green-500 ring-2 ring-black" aria-label="Online" role="img" title="Online"></span>
 					{/if}
 				</span>
 				<span class={['w-full truncate text-sm font-bold capitalize sm:text-base', entry.self ? 'text-accent-200' : 'text-white']}>{entry.username}</span>
