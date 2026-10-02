@@ -25,15 +25,19 @@ function bump(element: Element) {
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * Colored sparks rise from every `sources` point into `target` and resolve once the last one landed. One-shot WAAPI on
- * transform and opacity, capped at 48 sparks, every spark removes itself.
+ * Colored sparks rise from every `sources` point into `target` and resolve once the last one landed. Sources leave in
+ * order across `cascade` ms, each spark flies for `duration`. One-shot WAAPI on transform and opacity, capped at 48
+ * sparks sampled evenly across the sources, every spark removes itself.
+ *
+ * @example gatherSparks(rows, button, 600, 5 * rows.length) // 100 rows: the last ones leave 500ms after the first
  */
-export function gatherSparks(sources: { x: number; y: number }[], target: Element, duration = 600): Promise<void> {
+export function gatherSparks(sources: { x: number; y: number }[], target: Element, duration = 600, cascade = 0): Promise<void> {
 	const to = target.getBoundingClientRect();
 	if (sources.length === 0 || !to.width || reducedMotion()) return Promise.resolve();
 
-	const perSource = Math.max(1, Math.min(SPARKS_PER_SOURCE, Math.floor(MAX_SPARKS / sources.length)));
-	const flights = sources.slice(0, MAX_SPARKS).flatMap(({ x, y }) =>
+	const sampled = sources.length <= MAX_SPARKS ? sources : Array.from({ length: MAX_SPARKS }, (_, i) => sources[Math.floor((i * sources.length) / MAX_SPARKS)]);
+	const perSource = Math.max(1, Math.min(SPARKS_PER_SOURCE, Math.floor(MAX_SPARKS / sampled.length)));
+	const flights = sampled.flatMap(({ x, y }, index) =>
 		Array.from({ length: perSource }, (_, i) => {
 			const color = CHARGE_COLORS[i % CHARGE_COLORS.length];
 			const size = 4 + Math.random() * 3;
@@ -49,7 +53,7 @@ export function gatherSparks(sources: { x: number; y: number }[], target: Elemen
 				opacity: t < 0.15 ? t / 0.15 : t > 0.9 ? 0.4 : 1,
 				transform: `${translate} scale(${t < 0.15 ? 0.3 + (t / 0.15) * 0.9 : 1.2 - 0.6 * t})`,
 			}));
-			const animation = spark.animate(keyframes, { delay: Math.random() * 120, duration, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'backwards' });
+			const animation = spark.animate(keyframes, { delay: (index / sampled.length) * cascade + Math.random() * 120, duration, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'backwards' });
 			return animation.finished.then(() => {
 				spark.remove();
 				bump(target);
