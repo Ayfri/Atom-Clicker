@@ -25,7 +25,7 @@
 				['Crash reports', 'When the game crashes, the error, page URL, browser info and a snapshot of your game state are sent to help fix the bug, linked to your account if you are signed in.'],
 				['Feedback', 'The feedback form is hosted by Tally (tally.so), your email is prefilled if you are signed in.'],
 				['Analytics', 'Cloudflare Web Analytics counts visits without cookies. Google Analytics measures usage with cookies and can be turned off above.'],
-				['Your rights', 'Under the GDPR you can access, fix or delete your data. Ask on Discord or GitHub to delete your account, clearing your browser data deletes your local save. You can also contact the CNIL (cnil.fr).'],
+				['Your rights', 'Under the GDPR you can access, fix or delete your data. Ask on Discord or GitHub to delete your account. Clearing your browser data deletes your local save. You can also contact the CNIL (cnil.fr).'],
 			],
 		},
 		{

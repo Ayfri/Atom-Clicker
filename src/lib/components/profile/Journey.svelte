@@ -48,7 +48,7 @@
 				</span>
 				<span class="text-sm font-semibold text-white">{milestone.reached ? milestone.label : '???'}</span>
 				{#if milestone.reached && milestone.count}
-					<span class="text-xs text-white/50">{formatNumber(milestone.count)} times</span>
+					<span class="text-xs text-white/50">{formatNumber(milestone.count)} {milestone.count === 1 ? 'time' : 'times'}</span>
 				{/if}
 			</li>
 		{/each}
