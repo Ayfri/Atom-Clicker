@@ -206,9 +206,7 @@
 	<RealmSwitcher />
 
 	<main
-		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : (
-			'overflow-hidden'
-		)} lg:pb-4 transition-all duration-300"
+		class="relative flex-1 overflow-clip lg:pb-4 transition-all duration-300"
 		style="padding-top: calc(3rem + var(--banner-height));"
 	>
 		{#if gameManager.features[FeatureTypes.LEVELS]}
