@@ -36,7 +36,7 @@
 	);
 </script>
 
-<section class="flex flex-col gap-3" data-hint="radiation-upgrades">
+<section class="flex flex-col gap-3 rounded-lg bg-black/10 p-3 backdrop-blur-xs" data-hint="radiation-upgrades">
 	<div class="flex items-center gap-1.5">
 		<h2 class="text-lg">Reactor Upgrades</h2>
 		<HelpIcon position="bottom">
