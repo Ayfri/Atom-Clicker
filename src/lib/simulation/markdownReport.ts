@@ -886,6 +886,20 @@ export function buildMarkdownReport(result: SimulationResult): string {
 			],
 		),
 	);
+	const questRows = Object.entries(final.questBreakdown ?? {}).sort(([a], [b]) => a.localeCompare(b));
+	if (questRows.length > 0) {
+		lines.push('');
+		lines.push(
+			table(
+				['quest', 'completed', 'last progress / target'],
+				questRows.map(([id, outcome]) => [
+					id,
+					`${outcome.completed}/${outcome.offered}`,
+					`${formatNumber(outcome.lastProgress)} / ${formatNumber(outcome.lastTarget)}`,
+				]),
+			),
+		);
+	}
 
 	lines.push('');
 	return lines.join('\n');

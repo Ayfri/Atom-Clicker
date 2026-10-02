@@ -135,6 +135,7 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		quarks: run.quarksFromAchievements + run.quests.quarks,
 		quarksFromAchievements: run.quarksFromAchievements,
 		quarksFromQuests: run.quests.quarks,
+		questBreakdown: structuredClone(run.quests.breakdown),
 		questsCompletedToday: run.quests.completedToday,
 		questsCompletedTotal: run.quests.completedTotal,
 		questsOfferedTotal: run.quests.offeredTotal,

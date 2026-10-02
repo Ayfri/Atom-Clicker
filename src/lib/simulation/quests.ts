@@ -1,7 +1,7 @@
-import { type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
+import { DAILY_QUEST_COUNT, type DailyQuest, getDailyCap, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { statsConfig } from '#helpers/statConstants.js';
-import type { QuestBehavior } from './types';
+import type { QuestBehavior, QuestOutcome } from './types';
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -10,6 +10,7 @@ export class QuestTracker {
 	private quests: DailyQuest[] = [];
 	private targets: Record<string, number> = {};
 
+	breakdown: Record<string, QuestOutcome> = {};
 	completedToday = 0;
 	completedTotal = 0;
 	offeredTotal = 0;
@@ -29,7 +30,7 @@ export class QuestTracker {
 		if (this.dayIndex !== -1) this.settleDay();
 
 		this.dayIndex = dayIndex;
-		this.quests = pickDailyQuests(`sim-${dayIndex}`);
+		this.quests = pickDailyQuests(`sim-${dayIndex}`, DAILY_QUEST_COUNT, gameManager.dailyQuestContext(false));
 		this.targets = {};
 		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, gameManager.highestAPSRun);
 		this.offeredTotal += this.quests.length;
@@ -50,8 +51,14 @@ export class QuestTracker {
 
 		for (const quest of this.quests) {
 			const target = this.targets[quest.id] ?? quest.floor;
-			if ((gameManager.dailyStats[quest.metric] ?? 0) < target) continue;
+			const progress = gameManager.dailyStats[quest.metric] ?? 0;
+			const outcome = (this.breakdown[quest.id] ??= { completed: 0, lastProgress: 0, lastTarget: 0, offered: 0 });
+			outcome.offered += 1;
+			outcome.lastProgress = progress;
+			outcome.lastTarget = target;
+			if (progress < target) continue;
 
+			outcome.completed += 1;
 			completed += 1;
 			this.completedTotal += 1;
 
