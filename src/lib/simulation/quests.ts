@@ -35,7 +35,6 @@ export class QuestTracker {
 		this.quests = pickDailyQuests(`sim-${dayIndex}`, DAILY_QUEST_COUNT, context);
 		this.targets = {};
 		for (const quest of this.quests) this.targets[quest.id] = getQuestTarget(quest, context);
-		this.offeredTotal += this.quests.length;
 
 		gameManager.dailyStats = {
 			...statsConfig.dailyStats.defaultValue,
@@ -45,8 +44,10 @@ export class QuestTracker {
 		};
 	}
 
-	/** Completion is measured for every archetype, claiming is gated by questBehavior. */
+	/** Completion is measured for every archetype, claiming is gated by questBehavior. A run ending on a day boundary opens a day it never plays. */
 	settleDay() {
+		if (gameManager.inGameTime <= this.dayIndex * DAY_MS) return;
+		this.offeredTotal += this.quests.length;
 		const cap = getDailyCap(this.quests);
 		let granted = 0;
 		let completed = 0;
