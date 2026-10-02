@@ -5,6 +5,7 @@ import { UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable, effectAmount } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { marginalProduction } from './purchases';
 import type { QuestTracker } from './quests';
 import type { SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
 
@@ -26,9 +27,14 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 	const effectSources = gameManager.allEffectSources;
 	const generators = {} as Record<GeneratorType, number>;
 	const generatorLevelFactors: Partial<Record<GeneratorType, number>> = {};
+	const generatorPaybacks: Partial<Record<GeneratorType, number>> = {};
 	const generatorUpgradeFactors: Partial<Record<GeneratorType, number>> = {};
 	let totalGenerators = 0;
 	let generatorLevels = 0;
+	// The live bonus is divided out so a power-up running at sample time does not halve every payback for one row.
+	const atoms = currenciesManager.getAmount(CurrenciesTypes.ATOMS);
+	const bonus = gameManager.bonusMultiplier || 1;
+	const rawAps = gameManager.atomsPerSecond / bonus;
 
 	for (const type of GENERATOR_TYPES) {
 		const generator = gameManager.generators[type];
@@ -36,6 +42,10 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		generators[type] = count;
 		totalGenerators += count;
 		generatorLevels += generator?.level ?? 0;
+		const gain = marginalProduction(type, 1) / bonus;
+		const cost = gameManager.getGeneratorCost(type, 1);
+		const wait = cost <= atoms ? 0 : rawAps > 0 ? (cost - atoms) / rawAps : Infinity;
+		if (gain > 0 && Number.isFinite(wait)) generatorPaybacks[type] = wait + cost / gain;
 
 		if (generator && count > 0) {
 			generatorUpgradeFactors[type] = gameManager.effects.value('generator', 1, gameManager, type);
@@ -77,15 +87,16 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		achievements: gameManager.achievements.length,
 		actionCounts: { ...run.actionCounts },
 		actions: [...run.actions],
-		atoms: currenciesManager.getAmount(CurrenciesTypes.ATOMS),
+		atoms,
 		atomsCurrencyBoost: gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS),
 		atomsEarnedAllTime: currenciesManager.getEarnedAllTime(CurrenciesTypes.ATOMS),
 		atomsPerClick: gameManager.clickPower,
 		atomsPerSecond: gameManager.atomsPerSecond,
-		atomsPerSecondRaw: gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1),
+		atomsPerSecondRaw: rawAps,
 		bonusMultiplier: gameManager.bonusMultiplier,
 		generatorLevelFactors,
 		generatorLevels,
+		generatorPaybacks,
 		generatorProductions: { ...gameManager.generatorProductions },
 		generatorUpgradeFactors,
 		generators,

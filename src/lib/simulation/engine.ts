@@ -17,8 +17,11 @@ import { QuestTracker } from './quests';
 import { createSnapshotData, type RunState } from './snapshots';
 import {
 	DETAILED_ACTION_TYPES,
+	PRESTIGE_LAYERS,
 	type BenchmarkConfig,
+	type IdleGap,
 	type MilestoneHit,
+	type PrestigeEvent,
 	type SimulationAction,
 	type SimulationActionType,
 	type SimulationProgress,
@@ -29,6 +32,7 @@ import {
 
 const BOOST_PRIORITY: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS];
 const HOUR_MS = 3_600_000;
+const IDLE_GAP_MIN_MS = 60_000;
 const PROGRESS_CHECK_TICKS = 500;
 const PROGRESS_INTERVAL_MS = 100;
 
@@ -59,13 +63,18 @@ interface PhotonRealmEffects {
  * The loop never yields, a worker host stops it by terminating the worker.
  */
 export class SimulationEngine {
+	private activeMs = 0;
 	private autoBuyNext: Partial<Record<GeneratorType, number>> = {};
 	private autoClickCarry = 0;
 	private autoUpgradeInterval = 0;
 	private autoUpgradeNext = 0;
 	private readonly config: BenchmarkConfig;
+	private readonly idleGaps: IdleGap[] = [];
+	private idleMs = 0;
+	private idleStart = 0;
 	private lastElectronizeGain = 0;
 	private lastProtoniseGain = 0;
+	private readonly lastResetAt: Record<PrestigeEvent['type'], number> = { electronize: 0, ionize: 0, protonise: 0 };
 	private lastWasActive = false;
 	private manualClickCarry = 0;
 	private readonly milestones: MilestoneHit[] = [];
@@ -82,6 +91,7 @@ export class SimulationEngine {
 	private readonly chromaticHp: Record<ChromaticColor, number> = { blue: 0, green: 0, red: 0 };
 	private readonly planner = new PurchasePlanner();
 	private powerUpCounter = 0;
+	private readonly prestiges: PrestigeEvent[] = [];
 	private prestigesThisActiveWindow = 0;
 	private prestigeWindowStart = 0;
 	private readonly quests: QuestTracker;
@@ -163,6 +173,7 @@ export class SimulationEngine {
 			}
 
 			if (this.quests.hasOpenDay) this.quests.settleDay();
+			this.closeIdleGap();
 			this.takeSnapshot();
 		} finally {
 			disconnect();
@@ -175,6 +186,7 @@ export class SimulationEngine {
 			cancelled: false,
 			config: this.config,
 			durationMs: performance.now() - started,
+			insights: { activeMs: this.activeMs, idleGaps: this.idleGaps, prestiges: this.prestiges },
 			milestones: this.milestones,
 			snapshots: this.snapshots,
 			spikes: this.spikes,
@@ -201,13 +213,37 @@ export class SimulationEngine {
 		}
 		this.lastWasActive = active;
 		if (active) {
-			this.executeBotBehavior();
+			this.trackIdle(this.executeBotBehavior() > 0);
 			this.quests.steerDedicated();
 		}
 
 		this.flushSpikeWindowIfNeeded();
 		if (checkAchievements) this.checkAchievements();
 		this.milestoneTracker.check(this.state, this.milestones);
+	}
+
+	/** Waits shorter than a minute are the normal rhythm of an incremental, only longer ones are kept as gaps. */
+	private trackIdle(acted: boolean) {
+		this.activeMs += this.config.tickRate;
+		if (!acted) {
+			if (this.idleMs === 0) this.idleStart = gameManager.inGameTime;
+			this.idleMs += this.config.tickRate;
+			return;
+		}
+		this.closeIdleGap();
+	}
+
+	private closeIdleGap() {
+		if (this.idleMs >= IDLE_GAP_MIN_MS) this.idleGaps.push({ activeMs: this.idleMs, end: gameManager.inGameTime, start: this.idleStart });
+		this.idleMs = 0;
+	}
+
+	/** A layer's run ends at its own reset or a deeper one, a protonise right before an electronize does not shorten it. */
+	private logPrestige(type: PrestigeEvent['type'], gain: number, rawAps: number) {
+		const now = gameManager.inGameTime;
+		const runStart = Math.max(...PRESTIGE_LAYERS.slice(PRESTIGE_LAYERS.indexOf(type)).map(layer => this.lastResetAt[layer]));
+		this.prestiges.push({ gain, rawAps, runMs: now - runStart, skills: gameManager.skillUpgrades.length, timestamp: now, type });
+		this.lastResetAt[type] = now;
 	}
 
 	private record(type: SimulationActionType, details: string, extra?: Pick<SimulationAction, 'apsDelta' | 'isFirstPurchase'>) {
@@ -261,7 +297,8 @@ export class SimulationEngine {
 		this.state.quarksFromAchievements += earned.length * QUARK_ACHIEVEMENT_REWARD;
 	}
 
-	private executeBotBehavior() {
+	/** Returns how many decisions the bot made this tick, the measure of whether the player had anything to do. */
+	private executeBotBehavior(): number {
 		const { botBehavior, prestigeStrategy } = this.config;
 		const { maxActionsPerTick, maxPrestigesPerActiveWindow } = botBehavior;
 		let actionsThisTick = 0;
@@ -271,6 +308,7 @@ export class SimulationEngine {
 
 		// Thresholds are ratios against the previous run's gain: an absolute proton count is meaningless once the curve takes off.
 		const protoniseGain = gameManager.protoniseProtonsGain;
+		const rawAps = gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1);
 		if (
 			canPrestige() &&
 			prestigeStrategy.autoProtonise &&
@@ -278,6 +316,7 @@ export class SimulationEngine {
 			gameManager.protonise()
 		) {
 			this.lastProtoniseGain = protoniseGain;
+			this.logPrestige('protonise', protoniseGain, rawAps);
 			this.record('protonise', `+${protoniseGain} protons`);
 			this.prestigesThisActiveWindow++;
 			actionsThisTick++;
@@ -294,6 +333,7 @@ export class SimulationEngine {
 			this.lastElectronizeGain = electronizeGain;
 			/** Electronize wipes protons, a threshold left on the last proton run would block every protonise after it. */
 			this.lastProtoniseGain = 0;
+			this.logPrestige('electronize', electronizeGain, rawAps);
 			this.record('electronize', `+${electronizeGain} electrons`);
 			this.prestigesThisActiveWindow++;
 			actionsThisTick++;
@@ -307,12 +347,13 @@ export class SimulationEngine {
 		if (canPrestige() && radiationManager.ionizeReady && gameManager.ionize()) {
 			this.lastElectronizeGain = 0;
 			this.lastProtoniseGain = 0;
+			this.logPrestige('ionize', 0, rawAps);
 			this.record('ionize', `#${gameManager.totalIonizesAllTime}`);
 			this.prestigesThisActiveWindow++;
 			actionsThisTick++;
 		}
 
-		if (!botBehavior.autoBuy) return;
+		if (!botBehavior.autoBuy) return actionsThisTick;
 
 		if (canAct() && botBehavior.autoBuyGenerators) {
 			const generator = this.planner.selectGenerator(botBehavior);
@@ -359,10 +400,13 @@ export class SimulationEngine {
 		}
 		for (const currency of BOOST_PRIORITY) {
 			if (gameManager.boostPointsAvailable <= 0 || !canAct()) break;
-			if (gameManager.addCurrencyBoost(currency)) actionsThisTick++;
+			if (gameManager.addCurrencyBoost(currency)) {
+				this.record('currency_boost', currency);
+				actionsThisTick++;
+			}
 		}
 
-		if (!radiationManager.unlocked) return;
+		if (!radiationManager.unlocked) return actionsThisTick;
 		// Fuelling the core is realm attention like any other, so it competes for the same per-tick budget.
 		const reserve = gameManager.electronizeElectronsGain > 0 ? gameManager.electronizeElectronsGain * 3 : 50;
 		const surplus = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS) - reserve;
@@ -375,7 +419,11 @@ export class SimulationEngine {
 			actionsThisTick++;
 		}
 		const upgradeId = canAct() ? this.planner.affordableRadiationUpgrade() : null;
-		if (upgradeId && radiationManager.purchaseUpgrade(upgradeId)) actionsThisTick++;
+		if (upgradeId && radiationManager.purchaseUpgrade(upgradeId)) {
+			this.record('radiation_upgrade', upgradeId);
+			actionsThisTick++;
+		}
+		return actionsThisTick;
 	}
 
 	/**

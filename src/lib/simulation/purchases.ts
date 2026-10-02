@@ -211,7 +211,7 @@ export class PurchasePlanner {
 }
 
 /** The per-unit rate is read back out of generatorUnitProductions so the upgrade chain counts without re-folding effects. */
-function marginalProduction(type: GeneratorType, amount: number): number {
+export function marginalProduction(type: GeneratorType, amount: number): number {
 	const generator = gameManager.generators[type];
 	const count = generator?.count ?? 0;
 	const currentLevelFactor = getGeneratorLevelMultiplier(count, generator?.level ?? 0);

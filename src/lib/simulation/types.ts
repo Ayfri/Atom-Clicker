@@ -61,6 +61,8 @@ export interface SimulationSnapshot {
 	bonusMultiplier: number;
 	generatorLevels: number;
 	generatorLevelFactors: Partial<Record<GeneratorType, number>>;
+	/** Seconds until one more unit has paid for itself, the wait to afford it included: the lowest is the right buy. */
+	generatorPaybacks: Partial<Record<GeneratorType, number>>;
 	generatorProductions: Partial<Record<GeneratorType, number>>;
 	generatorUpgradeFactors: Partial<Record<GeneratorType, number>>;
 	generators: Record<GeneratorType, number>;
@@ -115,12 +117,14 @@ export interface SimulationSnapshot {
 export type SimulationActionType =
 	| 'achievement'
 	| 'chromatic_upgrade'
+	| 'currency_boost'
 	| 'generator'
 	| 'electronize'
 	| 'ionize'
 	| 'photon_upgrade'
 	| 'power_up'
 	| 'protonise'
+	| 'radiation_upgrade'
 	| 'skill'
 	| 'upgrade';
 
@@ -150,6 +154,8 @@ export interface MilestoneDefinition {
 	description: string;
 	id: string;
 	name: string;
+	/** Marks the arrival of a new gameplay system, the rungs of the progression ladder. */
+	system?: boolean;
 }
 
 export interface MilestoneHit {
@@ -167,10 +173,40 @@ export interface SpikeEvent {
 	timestamp: number;
 }
 
+/** A stretch of active play where the bot found nothing to buy or reset, measured in active time only. */
+export interface IdleGap {
+	/** Active milliseconds spent waiting, an AFK window inside the gap does not count. */
+	activeMs: number;
+	end: number;
+	start: number;
+}
+
+/** Reset layers from shallowest to deepest. */
+export const PRESTIGE_LAYERS = ['protonise', 'electronize', 'ionize'] as const;
+
+export interface PrestigeEvent {
+	gain: number;
+	/** APS with the power-up bonus divided out, read just before the reset. */
+	rawAps: number;
+	/** Time since the previous reset of the same or a deeper layer, the length of the run this reset ends. */
+	runMs: number;
+	skills: number;
+	timestamp: number;
+	type: (typeof PRESTIGE_LAYERS)[number];
+}
+
+/** Run-wide pacing data. Optional because reports saved before it existed are still loaded from history. */
+export interface RunInsights {
+	activeMs: number;
+	idleGaps: IdleGap[];
+	prestiges: PrestigeEvent[];
+}
+
 export interface SimulationResult {
 	cancelled: boolean;
 	config: BenchmarkConfig;
 	durationMs: number;
+	insights?: RunInsights;
 	milestones: MilestoneHit[];
 	snapshots: SimulationSnapshot[];
 	spikes: SpikeEvent[];
