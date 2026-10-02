@@ -4,16 +4,8 @@ import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import type { RadiationState } from '#lib/types.js';
 
-// SIMPLIFIED MECHANICS:
-// - Add mass to the reactor core (fuel)
-// - Control rods determine BOTH output AND consumption
-// - Low control = stable but low output
-// - High control = high output but burns fuel fast
-// - Goal: balance between sustainability and output
-
-// Base decay rate: % of mass lost per second at 100% control
-const BASE_DECAY_PERCENT = 0.02; // 2% per second at max
-// Mass per electron spent
+/** Share of the core mass burnt per second at full control, before Graphite Moderators. */
+const BASE_DECAY_PERCENT = 0.02;
 export const MASS_PER_ELECTRON = 0.1;
 /**
  * The first Ionize needs the core held at IONIZE_CPM without a break, 18 of the 20 Coolant Pumps levels lift the cap that high.
@@ -24,9 +16,9 @@ export const IONIZE_CPM = 10_000;
 export const IONIZE_CPM_STEP = 2000;
 export const IONIZE_HOLD_SECONDS = 60;
 
+/** Electrons fuel the core, and the control rods raise its output and its burn rate together, so the player trades output for fuel. */
 class RadiationManager {
-	// State
-	controlRodLevel = $state(0); // Start at 0 (safe)
+	controlRodLevel = $state(0);
 	/** Seconds the core has stayed at or above `ionizeCpm` in a row, latched once ready. Not saved, a reload restarts the hold. */
 	ionizeHold = $state(0);
 	/** Saved by GameManager as `totalIonizesAllTime`, it lives here because it sets the ionization line. */
@@ -40,18 +32,12 @@ class RadiationManager {
 	/** Last fuel insertion, not saved: the reactor visual watches it to play the intake burst. */
 	lastBombard = $state({ mass: 0, seq: 0 });
 
-	// Upgrade levels (synced from GameManager)
 	upgradeLevels = $state.raw<Record<string, number>>({});
 
-	// === DERIVED VALUES ===
-
-	// Graphite Moderators reduce decay rate
 	moderatorBonus = $derived(Math.max(0.2, 1 - this.getUpgradeEffect('graphite_moderators') * 0.1));
 
-	// Decay rate per second (% of mass)
+	/** Share of the mass burnt per second, quadratic in the control level: 0.5% at half control, 2% at full, before moderators. */
 	decayRatePercent = $derived.by(() => {
-		// Exponential curve: low values have minimal decay
-		// At 0%: ~0% decay, at 50%: ~0.5% decay, at 100%: 2% decay
 		const controlEffect = Math.pow(this.controlRodLevel, 2);
 		return BASE_DECAY_PERCENT * controlEffect * this.moderatorBonus;
 	});
@@ -63,51 +49,41 @@ class RadiationManager {
 		return Math.min(1, Math.sqrt(this.regenRate / expectedBurn));
 	});
 
-	// Mass lost per second
 	decayRate = $derived.by(() => {
 		return this.mass * this.decayRatePercent;
 	});
 
-	// Mass regeneration per second (from Breeder Reactor)
 	regenRate = $derived.by(() => {
 		const level = this.upgradeLevels['breeder_reactor'] || 0;
-		return level * 0.2; // 0.2 mass/sec per level
+		return level * 0.2;
 	});
 
-	// Net mass change per second
 	netMassChange = $derived.by(() => {
 		return this.regenRate - this.decayRate;
 	});
 
-	// Maximum CPM (from Coolant Pumps)
 	maxCpm = $derived.by(() => {
 		const baseCpm = 1000;
 		const level = this.upgradeLevels['coolant_pumps'] || 0;
 		return (baseCpm * (1 + level * 0.5) + this.getUpgradeEffect('fusion_ignition') * 1000) * chromaticManager.reactorCapBonus;
 	});
 
-	// Enrichment bonus (from Isotopic Enrichment)
 	enrichmentBonus = $derived.by(() => {
 		const level = this.upgradeLevels['isotopic_enrichment'] || 0;
-		return (1 + level * 0.25) * chromaticManager.reactorOutputBonus; // +25% per level
+		return (1 + level * 0.25) * chromaticManager.reactorOutputBonus;
 	});
 
-	// Mass preservation chance (from Magnetic Confinement)
+	/** Chance that a tick only burns half its decay. */
 	preservationChance = $derived.by(() => {
 		const level = this.upgradeLevels['magnetic_confinement'] || 0;
-		return Math.min(0.5, level * 0.1); // 10% per level, cap at 50%
+		return Math.min(0.5, level * 0.1);
 	});
 
-	// Critical chance (from Cherenkov Glow)
 	criticalChance = $derived.by(() => {
 		const level = this.upgradeLevels['cherenkov_glow'] || 0;
-		return level * 0.05; // 5% per level
+		return level * 0.05;
 	});
 
-	// === MAIN OUTPUT CALCULATIONS ===
-
-	// CPM = Mass × ControlLevel × 10 × Enrichment
-	// Simple: more mass + higher control = more CPM
 	currentCpm = $derived(this.cpmFor(this.mass, this.controlRodLevel));
 
 	/** Same formula as currentCpm for arbitrary inputs, used by the UI to preview a fuel purchase before spending. */
@@ -116,10 +92,9 @@ class RadiationManager {
 		return Math.min(mass * controlLevel * 10 * this.enrichmentBonus, this.maxCpm);
 	}
 
-	// Radiation Multiplier = 1 + (CPM / 50)
-	// 100 CPM = x3, 500 CPM = x11, 1000 CPM = x21
 	radiationMultiplier = $derived(this.unlocked ? this.multiplierFor(this.currentCpm) : 1);
 
+	/** 1 + CPM / 50 before Cherenkov Glow and Ion Lattice: 100 CPM gives x3, 1000 CPM gives x21. */
 	multiplierFor(cpm: number): number {
 		return cpm > 0 ? 1 + (cpm / 50) * (1 + this.criticalChance) * (1 + 0.2 * this.getUpgradeEffect('ion_lattice')) : 1;
 	}
@@ -129,20 +104,12 @@ class RadiationManager {
 
 	ionizeReady = $derived(this.ionizeHold >= IONIZE_HOLD_SECONDS);
 
-	// Visual instability (0 to 1)
+	/** 0 to 1, shakes the core and thickens its radiation streaks. */
 	instability = $derived.by(() => {
 		if (this.mass <= 0) return 0;
 		return Math.min(1, this.controlRodLevel * (this.mass / 100));
 	});
 
-	// Efficiency: how sustainable is the current setup?
-	// >1 = gaining mass, <1 = losing mass
-	efficiency = $derived.by(() => {
-		if (this.decayRate <= 0) return Infinity;
-		return this.regenRate / this.decayRate;
-	});
-
-	// Time until mass runs out at current rate
 	timeToEmpty = $derived.by(() => {
 		const netLoss = this.decayRate - this.regenRate;
 		if (netLoss <= 0) return Infinity;
@@ -153,7 +120,6 @@ class RadiationManager {
 		return this.upgradeLevels[upgradeId] || 0;
 	}
 
-	// Add mass by spending Electrons
 	bombardCore(electronAmount: number): boolean {
 		if (!this.unlocked) return false;
 		const electronBalance = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
@@ -166,12 +132,10 @@ class RadiationManager {
 		return true;
 	}
 
-	// Set control rod level (0-1)
 	setControlRodLevel(level: number) {
 		this.controlRodLevel = Math.max(0, Math.min(1, level));
 	}
 
-	// Main tick - called every second from game loop
 	tick(deltaMs: number) {
 		if (!this.unlocked || this.mass <= 0) {
 			if (!this.ionizeReady) this.ionizeHold = 0;
@@ -179,14 +143,9 @@ class RadiationManager {
 		}
 
 		const seconds = deltaMs / 1000;
-
-		// Apply regeneration
 		this.mass += this.regenRate * seconds;
 
-		// Apply decay
 		let decay = this.decayRate * seconds;
-
-		// Mass preservation chance
 		if (this.preservationChance > 0 && this.random() < this.preservationChance) {
 			decay *= 0.5;
 		}
@@ -196,11 +155,11 @@ class RadiationManager {
 		this.lastTick = Date.now();
 	}
 
-	// Offline simulation step
+	/** Advances the core over an offline stretch and returns the radiation multiplier at its average mass. */
 	tickOffline(seconds: number): number {
 		if (!this.unlocked || this.mass <= 0) return 1;
 
-		// Calculate effective decay constant (k)
+		/** Expected decay constant, preservation halves the burn on its share of ticks. */
 		const k = this.decayRatePercent * (1 - 0.5 * this.preservationChance);
 		const R = this.regenRate;
 
@@ -208,19 +167,14 @@ class RadiationManager {
 
 		if (seconds > 0) {
 			if (k > 0.000001) {
-				// Analytical solution: m(t) = R/k + (m0 - R/k) * e^(-kt)
+				// m(t) = R/k + (m0 - R/k) * e^(-kt), averaged over [0, t] as R/k + (m0 - R/k) / (kt) * (1 - e^(-kt))
 				const equilibrium = R / k;
 				const m0 = this.mass;
 				const expFactor = Math.exp(-k * seconds);
 				const finalMass = equilibrium + (m0 - equilibrium) * expFactor;
-
-				// Average mass over interval: (1/t) * ∫ m(t) dt
-				// ∫ m(t) = (R/k)*t - (m0 - R/k)/k * e^(-kt)
-				// Definite integral [0, t] = (R/k)*t + ((m0 - R/k)/k) * (1 - e^(-kt))
 				avgMass = equilibrium + ((m0 - equilibrium) / (k * seconds)) * (1 - expFactor);
 				this.mass = finalMass;
 			} else {
-				// Linear approximation for near-zero decay
 				const finalMass = this.mass + R * seconds;
 				avgMass = (this.mass + finalMass) / 2;
 				this.mass = finalMass;
@@ -230,7 +184,6 @@ class RadiationManager {
 		return this.multiplierFor(this.cpmFor(avgMass, this.controlRodLevel));
 	}
 
-	// Purchase upgrade
 	purchaseUpgrade(upgradeId: string): boolean {
 		const upgrade = RADIATION_UPGRADES[upgradeId];
 		if (!upgrade) return false;
@@ -250,7 +203,6 @@ class RadiationManager {
 		return true;
 	}
 
-	// Load state
 	loadState(state: RadiationState, upgrades: Record<string, number>) {
 		this.controlRodLevel = state.controlRodLevel ?? 0;
 		this.ionizeHold = 0;
@@ -260,7 +212,6 @@ class RadiationManager {
 		this.upgradeLevels = upgrades ?? {};
 	}
 
-	// Get state for saving
 	getState(): RadiationState {
 		return {
 			controlRodLevel: this.controlRodLevel,
@@ -270,7 +221,6 @@ class RadiationManager {
 		};
 	}
 
-	// Reset
 	reset() {
 		this.controlRodLevel = 0;
 		this.ionizeHold = 0;
@@ -278,7 +228,6 @@ class RadiationManager {
 		this.mass = 0;
 	}
 
-	// Unlock
 	unlock() {
 		this.unlocked = true;
 	}

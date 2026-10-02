@@ -42,7 +42,7 @@ export function facetPoints(facets: number, radius = 5.5): [number, number][] {
 	});
 }
 
-/** Draws a Light glyph centered on the current origin, matching `@components/icons/Light.svelte`. */
+/** Draws a Light glyph centered on the current origin, matching `#components/icons/Light.svelte`. */
 export function drawLightIcon(ctx: CanvasRenderingContext2D, color: string, facets: number, size: number, alpha: number) {
 	ctx.save();
 	ctx.scale(size / ICON_VIEWBOX, size / ICON_VIEWBOX);

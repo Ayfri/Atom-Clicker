@@ -53,7 +53,6 @@
 	transition:fly={{ duration: 400, x: 20 }}
 >
 	<div class="flex w-full gap-4">
-		<!-- Icon Container -->
 		<div class="flex size-10 shrink-0 items-center justify-center border border-white/5 rounded-lg bg-white/5">
 			{#if iconStack}
 				<IconStack
@@ -71,7 +70,6 @@
 			{/if}
 		</div>
 
-		<!-- Content Column -->
 		<div class="flex-1 min-w-0 pr-6">
 			<h3 class="font-bold tracking-tight truncate {config.title}">{toast.title}</h3>
 			<p class="mt-1 leading-relaxed text-neutral-300 text-sm whitespace-pre-line">
@@ -90,7 +88,6 @@
 			{/if}
 		</div>
 
-		<!-- Close Button -->
 		<button
 			class="absolute right-3 top-3 flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-white/10 hover:text-white"
 			onclick={() => toastStore.remove(toast.id)}
@@ -99,7 +96,6 @@
 		</button>
 	</div>
 
-	<!-- Linear Progress -->
 	{#if !toast.is_infinite && toast.duration > 0}
 		<div class="absolute bottom-0 left-0 h-1 w-full bg-white/5">
 			<div

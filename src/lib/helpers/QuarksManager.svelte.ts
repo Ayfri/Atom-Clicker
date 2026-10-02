@@ -19,11 +19,7 @@ import { gameManager } from '#helpers/GameManager.svelte.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
-// NOTE: this manager may read `gameManager`, but `gameManager` never imports this module.
-// src/lib/simulation/engine.ts and simulation.worker.ts import GameManager and run in a Web
-// Worker with no auth context and no DOM - if QuarksManager got pulled into that import graph
-// it would attempt to fetch() from inside the worker. GameManager instead exposes a plain
-// `quarkBoostSources` field that this manager pushes into, see GameManager.svelte.ts.
+/** GameManager never imports this module: the simulation worker imports GameManager without auth or DOM, so this pushes into `quarkBoostSources`. */
 
 interface QuarksApiState {
 	balance: number;

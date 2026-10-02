@@ -50,9 +50,7 @@
 	}
 
 	function handleStartFresh() {
-		// Clean up old backups
 		saveRecovery.cleanOldBackups();
-		// Reset game state
 		gameManager.reset();
 		toastStore.info({
 			title: 'New Game',
@@ -65,7 +63,6 @@
 	}
 
 	function handleDismiss() {
-		// User wants to try their luck with the current state
 		saveRecovery.clearError();
 		onClose();
 	}
@@ -77,7 +74,6 @@
 	width="sm"
 >
 	<div class="flex flex-col gap-6">
-		<!-- Error Banner -->
 		<div class="flex items-start gap-4 rounded-xl bg-red-500/20 p-4 border border-red-500/30">
 			<AlertTriangle
 				size={32}
@@ -91,7 +87,6 @@
 			</div>
 		</div>
 
-		<!-- Technical Details (collapsible) -->
 		{#if saveRecovery.errorDetails}
 			<details class="rounded-lg bg-black/30 border border-white/10">
 				<summary class="cursor-pointer px-4 py-3 text-sm text-white/60 hover:text-white/80"> Technical Details </summary>
@@ -103,7 +98,6 @@
 			</details>
 		{/if}
 
-		<!-- Backup Info -->
 		{#if saveRecovery.backupKey}
 			<div class="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
 				<Database
@@ -117,11 +111,9 @@
 			</div>
 		{/if}
 
-		<!-- Recovery Options -->
 		<div class="flex flex-col gap-3">
 			<h4 class="text-sm font-semibold text-white/80 uppercase tracking-wide">Recovery Options</h4>
 
-			<!-- Load from Cloud (Primary Option) -->
 			<button
 				class="flex items-center gap-4 rounded-xl bg-accent/20 border border-accent/30 p-4 text-left transition-all hover:bg-accent/30 hover:border-accent/50 disabled:opacity-50"
 				disabled={loading}
@@ -151,7 +143,6 @@
 				{/if}
 			</button>
 
-			<!-- Start Fresh -->
 			<button
 				class="flex items-center gap-4 rounded-xl bg-white/5 border border-white/10 p-4 text-left transition-all hover:bg-white/10 hover:border-white/20"
 				onclick={handleStartFresh}
@@ -168,7 +159,6 @@
 				</div>
 			</button>
 
-			<!-- Dismiss (risky) -->
 			<button
 				class="flex items-center gap-4 rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-left transition-all hover:bg-red-500/20 hover:border-red-500/30"
 				onclick={handleDismiss}
@@ -186,7 +176,6 @@
 			</button>
 		</div>
 
-		<!-- Warning -->
 		<p class="text-center text-xs text-white/40">We recommend loading from cloud or starting fresh to avoid further issues.</p>
 	</div>
 </Modal>
@@ -195,7 +184,6 @@
 	<Login
 		onClose={() => {
 			showLoginModal = false;
-			// Re-check authentication after login
 			if (supabaseAuth.isAuthenticated) {
 				handleLoadFromCloud();
 			}

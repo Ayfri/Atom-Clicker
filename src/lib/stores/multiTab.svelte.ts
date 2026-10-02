@@ -20,9 +20,6 @@ export class MultiTabDetector {
 
 		// Check if another tab exists
 		this.channel.postMessage('ping');
-
-		// Also listen for visibility changes to re-check?
-		// Actually BroadcastChannel is enough.
 	}
 
 	private setDuplicate() {

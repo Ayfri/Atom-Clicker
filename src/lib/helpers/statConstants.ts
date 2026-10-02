@@ -1,12 +1,8 @@
-// Layer types
-// 0 = never reset
-// 1 = reset all stats at layer
-// 2 = reset all stats at layer and layer 1
-// 3 = reset all stats at layer and layer 1 and layer 2 etc...
 import type { DailyStats } from '#data/dailyQuests.js';
 import { RealmTypes } from '#data/realms.js';
 import type { ChromaticState, RealmState, Settings } from '#lib/types.js';
 
+/** `resetLayer(n)` resets every stat whose layer is 1 to n, NEVER stats always stay and SPECIAL ones are handled by their own code. */
 export const LAYERS = {
 	ELECTRONIZE: 2,
 	NEVER: 0,

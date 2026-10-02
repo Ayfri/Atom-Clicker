@@ -19,7 +19,7 @@ class UIStore {
 		this.#activeModal = value;
 	}
 
-	/** Identity of the open modal, so gated tutorial steps can match it without importing its (lazily loaded) component. */
+	/** Identity of the open modal, so hints can match it without importing its (lazily loaded) component. */
 	get activeModalId() {
 		return this.#activeModalId;
 	}

@@ -902,7 +902,6 @@
 		z-index: 10;
 	}
 
-	/* Removed .symbol-text class as it's no longer used, replaced with direct styling if needed or using Lucide default */
 	:global(.symbol-icon) {
 		color: var(--accent);
 		filter: drop-shadow(0 0 10px var(--primary));

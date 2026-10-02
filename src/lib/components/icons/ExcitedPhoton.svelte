@@ -8,7 +8,6 @@
       size?: number;
     }
 
-    // J'ai mis le Gold (#FFD700) par défaut car c'est un Excited Photon
     let { color = '#FFD700', size = 18, ...props }: Props = $props();
   </script>
 

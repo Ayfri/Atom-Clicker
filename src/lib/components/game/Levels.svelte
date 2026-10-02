@@ -37,8 +37,8 @@
 		</span>
 	</div>
 	<div bind:this={track} class="h-1.5 overflow-hidden rounded-full bg-white/10">
-		<!-- Sliding a full-width fill keeps its gradient and rounded tip intact where scaleX squashed them, and moves on the
-		     compositor all the same. XP changes on every 50 Hz commit, so no transition restarts on it. -->
+		<!-- Sliding a full-width fill keeps its gradient and rounded tip intact, which scaleX would squash, and still moves
+		     on the compositor. XP changes on every 50 Hz commit, so no transition restarts on it. -->
 		<div
 			class="h-full rounded-full bg-linear-to-r from-accent-600 to-accent-300"
 			style:transform="translateX({gameManager.xpProgress - 100}%)"

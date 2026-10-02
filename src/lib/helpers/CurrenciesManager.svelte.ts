@@ -7,7 +7,6 @@ export class CurrenciesManager {
 	currencies = $state<CurrencyStateMap>({} as CurrencyStateMap);
 
 	constructor() {
-		// Initialize all currencies with 0
 		for (const type of Object.values(CurrenciesTypes)) {
 			this.currencies[type] = {
 				amount: 0,

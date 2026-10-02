@@ -126,7 +126,6 @@ export class LeaderboardStore {
 				throw new Error('Failed to update leaderboard');
 			}
 
-			// Refresh leaderboard after update
 			await this.fetchLeaderboard();
 		} catch (error) {
 			console.error('Error updating leaderboard:', error);
@@ -146,7 +145,6 @@ export class LeaderboardStore {
 					const atoms = gameManager.atoms;
 					const level = gameManager.playerLevel;
 
-					// Safely check for supabaseAuth presence
 					if (!supabaseAuth || !supabaseAuth.isAuthenticated) return;
 
 					const now = Date.now();

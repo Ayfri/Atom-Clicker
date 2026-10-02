@@ -78,7 +78,7 @@
 		opacity="0.6"
 	></circle>
 
-	<!-- Flagellum / tail - longer like before -->
+	<!-- Flagellum -->
 	<path
 		d="M18 12 Q20 10 19.5 7 Q19 5 21 4"
 		stroke-width="1.2"

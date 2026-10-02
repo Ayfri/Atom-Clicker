@@ -3,7 +3,6 @@
 	import GitHub from '#components/icons/GitHub.svelte';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
-	// Generate the Tally URL with email parameter if user is logged in
 	const tallyUrl = $derived.by(() => {
 		const baseUrl = 'https://tally.so/embed/mO8OxM';
 		const params = new URLSearchParams({

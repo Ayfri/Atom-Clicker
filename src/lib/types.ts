@@ -93,7 +93,7 @@ export type EffectStat =
 
 export type EffectAmount = number | ((manager: GameManager) => number);
 
-/** Built with `add`, `mul` and `sum` from `$helpers/effects`, a stat resolves to `(base + adds) × muls × Π(1 + per × Σsum)`. */
+/** Built with `add`, `mul` and `sum` from `#helpers/effects.js`, a stat resolves to `(base + adds) × muls × Π(1 + per × Σsum)`. */
 export type Effect =
 	| { amount: EffectAmount; kind: 'add' | 'mul'; stat: EffectStat; target?: GeneratorType }
 	| { amount: number; kind: 'sum'; per: (manager: GameManager) => number; stat: EffectStat };

@@ -324,7 +324,7 @@ function createCurrencyAchievements(): AchievementGroup[] {
 					description = () => `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
 				}
 
-				// Prefix mapping for backward compatibility and cleanliness
+				// Quark claims store these ids server-side, so the prefixes never change.
 				let prefix = currency.id;
 				if (currency.name === CurrenciesTypes.ATOMS) prefix = 'atoms';
 				if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) prefix = 'excited_photons';
@@ -356,7 +356,6 @@ function createCurrencyAchievements(): AchievementGroup[] {
 function createPhotonUpgradeAchievements(): Achievement[] {
 	const achievements: Achievement[] = [];
 
-	// Achievement for total photon upgrades
 	achievements.push({
 		id: 'photon_collector',
 		name: 'Photon Collector',

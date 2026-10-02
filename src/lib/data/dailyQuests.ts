@@ -27,7 +27,7 @@ export interface DailyStats {
 	powerUpsCollected: number;
 	protonises: number;
 	questIds: string[];
-	/** Frozen at rollover, keyed by quest id. Never recomputed live, see dailyQuests.ts. */
+	/** Frozen at rollover, keyed by quest id, never recomputed live. */
 	questTargets: Record<string, number>;
 	upgradesPurchased: number;
 }
@@ -79,7 +79,7 @@ export const QUEST_POOL: DailyQuest[] = [
 		id: 'atoms_earned',
 		metric: 'atomsEarned',
 		reward: 1,
-		scale: 10_800, // roughly one hours of production at the player's best-ever rate
+		scale: 10_800, // three hours of production at the player's best-ever rate
 	},
 	{
 		description: target => `Purchase ${target} generators today.`,

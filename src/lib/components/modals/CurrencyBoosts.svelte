@@ -30,7 +30,6 @@
 
 <Modal {onClose} title="Currency Boosts" width="sm">
 	<div class="flex flex-col gap-4">
-		<!-- Header info -->
 		<div class="rounded-lg bg-black/20 p-4">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
@@ -69,7 +68,6 @@
 			</div>
 		</div>
 
-		<!-- Currency list -->
 		<div class="flex flex-col gap-2">
 			{#each boostableCurrencies as currencyName (currencyName)}
 				{const points = $derived(gameManager.currencyBoosts[currencyName] ?? 0)}

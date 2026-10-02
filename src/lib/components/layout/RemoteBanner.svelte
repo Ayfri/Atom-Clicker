@@ -50,7 +50,6 @@
 {/if}
 
 <style>
-	/* Ensure any links inside the HTML message are styled appropriately */
 	:global(.remote-message-banner a) {
 		color: #60a5fa; /* blue-400 */
 		text-decoration: underline;

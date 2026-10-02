@@ -33,7 +33,6 @@
 	import Currency from '#components/ui/Currency.svelte';
 	import { onMount, untrack, type Component } from 'svelte';
 
-	// Realm component mapping
 	const realmComponents: Record<string, Component> = {
 		AtomRealm: AtomRealm,
 		PhotonRealm: PhotonRealm,

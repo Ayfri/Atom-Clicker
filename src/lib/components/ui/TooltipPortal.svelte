@@ -56,7 +56,6 @@
 
 	function handleGlobalClick(event: MouseEvent) {
 		if (!tooltipElement) return;
-		// If click is outside the tooltip, hide it
 		if (!tooltipElement.contains(event.target as Node)) {
 			tooltip.hide();
 		}

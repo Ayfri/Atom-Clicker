@@ -28,7 +28,6 @@
 	function simulateClick() {
 		if (!container) return;
 
-		// Filter valid targets
 		const allowExcited = (gameManager.photonUpgrades['excited_auto_click'] || 0) > 0;
 		const validCircles = circles.filter(c => allowExcited || c.type !== 'excited');
 		const targets = validCircles.length + chromatic.photons.length;
@@ -102,10 +101,7 @@
 	let lastUpdateTime = Date.now();
 	let pointerDown = false;
 
-	// Base values - will be modified by upgrades
-	let baseSpawnRate = 2000;
-	let baseCircleLifetime = 5000;
-	let baseSizeMultiplier = 1;
+	const BASE_CIRCLE_LIFETIME = 5000;
 
 	const MAX_CIRCLES = 100;
 	const MIN_SIZE = 30;
@@ -117,7 +113,7 @@
 	const HIT_PADDING = 6;
 	const MIN_HIT_RADIUS = 22;
 
-	// Mirrors the label styling of the previous DOM markup: `font-bold text-xs` on the app font.
+	/** Labels match Tailwind's `font-bold text-xs` on the app font. */
 	const FONT_FAMILY = 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif';
 	const FONT_SIZE = 12;
 	const LABEL_SHADOW_BLUR = 5;
@@ -129,8 +125,8 @@
 	const MAX_SPIN = 30;
 
 	/** Phones get smaller photons, a narrow field fits fewer and MIN_HIT_RADIUS keeps them easy to tap. */
-	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', baseSizeMultiplier, gameManager) * (mobile.current ? 0.75 : 1));
-	const circleLifetime = $derived(baseCircleLifetime + gameManager.effects.value('photon_duration', 0, gameManager));
+	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', 1, gameManager) * (mobile.current ? 0.75 : 1));
+	const circleLifetime = $derived(BASE_CIRCLE_LIFETIME +gameManager.effects.value('photon_duration', 0, gameManager));
 	const excitedLifetimeMultiplier = $derived(gameManager.effects.value('excited_photon_duration', 1, gameManager));
 
 	function getCircleValue(circle: Circle) {
@@ -197,7 +193,7 @@
 		label.textBaseline = 'middle';
 		label.fillStyle = excited ? '#FFD700' : '#ffffff';
 		label.shadowColor = 'rgba(0, 0, 0, 0.8)';
-		// Shadow blur ignores the transform, so this matches the device-pixel blur the main canvas used.
+		// Shadow blur ignores the transform, so the blur stays in device pixels whatever the label ratio.
 		label.shadowBlur = LABEL_SHADOW_BLUR;
 		label.fillText(text, width / 2, height / 2);
 
@@ -450,8 +446,7 @@
 		const circle = circleFromEvent(event);
 		hovering = circle !== null;
 
-		// Equivalent of the per-circle `onpointerenter`: only fire when entering a new circle.
-		// Touch only emits moves while pressed, so this doubles as swipe-to-collect on mobile.
+		// Only fires when entering a new circle. Touch only emits moves while pressed, so this doubles as swipe-to-collect on mobile.
 		if (circle && circle.id !== lastHoveredId && hoverCollection) {
 			clickCircle(circle, event.clientX, event.clientY, false);
 			if (pointerDown) collectedWhileDown = true;
@@ -550,10 +545,7 @@
 	// Collecting by dragging over photons also has to suppress the page scroll on touch devices.
 	const hoverCollection = $derived(gameManager.features[FeatureTypes.HOVER_COLLECTION]);
 
-	// Calculate auto-clicks per second from photon upgrades
 	const photonAutoClicksPer5Seconds = $derived(gameManager.photonAutoClicksPer5Seconds);
-
-	// Calculate current spawn rate reactively
 	const currentSpawnRate = $derived(gameManager.photonSpawnInterval);
 	const excitedUnlocked = $derived(gameManager.currencies[CurrenciesTypes.EXCITED_PHOTONS].earnedAllTime > 0);
 
@@ -567,7 +559,6 @@
 		density: 3 + Math.min(8, Math.floor(gameManager.photonUpgradeLevels / 4)) + (excitedUnlocked ? 3 : 0) + (prismUnlocked ? 4 : 0),
 	});
 
-	// Set up auto-clicker subscription
 	$effect(() => {
 		const clicksPer5Seconds = photonAutoClicksPer5Seconds;
 		if (clicksPer5Seconds > 0) {
@@ -576,7 +567,6 @@
 		}
 	});
 
-	// Update spawn rate when upgrades change
 	$effect(() => {
 		const interval = setInterval(spawnCircle, currentSpawnRate);
 		return () => clearInterval(interval);
@@ -603,7 +593,6 @@
 	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. On desktop
 	     the upgrades panel is 100dvh - 150px (this padding, the realm's lg:pt-4 and the footer) and the photon field stretches to match it. -->
 	<div class="h-full flex flex-col lg:flex-row max-lg:landscape:flex-row px-4 lg:pl-24 lg:pr-28 2xl:px-4 pt-1 lg:pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
-		<!-- Game Area - Left side (2/3 on desktop, full width on mobile) -->
 		<div class="flex-1 lg:w-2/3 flex flex-col items-center max-lg:landscape:sticky max-lg:landscape:top-0 max-lg:landscape:self-start">
 			<PhotonCounter />
 
@@ -641,7 +630,6 @@
 			</div>
 		</div>
 
-		<!-- Upgrades Area - Right side (1/3 on desktop, full width on mobile) -->
 		<div class="w-full lg:w-1/3 lg:max-w-xs max-lg:landscape:w-5/12 max-lg:landscape:shrink-0">
 			<PhotonUpgrades />
 		</div>

@@ -372,7 +372,7 @@ export class AtomRenderer extends CanvasLoop {
 				this.strokeOrbit(this.orbitPoints[line], false, this.scales[line][0]);
 			}
 		}
-		// Later shells' front bands go first, so the first shells stay on top as before.
+		// Later shells' front bands go first, so the first shells stay on top.
 		for (let i = scene.shells.length - 1; i >= 0; i--) {
 			const { color, line } = scene.shells[i];
 			if (!this.bases[line] || this.electronCounts[line] === 0) continue;
