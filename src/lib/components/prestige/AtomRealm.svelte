@@ -16,9 +16,11 @@
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { mobile } from '#stores/window.svelte.js';
+	import { ArrowBigUpDash, Factory, Trophy } from '@lucide/svelte';
 
 	type Tab = keyof typeof TAB_LABELS;
 
+	const TAB_ICONS = { achievements: Trophy, generators: Factory, upgrades: ArrowBigUpDash } as const;
 	const TAB_LABELS = { achievements: 'Achievements', generators: 'Generators', upgrades: 'Upgrades' } as const;
 
 	let activeTab: Tab = $state('upgrades');
@@ -75,25 +77,40 @@
 		{#if tabs.length > 0}
 			<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
 				{#if tabs.length > 1}
-					<div class="grid grid-flow-col gap-2 auto-cols-fr rounded-lg" in:reveal>
-						{#each tabs as tab (tab)}
-							<button
-								class="backdrop-blur-xs rounded-lg p-1.5 sm:p-2 w-full whitespace-nowrap border-none text-inherit cursor-pointer transition-all duration-200 text-xs sm:text-sm {(
-									shownTab === tab
-								) ?
-									'text-white'
-								:	'bg-white/5 hover:bg-white/10'}"
-								data-hint="{tab}-tab"
-								id="tab-{tab}"
-								style={shownTab === tab ? `background-color: ${themeAccent ?? 'var(--color-accent-400)'};` : ''}
-								in:reveal
-								onclick={() => (activeTab = tab)}>{TAB_LABELS[tab]}</button
-							>
-						{/each}
+					<!-- No backdrop blur: the ambient dust behind moves every frame, so the blur would be recomputed every frame too. -->
+					<div class="rounded-xl bg-black/25 p-1" in:reveal style:--c={themeAccent ?? 'var(--color-accent-400)'}>
+						<div class="relative grid auto-cols-fr grid-flow-col" role="tablist">
+							<!-- One pill slides under the tabs with `translate` only, the tabs themselves never repaint a background. -->
+							<div
+								aria-hidden="true"
+								class="pointer-events-none absolute inset-y-0 left-0 w-[calc(100%/var(--n))] translate-x-[calc(var(--i)*100%)] rounded-lg border border-(--c)/45 bg-(--c)/20 shadow-[0_0_14px_-5px_var(--c)] transition-[translate] duration-300 ease-[cubic-bezier(0.34,1.3,0.64,1)]"
+								style:--i={tabs.indexOf(shownTab)}
+								style:--n={tabs.length}
+							></div>
+							{#each tabs as tab (tab)}
+								{const Icon = $derived(TAB_ICONS[tab])}
+								{const selected = $derived(shownTab === tab)}
+								<button
+									aria-selected={selected}
+									class={[
+										'group relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-1.5 text-xs font-medium transition-colors sm:text-sm',
+										selected ? 'text-white' : 'text-white/55 hover:text-white/85',
+									]}
+									data-hint="{tab}-tab"
+									id="tab-{tab}"
+									in:reveal={{ y: 0 }}
+									onclick={() => (activeTab = tab)}
+									role="tab"
+								>
+									<Icon class="size-4 shrink-0 transition-transform duration-300 max-[22rem]:hidden {selected ? 'scale-110 text-(--c)' : 'group-hover:scale-110'}" />
+									{TAB_LABELS[tab]}
+								</button>
+							{/each}
+						</div>
 					</div>
 				{/if}
 				<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->
-				<div class="mt-1">
+				<div>
 					{#if reveals.upgrades}
 						<div class={['rounded-lg', shownTab !== 'upgrades' && 'hidden']} in:reveal><Upgrades /></div>
 					{/if}
