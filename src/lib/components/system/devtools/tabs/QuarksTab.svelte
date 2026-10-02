@@ -52,6 +52,13 @@
 		{:else}
 			<span class="font-mono text-white">{formatNumber(quarksManager.balance)}</span>
 		{/if}
+		{#if quarksManager.devOverride}
+			<span>Achievements</span>
+			<span class="flex items-center gap-1">
+				<span class="font-mono text-white">{quarksManager.claimedAchievementIds.length} claimed</span>
+				<button class="{btn} ml-auto" onclick={() => (quarksManager.claimedAchievementIds = [])}>Reset claims</button>
+			</span>
+		{/if}
 		<span>Day</span>
 		<span class="flex items-center gap-1">
 			<span class="font-mono text-white">{quarksManager.dayKey || '-'}</span>

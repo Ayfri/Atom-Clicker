@@ -10,6 +10,7 @@ import {
 	QUEST_POOL,
 	questAnchors,
 } from '#data/dailyQuests.js';
+import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { statsConfig } from '#helpers/statConstants.js';
@@ -81,6 +82,7 @@ export class QuarksManager {
 	setDevOverride(value: boolean) {
 		if (!dev) return;
 		this.devOverride = value;
+		if (value) void this.sync();
 	}
 
 	isActionPending(actionId: string): boolean {
@@ -190,6 +192,7 @@ export class QuarksManager {
 			this.quests = this.selectDailyQuests(dayKey);
 			this.rolloverDailyStatsIfNeeded(dayKey);
 			this.persistDailyQuestSelection(dayKey);
+			this.hasSynced = true;
 			return;
 		}
 		if (!supabaseAuth.isAuthenticated) {
@@ -296,6 +299,7 @@ export class QuarksManager {
 	/** Resolves to the Quarks the server granted, 0 when nothing was claimed. */
 	async claimAchievement(achievementId: string): Promise<number> {
 		if (this.claimedAchievementIds.includes(achievementId)) return 0;
+		if (this.devOverride) return this.claimAchievementsLocally([achievementId]);
 		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', {
 			achievementIds: [achievementId],
 		}, `claim-achievement:${achievementId}`);
@@ -313,6 +317,7 @@ export class QuarksManager {
 	async claimAchievements(achievementIds: string[]): Promise<number> {
 		const idsToClaim = achievementIds.filter((id) => !this.claimedAchievementIds.includes(id));
 		if (idsToClaim.length === 0) return 0;
+		if (this.devOverride) return this.claimAchievementsLocally(idsToClaim);
 
 		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', { achievementIds: idsToClaim }, 'claim-achievements');
 		if (!result) return 0;
@@ -323,6 +328,13 @@ export class QuarksManager {
 			toastStore.info({ message: `${result.granted} achievement rewards claimed.`, title: `+${result.granted} Quarks` });
 		}
 		return result.granted;
+	}
+
+	private claimAchievementsLocally(achievementIds: string[]): number {
+		const granted = achievementIds.filter(isQuarkAchievement).length * QUARK_ACHIEVEMENT_REWARD;
+		this.balance += granted;
+		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...achievementIds])];
+		return granted;
 	}
 
 	async collectHiggsBoson() {
