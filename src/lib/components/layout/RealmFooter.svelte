@@ -10,11 +10,11 @@
 	import { Coffee, MessageSquare } from '@lucide/svelte';
 </script>
 
-<footer class="px-4 py-3 text-xs text-white/60">
+<footer class="px-4 py-2 text-xs text-white/60">
 	<div class="mx-auto flex max-w-4xl flex-col items-center gap-1.5">
 		<div class="flex flex-wrap items-center justify-center gap-2">
 			<button
-				class="flex items-center gap-1.5 rounded-sm bg-accent-500/20 px-2.5 py-1 text-accent-200 transition-colors hover:bg-accent-500/35 hover:text-white"
+				class="flex items-center gap-1.5 rounded-sm border-0 bg-accent-500/20 px-2 py-0.5 text-accent-200 transition-colors hover:bg-accent-500/35 hover:text-white"
 				onclick={() => ui.openSettings('feedback')}
 				title="Report a bug or share an idea"
 			>
@@ -22,7 +22,7 @@
 				<span>Feedback</span>
 			</button>
 			<a
-				class="group flex items-center gap-1.5 rounded-sm bg-yellow-500 px-2.5 py-1 text-black transition-colors hover:bg-yellow-300"
+				class="group flex items-center gap-1.5 rounded-sm bg-yellow-500 px-2 py-0.5 text-black transition-colors hover:bg-yellow-300"
 				href="https://buymeacoffee.com/ayfri"
 				onclick={() => gameManager.unlockAchievement('coffee_click')}
 				rel="noopener noreferrer"
@@ -36,7 +36,7 @@
 		<div class="flex flex-wrap items-center justify-center gap-x-1 text-[0.7rem] text-white/40">
 			<a
 				aria-label="Discord"
-				class="p-1.5 text-white/60 transition-colors hover:text-white"
+				class="-my-1 flex p-1 text-white/60 transition-colors hover:text-white"
 				href="https://discord.ayfri.com"
 				onclick={() => gameManager.unlockAchievement('discord_click')}
 				rel="noopener noreferrer"
@@ -47,7 +47,7 @@
 			</a>
 			<a
 				aria-label="GitHub"
-				class="p-1.5 text-white/60 transition-colors hover:text-white"
+				class="-my-1 flex p-1 text-white/60 transition-colors hover:text-white"
 				href="https://github.com/Ayfri/Atom-Clicker"
 				onclick={() => gameManager.unlockAchievement('github_click')}
 				rel="noopener noreferrer"
