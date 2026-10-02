@@ -60,17 +60,17 @@
 		onclick={close}
 		role="dialog"
 		tabindex="-1"
-		transition:fade={{ duration: 200 }}
+		transition:fade|global={{ duration: 200 }}
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<div
 			class="custom-scrollbar relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col items-center gap-4 overflow-x-hidden overflow-y-auto rounded-3xl border border-white/10 bg-accent-900 bg-[radial-gradient(circle_at_50%_0%,rgb(74_144_226/0.3),transparent_55%)] px-5 pt-5 pb-5 text-center shadow-2xl shadow-accent-500/20 sm:px-8"
 			onclick={e => e.stopPropagation()}
-			transition:scale={{ duration: 350, easing: cubicOut, start: 0.85 }}
+			transition:scale|global={{ duration: 350, easing: cubicOut, start: 0.85 }}
 		>
 			<div class="relative grid size-16 shrink-0 place-items-center">
 				<span
-					class="absolute -inset-12bg-[repeating-conic-gradient(rgb(129_173_223/0.14)_0deg_10deg,transparent_10deg_30deg)] [mask-image:radial-gradient(circle,black_20%,transparent_70%)] motion-safe:animate-[offline-rays_24s_linear_infinite]"
+					class="absolute -inset-12 bg-[repeating-conic-gradient(rgb(129_173_223/0.14)_0deg_10deg,transparent_10deg_30deg)] [mask-image:radial-gradient(circle,black_20%,transparent_70%)] motion-safe:animate-[offline-rays_24s_linear_infinite]"
 				></span>
 				<span class="absolute inset-2 rounded-full bg-accent-400/30 blur-2xl"></span>
 				<Currency class="relative motion-safe:animate-[offline-float_4s_ease-in-out_infinite]" name="Atoms" size={56} />
