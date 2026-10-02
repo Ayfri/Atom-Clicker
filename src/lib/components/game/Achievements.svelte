@@ -10,7 +10,9 @@
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
+	import { cubicOut } from 'svelte/easing';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 
 	/** A big Claim all takes longer to gather and to fly to the nav, 10ms more per achievement for each, capped so a full list never drags. */
 	const CASCADE_MS_PER_CLAIM = 10;
@@ -35,7 +37,16 @@
 	);
 	/** Claimed count held while the sparks gather, so the reward line and its button stay up until the Quarks leave it. */
 	let collecting = $state(0);
+	/** Latched on the last non-zero count, so the reward line still reads it while it folds away instead of "0 new rewards". */
+	let lastRewardCount = 0;
+	const rewardCount = $derived((lastRewardCount = collecting || claimableAchievementIds.length || lastRewardCount));
 	let list = $state<HTMLDivElement>();
+
+	/** Svelte's slide with the content fading out in the first half, so the reward line folds away instead of snapping the list up. */
+	function collapse(node: Element): TransitionConfig {
+		const config = slide(node, { duration: 450, easing: cubicOut });
+		return { ...config, css: (t, u) => `${config.css?.(t, u)}; opacity: ${Math.max(0, t * 2 - 1)}` };
+	}
 
 	/** A collapsed series only keeps its latest unlocked tier and its next target, the rest waits behind "Show all". */
 	function shownAchievements(group: AchievementGroup, unlocked: ReadonlySet<string>): Achievement[] {
@@ -101,18 +112,18 @@
 		<div class="h-full bg-accent-400" style:width="{(gameManager.achievements.length / TOTAL_ACHIEVEMENTS) * 100}%"></div>
 	</div>
 	{#if canClaimAchievements || collecting}
-		{const count = $derived(collecting || claimableAchievementIds.length)}
-		<div class="mt-2 flex items-center gap-2 border-b border-white/5 pb-2 text-xs" in:reveal={{ y: 0 }}>
+		<div class="mt-2 flex items-center gap-2 border-b border-white/5 pb-2 text-xs" in:reveal={{ y: 0 }} out:collapse>
 			<Quark class="shrink-0" size={18} />
 			<p class="min-w-0 flex-1 leading-tight text-white/60">
-				<span class="font-semibold text-white">{count} new {count === 1 ? 'reward' : 'rewards'}</span>, each achievement pays 1 Quark once per account
+				<span class="font-semibold text-white">{rewardCount} new {rewardCount === 1 ? 'reward' : 'rewards'}</span>, each achievement pays 1 Quark once per
+				account
 			</p>
 			<button
 				class="flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-accent-600 px-2 py-1 font-semibold text-white transition-colors hover:bg-accent-500 disabled:cursor-wait"
 				disabled={collecting > 0}
 				onclick={claimAll}
 			>
-				Claim +{count}
+				Claim +{rewardCount}
 				<Quark size={14} />
 			</button>
 		</div>
@@ -157,6 +168,7 @@
 									<button
 										class="flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-1 text-xs font-bold text-white transition-colors hover:bg-white/20 cursor-pointer"
 										data-claim
+										out:fade={{ duration: 250 }}
 										onclick={event => claim(event, achievement.id)}
 										aria-label="Claim 1 Quark for {achievement.name}"
 										title="Claim 1 Quark"
