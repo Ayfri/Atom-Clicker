@@ -106,9 +106,21 @@
 		return () => clearInterval(interval);
 	});
 
+	let pendingClicks = 0;
+
+	function commitClicks() {
+		gameManager.addAtoms(gameManager.clickPower * pendingClicks);
+		gameManager.incrementClicks(false, pendingClicks);
+		pendingClicks = 0;
+	}
+
+	/**
+	 * Clicks of one task are committed together in a microtask: a script clicking in a loop never yields to Svelte's flush,
+	 * and each write re-queues every effect downstream of the atoms until that queue overflows the max array length.
+	 */
 	function click(x: number, y: number) {
-		gameManager.addAtoms(gameManager.clickPower);
-		gameManager.incrementClicks();
+		if (pendingClicks++ > 0) return;
+		queueMicrotask(commitClicks);
 		ClickParticles.emit(RealmTypes.ATOMS, x, y, CurrenciesTypes.ATOMS, CLICK_ICONS, clickLabel);
 		AmbientField.emit(RealmTypes.ATOMS, 'spark', { x, y });
 		const rect = atomRect.current;
