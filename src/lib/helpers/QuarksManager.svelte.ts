@@ -153,9 +153,10 @@ export class QuarksManager {
 	private rolloverDailyStatsIfNeeded(serverDayKey: string) {
 		if (gameManager.dailyStats.dayKey === serverDayKey) return;
 
+		/** `getTarget` would still read yesterday's frozen targets here. */
 		const questTargets: Record<string, number> = {};
 		for (const quest of this.quests) {
-			questTargets[quest.id] = this.getTarget(quest);
+			questTargets[quest.id] = getQuestTarget(quest, this.dailyQuestContext);
 		}
 
 		gameManager.dailyStats = {
