@@ -138,6 +138,29 @@ describe('reset layers', () => {
 	});
 });
 
+describe('electronize', () => {
+	test('needs a billion protons and pays one more electron per decade past it', () => {
+		currenciesManager.add(PROTONS, 1e9 - 1);
+		expect(gameManager.electronize()).toBe(false);
+		currenciesManager.add(PROTONS, 1e12);
+		expect(gameManager.electronizeElectronsGain).toBe(4);
+	});
+
+	test('pays electrons, clears protons and the run, keeps proton and electron upgrades', () => {
+		currenciesManager.add(PROTONS, 1e12);
+		currenciesManager.add(ATOMS, 1e6);
+		gameManager.upgrades = ['molecular_boost', 'proton_boost_1'];
+		gameManager.totalProtonisesRun = 4;
+		expect(gameManager.electronize()).toBe(true);
+		expect(gameManager.electrons).toBe(4);
+		expect(gameManager.protons).toBe(0);
+		expect(gameManager.atoms).toBe(0);
+		expect(gameManager.totalProtonisesRun).toBe(0);
+		expect(gameManager.upgrades).toEqual(['proton_boost_1']);
+		expect([gameManager.totalElectronizesAllTime, gameManager.totalElectronizesRun, gameManager.dailyStats.electronizes]).toEqual([1, 1, 1]);
+	});
+});
+
 describe('stability field', () => {
 	test('fills with idle ticks, and a click after the tick gives back exactly ×1', () => {
 		let now = 1_000_000;

@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { loadSavedState, migrateSavedState, SAVE_KEY, SAVE_VERSION, serializeSaveState, validateAndRepairGameState } from '#helpers/saves.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { GameState } from '#lib/types.js';
@@ -192,6 +194,30 @@ describe('save round trip', () => {
 		expect(result.integrityTampered).toBe(false);
 		expect(result.integrityWarnings).toEqual([]);
 		expect(result.state).toEqual(JSON.parse(JSON.stringify(current)));
+	});
+
+	test('a played save survives storage and a reload into the game', () => {
+		currenciesManager.add(CurrenciesTypes.ATOMS, 5e12);
+		currenciesManager.add(CurrenciesTypes.ELECTRONS, 30);
+		gameManager.achievements = ['a', 'b'];
+		gameManager.activePowerUps = [{ description: '', duration: 600_000, id: 'live', multiplier: 3, name: 'Boost', startTime: Date.now() }];
+		gameManager.chromaticUpgrades = { red_focus: 2 };
+		gameManager.currencyBoosts = { [CurrenciesTypes.ATOMS]: 2 };
+		gameManager.generators = { crystal: { count: 120, level: 1, unlocked: true } };
+		gameManager.photonUpgrades = { photon_efficiency: 3 };
+		gameManager.radiationUpgrades = { breeder_reactor: 2 };
+		gameManager.skillUpgrades = ['unlockLevels', 'radiationRealm'];
+		gameManager.totalIonizesAllTime = 2;
+		gameManager.totalXP = 4321;
+		gameManager.upgrades = ['molecular_boost'];
+		radiationManager.loadState({ controlRodLevel: 0.4, lastTick: 1, mass: 77, unlocked: true });
+		const played = JSON.parse(JSON.stringify(gameManager.getCurrentState()));
+
+		storage.set(SAVE_KEY, serializeSaveState(gameManager.getCurrentState()));
+		gameManager.resetAll();
+		const { state } = loadSavedState();
+		gameManager.loadSaveData(state!);
+		expect(JSON.parse(JSON.stringify(gameManager.getCurrentState()))).toEqual(played);
 	});
 
 	test('flags a payload edited without its checksum', () => {
