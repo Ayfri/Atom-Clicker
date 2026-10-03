@@ -630,9 +630,12 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
-	/** Proton and electron upgrades survive every prestige and photon upgrades survive Ionize, skills never reset. */
+	/** Upgrades paid in protons or electrons survive every prestige and photon upgrades survive Ionize, skills never reset. */
 	private prestige(layer: LayerType, gain?: Price) {
-		const upgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
+		const upgrades = this.upgrades.filter(id => {
+			const currency = UPGRADES[id]?.cost.currency;
+			return currency === CurrenciesTypes.PROTONS || currency === CurrenciesTypes.ELECTRONS;
+		});
 		const photonUpgrades = this.photonUpgrades;
 
 		this.resetLayer(layer);

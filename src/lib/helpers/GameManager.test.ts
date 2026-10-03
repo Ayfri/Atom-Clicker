@@ -141,14 +141,14 @@ describe('protonise', () => {
 		expect(gameManager.totalProtonisesAllTime).toBe(0);
 	});
 
-	test('pays protons and keeps proton and electron upgrades only', () => {
+	test('pays protons and keeps only the upgrades paid in protons or electrons', () => {
 		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED * 4);
-		gameManager.upgrades = ['molecular_boost', 'proton_boost', 'proton_electron_boost_1'];
+		gameManager.upgrades = ['molecular_boost', 'proton_boost_1', 'stability_speed_1', 'proton_electron_boost_1'];
 		const gain = gameManager.protoniseProtonsGain;
 		expect(gain).toBeGreaterThan(0);
 		expect(gameManager.protonise()).toBe(true);
 		expect(gameManager.protons).toBe(gain);
-		expect(gameManager.upgrades).toEqual(['proton_boost', 'proton_electron_boost_1']);
+		expect(gameManager.upgrades).toEqual(['proton_boost_1', 'stability_speed_1', 'proton_electron_boost_1']);
 		expect(gameManager.totalProtonisesAllTime).toBe(1);
 		expect(gameManager.totalProtonisesRun).toBe(1);
 		expect(gameManager.dailyStats.protonises).toBe(1);
