@@ -513,7 +513,12 @@ export class GameManager {
 		const r = GENERATOR_COST_MULTIPLIER;
 		const next = cost.amount * r ** (this.generators[type]?.count ?? 0);
 		const owned = currenciesManager.getAmount(cost.currency);
-		return owned < next ? 0 : Math.floor(Math.log((owned * (r - 1)) / next + 1) / Math.log(r));
+		let max = Math.floor(Math.log((owned * (r - 1)) / next + 1) / Math.log(r));
+		if (!Number.isFinite(max)) return max;
+		/** The log inverts the exact sum while getGeneratorCost charges it rounded, so the edges move to the count that rounded cost allows. */
+		while (this.getGeneratorCost(type, max + 1) <= owned) max++;
+		while (max > 0 && this.getGeneratorCost(type, max) > owned) max--;
+		return max;
 	}
 
 	incrementBonusHiggsBosonClicks() {
