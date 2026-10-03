@@ -164,6 +164,8 @@ describe('CurrenciesManager', () => {
 		currenciesManager.add(ATOMS, 10);
 		currenciesManager.add(ATOMS, -5);
 		currenciesManager.add(ATOMS, 0);
+		currenciesManager.add(ATOMS, NaN);
+		currenciesManager.remove(ATOMS, NaN);
 		expect(currenciesManager.currencies[ATOMS]).toEqual({ amount: 10, earnedAllTime: 10, earnedRun: 10 });
 	});
 
