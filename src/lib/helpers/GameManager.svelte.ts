@@ -77,9 +77,9 @@ export class GameManager {
 	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
 	/** Pushed in by QuarksManager, which GameManager never imports so the simulation worker stays free of fetch and auth code. */
-	quarkBoostSources = $state<EffectSource[]>([]);
+	quarkBoostSources = $state.raw<EffectSource[]>([]);
 	/** Owned Quark shop item ids, gating prestige-persistence behaviors the effect pipeline can't express. */
-	quarkEntitlements = $state<string[]>([]);
+	quarkEntitlements = $state.raw<string[]>([]);
 	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
 	saveIntegrityWarnings = $state<string[]>([]);
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
