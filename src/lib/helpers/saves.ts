@@ -276,19 +276,9 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 		// Specific Migrations
 		if (state.version === 2) {
-			Object.entries<Partial<Generator>>(state.buildings)?.forEach(([key, building]) => {
+			for (const building of Object.values<Partial<Generator>>(state.buildings ?? {})) {
 				building.level = Math.floor((building.count ?? 0) / GENERATOR_LEVEL_UP_COST);
-				state[key] = building;
-			});
-		}
-
-		if (state.version === 4) {
-			Object.entries<{ cost?: number | { amount: number } }>(state.buildings)?.forEach(([key, building]) => {
-				state[key].cost = {
-					amount: typeof building.cost === 'number' ? building.cost : building.cost?.amount,
-					currency: CurrenciesTypes.ATOMS,
-				};
-			});
+			}
 		}
 
 		if (state.version === 8) {
