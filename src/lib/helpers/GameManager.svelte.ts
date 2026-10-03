@@ -398,6 +398,8 @@ export class GameManager {
 
 	/** Pays away time at the offline rates, since the last save on load or `awayMs` of a frozen tab, and returns whether any was paid. */
 	catchUpOffline(awayMs?: number): boolean {
+		/** A power-up still live now ran through the whole absence, an expired one must not multiply it. */
+		this.dropExpiredPowerUps();
 		this.applyingOfflineProgress = true;
 		const summary = applyOfflineProgress(this, awayMs);
 		this.applyingOfflineProgress = false;
@@ -428,6 +430,14 @@ export class GameManager {
 			highestAPSRun: this.highestAPSRun,
 			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
 		};
+	}
+
+	/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
+	private dropExpiredPowerUps() {
+		if (this.activePowerUps.length === 0) return;
+		const now = this.clock();
+		const remaining = this.activePowerUps.filter(p => now - (p.startTime ?? 0) < p.duration);
+		if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
 	}
 
 	electronize() {
@@ -832,12 +842,7 @@ export class GameManager {
 			}
 		}
 
-		/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
-		if (this.activePowerUps.length > 0) {
-			const now = this.clock();
-			const remaining = this.activePowerUps.filter(p => now - (p.startTime ?? 0) < p.duration);
-			if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
-		}
+		this.dropExpiredPowerUps();
 	}
 
 	toggleAutoClick() {
