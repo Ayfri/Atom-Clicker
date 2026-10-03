@@ -17,16 +17,15 @@ export type LayerType = (typeof LAYERS)[keyof typeof LAYERS];
 interface StatConfig {
 	defaultValue: unknown;
 	layer: LayerType;
-	minVersion: number;
 }
 
 export const statsConfig = {
-	achievements: { defaultValue: [], layer: LAYERS.NEVER, minVersion: 1 },
-	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1 },
-	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER, minVersion: 29 },
-	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 29 },
-	currencies: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 17 }, // Handled by CurrenciesManager
-	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 21 },
+	achievements: { defaultValue: [], layer: LAYERS.NEVER },
+	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER },
+	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER },
+	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
+	currencies: { defaultValue: {}, layer: LAYERS.NEVER }, // Handled by CurrenciesManager
+	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	dailyStats: {
 		defaultValue: {
 			achievementsUnlocked: 0,
@@ -46,23 +45,18 @@ export const statsConfig = {
 			upgradesPurchased: 0,
 		} satisfies DailyStats,
 		layer: LAYERS.NEVER,
-		minVersion: 24,
 	},
-	features: { defaultValue: {}, layer: LAYERS.NEVER, minVersion: 21 },
-	generators: { defaultValue: {}, layer: LAYERS.PROTONIZER, minVersion: 26 },
-	highestAPS: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
-	highestAPSRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE, minVersion: 31 },
-	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
-	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER, minVersion: 30 },
-	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL, minVersion: 1 },
-	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM, minVersion: 12 },
-	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
-	radiation: {
-		defaultValue: { controlRodLevel: 0.5, lastTick: Date.now(), mass: 0, unlocked: false },
-		layer: LAYERS.NEVER,
-		minVersion: 22,
-	},
-	radiationUpgrades: { defaultValue: {}, layer: LAYERS.RADIATION_REALM, minVersion: 22 },
+	features: { defaultValue: {}, layer: LAYERS.NEVER },
+	generators: { defaultValue: {}, layer: LAYERS.PROTONIZER },
+	highestAPS: { defaultValue: 0, layer: LAYERS.NEVER },
+	highestAPSRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE },
+	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER },
+	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
+	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
+	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM },
+	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
+	radiation: { defaultValue: { controlRodLevel: 0.5, lastTick: Date.now(), mass: 0, unlocked: false }, layer: LAYERS.NEVER },
+	radiationUpgrades: { defaultValue: {}, layer: LAYERS.RADIATION_REALM },
 	realms: {
 		defaultValue: {
 			[RealmTypes.ATOMS]: { unlocked: true },
@@ -70,7 +64,6 @@ export const statsConfig = {
 			[RealmTypes.RADIATION]: { unlocked: false },
 		} satisfies Record<string, RealmState>,
 		layer: LAYERS.NEVER,
-		minVersion: 19,
 	},
 	settings: {
 		defaultValue: {
@@ -80,22 +73,21 @@ export const statsConfig = {
 			upgrades: { displayAlreadyBought: false },
 		} satisfies Settings,
 		layer: LAYERS.NEVER,
-		minVersion: 8,
 	},
-	selectedRealmId: { defaultValue: RealmTypes.ATOMS, layer: LAYERS.NEVER, minVersion: 22 },
-	skillUpgrades: { defaultValue: [], layer: LAYERS.NEVER, minVersion: 3 },
-	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER, minVersion: 5 },
-	totalClicksAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 14 },
-	totalClicksRun: { defaultValue: 0, layer: LAYERS.PROTONIZER, minVersion: 16 },
-	totalElectronizesAllTime: { defaultValue: 0, layer: LAYERS.SPECIAL, minVersion: 16 },
-	totalElectronizesRun: { defaultValue: 0, layer: LAYERS.SPECIAL, minVersion: 16 },
-	totalGeneratorsPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 26 },
-	totalIonizesAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 29 },
-	totalProtonisesAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },
-	totalProtonisesRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE, minVersion: 16 },
-	totalUpgradesPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 16 },
-	totalUsers: { defaultValue: 0, layer: LAYERS.NEVER, minVersion: 15 },
-	totalXP: { defaultValue: 0, layer: LAYERS.PROTONIZER, minVersion: 3 },
-	tutorial: { defaultValue: { enabled: true, seen: [] }, layer: LAYERS.NEVER, minVersion: 23 },
-	upgrades: { defaultValue: [], layer: LAYERS.PROTONIZER, minVersion: 1 },
+	selectedRealmId: { defaultValue: RealmTypes.ATOMS, layer: LAYERS.NEVER },
+	skillUpgrades: { defaultValue: [], layer: LAYERS.NEVER },
+	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER },
+	totalClicksAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
+	totalClicksRun: { defaultValue: 0, layer: LAYERS.PROTONIZER },
+	totalElectronizesAllTime: { defaultValue: 0, layer: LAYERS.SPECIAL },
+	totalElectronizesRun: { defaultValue: 0, layer: LAYERS.SPECIAL },
+	totalGeneratorsPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
+	totalIonizesAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
+	totalProtonisesAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
+	totalProtonisesRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE },
+	totalUpgradesPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
+	totalUsers: { defaultValue: 0, layer: LAYERS.NEVER },
+	totalXP: { defaultValue: 0, layer: LAYERS.PROTONIZER },
+	tutorial: { defaultValue: { enabled: true, seen: [] }, layer: LAYERS.NEVER },
+	upgrades: { defaultValue: [], layer: LAYERS.PROTONIZER },
 } satisfies Record<string, StatConfig>;

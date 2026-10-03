@@ -1,8 +1,7 @@
 import { CurrenciesTypes } from '#data/currencies.js';
-import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
+import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '#data/generators.js';
 import { RealmTypes } from '#data/realms.js';
 import type { GameState, Generator } from '#lib/types.js';
-import { deriveFeatureState } from '#helpers/FeaturesManager.svelte.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import { getItem } from '#lib/utils/safeLocalStorage.js';
@@ -83,22 +82,11 @@ export function loadSavedState(): LoadSaveResult {
 			};
 		}
 
-		// Step 3: Validate and try to repair if needed
-		const validationResult = validateAndRepairGameState(migratedState);
-		if (validationResult.valid) {
-			if (validationResult.repaired) console.log('Game state repaired:', validationResult.repairs);
-			console.log('Valid game state:', validationResult.state);
-			const integrityWarnings = checkStatePlausibility(validationResult.state!);
-			return { integrityTampered, integrityWarnings, state: validationResult.state, success: true };
-		}
-
-		return {
-			errorDetails: `Validation failed: ${validationResult.errors.join(', ')}`,
-			errorType: 'validation_failed',
-			rawData,
-			state: null,
-			success: false,
-		};
+		// Step 3: Repair, every broken field falls back to its default
+		const { repairs, state } = validateAndRepairGameState(migratedState);
+		if (repairs.length > 0) console.log('Game state repaired:', repairs);
+		console.log('Valid game state:', state);
+		return { integrityTampered, integrityWarnings: checkStatePlausibility(state!), state, success: true };
 	} catch (e) {
 		console.error('Failed to load saved game:', e);
 		return {
@@ -111,124 +99,49 @@ export function loadSavedState(): LoadSaveResult {
 	}
 }
 
-interface ValidationResult {
-	errors: string[];
-	repaired: boolean;
-	repairs: string[];
-	state: GameState | null;
-	valid: boolean;
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+function isValidSettings(value: unknown): boolean {
+	if (!isObject(value) || !isObject(value.automation) || !isObject(value.upgrades)) return false;
+	const { automation, gameplay, upgrades } = value;
+	return (
+		Array.isArray(automation.generators) &&
+		typeof automation.autoClick === 'boolean' &&
+		typeof automation.autoClickPhotons === 'boolean' &&
+		typeof automation.upgrades === 'boolean' &&
+		(gameplay === undefined || (isObject(gameplay) && typeof gameplay.offlineProgressEnabled === 'boolean')) &&
+		typeof upgrades.displayAlreadyBought === 'boolean'
+	);
 }
 
-export function validateAndRepairGameState(state: unknown): ValidationResult {
-	const errors: string[] = [];
+/** A stat holds the type of its default, settings get a deeper check since the game reads their nested flags directly. */
+function isValidStat(key: string, value: unknown, defaultValue: unknown): boolean {
+	if (key === 'settings') return isValidSettings(value);
+	if (Array.isArray(defaultValue)) return Array.isArray(value);
+	if (typeof defaultValue === 'number') return Number.isFinite(value);
+	if (typeof defaultValue === 'boolean') return typeof value === 'boolean';
+	if (isObject(defaultValue)) return isObject(value);
+	return true;
+}
+
+/** Fills every missing or broken stat with its default, so any object comes out a loadable current-version state. */
+export function validateAndRepairGameState(state: unknown): { repairs: string[]; state: GameState | null } {
+	if (!isObject(state)) return { repairs: [], state: null };
+
 	const repairs: string[] = [];
-	let repaired = false;
-
-	if (!state || typeof state !== 'object') {
-		return { errors: ['State is not an object'], repaired: false, repairs: [], state: null, valid: false };
+	for (const [key, { defaultValue }] of Object.entries(statsConfig)) {
+		if (key in state && isValidStat(key, state[key], defaultValue)) continue;
+		repairs.push(key in state ? `Repaired invalid ${key}: ${JSON.stringify(state[key])}` : `Added missing field: ${key}`);
+		/** The loaded state is mutated in place (the currencies setter fills it), the shared default must stay pristine. */
+		state[key] = structuredClone(defaultValue);
 	}
 
-	const stateObj = state as Record<string, unknown>;
-
-	// Define custom validators for complex types
-	const customValidators: Record<string, (v: unknown) => boolean> = {
-		features: (v: unknown) => typeof v === 'object' && v !== null,
-		settings: (v: unknown) => {
-			const val = v as Record<string, any>;
-			const hasValidGameplay =
-				typeof val.gameplay === 'undefined' ||
-				(typeof val.gameplay === 'object' && typeof val.gameplay?.offlineProgressEnabled === 'boolean');
-
-			return (
-				typeof val === 'object' &&
-				val !== null &&
-				typeof val.automation === 'object' &&
-				Array.isArray(val.automation?.generators) &&
-				typeof val.automation?.autoClick === 'boolean' &&
-				typeof val.automation?.autoClickPhotons === 'boolean' &&
-				typeof val.automation?.upgrades === 'boolean' &&
-				hasValidGameplay &&
-				typeof val.upgrades === 'object' &&
-				typeof val.upgrades?.displayAlreadyBought === 'boolean'
-			);
-		},
-	};
-
-	// Generate checks from statsConfig
-	const checks = Object.entries(statsConfig).map(([key, config]) => {
-		let validator = (v: unknown) => true;
-
-		if (key in customValidators) {
-			validator = customValidators[key];
-		} else if (Array.isArray(config.defaultValue)) {
-			validator = Array.isArray;
-		} else if (typeof config.defaultValue === 'number') {
-			validator = (v: unknown) => typeof v === 'number' && !isNaN(v as number);
-		} else if (typeof config.defaultValue === 'boolean') {
-			validator = (v: unknown) => typeof v === 'boolean';
-		} else if (typeof config.defaultValue === 'object' && config.defaultValue !== null) {
-			validator = (v: unknown) => typeof v === 'object' && v !== null;
-		}
-
-		return {
-			defaultValue: config.defaultValue,
-			key,
-			validator,
-		};
-	});
-
-	// Try to repair each field
-	for (const check of checks) {
-		// Cloned like in migrateSavedState: the loaded state is mutated in place (the currencies setter fills it), the shared default must stay pristine.
-		if (!(check.key in stateObj)) {
-			stateObj[check.key] = structuredClone(check.defaultValue);
-			repairs.push(`Added missing field: ${check.key}`);
-			repaired = true;
-		} else if (!check.validator(stateObj[check.key])) {
-			const oldValue = stateObj[check.key];
-			stateObj[check.key] = structuredClone(check.defaultValue);
-			repairs.push(`Repaired invalid ${check.key}: ${JSON.stringify(oldValue)} -> ${JSON.stringify(check.defaultValue)}`);
-			repaired = true;
-		}
-	}
-
-	// Handle version separately - we upgrade to current version
-	if (stateObj.version !== SAVE_VERSION) {
-		stateObj.version = SAVE_VERSION;
+	if (state.version !== SAVE_VERSION) {
+		state.version = SAVE_VERSION;
 		repairs.push(`Updated version to ${SAVE_VERSION}`);
-		repaired = true;
 	}
 
-	// Repair NaN/Infinity values in numeric fields
-	const numericFields = Object.entries(statsConfig)
-		.filter(([_, config]) => typeof config.defaultValue === 'number')
-		.map(([key]) => key);
-
-	for (const field of numericFields) {
-		if (typeof stateObj[field] === 'number' && (isNaN(stateObj[field]) || !isFinite(stateObj[field]))) {
-			stateObj[field] = 0;
-			repairs.push(`Fixed NaN/Infinity in ${field}`);
-			repaired = true;
-		}
-	}
-
-	// Verify repairs were successful
-	const allValid = checks.every(check => check.key in stateObj && check.validator(stateObj[check.key]));
-
-	if (!allValid) {
-		const failedChecks = checks.filter(check => !(check.key in stateObj) || !check.validator(stateObj[check.key]));
-		for (const check of failedChecks) {
-			errors.push(`Field ${check.key} is still invalid after repair`);
-		}
-	}
-
-	return {
-		errors,
-		repaired,
-		repairs,
-		state: allValid ? (stateObj as unknown as GameState) : null,
-		valid: allValid && errors.length === 0,
-	};
+	return { repairs, state: state as unknown as GameState };
 }
 
 export function migrateSavedState(savedState: unknown): GameState | undefined {
@@ -238,43 +151,13 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 	// Generators were stored under `buildings` until v26.
 	if (!('buildings' in state) && !('generators' in state)) return state;
 
-	if (!('version' in state)) {
-		// Migrate from old format
-		state.buildings = Object.entries(state.buildings as Partial<GameState['generators']>).reduce(
-			(acc, [key, value]) => {
-				acc[key as GeneratorType] = {
-					...value,
-					unlocked: true,
-				};
-				return acc;
-			},
-			{} as GameState['generators'],
-		);
-	}
-
 	if (state.version === 1) {
 		// Hard reset due to balancing
 		return undefined;
 	}
 
-	while ((state.version || 0) < SAVE_VERSION) {
-		if (!state.version) break;
-
-		const nextVersion = state.version + 1;
-
-		// Generic Migration
-		for (const [key, config] of Object.entries(statsConfig)) {
-			if (config.minVersion <= nextVersion) {
-				if (!(key in state)) {
-					state[key] =
-						typeof config.defaultValue === 'object' && config.defaultValue !== null ?
-							structuredClone(config.defaultValue)
-						:	config.defaultValue;
-				}
-			}
-		}
-
-		// Specific Migrations
+	/** Each step only renames or reshapes data, stats added since the save's version are filled by validateAndRepairGameState. */
+	while (state.version && state.version < SAVE_VERSION) {
 		if (state.version === 2) {
 			for (const building of Object.values<Partial<Generator>>(state.buildings ?? {})) {
 				building.level = Math.floor((building.count ?? 0) / GENERATOR_LEVEL_UP_COST);
@@ -415,12 +298,6 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 			keysToRemove.forEach(key => delete state[key]);
 		}
 
-		if (state.version === 17) {
-			if (state.activePowerUps) {
-				state.activePowerUps = state.activePowerUps.filter((p: any) => p.duration <= 100_000);
-			}
-		}
-
 		if (state.version === 18) {
 			state.realms = {
 				[RealmTypes.ATOMS]: { unlocked: true },
@@ -491,8 +368,6 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 			state.upgrades = Array.from(upgrades);
 			state.skillUpgrades = Array.from(skillUpgrades);
-			state.currencyBoosts = {};
-			state.features = deriveFeatureState({ skillUpgrades: state.skillUpgrades });
 		}
 
 		if (state.version === 22) {
@@ -584,10 +459,9 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 			}
 			state.upgrades = [...upgrades.filter(id => !upgradeToSkill[id]), ...skills.flatMap(id => skillToUpgrade[id] ?? [])];
 			state.skillUpgrades = [...skills.filter(id => !skillToUpgrade[id] && !skillToPhotonUpgrade[id]), ...upgrades.flatMap(id => upgradeToSkill[id] ?? [])];
-			state.features = deriveFeatureState({ skillUpgrades: state.skillUpgrades });
 		}
 
-		state.version = nextVersion;
+		state.version++;
 	}
 
 	if (Array.isArray(state.activePowerUps)) {

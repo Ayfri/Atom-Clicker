@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, spyOn, test } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { loadSavedState, migrateSavedState, SAVE_KEY, SAVE_VERSION, serializeSaveState, validateAndRepairGameState } from '#helpers/saves.js';
@@ -26,9 +26,19 @@ beforeAll(() => {
 	};
 });
 
+/** Bun shares globals between test files, so the spies and the storage shim must not outlive this one. */
+afterAll(() => {
+	mock.restore();
+	Reflect.deleteProperty(globalThis, 'localStorage');
+});
+
 afterEach(() => storage.clear());
 
-const migrate = (save: Record<string, unknown>) => migrateSavedState(structuredClone(save)) as GameState & Record<string, unknown>;
+function migrate(save: Record<string, unknown>): GameState {
+	const state = migrateSavedState(structuredClone(save));
+	if (!state) throw new Error(`The v${save.version} save was dropped`);
+	return state;
+}
 
 describe('migrateSavedState', () => {
 	test('drops version 1 saves, which predate a hard balance reset', () => {
@@ -41,9 +51,10 @@ describe('migrateSavedState', () => {
 	});
 
 	test.each([2, 3, 4, 5])('migrates a v%i save with its generators intact', version => {
-		const state = migrate({ achievements: [], buildings: { molecule: { cost: 10, count: 250, rate: 1, unlocked: true } }, upgrades: [], version });
+		const molecule = { cost: 10, count: 250, rate: 1, unlocked: true, ...(version > 2 && { level: 2 }) };
+		const state = migrate({ achievements: [], buildings: { molecule }, upgrades: [], version });
 		expect(state.version).toBe(SAVE_VERSION);
-		expect(state.generators.molecule).toEqual({ count: 250, level: version === 2 ? 2 : undefined, unlocked: true } as GameState['generators']['molecule']);
+		expect(state.generators.molecule).toEqual({ count: 250, level: 2, unlocked: true });
 		expect(state).not.toHaveProperty('molecule');
 		expect(state).not.toHaveProperty('buildings');
 	});
@@ -74,10 +85,7 @@ describe('migrateSavedState', () => {
 		expect(state.currencies[CurrenciesTypes.PROTONS]).toEqual({ amount: 12, earnedAllTime: 30, earnedRun: 30 });
 		expect(state.currencies[CurrenciesTypes.ELECTRONS].amount).toBe(4);
 		expect(state.currencies[CurrenciesTypes.PHOTONS].amount).toBe(7);
-		expect(state.totalClicksRun).toBe(40);
-		expect(state.totalElectronizesAllTime).toBe(2);
-		expect(state.totalProtonisesAllTime).toBe(6);
-		expect(state.totalGeneratorsPurchasedAllTime).toBe(3);
+		expect(state).toMatchObject({ totalClicksRun: 40, totalElectronizesAllTime: 2, totalGeneratorsPurchasedAllTime: 3, totalProtonisesAllTime: 6 });
 		expect(state.generators.crystal).toEqual({ count: 3, level: 0, unlocked: true });
 		expect(state.settings.automation.generators).toEqual(['crystal']);
 		for (const key of ['atoms', 'electrons', 'photons', 'protons', 'totalAtomsEarned', 'totalClicks', 'totalBuildingsPurchased']) expect(state).not.toHaveProperty(key);
@@ -95,7 +103,6 @@ describe('migrateSavedState', () => {
 		expect(state.skillUpgrades).toEqual(expect.arrayContaining(['somethingKept', 'unlockLevels', 'offlineProgress', 'hoverCollection']));
 		expect(state.skillUpgrades).not.toContain('xpBoost0');
 		expect(state.upgrades).not.toContain('feature_levels');
-		expect(state.features.levels).toBe(true);
 	});
 
 	test('renames buildings to generators everywhere at v25, keeping the quest-server ids', () => {
@@ -126,15 +133,12 @@ describe('migrateSavedState', () => {
 		expect(state.upgrades.toSorted()).toEqual(['atom_boost', 'global_multiplier', 'molecule_multiplier']);
 		expect(state.skillUpgrades.toSorted()).toEqual(['autoClicker', 'moleculeAutoBuy', 'unlockLevels']);
 		expect(state.photonUpgrades.photon_efficiency).toBe(1);
-		expect(state.features.levels).toBe(true);
 	});
 
-	test('fills every stat added since the save version', () => {
-		for (const [key, config] of Object.entries(statsConfig)) {
-			if (config.minVersion < 3) continue;
-			const version = config.minVersion - 1;
-			const state = migrate({ [version < 26 ? 'buildings' : 'generators']: {}, version });
-			expect(state, `stat ${key} from v${config.minVersion - 1}`).toHaveProperty(key);
+	test('a bare save of every version comes out complete', () => {
+		for (let version = 2; version <= SAVE_VERSION; version++) {
+			const { state } = validateAndRepairGameState(migrate({ [version < 26 ? 'buildings' : 'generators']: {}, version }));
+			expect(Object.keys(statsConfig).filter(key => !(key in state!)), `v${version}`).toEqual([]);
 		}
 	});
 
@@ -147,19 +151,20 @@ describe('migrateSavedState', () => {
 
 describe('validateAndRepairGameState', () => {
 	test('rejects a non-object state', () => {
-		expect(validateAndRepairGameState(null).valid).toBe(false);
-		expect(validateAndRepairGameState(42).valid).toBe(false);
+		expect(validateAndRepairGameState(null).state).toBeNull();
+		expect(validateAndRepairGameState(42).state).toBeNull();
 	});
 
 	test('fills missing fields and resets broken ones to their defaults', () => {
-		const { repaired, state, valid } = validateAndRepairGameState({ settings: { automation: 'nope' }, totalClicksRun: NaN, totalXP: Infinity, upgrades: 'x' });
-		expect(valid).toBe(true);
-		expect(repaired).toBe(true);
-		expect(state?.totalXP).toBe(0);
-		expect(state?.totalClicksRun).toBe(0);
-		expect(state?.upgrades).toEqual([]);
+		const { repairs, state } = validateAndRepairGameState({ lastSave: Infinity, settings: { automation: 'nope' }, totalClicksRun: NaN, totalXP: Infinity, upgrades: 'x' });
+		expect(repairs).toContain('Repaired invalid totalXP: null');
+		expect(state).toMatchObject({ lastSave: statsConfig.lastSave.defaultValue, totalClicksRun: 0, totalXP: 0, upgrades: [], version: SAVE_VERSION });
 		expect(state?.settings).toEqual(statsConfig.settings.defaultValue);
-		expect(state?.version).toBe(SAVE_VERSION);
+	});
+
+	test('leaves a valid state untouched', () => {
+		const { repairs } = validateAndRepairGameState(JSON.parse(JSON.stringify(gameManager.getCurrentState())));
+		expect(repairs).toEqual([]);
 	});
 
 	test('never shares a default object with the repaired state', () => {
@@ -172,13 +177,14 @@ describe('validateAndRepairGameState', () => {
 });
 
 describe('save round trip', () => {
+	beforeEach(() => gameManager.resetAll());
+
 	test('the live game state names only stats the reset and migration code knows', () => {
 		const unknown = Object.keys(gameManager.getCurrentState()).filter(key => !(key in statsConfig) && !UNTRACKED_STATE_KEYS.includes(key));
 		expect(unknown).toEqual([]);
-		expect(Math.max(...Object.values(statsConfig).map(config => config.minVersion))).toBeLessThanOrEqual(SAVE_VERSION);
 	});
 
-	test('a fresh save loads back unchanged, without repairs or integrity warnings', () => {
+	test('a fresh save loads back unchanged, without integrity warnings', () => {
 		const current = gameManager.getCurrentState();
 		storage.set(SAVE_KEY, serializeSaveState(current));
 		const result = loadSavedState();
@@ -199,8 +205,7 @@ describe('save round trip', () => {
 
 	test('keeps the raw data of an unreadable save for the recovery screen', () => {
 		storage.set(SAVE_KEY, '{broken');
-		const result = loadSavedState();
-		expect(result).toMatchObject({ errorType: 'invalid_json', rawData: '{broken', success: false });
+		expect(loadSavedState()).toMatchObject({ errorType: 'invalid_json', rawData: '{broken', success: false });
 	});
 
 	test('treats a missing save as a new game', () => {
