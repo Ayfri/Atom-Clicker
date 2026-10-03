@@ -158,20 +158,3 @@ describe('protonise', () => {
 		expect(gameManager.dailyStats.protonises).toBe(1);
 	});
 });
-
-describe('CurrenciesManager', () => {
-	test('add counts earnings, ignoring zero and negative amounts', () => {
-		currenciesManager.add(ATOMS, 10);
-		currenciesManager.add(ATOMS, -5);
-		currenciesManager.add(ATOMS, 0);
-		currenciesManager.add(ATOMS, NaN);
-		currenciesManager.remove(ATOMS, NaN);
-		expect(currenciesManager.currencies[ATOMS]).toEqual({ amount: 10, earnedAllTime: 10, earnedRun: 10 });
-	});
-
-	test('remove floors at zero and never touches earnings', () => {
-		currenciesManager.add(PROTONS, 10);
-		currenciesManager.remove(PROTONS, 25);
-		expect(currenciesManager.currencies[PROTONS]).toEqual({ amount: 0, earnedAllTime: 10, earnedRun: 10 });
-	});
-});

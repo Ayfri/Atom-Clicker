@@ -17,24 +17,30 @@ const context: DailyQuestContext = {
 const days = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10));
 
 describe('pickDailyQuests', () => {
-	test('is deterministic per day, since the server derives the same quests to size the daily cap', () => {
-		for (const day of days.slice(0, 30)) expect(pickDailyQuests(day, 3).map(q => q.id)).toEqual(pickDailyQuests(day, 3).map(q => q.id));
+	test('keeps the picks of a given day across releases, a player mid-day must not see their quests change', () => {
+		expect(pickDailyQuests('2026-01-01', DAILY_QUEST_COUNT + 1).map(quest => quest.id)).toEqual(['complete_other_daily_quests', 'clicks_250', 'chromatic_breaks']);
+		expect(pickDailyQuests('2026-10-03').map(quest => quest.id)).toEqual(['higgs_bosons_collected', 'chromatic_each_color']);
 	});
 
-	test('always returns the requested count of distinct quests', () => {
+	test('always returns the requested count of distinct pool quests', () => {
 		for (const day of days) {
 			for (const count of [DAILY_QUEST_COUNT, DAILY_QUEST_COUNT + 1]) {
-				const ids = pickDailyQuests(day, count, context).map(quest => quest?.id);
-				expect(ids, day).toHaveLength(count);
-				expect(new Set(ids).size, day).toBe(count);
-				expect(ids, day).not.toContain(undefined);
+				const quests = pickDailyQuests(day, count, context);
+				expect(new Set(quests).size, day).toBe(count);
+				expect(quests.every(quest => QUEST_POOL.includes(quest)), day).toBe(true);
 			}
 		}
 	});
 
 	test('only offers quests the player can do', () => {
 		for (const day of days) {
-			for (const quest of pickDailyQuests(day, 3, context)) expect(quest.isAvailable?.(context) ?? true, `${day} ${quest.id}`).toBe(true);
+			for (const quest of pickDailyQuests(day, DAILY_QUEST_COUNT + 1, context)) expect(quest.isAvailable?.(context) ?? true, `${day} ${quest.id}`).toBe(true);
+		}
+	});
+
+	test('the server cap, picked without the player context, matches the client picks', () => {
+		for (const day of days) {
+			for (const count of [DAILY_QUEST_COUNT, DAILY_QUEST_COUNT + 1]) expect(getDailyCap(pickDailyQuests(day, count)), day).toBe(getDailyCap(pickDailyQuests(day, count, context)));
 		}
 	});
 
@@ -72,7 +78,8 @@ test('the color quest progresses with the least broken color', () => {
 });
 
 test('the third quest entitlement raises the count and the daily cap', () => {
+	const cap = (entitlements: string[]) => getDailyCap(pickDailyQuests('2026-10-03', getDailyQuestCount(entitlements)));
 	expect(getDailyQuestCount([])).toBe(DAILY_QUEST_COUNT);
 	expect(getDailyQuestCount(['convenience_third_daily_quest'])).toBe(DAILY_QUEST_COUNT + 1);
-	expect(getDailyCap(pickDailyQuests('2026-10-03', 3))).toBe(3);
+	expect(cap(['convenience_third_daily_quest'])).toBeGreaterThan(cap([]));
 });

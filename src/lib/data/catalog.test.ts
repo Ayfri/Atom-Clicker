@@ -10,6 +10,7 @@ import { getRadiationUpgradeCost, RADIATION_UPGRADES } from '#data/radiationUpgr
 import { RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
+import { effectAmount } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import type { Effect } from '#lib/types.js';
 
@@ -81,22 +82,24 @@ describe('skill tree', () => {
 
 describe('effects', () => {
 	const generators: string[] = GENERATOR_TYPES;
-	const allEffects: [string, Effect][] = [
-		...Object.values(UPGRADES).flatMap(upgrade => upgrade.effects.map(effect => [upgrade.id, effect] as [string, Effect])),
-		...Object.values(SKILL_UPGRADES).flatMap(skill => skill.effects.map(effect => [skill.id, effect] as [string, Effect])),
-		...Object.values(ALL_PHOTON_UPGRADES).flatMap(upgrade => upgrade.effects(upgrade.maxLevel).map(effect => [upgrade.id, effect] as [string, Effect])),
-		...Object.values(QUARK_SHOP).flatMap(item => (item.effects ?? []).map(effect => [item.id, effect] as [string, Effect])),
+	const tagged = (id: string, effects: readonly Effect[]) => effects.map(effect => ({ effect, id }));
+	const allEffects = [
+		...Object.values(UPGRADES).flatMap(upgrade => tagged(upgrade.id, upgrade.effects)),
+		...Object.values(SKILL_UPGRADES).flatMap(skill => tagged(skill.id, skill.effects)),
+		...Object.values(ALL_PHOTON_UPGRADES).flatMap(upgrade => tagged(upgrade.id, upgrade.effects(upgrade.maxLevel))),
+		...Object.values(QUARK_SHOP).flatMap(item => tagged(item.id, item.effects ?? [])),
 	];
 
 	test('generator targets name real generators', () => {
-		for (const [id, effect] of allEffects) if (effect.kind !== 'sum' && effect.target) expect(generators, id).toContain(effect.target);
+		for (const { effect, id } of allEffects) if (effect.kind !== 'sum' && effect.target) expect(generators, id).toContain(effect.target);
 	});
 
 	test('every effect and upgrade condition evaluates on a fresh game', () => {
 		gameManager.resetAll();
-		for (const [id, effect] of allEffects) {
-			const amount = effect.kind === 'sum' ? effect.per(gameManager) : typeof effect.amount === 'number' ? effect.amount : effect.amount(gameManager);
-			expect(Number.isFinite(amount), id).toBe(true);
+		// NaN fails both bounds.
+		for (const { effect, id } of allEffects) {
+			expect(effectAmount(effect, gameManager), id).toBeGreaterThan(-Infinity);
+			expect(effectAmount(effect, gameManager), id).toBeLessThan(Infinity);
 		}
 		for (const upgrade of [...Object.values(UPGRADES), ...Object.values(SKILL_UPGRADES), ...Object.values(ALL_PHOTON_UPGRADES)]) {
 			expect(() => upgrade.condition?.(gameManager), upgrade.id).not.toThrow();
@@ -108,20 +111,23 @@ describe('effects', () => {
 describe('prices', () => {
 	test('upgrade and skill prices are positive and finite', () => {
 		for (const { cost, id } of [...Object.values(UPGRADES), ...Object.values(SKILL_UPGRADES)]) {
-			expect(cost.amount > 0 && Number.isFinite(cost.amount), id).toBe(true);
+			expect(cost.amount, id).toBeGreaterThan(0);
+			expect(cost.amount, id).toBeLessThan(Infinity);
 		}
 	});
 
 	test('leveled upgrades get pricier with every level up to their max', () => {
-		const leveled: [string, (level: number) => number, number][] = [
-			...Object.values(ALL_PHOTON_UPGRADES).map(u => [u.id, (level: number) => getPhotonUpgradeCost(u, level), u.maxLevel] as [string, (level: number) => number, number]),
-			...Object.values(RADIATION_UPGRADES).map(u => [u.id, (level: number) => getRadiationUpgradeCost(u, level), u.maxLevel] as [string, (level: number) => number, number]),
-			...Object.values(CHROMATIC_UPGRADES).map(u => [u.id, (level: number) => getChromaticUpgradeCost(u, level), u.maxLevel] as [string, (level: number) => number, number]),
+		type Leveled = { cost: (level: number) => number; id: string; maxLevel: number };
+		const leveled: Leveled[] = [
+			...Object.values(ALL_PHOTON_UPGRADES).map(u => ({ cost: (level: number) => getPhotonUpgradeCost(u, level), id: u.id, maxLevel: u.maxLevel })),
+			...Object.values(RADIATION_UPGRADES).map(u => ({ cost: (level: number) => getRadiationUpgradeCost(u, level), id: u.id, maxLevel: u.maxLevel })),
+			...Object.values(CHROMATIC_UPGRADES).map(u => ({ cost: (level: number) => getChromaticUpgradeCost(u, level), id: u.id, maxLevel: u.maxLevel })),
 		];
-		for (const [id, cost, maxLevel] of leveled) {
+		for (const { cost, id, maxLevel } of leveled) {
+			const lastLevel = Math.min(maxLevel, 1000) - 1;
 			expect(cost(0), id).toBeGreaterThan(0);
-			for (let level = 1; level < Math.min(maxLevel, 1000); level++) expect(cost(level), `${id} level ${level}`).toBeGreaterThanOrEqual(cost(level - 1));
-			expect(Number.isFinite(cost(Math.min(maxLevel, 1000) - 1)), id).toBe(true);
+			for (let level = 1; level <= lastLevel; level++) expect(cost(level), `${id} level ${level}`).toBeGreaterThanOrEqual(cost(level - 1));
+			expect(cost(lastLevel), id).toBeLessThan(Infinity);
 		}
 	});
 });
