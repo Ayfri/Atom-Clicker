@@ -138,6 +138,25 @@ describe('reset layers', () => {
 	});
 });
 
+describe('stability field', () => {
+	test('fills with idle ticks, and a click after the tick gives back exactly ×1', () => {
+		let now = 1_000_000;
+		gameManager.clock = () => now;
+		gameManager.skillUpgrades = ['stabilityField'];
+		gameManager.lastInteractionTime = now;
+		now += gameManager.stabilityTimeRequired / 2;
+		gameManager.tick(1000, true, true);
+		expect(gameManager.stabilityProgress).toBeCloseTo(0.5);
+		expect(gameManager.stabilityMultiplier).toBeGreaterThan(1);
+
+		for (const delay of [1, 7, 300]) {
+			gameManager.lastInteractionTime = now + delay;
+			expect(gameManager.stabilityMultiplier).toBe(1);
+		}
+		gameManager.clock = () => Date.now();
+	});
+});
+
 describe('protonise', () => {
 	test('needs the atom threshold', () => {
 		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED - 1);

@@ -83,6 +83,8 @@ export class GameManager {
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
 	skillUpgrades = $state.raw<string[]>([]);
 	startDate = $state(Date.now());
+	/** Clock of the last tick: stability read the live clock, so every click moved it by a few ms and reran the whole production chain. */
+	tickTime = $state(Date.now());
 	totalClicksAllTime = $state(0);
 	totalClicksRun = $state(0);
 	totalElectronizesAllTime = $state(0);
@@ -318,12 +320,8 @@ export class GameManager {
 	/** Full Stability Field multiplier, reached once `stabilityProgress` hits 1. */
 	stabilityMax = $derived(1 + (this.stabilityMaxBoost - 1) * this.stabilityCapacity);
 
-	/** 0 to 1 share of the idle time needed to fill the field. */
-	stabilityProgress = $derived.by(() => {
-		/** `clock` isn't reactive, reading inGameTime re-runs this every tick. */
-		this.inGameTime;
-		return Math.min(Math.max((this.clock() - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1);
-	});
+	/** 0 to 1 share of the idle time needed to fill the field, a click after the last tick clamps it to the same 0 and stops there. */
+	stabilityProgress = $derived.by(() => Math.min(Math.max((this.tickTime - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1));
 
 	/** Fills linearly while idle, up to `stabilityMax`, paused while a power-up is live. */
 	stabilityMultiplier = $derived(
@@ -813,6 +811,7 @@ export class GameManager {
 	tick(deltaTime = 1000, skipAchievements = false, skipProduction = false) {
 		const seconds = deltaTime / 1000;
 		this.inGameTime += deltaTime;
+		this.tickTime = this.clock();
 
 		if (!skipProduction) {
 			if (this.atomsPerSecond > 0) this.addAtoms(this.atomsPerSecond * seconds);
