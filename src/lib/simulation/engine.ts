@@ -130,6 +130,7 @@ export class SimulationEngine {
 		// power-up bookkeeping would follow how fast the host machine happens to be running.
 		gameManager.clock = () => gameManager.inGameTime;
 		gameManager.lastInteractionTime = 0;
+		gameManager.startDate = 0;
 		radiationManager.random = this.random;
 
 		// An engaged player switches every automation on, each one stays inert until an upgrade grants its effect.

@@ -69,14 +69,14 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		name: 'Decade Player',
 		description: 'Play for 10 days total',
 		iconStack: { count: 3, icon: 'playTime', label: '10d' },
-		condition: (manager: GameManager) => Date.now() - manager.startDate >= 864000000, // 10 days in ms
+		condition: (manager: GameManager) => manager.clock() - manager.startDate >= 864000000, // 10 days in ms
 	},
 	{
 		id: 'time_since_start_123d',
 		name: 'Century Gamer',
 		description: 'Play for 123 days total',
 		iconStack: { count: 3, icon: 'playTime', label: '123d' },
-		condition: (manager: GameManager) => Date.now() - manager.startDate >= 10627200000, // 123 days in ms
+		condition: (manager: GameManager) => manager.clock() - manager.startDate >= 10627200000, // 123 days in ms
 	},
 	{
 		id: 'website_click',
