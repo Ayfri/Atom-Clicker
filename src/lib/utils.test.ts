@@ -16,6 +16,14 @@ describe('formatNumber', () => {
 		expect(formatNumber(-2.5e6, 2, 'suffix')).toBe('-2.50M');
 	});
 
+	test('moves to the next suffix when rounding reaches a thousand', () => {
+		expect(formatNumber(999.999, 2, 'suffix')).toBe('1.00K');
+		expect(formatNumber(999_999, 2, 'suffix')).toBe('1.00M');
+		expect(formatNumber(-999_999, 2, 'suffix')).toBe('-1.00M');
+		expect(formatNumber(999_994, 2, 'suffix')).toBe('999.99K');
+		expect(formatNumber(1e15, 2, 'suffix')).toBe('1.00Qa');
+	});
+
 	test('has a suffix for every finite double', () => {
 		const suffix = formatNumber(Number.MAX_VALUE, 2, 'suffix').replace(/^[\d.]+/, '');
 		expect(SUFFIXES).toContain(suffix);
