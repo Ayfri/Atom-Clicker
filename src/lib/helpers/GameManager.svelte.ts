@@ -593,7 +593,7 @@ export class GameManager {
 					this.currencyBoosts = data.currencyBoosts ?? {};
 					break;
 				case 'radiation':
-					if (data.radiation) radiationManager.loadState(data.radiation, data.radiationUpgrades ?? {});
+					if (data.radiation) radiationManager.loadState(data.radiation);
 					break;
 				case 'radiationUpgrades':
 					this.radiationUpgrades = data.radiationUpgrades ?? {};
@@ -750,7 +750,7 @@ export class GameManager {
 				currenciesManager.hardReset();
 				break;
 			case 'radiation':
-				radiationManager.loadState({ ...statsConfig.radiation.defaultValue, lastTick: Date.now() }, {});
+				radiationManager.loadState({ ...statsConfig.radiation.defaultValue, lastTick: Date.now() });
 				break;
 			case 'selectedRealmId':
 				realmManager.selectRealm(RealmTypes.ATOMS);
