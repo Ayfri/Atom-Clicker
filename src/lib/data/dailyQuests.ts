@@ -204,7 +204,7 @@ export function pickDailyQuests(dayKey: string, count = DAILY_QUEST_COUNT, conte
 		seed ^= seed >>> 17;
 		seed ^= seed << 5;
 		seed |= 0;
-		return (seed >>> 0) / 0xffffffff;
+		return (seed >>> 0) / 2 ** 32;
 	};
 
 	const shuffled = context ? QUEST_POOL.filter(quest => quest.isAvailable?.(context) ?? true) : [...QUEST_POOL];
