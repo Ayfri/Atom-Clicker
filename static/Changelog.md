@@ -1,4 +1,4 @@
-# Unreleased
+# What's new 03-10-2026
 
 - **Daily Quests**: New quests to fuel your reactor and, once you have ionized, to break Red, Green and Blue photons, both sized to your progress.
 
