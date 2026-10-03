@@ -150,7 +150,6 @@ export interface GameState {
 	currencies: CurrencyStateMap;
 	currencyBoosts: CurrencyBoosts;
 	dailyStats: DailyStats;
-	features: FeatureState;
 	generators: Partial<Record<GeneratorType, Generator>>;
 	highestAPS: number;
 	highestAPSRun: number;

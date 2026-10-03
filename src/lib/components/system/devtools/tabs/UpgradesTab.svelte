@@ -16,12 +16,6 @@
 	const photonUpgrades = Object.values(PHOTON_UPGRADES);
 	const excitedUpgrades = Object.values(EXCITED_PHOTON_UPGRADES);
 	const radiationUpgrades = Object.values(RADIATION_UPGRADES);
-
-	/** Features and realm unlocks are derived from what is owned, the purchase paths refresh them the same way. */
-	function refresh() {
-		gameManager.syncFeatures();
-		gameManager.checkRealmUnlocks();
-	}
 </script>
 
 <div class="sticky top-0 z-10 -mx-4 -mt-3 mb-3 flex gap-1 bg-accent-950/95 px-4 py-2.5 backdrop-blur">
@@ -40,10 +34,7 @@
 {#if view === 'Upgrades'}
 	<ToggleGrid
 		items={upgrades}
-		onChange={owned => {
-			gameManager.upgrades = owned;
-			refresh();
-		}}
+		onChange={owned => (gameManager.upgrades = owned)}
 		owned={gameManager.upgrades}
 	/>
 {:else if view === 'Skills'}
@@ -51,7 +42,7 @@
 		items={skills}
 		onChange={owned => {
 			gameManager.skillUpgrades = owned;
-			refresh();
+			gameManager.syncUnlocks();
 		}}
 		owned={gameManager.skillUpgrades}
 	/>
@@ -65,9 +56,6 @@
 	<LevelList
 		items={view === 'Photon' ? photonUpgrades : excitedUpgrades}
 		levels={gameManager.photonUpgrades}
-		onChange={levels => {
-			gameManager.photonUpgrades = { ...gameManager.photonUpgrades, ...levels };
-			refresh();
-		}}
+		onChange={levels => (gameManager.photonUpgrades = { ...gameManager.photonUpgrades, ...levels })}
 	/>
 {/if}

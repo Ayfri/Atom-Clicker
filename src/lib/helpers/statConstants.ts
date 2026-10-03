@@ -46,7 +46,6 @@ export const statsConfig = {
 		} satisfies DailyStats,
 		layer: LAYERS.NEVER,
 	},
-	features: { defaultValue: {}, layer: LAYERS.NEVER },
 	generators: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	highestAPS: { defaultValue: 0, layer: LAYERS.NEVER },
 	highestAPSRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE },

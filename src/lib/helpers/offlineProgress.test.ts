@@ -19,7 +19,6 @@ beforeEach(() => {
 	gameManager.resetAll();
 	gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
 	gameManager.skillUpgrades = ['offlineProgress'];
-	gameManager.syncFeatures();
 });
 
 test('pays a tenth of the production rate for the time away', () => {
@@ -35,7 +34,6 @@ test('pays nothing under 30 seconds, with the setting off or before the skill', 
 	expect(gameManager.catchUpOffline(HOUR)).toBe(false);
 	gameManager.settings.gameplay.offlineProgressEnabled = true;
 	gameManager.skillUpgrades = [];
-	gameManager.syncFeatures();
 	expect(gameManager.catchUpOffline(HOUR)).toBe(false);
 });
 

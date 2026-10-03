@@ -59,8 +59,7 @@
 	/** `loadSaveData` already knows how to route the odd keys (settings merge, radiation, tutorial, selected realm). */
 	function write(key: string, value: unknown) {
 		gameManager.loadSaveData({ [key]: value } as Partial<GameState>);
-		gameManager.syncFeatures();
-		gameManager.checkRealmUnlocks();
+		gameManager.syncUnlocks();
 	}
 
 	let rawJson = $state<string | null>(null);
