@@ -28,9 +28,13 @@ describe('generator purchases', () => {
 		}
 	});
 
-	test('an overflowed bank returns at once instead of counting forever', () => {
+	test('an overflowed bank neither hangs Max nor turns into NaN on purchase', () => {
 		currenciesManager.add(ATOMS, Infinity);
-		expect(gameManager.getMaxAffordableGenerator(GeneratorTypes.MOLECULE)).toBe(Infinity);
+		const max = gameManager.getMaxAffordableGenerator(GeneratorTypes.MOLECULE);
+		expect(max).toBe(Infinity);
+		expect(gameManager.purchaseGenerator(GeneratorTypes.MOLECULE, max)).toBe(false);
+		expect(gameManager.atoms).toBe(Infinity);
+		expect(gameManager.generators.molecule).toBeUndefined();
 	});
 
 	test('bulk cost equals the sum of single purchases', () => {
@@ -104,7 +108,7 @@ describe('reset layers', () => {
 		expect(gameManager.photonUpgrades).toEqual({ photon_efficiency: 1 });
 	});
 
-	test('Ionize clears photon and radiation upgrades and keeps skills and colored light', () => {
+	test('the Radiation layer clears photon and radiation upgrades and keeps skills and colored light', () => {
 		seed();
 		gameManager.resetLayer(LAYERS.RADIATION_REALM);
 		expect(gameManager.photonUpgrades).toEqual({});

@@ -682,6 +682,8 @@ export class GameManager {
 	}
 
 	purchaseGenerator(type: GeneratorType, amount = 1) {
+		/** An overflowed bank makes Max infinite, and Infinity - Infinity would store NaN atoms. */
+		if (!Number.isSafeInteger(amount) || amount < 1) return false;
 		if (!this.spendCurrency({ amount: this.getGeneratorCost(type, amount), currency: GENERATORS[type].cost.currency })) return false;
 
 		const count = (this.generators[type]?.count ?? 0) + amount;
