@@ -74,7 +74,7 @@
 	}
 </script>
 
-<div id="upgrades" class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 h-150 lg:h-[calc(100dvh-204px)]">
+<div id="upgrades" class="bg-black/10 backdrop-blur-xs rounded-lg p-3 flex flex-col gap-2 lg:h-[calc(100dvh-204px)]">
 	<div class="header flex justify-between items-center gap-2">
 		<div class="flex items-center gap-2 justify-between w-full">
 			<div class="flex items-center gap-1.5">
@@ -170,7 +170,7 @@
 		{/if}
 	</div>
 
-	<div id="upgrades-list" class="flex-1 overflow-y-auto px-1 custom-scrollbar">
+	<div id="upgrades-list" class="flex-1 lg:overflow-y-auto px-1 custom-scrollbar">
 		<div class="grid gap-1.5">
 			{#each availableUpgrades as upgrade (upgrade.id)}
 				{const isBought = $derived(boughtUpgrades.has(upgrade.id))}

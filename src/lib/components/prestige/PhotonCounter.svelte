@@ -44,7 +44,7 @@
 		<div class="mt-2 flex items-center gap-2">
 			{#if gameManager.settings.automation.autoClickPhotons && gameManager.photonAutoClicksPer5Seconds > 0}
 				<span class="font-mono text-sm font-bold tabular-nums text-realm-200">
-					{formatNumber(gameManager.photonAutoClicksPer5Seconds / 5, 1)}<span class="text-white/45"> clicks/s</span>
+					{formatNumber(gameManager.photonAutoClicksPer5Seconds / 5, 1)}<span class="ml-1 text-white/45"> clicks/s</span>
 				</span>
 			{/if}
 			<AutoButton

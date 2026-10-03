@@ -1,6 +1,6 @@
 import { keys, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
 
-export type SaveErrorType = 'corrupted' | 'invalid_json' | 'migration_failed' | 'validation_failed' | 'unknown';
+export type SaveErrorType = 'invalid_json' | 'migration_failed' | 'unknown';
 
 const BACKUP_PREFIX = 'atomic-clicker-backup-';
 const KEPT_BACKUPS = 3;

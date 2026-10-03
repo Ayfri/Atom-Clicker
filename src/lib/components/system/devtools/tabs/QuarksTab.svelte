@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getQuestTarget, pickDailyQuests, questAnchors } from '#data/dailyQuests.js';
+	import { getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 	import { QUARK_SHOP } from '#data/quarkShop.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
@@ -14,7 +14,6 @@
 
 	let inspectorDate = $state(new Date().toISOString().slice(0, 10));
 	const inspectorQuests = $derived(pickDailyQuests(inspectorDate, quarksManager.dailyQuestCount, quarksManager.dailyQuestContext));
-	const inspectorAnchors = $derived(questAnchors(gameManager.highestAPS));
 
 	function resetDailyStats() {
 		const { dayKey, questIds, questTargets } = gameManager.dailyStats;
@@ -86,7 +85,11 @@
 				{:else}
 					<button
 						class="{btn} w-16"
-						onclick={() => (gameManager.dailyStats = { ...gameManager.dailyStats, [quest.metric]: target })}
+						onclick={() =>
+							(gameManager.dailyStats =
+								quest.metric === 'chromaticColorBreaks' ?
+									{ ...gameManager.dailyStats, chromaticColorBreaks: { blue: target, green: target, red: target } }
+								:	{ ...gameManager.dailyStats, [quest.metric]: target })}
 					>
 						Complete
 					</button>
@@ -129,7 +132,7 @@
 	<input bind:value={inspectorDate} class="{field} mb-1.5 w-auto" type="date" />
 	<div class="flex flex-col gap-0.5 font-mono text-[11px] text-white/60">
 		{#each inspectorQuests as quest (quest.id)}
-			<span>{quest.id} <span class="text-white/30">target {formatNumber(getQuestTarget(quest, inspectorAnchors))}</span></span>
+			<span>{quest.id} <span class="text-white/30">target {formatNumber(getQuestTarget(quest, quarksManager.dailyQuestContext))}</span></span>
 		{/each}
 	</div>
 </Section>

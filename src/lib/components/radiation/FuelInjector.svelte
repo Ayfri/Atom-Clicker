@@ -4,6 +4,7 @@
 	import { RealmTypes } from '#data/realms.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { ReactorRenderer } from '#helpers/ReactorRenderer.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -28,7 +29,7 @@
 
 	function inject(event: MouseEvent) {
 		if (!radiationManager.unlocked) radiationManager.unlock();
-		radiationManager.bombardCore(electrons);
+		gameManager.injectFuel(electrons);
 		AmbientField.emit(RealmTypes.RADIATION, 'embers', event, { count: 8, surge: 6, target: ReactorRenderer.current?.center });
 	}
 </script>

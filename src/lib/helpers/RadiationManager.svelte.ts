@@ -121,7 +121,8 @@ class RadiationManager {
 	}
 
 	bombardCore(electronAmount: number): boolean {
-		if (!this.unlocked) return false;
+		/** Written `!(x > 0)` so NaN is refused too, it would poison the mass and the daily fuel quest. */
+		if (!this.unlocked || !(electronAmount > 0)) return false;
 		const electronBalance = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS);
 		if (electronBalance < electronAmount) return false;
 
@@ -203,13 +204,13 @@ class RadiationManager {
 		return true;
 	}
 
-	loadState(state: RadiationState, upgrades: Record<string, number>) {
+	/** The upgrade levels load apart, through `gameManager.radiationUpgrades`. */
+	loadState(state: RadiationState) {
 		this.controlRodLevel = state.controlRodLevel ?? 0;
 		this.ionizeHold = 0;
 		this.lastTick = state.lastTick ?? Date.now();
 		this.mass = state.mass ?? 0;
 		this.unlocked = state.unlocked ?? false;
-		this.upgradeLevels = upgrades ?? {};
 	}
 
 	getState(): RadiationState {

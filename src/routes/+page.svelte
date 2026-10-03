@@ -95,11 +95,12 @@
 		hasCheckedCloudSaveOnLoad = true;
 
 		try {
-			const cloudGameTime = await supabaseAuth.getCloudSaveTime();
-			if (cloudGameTime === null) return;
+			const stamp = await supabaseAuth.getCloudSaveStamp();
+			if (stamp?.inGameTime == null) return;
 
-			const localGameTime = gameManager.inGameTime || 0;
-			if (cloudGameTime > localGameTime + CLOUD_PULL_WARNING_THRESHOLD_MS) {
+			const cloudAhead = stamp.inGameTime > (gameManager.inGameTime || 0) + CLOUD_PULL_WARNING_THRESHOLD_MS;
+			supabaseAuth.adoptCloudSave(stamp.lastSaveDate, cloudAhead);
+			if (cloudAhead) {
 				toastStore.warning({
 					action: () => ui.openSettings('cloud'),
 					actionLabel: 'Open Cloud Save',
@@ -135,6 +136,13 @@
 			}
 			if (authenticated) checkCloudSaveOnLoad();
 		});
+	});
+
+	/** Quests roll over at UTC midnight, a tab left open overnight resyncs then instead of keeping yesterday's quests and counters. */
+	$effect(() => {
+		if (!quarksManager.dayKey) return;
+		const timer = setTimeout(() => quarksManager.sync(), Date.parse(quarksManager.dayKey) + 86_400_000 - Date.now() + 1000);
+		return () => clearTimeout(timer);
 	});
 
 	/** Late enough that the One Tap prompt offers to keep real progress instead of greeting a new player with a login. */
@@ -197,7 +205,7 @@
 	});
 </script>
 
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col min-h-dvh">
 	<RemoteBanner />
 	<NavBar />
 	<Toaster />
@@ -206,9 +214,7 @@
 	<RealmSwitcher />
 
 	<main
-		class="relative flex-1 {mobile.current ? 'overflow-y-auto overflow-x-hidden' : (
-			'overflow-hidden'
-		)} lg:pb-4 transition-all duration-300"
+		class="relative flex-1 overflow-clip lg:pb-4 transition-all duration-300"
 		style="padding-top: calc(3rem + var(--banner-height));"
 	>
 		{#if gameManager.features[FeatureTypes.LEVELS]}

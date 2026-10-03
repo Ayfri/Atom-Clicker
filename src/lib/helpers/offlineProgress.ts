@@ -19,23 +19,21 @@ const OFFLINE_CAP_UPGRADE_MAP = {
 	offline_cap_3d: 72 * 60 * 60 * 1000,
 } as const;
 const OFFLINE_INCOME_MULTIPLIER = 0.1;
-const OFFLINE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
 const OFFLINE_MIN_MS = 30_000;
 const OFFLINE_PHOTON_MAX = 10;
 const OFFLINE_PHOTON_MIN = 1;
-const OFFLINE_UNLOCK_FEATURE = FeatureTypes.OFFLINE_PROGRESS;
 
 export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number): OfflineProgressSummary | null {
 	if (!manager.settings.gameplay.offlineProgressEnabled) return null;
-	if (!manager.features[OFFLINE_UNLOCK_FEATURE]) return null;
+	if (!manager.features[FeatureTypes.OFFLINE_PROGRESS]) return null;
 
 	const now = Date.now();
 	const lastTimestamp = Math.max(manager.lastSave ?? 0, manager.lastInteractionTime ?? 0, manager.startDate ?? 0);
 	const awayMs = Math.max(0, forcedAwayMs ?? now - lastTimestamp);
-	const capMs = getOfflineProgressCapMs(manager);
+	const capMs = Math.max(OFFLINE_BASE_MS, ...Object.entries(OFFLINE_CAP_UPGRADE_MAP).map(([id, ms]) => (manager.upgrades.includes(id) ? ms : 0)));
 	const appliedMs = Math.min(awayMs, capMs);
 
-	if (appliedMs < OFFLINE_MIN_MS || capMs <= 0) return null;
+	if (appliedMs < OFFLINE_MIN_MS) return null;
 
 	let atomsGained = 0;
 	let atomAutoClicks = 0;
@@ -47,7 +45,6 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const atomAutoClickEnabled =
 		manager.features[FeatureTypes.OFFLINE_AUTO_CLICK] && manager.settings.automation.autoClick && manager.autoClicksPerSecond > 0;
 	const photonOfflineUnlocked = (manager.photonUpgrades['offline_progress'] || 0) > 0;
-	const autoBuyEnabled = photonOfflineUnlocked;
 	const autoUpgradeEnabled = manager.features[FeatureTypes.OFFLINE_AUTO_UPGRADE] && manager.settings.automation.upgrades;
 	const photonAutoClickEnabled = photonOfflineUnlocked && manager.settings.automation.autoClickPhotons;
 
@@ -90,7 +87,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const offlineAutoBuyIntervals: Partial<Record<GeneratorType, number>> = {};
 	const nextAutoBuyTimes: Partial<Record<GeneratorType, number>> = {};
 
-	if (autoBuyEnabled) {
+	if (photonOfflineUnlocked) {
 		for (const [type, interval] of Object.entries(manager.autoBuyIntervals) as [GeneratorType, number][]) {
 			if (!Number.isFinite(interval) || interval <= 0) continue;
 			offlineAutoBuyIntervals[type] = interval * OFFLINE_AUTO_FACTOR;
@@ -212,7 +209,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		atomAutoClickEnabled,
 		atomAutoClicks,
 		autoBuyCounts,
-		autoBuyEnabled,
+		autoBuyEnabled: photonOfflineUnlocked,
 		autoBuyFactor: OFFLINE_AUTO_FACTOR,
 		autoUpgradeEnabled,
 		autoUpgradePurchases,
@@ -235,14 +232,4 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		radiationTimeToEmpty: radiationManager.timeToEmpty,
 		xpGained,
 	};
-}
-
-function getOfflineProgressCapMs(manager: GameManager) {
-	if (!manager.features[OFFLINE_UNLOCK_FEATURE]) return 0;
-
-	let capMs = OFFLINE_BASE_MS;
-	for (const [id, value] of Object.entries(OFFLINE_CAP_UPGRADE_MAP)) {
-		if (manager.upgrades.includes(id)) capMs = Math.max(capMs, value);
-	}
-	return Math.min(capMs, OFFLINE_MAX_MS);
 }

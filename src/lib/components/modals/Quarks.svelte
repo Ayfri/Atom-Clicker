@@ -4,6 +4,7 @@
 	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
 	import Quark from '#components/icons/Quark.svelte';
+	import WhiteLightIcon from '#components/icons/WhiteLight.svelte';
 	import Login from '#components/modals/Login.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
@@ -26,6 +27,7 @@
 		Clock,
 		Factory,
 		Flag,
+		Fuel,
 		Lock,
 		LogIn,
 		MousePointerClick,
@@ -75,9 +77,11 @@
 	const QUEST_ICONS: Record<string, IconComponent> = {
 		atoms_earned: AtomIcon,
 		buildings_purchased: Factory,
+		chromatic_each_color: WhiteLightIcon,
 		clicks_100: MousePointerClick,
 		clicks_250: MousePointerClick,
 		electronize_three_times: ElectronizeIcon,
+		fuel_injected: Fuel,
 		higgs_bosons_collected: HiggsBosonIcon,
 		power_ups_collected: HiggsBosonIcon,
 		protonise_once: ProtoniseIcon,

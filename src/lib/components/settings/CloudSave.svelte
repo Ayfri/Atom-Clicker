@@ -199,7 +199,12 @@
 			{/if}
 		</section>
 
-		<SettingRow description="Uploads your progress every 30 seconds while you play." title="Auto-save to cloud">
+		<SettingRow
+			description={supabaseAuth.cloudConflict ?
+				'Paused: the cloud save changed on another device, save or load above to resume.'
+			:	'Uploads your progress every 30 seconds while you play.'}
+			title="Auto-save to cloud"
+		>
 			<Switch bind:checked={autoSave.enabled} label="Auto-save to cloud" />
 			{#if autoSave.shouldAutoSave && autoSave.lastSaveTime > 0}
 				<span {@attach autoSaveBar(autoSave.lastSaveTime)} class="absolute bottom-0 left-0 h-0.5 w-full origin-left bg-accent-500"></span>

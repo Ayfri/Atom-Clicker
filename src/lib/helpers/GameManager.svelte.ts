@@ -1,8 +1,8 @@
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
-import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
+import { CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import type { DailyStats } from '#data/dailyQuests.js';
-import { FeatureTypes } from '#data/features.js';
+import type { DailyQuestContext, DailyStats } from '#data/dailyQuests.js';
+import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
 import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
 import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
@@ -29,7 +29,6 @@ import { setItem } from '#lib/utils/safeLocalStorage.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
-import { FeaturesManager } from '#helpers/FeaturesManager.svelte.js';
 import { applyOfflineProgress } from '#helpers/offlineProgress.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -63,9 +62,10 @@ export class GameManager {
 	colliderBonus = $state(0);
 	currencyBoosts = $state.raw<CurrencyBoosts>({});
 	dailyStats = $state<DailyStats>(structuredClone(statsConfig.dailyStats.defaultValue));
-	featuresManager = new FeaturesManager();
 	generators = $state.raw<Partial<Record<GeneratorType, Generator>>>({});
 	highestAPS = $state(0);
+	/** Best rate since the last Electronize, which sets the daily atoms quest: the all-time best can sit 60+ orders above a fresh run. */
+	highestAPSRun = $state(0);
 	inGameTime = $state(0);
 	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
 	integrityFlagged = $state(false);
@@ -75,14 +75,16 @@ export class GameManager {
 	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
 	/** Pushed in by QuarksManager, which GameManager never imports so the simulation worker stays free of fetch and auth code. */
-	quarkBoostSources = $state<EffectSource[]>([]);
+	quarkBoostSources = $state.raw<EffectSource[]>([]);
 	/** Owned Quark shop item ids, gating prestige-persistence behaviors the effect pipeline can't express. */
-	quarkEntitlements = $state<string[]>([]);
+	quarkEntitlements = $state.raw<string[]>([]);
 	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
 	saveIntegrityWarnings = $state<string[]>([]);
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
 	skillUpgrades = $state.raw<string[]>([]);
 	startDate = $state(Date.now());
+	/** Clock of the last tick: stability read the live clock, so every click moved it by a few ms and reran the whole production chain. */
+	tickTime = $state(Date.now());
 	totalClicksAllTime = $state(0);
 	totalClicksRun = $state(0);
 	totalElectronizesAllTime = $state(0);
@@ -131,13 +133,6 @@ export class GameManager {
 
 	get excitedPhotons() {
 		return currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS);
-	}
-
-	get features() {
-		return this.featuresManager.state;
-	}
-	set features(value: FeatureState) {
-		this.featuresManager.state = value;
 	}
 
 	get photons() {
@@ -253,6 +248,16 @@ export class GameManager {
 
 	excitedPhotonFromMaxBonus = $derived(this.effects.value('excited_photon_from_max', 0, this));
 
+	/** Skills are the only source of features, so they follow `skillUpgrades` without being saved or synced. */
+	features = $derived.by(() => {
+		const features = createDefaultFeatureState();
+		for (const id of this.skillUpgrades) {
+			const feature = SKILL_UPGRADES[id]?.feature;
+			if (feature) features[feature] = true;
+		}
+		return features;
+	});
+
 	generatorProductions = $derived.by(() => {
 		const productions = {} as Record<GeneratorType, number>;
 		for (const type of GENERATOR_TYPES) productions[type] = (this.generators[type]?.count ?? 0) * this.generatorUnitProductions[type];
@@ -315,12 +320,8 @@ export class GameManager {
 	/** Full Stability Field multiplier, reached once `stabilityProgress` hits 1. */
 	stabilityMax = $derived(1 + (this.stabilityMaxBoost - 1) * this.stabilityCapacity);
 
-	/** 0 to 1 share of the idle time needed to fill the field. */
-	stabilityProgress = $derived.by(() => {
-		/** `clock` isn't reactive, reading inGameTime re-runs this every tick. */
-		this.inGameTime;
-		return Math.min(Math.max((this.clock() - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1);
-	});
+	/** 0 to 1 share of the idle time needed to fill the field, a click after the last tick clamps it to the same 0 and stops there. */
+	stabilityProgress = $derived.by(() => Math.min(Math.max((this.tickTime - this.lastInteractionTime) / this.stabilityTimeRequired, 0), 1));
 
 	/** Fills linearly while idle, up to `stabilityMax`, paused while a power-up is live. */
 	stabilityMultiplier = $derived(
@@ -383,19 +384,14 @@ export class GameManager {
 		);
 	}
 
-	checkRealmUnlocks() {
-		for (const { condition, id } of Object.values(REALMS)) {
-			this.realms[id] ??= { unlocked: false };
-			if (!this.realms[id].unlocked && condition(this.features)) this.realms[id].unlocked = true;
-		}
-	}
-
 	cleanup() {
 		if (this.gameInterval) clearInterval(this.gameInterval);
 	}
 
 	/** Pays away time at the offline rates, since the last save on load or `awayMs` of a frozen tab, and returns whether any was paid. */
 	catchUpOffline(awayMs?: number): boolean {
+		/** A power-up still live now ran through the whole absence, an expired one must not multiply it. */
+		this.dropExpiredPowerUps();
 		this.applyingOfflineProgress = true;
 		const summary = applyOfflineProgress(this, awayMs);
 		this.applyingOfflineProgress = false;
@@ -405,6 +401,35 @@ export class GameManager {
 
 	clearOfflineProgressSummary() {
 		this.offlineProgressSummary = null;
+	}
+
+	/** Counts colored photon breaks for the daily quests, the simulation passes fractional ones. */
+	countChromaticBreak(color: ChromaticColor, amount = 1) {
+		this.dailyStats.chromaticBreaks = (this.dailyStats.chromaticBreaks ?? 0) + amount;
+		(this.dailyStats.chromaticColorBreaks ??= { blue: 0, green: 0, red: 0 })[color] += amount;
+	}
+
+	/** What the daily quest pool filters and scales on, shared by QuarksManager and the simulation so both offer the same quests. */
+	dailyQuestContext(hasThirdQuestSlot: boolean): DailyQuestContext {
+		return {
+			chromaticSpawnBoost: CHROMATIC_BASE_SPAWN_INTERVAL / chromaticManager.spawnInterval,
+			fuelAffordable: (this.electrons + this.electronizeElectronsGain) * radiationManager.massPerElectron,
+			hasElectronized: this.totalElectronizesAllTime > 0,
+			hasPhotonRealm: this.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
+			hasPrism: this.totalIonizesAllTime > 0,
+			hasRadiationRealm: this.realms[RealmTypes.RADIATION]?.unlocked ?? false,
+			hasThirdQuestSlot,
+			highestAPSRun: this.highestAPSRun,
+			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
+		};
+	}
+
+	/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
+	private dropExpiredPowerUps() {
+		if (this.activePowerUps.length === 0) return;
+		const now = this.clock();
+		const remaining = this.activePowerUps.filter(p => now - (p.startTime ?? 0) < p.duration);
+		if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
 	}
 
 	electronize() {
@@ -445,9 +470,9 @@ export class GameManager {
 			currencies: this.currencies,
 			currencyBoosts: this.currencyBoosts,
 			dailyStats: this.dailyStats,
-			features: this.features,
 			generators: this.generators,
 			highestAPS: this.highestAPS,
+			highestAPSRun: this.highestAPSRun,
 			inGameTime: this.inGameTime,
 			integrityFlagged: this.integrityFlagged,
 			lastInteractionTime: this.lastInteractionTime,
@@ -489,7 +514,12 @@ export class GameManager {
 		const r = GENERATOR_COST_MULTIPLIER;
 		const next = cost.amount * r ** (this.generators[type]?.count ?? 0);
 		const owned = currenciesManager.getAmount(cost.currency);
-		return owned < next ? 0 : Math.floor(Math.log((owned * (r - 1)) / next + 1) / Math.log(r));
+		let max = Math.floor(Math.log((owned * (r - 1)) / next + 1) / Math.log(r));
+		if (!Number.isFinite(max)) return max;
+		/** The log inverts the exact sum while getGeneratorCost charges it rounded, so the edges move to the count that rounded cost allows. */
+		while (this.getGeneratorCost(type, max + 1) <= owned) max++;
+		while (max > 0 && this.getGeneratorCost(type, max) > owned) max--;
+		return max;
 	}
 
 	incrementBonusHiggsBosonClicks() {
@@ -503,6 +533,13 @@ export class GameManager {
 		this.totalClicksAllTime += count;
 		this.dailyStats.clicks += count;
 		if (!this.features[isAuto ? FeatureTypes.STABLE_ATOM_AUTO_CLICK : FeatureTypes.STABLE_ATOM_CLICK]) this.lastInteractionTime = this.clock();
+	}
+
+	/** Feeds the reactor and counts the fuel toward the daily quest. */
+	injectFuel(electrons: number): boolean {
+		if (!radiationManager.bombardCore(electrons)) return false;
+		this.dailyStats.fuelInjected = (this.dailyStats.fuelInjected ?? 0) + electrons * radiationManager.massPerElectron;
+		return true;
 	}
 
 	initialize() {
@@ -521,8 +558,7 @@ export class GameManager {
 		}
 
 		this.loadSaveData(result.state);
-		this.syncFeatures();
-		this.checkRealmUnlocks();
+		this.syncUnlocks();
 		if (result.integrityTampered) this.integrityFlagged = true;
 		this.reportIntegrity(result.integrityWarnings ?? []);
 		this.catchUpOffline();
@@ -534,8 +570,7 @@ export class GameManager {
 		const flagged = this.integrityFlagged;
 		this.loadSaveData(state);
 		this.integrityFlagged ||= flagged;
-		this.syncFeatures();
-		this.checkRealmUnlocks();
+		this.syncUnlocks();
 		this.reportIntegrity(checkStatePlausibility(state));
 		this.save();
 	}
@@ -558,7 +593,7 @@ export class GameManager {
 					this.currencyBoosts = data.currencyBoosts ?? {};
 					break;
 				case 'radiation':
-					if (data.radiation) radiationManager.loadState(data.radiation, data.radiationUpgrades ?? {});
+					if (data.radiation) radiationManager.loadState(data.radiation);
 					break;
 				case 'radiationUpgrades':
 					this.radiationUpgrades = data.radiationUpgrades ?? {};
@@ -594,16 +629,17 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
-	/** Proton and electron upgrades survive every prestige and photon upgrades survive Ionize, skills never reset. */
+	/** Upgrades paid in protons or electrons survive every prestige and photon upgrades survive Ionize, skills never reset. */
 	private prestige(layer: LayerType, gain?: Price) {
-		const upgrades = this.upgrades.filter(id => id.startsWith('proton') || id.startsWith('electron'));
+		const upgrades = this.upgrades.filter(id => {
+			const currency = UPGRADES[id]?.cost.currency;
+			return currency === CurrenciesTypes.PROTONS || currency === CurrenciesTypes.ELECTRONS;
+		});
 		const photonUpgrades = this.photonUpgrades;
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
 		this.photonUpgrades = photonUpgrades;
-		this.syncFeatures();
-		this.checkRealmUnlocks();
 		if (gain) currenciesManager.add(gain.currency, gain.amount);
 		this.lastInteractionTime = this.clock();
 	}
@@ -633,6 +669,8 @@ export class GameManager {
 	}
 
 	purchaseGenerator(type: GeneratorType, amount = 1) {
+		/** An overflowed bank makes Max infinite, and Infinity - Infinity would store NaN atoms. */
+		if (!Number.isSafeInteger(amount) || amount < 1) return false;
 		if (!this.spendCurrency({ amount: this.getGeneratorCost(type, amount), currency: GENERATORS[type].cost.currency })) return false;
 
 		const count = (this.generators[type]?.count ?? 0) + amount;
@@ -649,8 +687,6 @@ export class GameManager {
 		if (!this.spendCurrency({ amount: getPhotonUpgradeCost(upgrade, level), currency: upgrade.currency || CurrenciesTypes.PHOTONS })) return false;
 
 		this.photonUpgrades = { ...this.photonUpgrades, [upgradeId]: level + 1 };
-		this.syncFeatures();
-		this.checkRealmUnlocks();
 		return true;
 	}
 
@@ -659,8 +695,7 @@ export class GameManager {
 		if (!skill || !this.canPurchaseSkill(skill) || !this.spendCurrency(skill.cost)) return false;
 
 		this.skillUpgrades = [...this.skillUpgrades, skillId];
-		this.syncFeatures();
-		this.checkRealmUnlocks();
+		this.syncUnlocks();
 		return true;
 	}
 
@@ -669,8 +704,6 @@ export class GameManager {
 		if (!upgrade || this.upgrades.includes(id) || !(upgrade.condition?.(this) ?? true) || !this.spendCurrency(upgrade.cost)) return false;
 
 		this.upgrades = [...this.upgrades, id];
-		this.syncFeatures();
-		this.checkRealmUnlocks();
 		this.totalUpgradesPurchasedAllTime++;
 		if (!this.applyingOfflineProgress) this.dailyStats.upgradesPurchased++;
 		return true;
@@ -716,11 +749,8 @@ export class GameManager {
 			case 'currencies':
 				currenciesManager.hardReset();
 				break;
-			case 'features':
-				this.featuresManager.reset();
-				break;
 			case 'radiation':
-				radiationManager.loadState({ ...statsConfig.radiation.defaultValue, lastTick: Date.now() }, {});
+				radiationManager.loadState({ ...statsConfig.radiation.defaultValue, lastTick: Date.now() });
 				break;
 			case 'selectedRealmId':
 				realmManager.selectRealm(RealmTypes.ATOMS);
@@ -764,8 +794,13 @@ export class GameManager {
 		this.currencyBoosts = boosts;
 	}
 
-	syncFeatures() {
-		this.featuresManager.syncFromState(this);
+	/** Realms and the reactor open once a skill grants their feature, so only skill purchases and loads need this. */
+	syncUnlocks() {
+		if (this.features[FeatureTypes.RADIATION_REALM]) radiationManager.unlock();
+		for (const { condition, id } of Object.values(REALMS)) {
+			this.realms[id] ??= { unlocked: false };
+			if (!this.realms[id].unlocked && condition(this.features)) this.realms[id].unlocked = true;
+		}
 	}
 
 	/**
@@ -776,12 +811,14 @@ export class GameManager {
 	tick(deltaTime = 1000, skipAchievements = false, skipProduction = false) {
 		const seconds = deltaTime / 1000;
 		this.inGameTime += deltaTime;
+		this.tickTime = this.clock();
 
 		if (!skipProduction) {
 			if (this.atomsPerSecond > 0) this.addAtoms(this.atomsPerSecond * seconds);
 			if (this.autoClicksPerSecond > 0) this.addAtoms(this.clickPower * this.autoClicksPerSecond * seconds);
 		}
 		if (this.atomsPerSecond > this.highestAPS) this.highestAPS = this.atomsPerSecond;
+		if (this.atomsPerSecond > this.highestAPSRun) this.highestAPSRun = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);
 
@@ -792,12 +829,7 @@ export class GameManager {
 			}
 		}
 
-		/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
-		if (this.activePowerUps.length > 0) {
-			const now = this.clock();
-			const remaining = this.activePowerUps.filter(p => now - (p.startTime ?? 0) < p.duration);
-			if (remaining.length !== this.activePowerUps.length) this.activePowerUps = remaining;
-		}
+		this.dropExpiredPowerUps();
 	}
 
 	toggleAutoClick() {

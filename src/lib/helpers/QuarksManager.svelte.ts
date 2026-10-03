@@ -3,16 +3,15 @@ import { ACHIEVEMENTS } from '#data/achievements.js';
 import {
 	DAILY_QUEST_COUNT,
 	type DailyQuest,
-	type DailyQuestContext,
 	getDailyQuestCount,
+	getQuestProgress,
 	getQuestTarget,
 	pickDailyQuests,
 	QUEST_POOL,
-	questAnchors,
 } from '#data/dailyQuests.js';
 import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
-import { RealmTypes, type RealmType } from '#data/realms.js';
+import type { RealmType } from '#data/realms.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { EffectSource } from '#lib/types.js';
 import { obfuscateClientData } from '#lib/utils/obfuscation.js';
@@ -57,13 +56,7 @@ export class QuarksManager {
 
 	dailyQuestCount = $derived(getDailyQuestCount(this.entitlements));
 
-	dailyQuestContext = $derived<DailyQuestContext>({
-		hasElectronized: gameManager.totalElectronizesAllTime > 0,
-		hasPhotonRealm: gameManager.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
-		hasPrism: gameManager.totalIonizesAllTime > 0,
-		hasThirdQuestSlot: this.dailyQuestCount > DAILY_QUEST_COUNT,
-		remainingAchievements: Object.keys(ACHIEVEMENTS).filter((id) => !gameManager.achievements.includes(id)).length
-	});
+	dailyQuestContext = $derived(gameManager.dailyQuestContext(this.dailyQuestCount > DAILY_QUEST_COUNT));
 
 	ownedBoostSources = $derived.by<EffectSource[]>(() => this.entitlements.flatMap((id) => {
 		const item = getQuarkShopItem(id);
@@ -117,14 +110,14 @@ export class QuarksManager {
 		const frozen = gameManager.dailyStats.questTargets[quest.id];
 		if (typeof frozen === 'number') return frozen;
 		// Not frozen yet (e.g. before the first sync), fall back to a live estimate.
-		return getQuestTarget(quest, questAnchors(gameManager.highestAPS));
+		return getQuestTarget(quest, this.dailyQuestContext);
 	}
 
 	getProgress(quest: DailyQuest): number {
 		if (quest.metric === 'otherDailyQuestsCompleted') {
 			return this.quests.filter((otherQuest) => otherQuest.id !== quest.id && this.isQuestComplete(otherQuest)).length;
 		}
-		return gameManager.dailyStats[quest.metric] ?? 0;
+		return getQuestProgress(quest.metric, gameManager.dailyStats);
 	}
 
 	private selectDailyQuests(dayKey: string): DailyQuest[] {
@@ -160,9 +153,10 @@ export class QuarksManager {
 	private rolloverDailyStatsIfNeeded(serverDayKey: string) {
 		if (gameManager.dailyStats.dayKey === serverDayKey) return;
 
+		/** `getTarget` would still read yesterday's frozen targets here. */
 		const questTargets: Record<string, number> = {};
 		for (const quest of this.quests) {
-			questTargets[quest.id] = this.getTarget(quest);
+			questTargets[quest.id] = getQuestTarget(quest, this.dailyQuestContext);
 		}
 
 		gameManager.dailyStats = {

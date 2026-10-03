@@ -3,7 +3,7 @@ import { browser } from '$app/env';
 import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
 import type { GameState } from '#lib/types.js';
 import type { Database, Json, Profile } from '#lib/types/supabase.js';
-import { isLocalStorageAvailable } from '#lib/utils/safeLocalStorage.js';
+import { getItem, isLocalStorageAvailable, setItem } from '#lib/utils/safeLocalStorage.js';
 import { multiTabDetector } from '#stores/multiTab.svelte.js';
 import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/saves.js';
 
@@ -28,6 +28,8 @@ export class SupabaseAuth {
 	loading = $state(true);
 	supabase = $state<SupabaseClient<Database> | null>(null);
 	error = $state<Error | null>(null);
+	/** Another device wrote the cloud save since this one last synced, auto-save holds off until an upload or a load picks a side. */
+	cloudConflict = $state(false);
 
 	private currentSession: Session | null = null;
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -345,95 +347,88 @@ export class SupabaseAuth {
 		}
 	}
 
-	/** Returns what now sits in the cloud, a snapshot so it stops following the live game state. */
-	async saveGameToCloud(currentState: GameState): Promise<CloudSaveInfo | null> {
-		if (!browser || !this.supabase) return null;
-
-		try {
-			if (!this.user) throw new Error('No authenticated user');
-
-			const saveData: CloudSaveInfo = $state.snapshot({ ...currentState, lastSaveDate: Date.now(), version: SAVE_VERSION });
-
-			const { error } = await this.supabase
-				.from('profiles')
-				.update({
-					save: saveData as unknown as Json,
-					updated_at: new Date().toISOString(),
-				})
-				.eq('id', this.user.id);
-
-			if (error) throw error;
-			return saveData;
-		} catch (err) {
-			console.error('Error saving game to cloud:', err);
-			throw err;
-		}
+	/** `lastSaveDate` of the cloud copy this device last uploaded or loaded, per account. */
+	private get syncedSaveDate(): number | null {
+		const stored = Number(getItem(`cloudSaveSyncedAt:${this.user?.id}`));
+		return stored > 0 ? stored : null;
 	}
 
-	async loadGameFromCloud(): Promise<GameState | null> {
-		if (!browser || !this.supabase) return null;
-
-		try {
-			if (!this.user) throw new Error('No authenticated user');
-
-			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
-
-			if (error) throw error;
-			if (!profile?.save) return null;
-
-			/** The repaired state, since `loadSaveData` skips missing keys and would keep this device's values for them. */
-			return validateAndRepairGameState(migrateSavedState(profile.save)).state;
-		} catch (err) {
-			console.error('Error loading game from cloud:', err);
-			throw err;
-		}
+	private markSynced(lastSaveDate: number | null) {
+		setItem(`cloudSaveSyncedAt:${this.user?.id}`, String(lastSaveDate ?? 0));
+		this.cloudConflict = false;
 	}
 
-	/** Only the play time of the cloud save, so the "cloud save available" check never downloads the whole blob. */
-	async getCloudSaveTime(): Promise<number | null> {
-		if (!browser || !this.supabase || !this.user) return null;
+	/** A device that never synced adopts the cloud copy as its own unless the cloud has more play time, so the first auto-save goes through. */
+	adoptCloudSave(lastSaveDate: number | null, cloudAhead: boolean) {
+		if (this.syncedSaveDate === null && !cloudAhead) this.markSynced(lastSaveDate);
+	}
 
-		try {
-			const { data, error } = await this.supabase
-				.from('profiles')
-				.select('inGameTime:save->inGameTime')
-				.eq('id', this.user.id)
-				.single()
-				.returns<{ inGameTime: number | null }>();
+	/**
+	 * Returns what now sits in the cloud, a snapshot so it stops following the live game state. With `onlyIfSynced` the write only lands
+	 * while the cloud still holds the copy this device last synced, otherwise it flags `cloudConflict` and returns null.
+	 */
+	async saveGameToCloud(currentState: GameState, onlyIfSynced = false): Promise<CloudSaveInfo | null> {
+		if (!browser || !this.supabase) return null;
+		if (!this.user) throw new Error('No authenticated user');
 
-			if (error) throw error;
-			return typeof data?.inGameTime === 'number' ? data.inGameTime : null;
-		} catch (err) {
-			console.error('Error getting cloud save time:', err);
+		const saveData: CloudSaveInfo = $state.snapshot({ ...currentState, lastSaveDate: Date.now(), version: SAVE_VERSION });
+		let query = this.supabase
+			.from('profiles')
+			.update({ save: saveData as unknown as Json, updated_at: new Date().toISOString() })
+			.eq('id', this.user.id);
+		if (onlyIfSynced) {
+			const synced = this.syncedSaveDate;
+			query = synced === null ? query.is('save->>lastSaveDate', null) : query.eq('save->>lastSaveDate', String(synced));
+		}
+
+		const { data, error } = await query.select('id');
+		if (error) throw error;
+		if (data.length === 0) {
+			this.cloudConflict = true;
 			return null;
 		}
+		this.markSynced(saveData.lastSaveDate);
+		return saveData;
 	}
 
-	async getCloudSaveInfo(): Promise<CloudSaveInfo | null> {
+	/** The repaired state, since `loadSaveData` skips missing keys and would keep this device's values for them. */
+	private async fetchCloudSave(): Promise<CloudSaveInfo | null> {
 		if (!browser || !this.supabase || !this.user) return null;
 
-		try {
-			const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
+		const { data: profile, error } = await this.supabase.from('profiles').select('save').eq('id', this.user.id).single();
+		if (error) throw error;
+		if (!profile?.save) return null;
 
-			if (error) throw error;
-			if (!profile?.save) return null;
+		const state = validateAndRepairGameState(migrateSavedState(profile.save)).state;
+		return state && { ...state, lastSaveDate: (profile.save as { lastSaveDate?: number }).lastSaveDate ?? null };
+	}
 
-			const migratedData = migrateSavedState(profile.save);
-			if (!migratedData) return null;
+	async loadGameFromCloud(): Promise<CloudSaveInfo | null> {
+		const save = await this.fetchCloudSave();
+		if (save) this.markSynced(save.lastSaveDate);
+		return save;
+	}
 
-			const repairResult = validateAndRepairGameState(migratedData);
-			const finalData = repairResult.state || migratedData;
-
-			return {
-				lastSaveDate: (profile.save as { lastSaveDate?: number }).lastSaveDate || null,
-				...finalData,
-			};
-		} catch (err) {
+	getCloudSaveInfo(): Promise<CloudSaveInfo | null> {
+		return this.fetchCloudSave().catch(err => {
 			console.error('Error getting cloud save info:', err);
 			return null;
-		}
+		});
 	}
 
+	/** Only the play time and date of the cloud save, so the "cloud save available" check never downloads the whole blob. */
+	async getCloudSaveStamp(): Promise<{ inGameTime: number | null; lastSaveDate: number | null } | null> {
+		if (!browser || !this.supabase || !this.user) return null;
+
+		const { data, error } = await this.supabase
+			.from('profiles')
+			.select('inGameTime:save->inGameTime, lastSaveDate:save->lastSaveDate')
+			.eq('id', this.user.id)
+			.single()
+			.overrideTypes<{ inGameTime: number | null; lastSaveDate: number | null }, { merge: false }>();
+		if (error) throw error;
+		return data;
+	}
 }
 
 export const supabaseAuth = new SupabaseAuth();

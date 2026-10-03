@@ -38,6 +38,13 @@ export interface BotBehavior {
 /** How a bot engages with daily quests: never claims, claims whatever completes naturally, or steers toward targets. */
 export type QuestBehavior = 'dedicated' | 'ignore' | 'passive';
 
+export interface QuestOutcome {
+	completed: number;
+	lastProgress: number;
+	lastTarget: number;
+	offered: number;
+}
+
 /** Thresholds are ratios against the previous run's gain, not absolute counts: reset once the next run is worth Nx the last. */
 export interface PrestigeStrategy {
 	autoElectronize: boolean;
@@ -100,6 +107,8 @@ export interface SimulationSnapshot {
 	quarks: number;
 	quarksFromAchievements: number;
 	quarksFromQuests: number;
+	/** Per quest id, the latest day's target and progress show how far a missed quest was. */
+	questBreakdown: Record<string, QuestOutcome>;
 	questsCompletedToday: number;
 	questsCompletedTotal: number;
 	questsOfferedTotal: number;

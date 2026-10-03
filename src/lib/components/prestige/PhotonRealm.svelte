@@ -55,7 +55,7 @@
 		const broken = chromatic.hit(photon, auto);
 		if (!broken) return;
 		chromaticManager.collect(broken, gameManager.totalIonizesAllTime);
-		if (!broken.half) gameManager.dailyStats.chromaticBreaks = (gameManager.dailyStats.chromaticBreaks ?? 0) + 1;
+		if (!broken.half) gameManager.countChromaticBreak(broken.color);
 		const rect = broken.drop > 0 && containerRect.current;
 		if (rect) ClickParticles.emit(RealmTypes.PHOTONS, rect.left + broken.x, rect.top + broken.y, CHROMATIC[broken.color].currency, 5);
 	}
@@ -592,7 +592,7 @@
 	{/if}
 	<!-- The side padding clears the fixed nav and realm switcher until the viewport is wide enough to center past them. On desktop
 	     the upgrades panel is 100dvh - 150px (this padding, the realm's lg:pt-4 and the footer) and the photon field stretches to match it. -->
-	<div class="h-full flex flex-col lg:flex-row max-lg:landscape:flex-row px-4 lg:pl-24 lg:pr-38 2xl:px-4 pt-1 lg:pt-12 pb-6 max-w-7xl mx-auto gap-4 {mobile.current ? 'min-h-screen' : ''}">
+	<div class="h-full flex flex-col lg:flex-row max-lg:landscape:flex-row px-4 lg:pl-24 lg:pr-38 2xl:px-4 pt-1 lg:pt-12 pb-6 max-w-7xl mx-auto gap-4">
 		<div class="flex-1 lg:w-2/3 flex flex-col items-center max-lg:landscape:sticky max-lg:landscape:top-0 max-lg:landscape:self-start">
 			<PhotonCounter />
 

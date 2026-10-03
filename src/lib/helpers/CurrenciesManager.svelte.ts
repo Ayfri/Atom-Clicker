@@ -7,17 +7,12 @@ export class CurrenciesManager {
 	currencies = $state<CurrencyStateMap>({} as CurrencyStateMap);
 
 	constructor() {
-		for (const type of Object.values(CurrenciesTypes)) {
-			this.currencies[type] = {
-				amount: 0,
-				earnedRun: 0,
-				earnedAllTime: 0
-			};
-		}
+		this.hardReset();
 	}
 
+	/** Written `!(amount > 0)` so a NaN amount is refused too instead of corrupting the balance for good. */
 	add(type: CurrencyName, amount: number) {
-		if (amount <= 0) return;
+		if (!(amount > 0)) return;
 
 		const currency = this.currencies[type];
 		currency.amount += amount;
@@ -26,7 +21,7 @@ export class CurrenciesManager {
 	}
 
 	remove(type: CurrencyName, amount: number) {
-		if (amount <= 0) return;
+		if (!(amount > 0)) return;
 		this.currencies[type].amount = Math.max(0, this.currencies[type].amount - amount);
 	}
 

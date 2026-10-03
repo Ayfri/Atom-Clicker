@@ -2,7 +2,7 @@
 	import Login from '#components/modals/Login.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
+	import { saveRecovery, type SaveErrorType } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { CloudDownload, Database, RefreshCw, Trash2, TriangleAlert } from '@lucide/svelte';
@@ -16,12 +16,10 @@
 	let loading = $state(false);
 	let showLoginModal = $state(false);
 
-	const errorMessages: Record<string, string> = {
-		corrupted: 'Your save file appears to be corrupted.',
+	const errorMessages: Record<SaveErrorType, string> = {
 		invalid_json: 'Your save file contains invalid data and cannot be parsed.',
 		migration_failed: 'Failed to upgrade your save file to the latest version.',
 		unknown: 'An unexpected error occurred while loading your save.',
-		validation_failed: 'Your save file is missing required data or contains invalid values.',
 	};
 
 	async function handleLoadFromCloud() {

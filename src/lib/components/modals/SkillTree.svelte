@@ -19,8 +19,8 @@
 		minY: Math.min(...SKILLS.map(({ position }) => position.y)),
 	};
 
-	/** The view can pan a tree edge to its center, half a desktop modal at the minimum zoom spans ~5400px of tree. */
-	const GRID_MARGIN = 6000;
+	const GRID_DOT = 1.5;
+	const GRID_STEP = 40;
 
 	const ROOT_CENTER = {
 		x: SKILL_UPGRADES.unlockLevels.position.x + SKILL_NODE_SIZE.width / 2,
@@ -72,6 +72,7 @@
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { SKILL_BRANCH_COLORS } from '#data/skillTree.js';
+	import { pixelRatio } from '#helpers/CanvasLoop.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
@@ -96,6 +97,55 @@
 		const running = element.getAnimations({ subtree: true }).filter((animation) => animation.playState === 'running');
 		for (const animation of running) animation.pause();
 		return () => running.forEach((animation) => animation.play());
+	};
+
+	/**
+	 * The dot grid pans and shrinks with the tree on its own canvas: as a background of the tree layer it leaves no empty tile in it,
+	 * and each pinch step re-rasters hundreds of tiles, which phones show as flickering squares.
+	 */
+	const drawGrid: Attachment<HTMLCanvasElement> = (canvas) => {
+		const tile = new OffscreenCanvas(1, 1);
+		const context = canvas.getContext('2d');
+		const tileContext = tile.getContext('2d');
+		if (!context || !tileContext) return;
+
+		let frame = 0;
+		let pattern: CanvasPattern | null = null;
+		let tileZoom = 0;
+		const draw = () => {
+			frame = 0;
+			const ratio = pixelRatio();
+			const cell = GRID_STEP * panZoom.zoom * ratio;
+			const size = Math.max(1, Math.round(cell));
+			if (tileZoom !== panZoom.zoom) {
+				tileZoom = panZoom.zoom;
+				tile.width = tile.height = size;
+				tileContext.fillStyle = 'rgb(255 255 255 / 0.12)';
+				tileContext.arc(size / 2, size / 2, (GRID_DOT * panZoom.zoom * ratio * size) / cell, 0, 2 * Math.PI);
+				tileContext.fill();
+				pattern = context.createPattern(tile, 'repeat');
+			}
+
+			const [width, height] = [Math.round(canvas.clientWidth * ratio), Math.round(canvas.clientHeight * ratio)];
+			if (canvas.width !== width || canvas.height !== height) [canvas.width, canvas.height] = [width, height];
+			else context.clearRect(0, 0, width, height);
+			pattern?.setTransform(new DOMMatrix([cell / size, 0, 0, cell / size, (panZoom.x + TREE_BOUNDS.minX * panZoom.zoom) * ratio, (panZoom.y + TREE_BOUNDS.minY * panZoom.zoom) * ratio]));
+			context.fillStyle = pattern ?? 'transparent';
+			context.fillRect(0, 0, width, height);
+		};
+		/** A two-finger pinch sends two pointer moves per frame, the grid draws once. */
+		const schedule = () => (frame ||= requestAnimationFrame(draw));
+
+		const observer = new ResizeObserver(schedule);
+		observer.observe(canvas);
+		$effect(() => {
+			void [panZoom.x, panZoom.y, panZoom.zoom];
+			schedule();
+		});
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+		};
 	};
 
 	let showHiddenSkills = $state(false);
@@ -220,19 +270,12 @@
 				></span>
 			{/each}
 		</div>
+		<canvas {@attach drawGrid} class="z-0 size-full"></canvas>
 
 		<div
 			class={['absolute top-0 left-0 origin-top-left', panZoom.moving && 'will-change-transform']}
 			style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})"
 		>
-			<!-- Dots belong to the tree layer so they pan without a repaint, and shrink with the zoom so their density never outshines the tree. -->
-			<div
-				class="pointer-events-none absolute bg-[radial-gradient(circle,rgb(255_255_255/0.12)_1.5px,transparent_1.5px)] bg-size-[40px_40px]"
-				style:height="{TREE_BOUNDS.maxY - TREE_BOUNDS.minY + 2 * GRID_MARGIN}px"
-				style:left="{TREE_BOUNDS.minX - GRID_MARGIN}px"
-				style:top="{TREE_BOUNDS.minY - GRID_MARGIN}px"
-				style:width="{TREE_BOUNDS.maxX - TREE_BOUNDS.minX + 2 * GRID_MARGIN}px"
-			></div>
 			<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
 				{#each LINKS as { id, path, source, target } (id)}
 					{#if statuses[source].visible && statuses[target.id].visible}

@@ -128,8 +128,10 @@ export function formatNumber(num: number, precision = 2, notation = numberNotati
 	}
 
 	const absNum = Math.abs(num);
+	/** Rounding to `precision` can reach the next suffix, 999_999 would print 1000.00K. */
+	const limit = 1000 - 0.5 / 10 ** precision;
 
-	if (absNum < 1000) {
+	if (absNum < limit) {
 		// Handle floating-point precision: check if close to integer
 		const rounded = Math.round(num);
 		if (Math.abs(num - rounded) < EPSILON) {
@@ -141,12 +143,10 @@ export function formatNumber(num: number, precision = 2, notation = numberNotati
 
 	if (notation === 'scientific') return num.toExponential(precision).replace('+', '');
 
-	const exponent = Math.floor(Math.log(absNum) / Math.log(1000));
-	const suffixIndex = Math.min(exponent, SUFFIXES.length - 1);
-	const suffix = SUFFIXES[suffixIndex];
-	const scaled = num / Math.pow(1000, suffixIndex);
+	let index = Math.min(Math.floor(Math.log10(absNum) / 3), SUFFIXES.length - 1);
+	if (index < SUFFIXES.length - 1 && absNum / 1000 ** index >= limit) index++;
 
-	return `${scaled.toFixed(precision)}${suffix}`;
+	return `${(num / 1000 ** index).toFixed(precision)}${SUFFIXES[index]}`;
 }
 
 export function formatNumberFull(num: number): string {
