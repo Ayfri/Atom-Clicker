@@ -298,7 +298,7 @@
 	{:else if mode === 'overview'}
 		{#if skyOpen}
 			<div
-				class="absolute inset-x-3 bottom-3 z-20 flex max-h-[60dvh] flex-col pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-auto md:left-4 md:top-24 md:max-h-[calc(100%-8rem)] md:w-[26rem]"
+				class="absolute inset-x-3 bottom-3 z-20 flex max-h-[55dvh] flex-col pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-auto md:left-4 md:top-24 md:max-h-[min(44rem,calc(100%-8rem))] md:w-[26rem]"
 			>
 				<SkyPanel
 					onBuyInstrument={id => cosmosManager.purchaseInstrument(id)}

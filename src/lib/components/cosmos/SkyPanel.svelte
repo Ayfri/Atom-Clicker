@@ -110,7 +110,7 @@
 
 <!-- Slides in from the left edge like a drawer, the sky stays visible and clickable beside it. -->
 <section
-	class="flex max-h-full flex-col rounded-2xl border border-white/10 bg-accent-900/95 shadow-2xl backdrop-blur-xs"
+	class="flex max-h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-accent-900/95 shadow-2xl backdrop-blur-xs"
 	transition:fly={{ duration: 300, easing: cubicOut, x: '-110%' }}
 >
 	<header class="flex items-center gap-2 p-2">
@@ -130,7 +130,7 @@
 		</button>
 	</header>
 
-	<ul class="flex flex-col overflow-y-auto overscroll-contain px-2 pb-2">
+	<ul class="custom-scrollbar flex min-h-0 flex-col overflow-y-auto overscroll-contain px-2 pb-2">
 		{#if tab === 'objects'}
 			{#each groups as { children, object } (object.id)}
 				<li>
