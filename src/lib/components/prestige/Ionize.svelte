@@ -143,7 +143,7 @@
 			</div>
 			<div class="flex min-w-0 flex-col gap-0.5">
 				<span class="text-sm text-white/70" title="The line rises by {formatNumber(IONIZE_CPM_STEP, 0)} CPM with every Ionize">
-					Core above {formatNumber(radiationManager.ionizeCpm, 0)} CPM
+					Core above {formatNumber(radiationManager.ionizeCpm, 1)} CPM
 				</span>
 				<span class="font-mono text-2xl font-bold tabular-nums {aboveThreshold || radiationManager.ionizeReady ? 'text-radiation' : 'text-white/60'}">
 					{Math.floor(Math.min(radiationManager.ionizeHold, IONIZE_HOLD_SECONDS))} / {IONIZE_HOLD_SECONDS} s
