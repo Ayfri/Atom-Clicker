@@ -1,6 +1,6 @@
 import type { DailyStats } from '#data/dailyQuests.js';
 import { RealmTypes } from '#data/realms.js';
-import type { ChromaticState, RealmState, Settings } from '#lib/types.js';
+import type { ChromaticState, CosmosState, RealmState, Settings } from '#lib/types.js';
 
 /** `resetLayer(n)` resets every stat whose layer is 1 to n, NEVER stats always stay and SPECIAL ones are handled by their own code. */
 export const LAYERS = {
@@ -25,6 +25,7 @@ export const statsConfig = {
 	balanceVersion: { defaultValue: 0, layer: LAYERS.SPECIAL },
 	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER },
 	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
+	cosmos: { defaultValue: { discovered: [], instruments: [], studies: {} } satisfies CosmosState, layer: LAYERS.NEVER },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER }, // Handled by CurrenciesManager
 	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	dailyStats: {

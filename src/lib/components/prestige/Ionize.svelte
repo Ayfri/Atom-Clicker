@@ -2,7 +2,9 @@
 	import { CHROMATIC, CHROMATIC_UPGRADES, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
+	import { IONIZE_STARLIGHT_STEP, ionizeStarlightMultiplier } from '#data/cosmos.js';
 	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -11,7 +13,7 @@
 	import Currency from '#components/ui/Currency.svelte';
 	import HoldButton from '#components/ui/HoldButton.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { Check, Rainbow, RotateCcw, Vault, X } from '@lucide/svelte';
+	import { Check, Rainbow, RotateCcw, Sparkles, Vault, X } from '@lucide/svelte';
 
 	interface ListItem {
 		currencies: CurrencyName[];
@@ -32,7 +34,7 @@
 	const MILESTONES = [
 		...Object.values(RADIATION_UPGRADES)
 			.flatMap(({ ionizes, name }) =>
-				ionizes ? [{ color: 'var(--color-radiation)', count: ionizes, reward: `Unlocks ${ionizes === 1 ? `the Prism and ${name}` : name}` }] : [],
+				ionizes ? [{ color: 'var(--color-radiation)', count: ionizes, reward: `Unlocks ${ionizes === 1 ? `the Prism, the Cosmos and ${name}` : name}` }] : [],
 			)
 			.sort((a, b) => a.count - b.count),
 		...IONIZE_LIGHT_MILESTONES.map((count, i) => ({
@@ -78,8 +80,15 @@
 		{ currencies: [], label: 'Photon upgrades' },
 		{ currencies: [], label: 'Proton and electron upgrades' },
 		{ currencies: [], label: 'Skills and achievements' },
-		...(ionizes > 0 ? [{ currencies: LIGHTS, label: 'Light and Prism upgrades' }] : []),
+		...(ionizes > 0 ?
+			[
+				{ currencies: LIGHTS, label: 'Light and Prism upgrades' },
+				{ currencies: [CurrenciesTypes.STARLIGHT], label: 'Starlight and the Cosmos' },
+			]
+		:	[]),
 	]);
+	/** Read at the count the Ionize reaches, the flash already pays with the next Starlight multiplier. */
+	const flash = $derived(cosmosManager.flashFor(radiationManager.peakCpm, radiationManager.ionizeCpm, ionizes + 1));
 
 	function handleIonize() {
 		prestigeStore.trigger('ionize');
@@ -234,6 +243,30 @@
 					<span class="font-mono tabular-nums text-white/50">x{formatNumber(ionizeLightMultiplier(ionizes))}</span>
 					<span class="text-white/30">→</span>
 					<span class="font-mono font-semibold tabular-nums text-white">x{formatNumber(ionizeLightMultiplier(ionizes + 1))}</span>
+				</p>
+				<p class="flex items-center gap-2 text-sm text-white/80">
+					<Sparkles
+						class="shrink-0 text-white/50"
+						size={16}
+					/>
+					<span class="flex-1">Starlight multiplier, +{IONIZE_STARLIGHT_STEP} per Ionize</span>
+					<span class="font-mono tabular-nums text-white/50">x{formatNumber(ionizeStarlightMultiplier(ionizes))}</span>
+					<span class="text-white/30">→</span>
+					<span class="font-mono font-semibold tabular-nums text-white">x{formatNumber(ionizeStarlightMultiplier(ionizes + 1))}</span>
+				</p>
+			{/if}
+			{#if flash > 0}
+				<p
+					class="flex items-center gap-2 text-sm text-white/80"
+					title="Grows with how far past the ionization line your core went this run"
+				>
+					<Currency
+						class="shrink-0"
+						name={CurrenciesTypes.STARLIGHT}
+						size={16}
+					/>
+					<span class="flex-1">Starlight flash</span>
+					<span class="font-mono font-semibold tabular-nums text-white">+{formatNumber(flash)}</span>
 				</p>
 			{/if}
 		</section>

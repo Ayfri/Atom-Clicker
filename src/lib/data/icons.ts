@@ -20,6 +20,7 @@ import IonizeIcon from '#components/icons/Ionize.svelte';
 import PhotonIcon from '#components/icons/Photon.svelte';
 import ProtonIcon from '#components/icons/Proton.svelte';
 import QuarkIcon from '#components/icons/Quark.svelte';
+import StarlightIcon from '#components/icons/Starlight.svelte';
 import {
 	Activity,
 	ArrowBigUp,
@@ -110,6 +111,7 @@ export const ICONS = {
 	speed: Gauge,
 	stabilityField: Activity,
 	star: StarIcon,
+	starlight: StarlightIcon,
 	trendingUp: TrendingUp,
 	trophy: Trophy,
 	upgrade: CircleArrowUp,
@@ -129,6 +131,7 @@ export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.PHOTONS]: 'photon',
 	[CurrenciesTypes.PROTONS]: 'proton',
 	[CurrenciesTypes.RED_LIGHT]: 'redLight',
+	[CurrenciesTypes.STARLIGHT]: 'starlight',
 	[CurrenciesTypes.WHITE_LIGHT]: 'whiteLight',
 };
 

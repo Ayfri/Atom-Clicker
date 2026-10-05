@@ -12,6 +12,7 @@ import { UPGRADES } from '#data/upgrades.js';
 import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
 import type {
 	ChromaticState,
+	CosmosState,
 	CurrencyBoosts,
 	EffectSource,
 	FeatureState,
@@ -27,6 +28,7 @@ import type {
 import { numberNotation } from '#lib/utils.js';
 import { setItem } from '#lib/utils/safeLocalStorage.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
 import { applyOfflineProgress } from '#helpers/offlineProgress.js';
@@ -122,6 +124,14 @@ export class GameManager {
 		chromaticManager.upgradeLevels = levels;
 	}
 
+	/** CosmosManager owns the discoveries, this accessor only exposes them to the save and reset loops. */
+	get cosmos(): CosmosState {
+		return cosmosManager.getState();
+	}
+	set cosmos(state: CosmosState) {
+		cosmosManager.loadState(state);
+	}
+
 	get currencies() {
 		return currenciesManager.currencies;
 	}
@@ -172,7 +182,7 @@ export class GameManager {
 			const upgrade = CHROMATIC_UPGRADES[id];
 			return level > 0 && upgrade?.effects ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
 		});
-		return [...this.currentUpgradesBought, ...photonUpgrades, ...chromaticUpgrades, ...this.quarkBoostSources];
+		return [...this.currentUpgradesBought, ...photonUpgrades, ...chromaticUpgrades, ...cosmosManager.effectSources, ...this.quarkBoostSources];
 	});
 
 	/** Rebuilt only on a purchase, every stat below reads its value from here. */
@@ -452,7 +462,9 @@ export class GameManager {
 	 */
 	ionize() {
 		if (!radiationManager.ionizeReady) return false;
+		const { ionizeCpm, peakCpm } = radiationManager;
 		this.totalIonizesAllTime++;
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.flashFor(peakCpm, ionizeCpm, this.totalIonizesAllTime));
 		this.prestige(LAYERS.RADIATION_REALM);
 		currenciesManager.remove(CurrenciesTypes.ELECTRONS, this.electrons);
 		this.totalElectronizesRun = 0;
@@ -472,6 +484,7 @@ export class GameManager {
 			balanceVersion: this.balanceVersion,
 			chromatic: this.chromatic,
 			chromaticUpgrades: this.chromaticUpgrades,
+			cosmos: this.cosmos,
 			currencies: this.currencies,
 			currencyBoosts: this.currencyBoosts,
 			dailyStats: this.dailyStats,
@@ -872,6 +885,7 @@ export class GameManager {
 		if (this.atomsPerSecond > this.highestAPSRun) this.highestAPSRun = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);
+		cosmosManager.tick(deltaTime);
 
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;

@@ -34,6 +34,13 @@ export interface ChromaticState {
 }
 
 /** `injections` and `readyInMs` stay at 0 for a signed-out player. */
+/** Given objects and the naked eye are never stored, they are part of the sky from the start. */
+export interface CosmosState {
+	discovered: string[];
+	instruments: string[];
+	studies: Record<string, number>;
+}
+
 export interface ColliderState {
 	injections: number;
 	readyInMs: number;
@@ -135,6 +142,8 @@ export interface RadiationState {
 	controlRodLevel: number;
 	lastTick: number;
 	mass: number;
+	/** Highest CPM since the last Ionize, it sizes the Starlight flash. */
+	peakCpm?: number;
 	unlocked: boolean;
 }
 
@@ -151,6 +160,7 @@ export interface GameState {
 	balanceVersion: number;
 	chromatic: ChromaticState;
 	chromaticUpgrades: Record<string, number>;
+	cosmos: CosmosState;
 	currencies: CurrencyStateMap;
 	currencyBoosts: CurrencyBoosts;
 	dailyStats: DailyStats;

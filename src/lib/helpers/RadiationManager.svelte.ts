@@ -28,6 +28,8 @@ class RadiationManager {
 	/** Swapped by the simulation for a seeded generator so a benchmark run is reproducible. */
 	random: () => number = () => Math.random();
 	mass = $state(0);
+	/** Highest CPM since the last Ionize, it sizes the Starlight flash. */
+	peakCpm = $state(0);
 	unlocked = $state(false);
 	/** Last fuel insertion, not saved: the reactor visual watches it to play the intake burst. */
 	lastBombard = $state({ mass: 0, seq: 0 });
@@ -160,6 +162,7 @@ class RadiationManager {
 		}
 
 		this.mass = Math.max(0, this.mass - decay);
+		if (this.currentCpm > this.peakCpm) this.peakCpm = this.currentCpm;
 		if (!this.ionizeReady) this.ionizeHold = this.currentCpm >= this.ionizeCpm ? this.ionizeHold + seconds : 0;
 		this.lastTick = Date.now();
 	}
@@ -218,6 +221,7 @@ class RadiationManager {
 		this.ionizeHold = 0;
 		this.lastTick = state.lastTick ?? Date.now();
 		this.mass = state.mass ?? 0;
+		this.peakCpm = state.peakCpm ?? 0;
 		this.unlocked = state.unlocked ?? false;
 	}
 
@@ -226,6 +230,7 @@ class RadiationManager {
 			controlRodLevel: this.controlRodLevel,
 			lastTick: this.lastTick,
 			mass: this.mass,
+			peakCpm: this.peakCpm,
 			unlocked: this.unlocked,
 		};
 	}
@@ -235,6 +240,7 @@ class RadiationManager {
 		this.ionizeHold = 0;
 		this.lastTick = Date.now();
 		this.mass = 0;
+		this.peakCpm = 0;
 	}
 
 	unlock() {

@@ -3,6 +3,7 @@ import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { FeatureTypes } from '#data/features.js';
 import type { GeneratorType } from '#data/generators.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -173,6 +174,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 			for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, rates[color] * (appliedMs / 1000));
 		}
 	}
+
+	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * (appliedMs / 1000));
 
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;

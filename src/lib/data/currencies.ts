@@ -11,6 +11,7 @@ export const CurrenciesTypes = {
 	PHOTONS: 'Photons',
 	PROTONS: 'Protons',
 	RED_LIGHT: 'Red Light',
+	STARLIGHT: 'Starlight',
 	WHITE_LIGHT: 'White Light',
 } as const;
 
@@ -85,6 +86,13 @@ export const CURRENCIES = {
 		layer: LAYERS.NEVER,
 		name: 'Red Light',
 		stat: CurrenciesTypes.RED_LIGHT,
+	},
+	[CurrenciesTypes.STARLIGHT]: {
+		color: '#cfe8ff',
+		id: 'starlight',
+		layer: LAYERS.NEVER,
+		name: 'Starlight',
+		stat: CurrenciesTypes.STARLIGHT,
 	},
 	[CurrenciesTypes.WHITE_LIGHT]: {
 		achievementTiers: [1, 100, 10_000, 100_000],
