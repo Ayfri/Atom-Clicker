@@ -7,8 +7,8 @@ const INJECTED_TOP_FRAME_PATTERN = /\(<anonymous>:\d+:\d+\)/;
 /**
  * Nothing to fix on our side, and these arrive without a stack the frame checks below could judge: network failures, tabs left
  * open across a deploy, the "Request timeout <name>Distributor.getValue" family a ChromeOS text-prediction extension rejects with,
- * the "Object Not Found Matching Id" rejections of the CefSharp browser Outlook Safe Links opens emailed links in, and iOS
- * WKWebView / Safari extension messaging failures.
+ * the "Object Not Found Matching Id" rejections of the CefSharp browser Outlook Safe Links opens emailed links in, iOS
+ * WKWebView / Safari extension messaging failures, and SvelteKit's uncaught service worker registration when its fetch drops.
  */
 const IGNORED_MESSAGE_PATTERNS = [
 	/^Failed to fetch$/,
@@ -24,6 +24,7 @@ const IGNORED_MESSAGE_PATTERNS = [
 	/^The WKWebView was deallocated before the message was delivered/,
 	/^Invalid call to runtime\.sendMessage\(\)/,
 	/Cannot read properties of undefined \(reading '_source'\)/,
+	/^Failed to register a ServiceWorker/,
 ];
 
 /** True for reports that are never actionable, so neither the database nor Discord sees them. */
