@@ -19,6 +19,7 @@
 	import { clock } from '#stores/clock.svelte.js';
 	import AutoButton from '#components/ui/AutoButton.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 
@@ -33,7 +34,7 @@
 	} as const;
 	type PurchaseMode = keyof typeof PurchaseModes;
 
-	const purchaseModes = Object.keys(PurchaseModes) as PurchaseMode[];
+	const purchaseModes = (Object.keys(PurchaseModes) as PurchaseMode[]).map(id => ({ id, label: id === 'max' ? 'Max' : `×${PurchaseModes[id]}` }));
 
 	let selectedPurchaseMode: PurchaseMode = $state('x1');
 
@@ -132,17 +133,15 @@
 			</HelpIcon>
 		</div>
 		{#if reveals.purchaseModes}
-			<div class="flex items-center gap-0.5 rounded-md bg-white/5 p-0.5" in:reveal={{ y: 0 }}>
-				{#each purchaseModes as mode (mode)}
-					<button
-						class="rounded-sm px-1.5 py-0.5 text-xs transition-colors duration-200 cursor-pointer {selectedPurchaseMode === mode ?
-							'bg-white/20 text-white'
-						:	'text-white/60 hover:bg-white/10 hover:text-white'}"
-						onclick={() => (selectedPurchaseMode = mode)}
-					>
-						{mode === 'max' ? 'Max' : `×${PurchaseModes[mode]}`}
-					</button>
-				{/each}
+			<div in:reveal={{ y: 0 }}>
+				<Tabs
+					buttonClass="px-1.5 py-0.5 text-xs"
+					label="Purchase amount"
+					onselect={mode => (selectedPurchaseMode = mode)}
+					role="radiogroup"
+					selected={selectedPurchaseMode}
+					tabs={purchaseModes}
+				/>
 			</div>
 		{/if}
 	</div>

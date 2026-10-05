@@ -1,14 +1,15 @@
 <script lang="ts">
 	import SettingRow from '#components/ui/SettingRow.svelte';
 	import Switch from '#components/ui/Switch.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import type { NumberNotation } from '#lib/types.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { Hash, Lightbulb, MoonStar, RotateCcw } from '@lucide/svelte';
 
-	const notations: { example: string; id: NumberNotation }[] = [
-		{ example: '1.50Qa', id: 'suffix' },
-		{ example: '1.50e15', id: 'scientific' },
+	const notations: { id: NumberNotation; label: string }[] = [
+		{ id: 'suffix', label: '1.50Qa' },
+		{ id: 'scientific', label: '1.50e15' },
 	];
 </script>
 
@@ -18,20 +19,15 @@
 	</SettingRow>
 
 	<SettingRow description="How big numbers are written." icon={Hash} title="Number notation">
-		<div class="flex shrink-0 rounded-lg border border-white/10 bg-white/5 p-1" aria-label="Number notation" role="radiogroup">
-			{#each notations as { example, id } (id)}
-				{const selected = $derived(gameManager.settings.display.notation === id)}
-				<button
-					aria-checked={selected}
-					class="rounded-md px-3 py-1.5 font-mono text-sm font-semibold transition-colors {selected ? 'bg-accent text-white' : 'text-white/60 hover:text-white'}"
-					onclick={() => (gameManager.settings.display.notation = id)}
-					role="radio"
-					type="button"
-				>
-					{example}
-				</button>
-			{/each}
-		</div>
+		<Tabs
+			buttonClass="px-3 py-1.5 font-mono text-sm"
+			class="shrink-0"
+			label="Number notation"
+			onselect={id => (gameManager.settings.display.notation = id)}
+			role="radiogroup"
+			selected={gameManager.settings.display.notation}
+			tabs={notations}
+		/>
 	</SettingRow>
 
 	<SettingRow description="Show tips next to new mechanics as you unlock them." icon={Lightbulb} title="Tips">

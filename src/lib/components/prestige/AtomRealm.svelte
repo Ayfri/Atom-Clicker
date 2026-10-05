@@ -7,6 +7,7 @@
 	import Counter from '#components/game/Counter.svelte';
 	import Generators from '#components/game/Generators.svelte';
 	import Upgrades from '#components/game/Upgrades.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
 	import { getQuarkShopItem } from '#data/quarkShop.js';
@@ -77,36 +78,8 @@
 		{#if tabs.length > 0}
 			<div class="grid-area-[upgrades] flex flex-col gap-1.5 z-10">
 				{#if tabs.length > 1}
-					<!-- No backdrop blur: the ambient dust behind moves every frame, so the blur would be recomputed every frame too. -->
-					<div class="rounded-xl bg-black/25 p-1" in:reveal style:--c={themeAccent ?? 'var(--color-accent-400)'}>
-						<div class="relative grid auto-cols-fr grid-flow-col" role="tablist">
-							<!-- One pill slides under the tabs with `translate` only, the tabs themselves never repaint a background. -->
-							<div
-								aria-hidden="true"
-								class="pointer-events-none absolute inset-y-0 left-0 w-[calc(100%/var(--n))] translate-x-[calc(var(--i)*100%)] rounded-lg border border-(--c)/45 bg-(--c)/20 shadow-[0_0_14px_-5px_var(--c)] transition-[translate] duration-300 ease-[cubic-bezier(0.34,1.3,0.64,1)]"
-								style:--i={tabs.indexOf(shownTab)}
-								style:--n={tabs.length}
-							></div>
-							{#each tabs as tab (tab)}
-								{const Icon = $derived(TAB_ICONS[tab])}
-								{const selected = $derived(shownTab === tab)}
-								<button
-									aria-selected={selected}
-									class={[
-										'group relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-1.5 text-xs font-medium transition-colors sm:text-sm',
-										selected ? 'text-white' : 'text-white/55 hover:text-white/85',
-									]}
-									data-hint="{tab}-tab"
-									id="tab-{tab}"
-									in:reveal={{ y: 0 }}
-									onclick={() => (activeTab = tab)}
-									role="tab"
-								>
-									<Icon class="size-4 shrink-0 transition-transform duration-300 max-[22rem]:hidden {selected ? 'scale-110 text-(--c)' : 'group-hover:scale-110'}" />
-									{TAB_LABELS[tab]}
-								</button>
-							{/each}
-						</div>
+					<div in:reveal>
+						<Tabs accent={themeAccent} onselect={tab => (activeTab = tab)} selected={shownTab} tabs={tabs.map(id => ({ hint: `${id}-tab`, icon: TAB_ICONS[id], id, label: TAB_LABELS[id] }))} />
 					</div>
 				{/if}
 				<!-- Panels stay mounted: remounting a hundred icons on every tab switch froze low-end phones. -->

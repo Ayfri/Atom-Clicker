@@ -11,6 +11,7 @@
 	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import { CURRENCY_ICON_NAMES, type IconComponent } from '#data/icons.js';
 	import { QUARK_CHARGE_COLORS } from '#data/quarks.js';
 	import { QUARK_SHOP, type QuarkShopItem } from '#data/quarkShop.js';
@@ -222,22 +223,7 @@
 			</button>
 		{/if}
 
-		<div class="grid grid-cols-4 gap-1 rounded-xl bg-black/20 p-1 sm:flex" role="tablist">
-			{#each TABS as tab (tab.id)}
-				<button
-					class={[
-						'flex cursor-pointer flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:flex-1 sm:flex-row sm:justify-center sm:gap-2 sm:py-2 sm:text-sm',
-						activeTab === tab.id ? 'bg-accent-700 text-white shadow-md' : 'text-white/60 hover:bg-white/5 hover:text-white',
-					]}
-					aria-selected={activeTab === tab.id}
-					onclick={() => (activeTab = tab.id)}
-					role="tab"
-				>
-					<tab.icon class="shrink-0" size={16} />
-					{tab.label}
-				</button>
-			{/each}
-		</div>
+		<Tabs onselect={tab => (activeTab = tab)} selected={activeTab} tabs={TABS} />
 
 		{#if activeTab === 'quests'}
 			<section class="flex flex-col gap-3">

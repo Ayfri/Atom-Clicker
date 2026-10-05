@@ -15,6 +15,7 @@
 	import { clock } from '#stores/clock.svelte.js';
 	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { Eye, EyeOff } from '@lucide/svelte';
 
@@ -25,6 +26,10 @@
 
 	const hasElectronUpgrades = $derived(gameManager.upgrades.some(id => id.startsWith('electron')));
 	const showElectrons = $derived(gameManager.electrons > 0 || gameManager.totalElectronizesAllTime > 0 || hasElectronUpgrades);
+
+	const currencyTabs = $derived(
+		[CurrenciesTypes.ATOMS, ...(showProtons ? [CurrenciesTypes.PROTONS] : []), ...(showElectrons ? [CurrenciesTypes.ELECTRONS] : [])].map(id => ({ id, title: CURRENCIES[id].name })),
+	);
 
 	const boughtUpgrades = $derived(new Set(gameManager.upgrades));
 
@@ -131,34 +136,12 @@
 		</div>
 	</div>
 
-	<div class="currency-tabs flex gap-1">
-		<button
-			class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.ATOMS && 'active']}
-			onclick={() => selectedCurrency = CurrenciesTypes.ATOMS}
-			title={CURRENCIES[CurrenciesTypes.ATOMS].name}
-		>
-			<Currency name={CurrenciesTypes.ATOMS} />
-		</button>
-		{#if showProtons}
-			<button
-				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.PROTONS && 'active']}
-				in:reveal={{ y: 0 }}
-				onclick={() => selectedCurrency = CurrenciesTypes.PROTONS}
-				title={CURRENCIES[CurrenciesTypes.PROTONS].name}
-			>
-				<Currency name={CurrenciesTypes.PROTONS} />
-			</button>
-		{/if}
-		{#if showElectrons}
-			<button
-				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)] xl:p-2 lg:p-1.5', selectedCurrency === CurrenciesTypes.ELECTRONS && 'active']}
-				in:reveal={{ y: 0 }}
-				onclick={() => selectedCurrency = CurrenciesTypes.ELECTRONS}
-				title={CURRENCIES[CurrenciesTypes.ELECTRONS].name}
-			>
-				<Currency name={CurrenciesTypes.ELECTRONS} />
-			</button>
-		{/if}
+	<div class="flex items-center gap-1">
+		<Tabs accent={CURRENCIES[selectedCurrency].color} buttonClass="p-1.5" onselect={currency => (selectedCurrency = currency)} selected={selectedCurrency} tabs={currencyTabs}>
+			{#snippet item(tab)}
+				<Currency name={tab.id} />
+			{/snippet}
+		</Tabs>
 		{#if affordableCount > 3}
 			<button
 				class="ml-auto rounded-lg border border-accent-500/30 bg-accent-500/15 px-2 py-1 text-xs font-semibold text-accent-400 transition-all duration-200 hover:bg-accent-500/25 cursor-pointer"
