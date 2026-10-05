@@ -136,3 +136,28 @@ describe('sky', () => {
 		});
 	});
 });
+
+describe('daily quests', () => {
+	beforeEach(() => {
+		gameManager.totalIonizesAllTime = 1;
+	});
+
+	test('count the Starlight radiated online and the study levels bought', () => {
+		gameManager.tick(4000, true);
+		expect(gameManager.dailyStats.starlightEarned).toBeCloseTo(starlight());
+
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, studyCost(COSMOS_OBJECTS_BY_ID.sun, 0));
+		expect(gameManager.studyCosmosObject('sun')).toBe(true);
+		expect(gameManager.studyCosmosObject('sun')).toBe(false);
+		expect(gameManager.dailyStats.cosmosStudies).toBe(1);
+	});
+
+	test('the study target is what the budget buys, cheapest level first', () => {
+		const sun = COSMOS_OBJECTS_BY_ID.sun;
+		expect(cosmosManager.studyLevelsWithin(0)).toBe(0);
+		/** Sun and Earth share a price, so their first two levels go before either second level. */
+		expect(cosmosManager.studyLevelsWithin(2 * studyCost(sun, 0))).toBe(2);
+		expect(cosmosManager.studyLevelsWithin(2 * studyCost(sun, 0) + studyCost(sun, 1) - 1)).toBe(2);
+		expect(gameManager.dailyQuestContext(false)).toMatchObject({ hasCosmos: true, starlightPerSecond: cosmosManager.starlightPerSecond });
+	});
+});

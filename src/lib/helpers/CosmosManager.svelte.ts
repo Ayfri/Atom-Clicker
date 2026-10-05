@@ -134,6 +134,27 @@ class CosmosManager {
 		this.research = null;
 	}
 
+	/** Study levels a Starlight budget buys, cheapest first. */
+	studyLevelsWithin(budget: number): number {
+		const levels = this.objects.map(object => this.level(object.id));
+		let count = 0;
+		while (true) {
+			let cheapest = -1;
+			let cost = Infinity;
+			for (let i = 0; i < levels.length; i++) {
+				const next = studyCost(this.objects[i], levels[i]);
+				if (next < cost) {
+					cheapest = i;
+					cost = next;
+				}
+			}
+			if (cheapest < 0 || cost > budget) return count;
+			budget -= cost;
+			levels[cheapest]++;
+			count++;
+		}
+	}
+
 	study(objectId: string): boolean {
 		const object = COSMOS_OBJECTS_BY_ID[objectId];
 		if (!this.unlocked || !object || !this.objects.includes(object)) return false;

@@ -8,6 +8,7 @@ export type DailyStatMetric =
 	| 'chromaticBreaks'
 	| 'chromaticColorBreaks'
 	| 'clicks'
+	| 'cosmosStudies'
 	| 'electronizes'
 	| 'fuelInjected'
 	| 'generatorsPurchased'
@@ -15,6 +16,7 @@ export type DailyStatMetric =
 	| 'otherDailyQuestsCompleted'
 	| 'powerUpsCollected'
 	| 'protonises'
+	| 'starlightEarned'
 	| 'upgradesPurchased';
 
 export interface DailyStats {
@@ -24,6 +26,7 @@ export interface DailyStats {
 	/** Left out of the defaults so every day builds its own object, a shared nested default would carry counts over. */
 	chromaticColorBreaks?: Record<ChromaticColor, number>;
 	clicks: number;
+	cosmosStudies: number;
 	dayKey: string;
 	electronizes: number;
 	fuelInjected: number;
@@ -35,14 +38,18 @@ export interface DailyStats {
 	questIds: string[];
 	/** Frozen at rollover, keyed by quest id, never recomputed live. */
 	questTargets: Record<string, number>;
+	starlightEarned: number;
 	upgradesPurchased: number;
 }
 
 export interface DailyQuestContext {
 	/** How many times faster colored photons spawn than at the start, from Prism Frequency. */
 	chromaticSpawnBoost: number;
+	/** Study levels COSMOS_QUEST_SECONDS of Starlight buys, study prices grow so fast that a fixed count would soon be out of reach. */
+	cosmosStudyReach: number;
 	/** Fuel the electron bank and the next Electronize would buy. */
 	fuelAffordable: number;
+	hasCosmos: boolean;
 	hasElectronized: boolean;
 	hasPhotonRealm: boolean;
 	hasPrism: boolean;
@@ -50,6 +57,7 @@ export interface DailyQuestContext {
 	hasThirdQuestSlot: boolean;
 	highestAPSRun: number;
 	remainingAchievements: number;
+	starlightPerSecond: number;
 }
 
 export interface DailyQuest {
@@ -65,6 +73,8 @@ export interface DailyQuest {
 }
 
 export const DAILY_QUEST_COUNT = 2;
+/** The Cosmos quests ask for what this much Starlight income earns or buys, the same 3 hours as the atoms quest. */
+export const COSMOS_QUEST_SECONDS = 10_800;
 const THIRD_DAILY_QUEST_ITEM_ID = 'convenience_third_daily_quest';
 
 export const QUEST_POOL: DailyQuest[] = [
@@ -178,6 +188,24 @@ export const QUEST_POOL: DailyQuest[] = [
 		id: 'upgrades_purchased',
 		metric: 'upgradesPurchased',
 		reward: 1,
+	},
+	{
+		description: target => `Gather ${formatNumber(target)} Starlight today.`,
+		floor: 1000,
+		id: 'starlight_earned',
+		isAvailable: context => context.hasCosmos,
+		metric: 'starlightEarned',
+		reward: 1,
+		target: context => context.starlightPerSecond * COSMOS_QUEST_SECONDS,
+	},
+	{
+		description: target => `Study ${target} levels of Cosmos objects today.`,
+		floor: 3,
+		id: 'cosmos_studies',
+		isAvailable: context => context.hasCosmos,
+		metric: 'cosmosStudies',
+		reward: 1,
+		target: context => context.cosmosStudyReach,
 	},
 ];
 

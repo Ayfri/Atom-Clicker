@@ -431,7 +431,7 @@ export class SimulationEngine {
 			} else if (!cosmosManager.research && cosmosManager.nextInstrument && cosmosManager.purchaseInstrument(cosmosManager.nextInstrument.id)) {
 				this.record('cosmos', `instrument ${cosmosManager.instruments.at(-1)}`);
 				actionsThisTick++;
-			} else if (study && cosmosManager.study(study)) {
+			} else if (study && gameManager.studyCosmosObject(study)) {
 				this.record('cosmos', `study ${study}`);
 				actionsThisTick++;
 			}

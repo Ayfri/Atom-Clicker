@@ -4,6 +4,7 @@
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
@@ -304,7 +305,7 @@
 					onBuyInstrument={id => cosmosManager.purchaseInstrument(id)}
 					onClose={() => (skyOpen = false)}
 					onFocus={focusFromList}
-					onStudy={id => cosmosManager.study(id)}
+					onStudy={id => gameManager.studyCosmosObject(id)}
 				/>
 			</div>
 		{/if}
@@ -314,7 +315,7 @@
 					id={selected}
 					onClose={() => scene && (scene.selected = null)}
 					onHome={scene.focused === 'earth' ? undefined : () => scene?.focus('earth')}
-					onStudy={() => cosmosManager.study(selected)}
+					onStudy={() => gameManager.studyCosmosObject(selected)}
 				/>
 			</div>
 		{/if}

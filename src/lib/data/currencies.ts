@@ -88,6 +88,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.RED_LIGHT,
 	},
 	[CurrenciesTypes.STARLIGHT]: {
+		achievementTiers: [1_000_000, 1_000_000_000, 1_000_000_000_000, 100_000_000_000_000],
 		color: '#cfe8ff',
 		id: 'starlight',
 		layer: LAYERS.NEVER,

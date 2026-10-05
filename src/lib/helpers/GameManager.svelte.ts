@@ -1,7 +1,7 @@
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
 import { CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import type { DailyQuestContext, DailyStats } from '#data/dailyQuests.js';
+import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats } from '#data/dailyQuests.js';
 import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
 import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
@@ -434,7 +434,9 @@ export class GameManager {
 	dailyQuestContext(hasThirdQuestSlot: boolean): DailyQuestContext {
 		return {
 			chromaticSpawnBoost: CHROMATIC_BASE_SPAWN_INTERVAL / chromaticManager.spawnInterval,
+			cosmosStudyReach: cosmosManager.studyLevelsWithin(cosmosManager.starlightPerSecond * COSMOS_QUEST_SECONDS),
 			fuelAffordable: (this.electrons + this.electronizeElectronsGain) * radiationManager.massPerElectron,
+			hasCosmos: cosmosManager.unlocked,
 			hasElectronized: this.totalElectronizesAllTime > 0,
 			hasPhotonRealm: this.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
 			hasPrism: this.totalIonizesAllTime > 0,
@@ -442,7 +444,15 @@ export class GameManager {
 			hasThirdQuestSlot,
 			highestAPSRun: this.highestAPSRun,
 			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
+			starlightPerSecond: cosmosManager.starlightPerSecond,
 		};
+	}
+
+	/** Studies a Cosmos object and counts the level toward the daily quest. */
+	studyCosmosObject(objectId: string): boolean {
+		if (!cosmosManager.study(objectId)) return false;
+		this.dailyStats.cosmosStudies = (this.dailyStats.cosmosStudies ?? 0) + 1;
+		return true;
 	}
 
 	/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
@@ -471,7 +481,9 @@ export class GameManager {
 		if (!radiationManager.ionizeReady) return false;
 		const { ionizeCpm, peakCpm } = radiationManager;
 		this.totalIonizesAllTime++;
-		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.flashFor(peakCpm, ionizeCpm, this.totalIonizesAllTime));
+		const flash = cosmosManager.flashFor(peakCpm, ionizeCpm, this.totalIonizesAllTime);
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, flash);
+		this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + flash;
 		this.prestige(LAYERS.RADIATION_REALM);
 		currenciesManager.remove(CurrenciesTypes.ELECTRONS, this.electrons);
 		this.totalElectronizesRun = 0;
@@ -892,6 +904,7 @@ export class GameManager {
 		if (this.atomsPerSecond > this.highestAPSRun) this.highestAPSRun = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);
+		if (cosmosManager.starlightPerSecond > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + cosmosManager.starlightPerSecond * seconds;
 		cosmosManager.tick(deltaTime);
 
 		if (!skipAchievements) {

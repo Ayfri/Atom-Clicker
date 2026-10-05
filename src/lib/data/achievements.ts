@@ -2,9 +2,11 @@ import type { Achievement, AchievementGroup } from '#lib/types.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { tierIconStack } from '#helpers/iconStacks.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { formatNumber } from '#lib/utils.js';
 import { CHROMATIC_COLORS } from '#data/chromatic.js';
+import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
 import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/icons.js';
@@ -313,6 +315,45 @@ function createSpectrumAchievements(): Achievement[] {
 	}));
 }
 
+const cosmosLocked = () => !cosmosManager.unlocked;
+
+/** The tiers land on the end of an era: every naked eye planet, every refractor object, Neptune's system, then the whole sky. */
+function createDiscoveryAchievements(): Achievement[] {
+	const total = COSMOS_OBJECTS.filter(object => !object.given).length;
+	return [1, 6, 12, 17, total].map((tier, index) => ({
+		id: `cosmos_discoveries_${tier}`,
+		name: tier === total ? 'Whole Sky' : `${tier} Discover${tier === 1 ? 'y' : 'ies'}`,
+		description: tier === total ? 'Discover every object in the Cosmos' : `Discover ${tier} object${tier === 1 ? '' : 's'} in the Cosmos`,
+		iconStack: tierIconStack('planet', index, tier),
+		condition: () => cosmosManager.discovered.length >= tier,
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
+/** Total study levels across every object. */
+function createStudyAchievements(): Achievement[] {
+	const studyLevels = () => Object.values(cosmosManager.studies).reduce((total, level) => total + level, 0);
+	return [10, 50, 150, 300, 450].map((tier, index) => ({
+		id: `cosmos_studies_${tier}`,
+		name: `${tier} Study Levels`,
+		description: `Reach ${tier} study levels across the Cosmos`,
+		iconStack: tierIconStack('moonStar', index, tier),
+		condition: () => studyLevels() >= tier,
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
+function createInstrumentAchievements(): Achievement[] {
+	return COSMOS_INSTRUMENTS.filter(instrument => instrument.cost > 0).map((instrument, index) => ({
+		id: `cosmos_instrument_${instrument.id}`,
+		name: instrument.name,
+		description: `Build ${instrument.name}`,
+		iconStack: tierIconStack('telescope', index),
+		condition: () => cosmosManager.instruments.includes(instrument.id),
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
 function createCurrencyAchievements(types: CurrencyName[]): AchievementGroup[] {
 	return types
 		.map(type => CURRENCIES[type])
@@ -473,6 +514,10 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
 	{ achievements: SPECIAL_ACHIEVEMENTS, name: 'Special', tiered: false },
 	{ achievements: createSpectrumAchievements(), name: 'Spectrum', tiered: true },
 	...createCurrencyAchievements([CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT, CurrenciesTypes.WHITE_LIGHT]),
+	{ achievements: createDiscoveryAchievements(), name: 'Discoveries', tiered: true },
+	{ achievements: createInstrumentAchievements(), name: 'Instruments', tiered: true },
+	{ achievements: createStudyAchievements(), name: 'Studies', tiered: true },
+	...createCurrencyAchievements([CurrenciesTypes.STARLIGHT]),
 ];
 
 export const ACHIEVEMENTS = Object.fromEntries(ACHIEVEMENT_GROUPS.flatMap(group => group.achievements).map(achievement => [achievement.id, achievement]));
