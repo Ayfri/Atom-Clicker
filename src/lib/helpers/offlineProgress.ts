@@ -176,6 +176,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	}
 
 	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * (appliedMs / 1000));
+	cosmosManager.advance(appliedMs);
 
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;

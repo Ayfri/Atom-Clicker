@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, studyCost } from '#data/cosmos.js';
+import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -51,16 +51,38 @@ describe('sky', () => {
 		expect(starlight()).toBeCloseTo(10);
 	});
 
-	test('discovers objects in history order, and only those the instruments can see', () => {
+	test('discovers objects brightest first, once the Aperture reaches them and an owned instrument sees them', () => {
 		expect(cosmosManager.nextDiscovery?.id).toBe('moon');
 		expect(cosmosManager.discover('mars')).toBe(false);
-		for (const id of ['moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']) expect(cosmosManager.discover(id), id).toBe(true);
+		expect(cosmosManager.discover('moon')).toBe(true);
+		expect(cosmosManager.canObserve).toBe(false);
+		expect(cosmosManager.discover('venus')).toBe(false);
+
+		for (const id of ['venus', 'jupiter', 'mars', 'mercury', 'saturn']) {
+			while (!cosmosManager.canObserve) {
+				currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextApertureCost);
+				expect(cosmosManager.purchaseAperture()).toBe(true);
+				expect(cosmosManager.purchaseAperture()).toBe(false);
+				cosmosManager.tick(APERTURE_WIDEN_MS);
+			}
+			expect(cosmosManager.discover(id), id).toBe(true);
+		}
+		expect(cosmosManager.aperture).toBe(11);
 		expect(cosmosManager.nextDiscovery).toBeNull();
 
+		currenciesManager.remove(CurrenciesTypes.STARLIGHT, starlight());
 		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextInstrument!.cost);
 		expect(cosmosManager.purchaseInstrument('refractor')).toBe(true);
 		expect(starlight()).toBe(0);
-		expect(cosmosManager.nextDiscovery?.id).toBe('io');
+		expect(cosmosManager.nextDiscovery).toBeNull();
+
+		const { researchMs } = cosmosManager.nextInstrument!;
+		cosmosManager.tick(researchMs - 1000);
+		expect(cosmosManager.research?.leftMs).toBe(1000);
+		cosmosManager.tick(1000);
+		expect(cosmosManager.research).toBeNull();
+		expect(cosmosManager.nextDiscovery?.id).toBe('ganymede');
+		expect(cosmosManager.canObserve).toBe(false);
 	});
 
 	test('studies add the object rate again and raise its boost, which reaches the game stats', () => {
@@ -73,7 +95,7 @@ describe('sky', () => {
 		expect(cosmosManager.study('mars')).toBe(false);
 		expect(starlight()).toBeCloseTo(0);
 		expect(cosmosManager.starlightPerSecond).toBe((1 + 3) * 1.25);
-		expect(gameManager.globalMultiplier / globalBefore).toBeCloseTo((1 + 0.1 * 3) / 1.1);
+		expect(gameManager.globalMultiplier / globalBefore).toBeCloseTo((1 + earth.boost.amount * 3) / (1 + earth.boost.amount));
 	});
 
 	test('survives every prestige and drops unknown ids from a save', () => {
@@ -81,7 +103,19 @@ describe('sky', () => {
 		gameManager.resetLayer(4);
 		expect(cosmosManager.discovered).toEqual(['moon']);
 
-		gameManager.cosmos = { discovered: ['moon', 'death_star'], instruments: ['warp'], studies: { moon: 2, sun: Number.NaN, tatooine: 9 } };
-		expect(cosmosManager.getState()).toEqual({ discovered: ['moon'], instruments: [], studies: { moon: 2 } });
+		gameManager.cosmos = {
+			aperture: -3,
+			discovered: ['moon', 'death_star'],
+			instruments: ['warp'],
+			research: { id: 'refractor', leftMs: 1e12 },
+			studies: { moon: 2, sun: Number.NaN, tatooine: 9 },
+		};
+		expect(cosmosManager.getState()).toEqual({
+			aperture: 0,
+			discovered: ['moon'],
+			instruments: [],
+			research: { id: 'refractor', leftMs: COSMOS_INSTRUMENTS[1].researchMs },
+			studies: { moon: 2 },
+		});
 	});
 });

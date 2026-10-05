@@ -36,8 +36,11 @@ export interface ChromaticState {
 /** `injections` and `readyInMs` stay at 0 for a signed-out player. */
 /** Given objects and the naked eye are never stored, they are part of the sky from the start. */
 export interface CosmosState {
+	aperture: number;
 	discovered: string[];
 	instruments: string[];
+	/** Instrument paid for and still being built. */
+	research: { id: string; leftMs: number } | null;
 	studies: Record<string, number>;
 }
 

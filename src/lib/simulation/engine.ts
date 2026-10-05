@@ -1,11 +1,13 @@
 import { ACHIEVEMENTS } from '#data/achievements.js';
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '#data/chromatic.js';
+import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { RealmTypes } from '#data/realms.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -50,6 +52,8 @@ const SPIKE_WINDOW_MS = 60_000;
 const SPIKE_MIN_HISTORY = 5;
 const SPIKE_MULTIPLIER = 4;
 const SPIKE_MIN_RATE = 50;
+/** Active time a discovery takes in the Cosmos: flying to the eyepiece, finding the signal, holding it and the discovery card. */
+const COSMOS_OBSERVE_MS = 45_000;
 
 interface PhotonRealmEffects {
 	excitedLifetimeMultiplier: number;
@@ -80,6 +84,8 @@ export class SimulationEngine {
 	private readonly milestones: MilestoneHit[] = [];
 	private readonly milestoneTracker = new MilestoneTracker();
 	private nextPowerUpTime = 0;
+	/** Active time spent on the current Cosmos signal, reset when it is discovered. */
+	private observedMs = 0;
 	private pendingAchievements = Object.entries(ACHIEVEMENTS);
 	private photonEffects: PhotonRealmEffects | null = null;
 	private photonEffectsSources: unknown = null;
@@ -122,7 +128,7 @@ export class SimulationEngine {
 	/** Mutates the global game managers for the duration of the run, then restores the state they started with. */
 	run(onProgress?: (progress: SimulationProgress) => void): SimulationResult {
 		const started = performance.now();
-		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager]);
+		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager, cosmosManager]);
 		const savedState = JSON.stringify(gameManager.getCurrentState());
 		gameManager.resetAll();
 		currenciesManager.hardReset();
@@ -399,6 +405,25 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
+		if (canAct() && cosmosManager.unlocked) {
+			const next = cosmosManager.canObserve ? cosmosManager.nextDiscovery : null;
+			const study = this.cheapestStudy();
+			this.observedMs = next ? this.observedMs + this.config.tickRate : 0;
+			if (next && this.observedMs >= COSMOS_OBSERVE_MS && cosmosManager.discover(next.id)) {
+				this.observedMs = 0;
+				this.record('cosmos', `discover ${next.id}`);
+				actionsThisTick++;
+			} else if (cosmosManager.nextDiscovery && !next && cosmosManager.purchaseAperture()) {
+				this.record('cosmos', `aperture ${cosmosManager.aperture}`);
+				actionsThisTick++;
+			} else if (!cosmosManager.research && cosmosManager.nextInstrument && cosmosManager.purchaseInstrument(cosmosManager.nextInstrument.id)) {
+				this.record('cosmos', `instrument ${cosmosManager.instruments.at(-1)}`);
+				actionsThisTick++;
+			} else if (study && cosmosManager.study(study)) {
+				this.record('cosmos', `study ${study}`);
+				actionsThisTick++;
+			}
+		}
 		for (const currency of BOOST_PRIORITY) {
 			if (gameManager.boostPointsAvailable <= 0 || !canAct()) break;
 			if (gameManager.addCurrencyBoost(currency)) {
@@ -444,6 +469,19 @@ export class SimulationEngine {
 			if (reachable && (!best || cost < best.cost)) best = { cost, id: upgrade.id };
 		}
 		if (best && CHROMATIC_UPGRADES[best.id].currencies.includes(CurrenciesTypes.WHITE_LIGHT)) chromaticManager.recombine();
+		return best?.id ?? null;
+	}
+
+	/** Saves for the Aperture level or the instrument that unlocks the next discovery, a new object is worth more than a study level. */
+	private cheapestStudy(): string | null {
+		const next = cosmosManager.nextDiscovery;
+		const reserve = next && !cosmosManager.canObserve ? cosmosManager.nextApertureCost : !next && !cosmosManager.research ? (cosmosManager.nextInstrument?.cost ?? 0) : 0;
+		const budget = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) - reserve;
+		let best: { cost: number; id: string } | null = null;
+		for (const object of cosmosManager.objects) {
+			const cost = studyCost(object, cosmosManager.level(object.id));
+			if (cost <= budget && (!best || cost < best.cost)) best = { cost, id: object.id };
+		}
 		return best?.id ?? null;
 	}
 

@@ -23,7 +23,7 @@
 	});
 
 	const pending = $derived(
-		unseen.filter(hint => hint.realm === realmManager.selectedRealmId && (!hint.show || hint.show()) && !hint.done?.()),
+		unseen.filter(hint => hint.realm === realmManager.view && (!hint.show || hint.show()) && !hint.done?.()),
 	);
 
 	// `pending` is rebuilt on every atom commit, the polling effect only restarts when it empties or fills.

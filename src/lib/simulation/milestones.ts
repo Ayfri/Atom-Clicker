@@ -1,6 +1,7 @@
 import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import type { RunState } from './snapshots';
@@ -25,9 +26,11 @@ const READERS = {
 	atoms: () => currenciesManager.getAmount(CurrenciesTypes.ATOMS),
 	atomsPerSecond: () => gameManager.atomsPerSecond,
 	boostPointsUsed: () => gameManager.boostPointsUsed,
+	discoveries: () => cosmosManager.discovered.length,
 	electronizes: () => gameManager.totalElectronizesAllTime,
 	electrons: () => currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
 	excitedPhotons: () => currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
+	instruments: () => cosmosManager.instruments.length,
 	ionizes: () => gameManager.totalIonizesAllTime,
 	photonUpgradeLevels: () => gameManager.photonUpgradeLevels,
 	playerLevel: () => gameManager.playerLevel,
@@ -85,6 +88,10 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('electronizes', 1, 'first_electronize', '1st Electronize', 'First Electronize', true),
 	at('electrons', 100, 'electrons_100', '100 Electrons', 'Earned 100 Electrons'),
 	at('ionizes', 1, 'first_ionize', '1st Ionize', 'First Ionize', true),
+	at('discoveries', 1, 'cosmos_first', '1st discovery', 'First Cosmos discovery'),
+	at('discoveries', 6, 'cosmos_naked_eye', 'Naked eye sky', 'Every naked eye planet discovered'),
+	at('instruments', 1, 'cosmos_refractor', 'Refractor', "Bought Galileo's refractor"),
+	at('discoveries', 12, 'cosmos_refractor_sky', 'Refractor sky', 'Every refractor object discovered'),
 
 	feature(FeatureTypes.LEVELS, 'Skill Tree & Levels'),
 	feature(FeatureTypes.PURPLE_REALM, 'Photon Realm'),

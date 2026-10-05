@@ -25,7 +25,7 @@ export const statsConfig = {
 	balanceVersion: { defaultValue: 0, layer: LAYERS.SPECIAL },
 	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER },
 	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
-	cosmos: { defaultValue: { discovered: [], instruments: [], studies: {} } satisfies CosmosState, layer: LAYERS.NEVER },
+	cosmos: { defaultValue: { aperture: 0, discovered: [], instruments: [], research: null, studies: {} } satisfies CosmosState, layer: LAYERS.NEVER },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER }, // Handled by CurrenciesManager
 	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	dailyStats: {

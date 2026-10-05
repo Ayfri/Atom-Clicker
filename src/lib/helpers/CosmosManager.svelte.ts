@@ -1,4 +1,7 @@
 import {
+	APERTURE_STEP,
+	APERTURE_WIDEN_MS,
+	apertureCost,
 	COSMOS_INSTRUMENTS,
 	COSMOS_OBJECTS,
 	COSMOS_OBJECTS_BY_ID,
@@ -15,9 +18,15 @@ import type { CosmosState, EffectSource } from '#lib/types.js';
 
 /** The sky above the realms: discovered objects radiate Starlight and boost the rest of the game, all kept through every prestige. */
 class CosmosManager {
+	/** Aperture levels, each one pushes every instrument's limit `APERTURE_STEP` magnitudes fainter. */
+	aperture = $state(0);
 	discovered = $state.raw<string[]>([]);
 	instruments = $state.raw<string[]>([]);
+	/** Instrument paid for and still being built, owned once `leftMs` runs out. */
+	research = $state.raw<CosmosState['research']>(null);
 	studies = $state.raw<Record<string, number>>({});
+	/** Time left before the paid Aperture level counts, 0 when none is widening. */
+	wideningMs = $state(0);
 
 	/** The first Ionize opens the Cosmos, and every Ionize after it raises Starlight. */
 	unlocked = $derived(radiationManager.ionizes > 0);
@@ -30,6 +39,18 @@ class CosmosManager {
 		return next && this.ownsEra(next.era) ? next : null;
 	});
 
+	/** Faintest magnitude the best owned instrument reaches. */
+	limit = $derived(
+		Math.max(...COSMOS_INSTRUMENTS.filter(instrument => instrument.cost === 0 || this.instruments.includes(instrument.id)).map(instrument => instrument.limit)) +
+			APERTURE_STEP * this.aperture,
+	);
+
+	/** The next object is bright enough for the instrument, its signal can be observed. */
+	canObserve = $derived(this.nextDiscovery !== null && this.nextDiscovery.magnitude <= this.limit);
+
+	nextApertureCost = $derived(apertureCost(this.aperture));
+
+	/** The instrument being built, else the next one to buy. */
 	nextInstrument = $derived(COSMOS_INSTRUMENTS.find(instrument => instrument.cost > 0 && !this.instruments.includes(instrument.id)) ?? null);
 
 	starlightMultiplier = $derived(ionizeStarlightMultiplier(radiationManager.ionizes));
@@ -61,7 +82,7 @@ class CosmosManager {
 	}
 
 	discover(objectId: string): boolean {
-		if (this.nextDiscovery?.id !== objectId) return false;
+		if (!this.canObserve || this.nextDiscovery?.id !== objectId) return false;
 		this.discovered = [...this.discovered, objectId];
 		return true;
 	}
@@ -74,12 +95,40 @@ class CosmosManager {
 		return this.baseStarlight * ionizeStarlightMultiplier(ionizes) * IONIZE_FLASH_SECONDS * (peakCpm / ionizeCpm) ** 2;
 	}
 
+	/** Pays for the next Aperture level, which counts once it has widened for `APERTURE_WIDEN_MS`. */
+	purchaseAperture(): boolean {
+		const cost = this.nextApertureCost;
+		if (!this.unlocked || this.wideningMs > 0 || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < cost) return false;
+		currenciesManager.remove(CurrenciesTypes.STARLIGHT, cost);
+		this.wideningMs = APERTURE_WIDEN_MS;
+		return true;
+	}
+
+	/** Pays for the next instrument, which is owned once its research time has passed. */
 	purchaseInstrument(instrumentId: string): boolean {
 		const instrument = this.nextInstrument;
-		if (!this.unlocked || instrument?.id !== instrumentId || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < instrument.cost) return false;
+		if (!this.unlocked || this.research || instrument?.id !== instrumentId || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < instrument.cost)
+			return false;
 		currenciesManager.remove(CurrenciesTypes.STARLIGHT, instrument.cost);
-		this.instruments = [...this.instruments, instrumentId];
+		this.research = { id: instrumentId, leftMs: instrument.researchMs };
+		this.advance(0);
 		return true;
+	}
+
+	/** Online ticks and offline catch-up both widen the Aperture and build the instrument. */
+	advance(deltaMs: number) {
+		if (this.wideningMs > 0) {
+			this.wideningMs = Math.max(0, this.wideningMs - deltaMs);
+			if (this.wideningMs === 0) this.aperture++;
+		}
+		if (!this.research) return;
+		const leftMs = this.research.leftMs - deltaMs;
+		if (leftMs > 0) {
+			this.research = { id: this.research.id, leftMs };
+			return;
+		}
+		this.instruments = [...this.instruments, this.research.id];
+		this.research = null;
 	}
 
 	study(objectId: string): boolean {
@@ -95,16 +144,23 @@ class CosmosManager {
 
 	tick(deltaMs: number) {
 		if (this.starlightPerSecond > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, (this.starlightPerSecond * deltaMs) / 1000);
+		this.advance(deltaMs);
 	}
 
+	/** A level still widening is saved as done, a reload only skips its last seconds. */
 	getState(): CosmosState {
-		return { discovered: this.discovered, instruments: this.instruments, studies: this.studies };
+		return { aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0), discovered: this.discovered, instruments: this.instruments, research: this.research, studies: this.studies };
 	}
 
 	/** Unknown ids from a tampered or future save are dropped, they would otherwise count toward the boosts. */
 	loadState(state: CosmosState) {
+		this.aperture = Number.isInteger(state.aperture) && state.aperture > 0 ? state.aperture : 0;
+		this.wideningMs = 0;
 		this.discovered = (state.discovered ?? []).filter(id => id in COSMOS_OBJECTS_BY_ID);
 		this.instruments = (state.instruments ?? []).filter(id => COSMOS_INSTRUMENTS.some(instrument => instrument.id === id));
+		const research = state.research;
+		const researched = COSMOS_INSTRUMENTS.find(instrument => instrument.id === research?.id && !this.instruments.includes(instrument.id));
+		this.research = research && researched ? { id: researched.id, leftMs: Math.min(Math.max(research.leftMs, 0), researched.researchMs) || 0 } : null;
 		this.studies = Object.fromEntries(Object.entries(state.studies ?? {}).filter(([id, level]) => id in COSMOS_OBJECTS_BY_ID && Number.isFinite(level) && level > 0));
 	}
 }

@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { realmManager, type RealmConfig } from '#helpers/RealmManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { mobile } from '#stores/window.svelte.js';
 	import Currency from '#components/ui/Currency.svelte';
+	import { Telescope } from '@lucide/svelte';
 
 	const WARP_STREAKS = [
 		{ delay: 0, top: 14, width: 28 },
@@ -26,6 +29,7 @@
 
 	const realms = $derived(realmManager.availableRealms);
 	const selectedIndex = $derived(realmManager.selectedIndex);
+	const starlight = $derived(formatNumber(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT)));
 
 	/** One-shot overlay of a player-triggered switch, a new `id` remounts it so back-to-back switches restart it. */
 	let warp = $state<{ color: string; direction: 1 | -1; id: number } | null>(null);
@@ -100,14 +104,36 @@
 	<div
 		class={vertical ?
 			'pointer-events-none fixed right-4 top-[calc(var(--banner-height)+5rem)] z-30 rounded-xl border border-white/10 bg-accent-950/80 p-1'
-		:	'fixed inset-x-0 bottom-(--mobile-dock-height) z-40 h-(--realm-bar-height) border-t border-white/10 bg-accent-950/95 px-2 py-1'}
+		:	'fixed inset-x-0 bottom-(--mobile-dock-height) z-40 flex h-(--realm-bar-height) border-t border-white/10 bg-accent-950/95 px-2 py-1'}
 		id={vertical ? undefined : 'realm-bar'}
 		in:reveal={{ y: 0 }}
 	>
+		<!-- Outside the tablist: the Cosmos opens above the selected realm instead of replacing it. -->
+		{#if cosmosManager.unlocked}
+			<button
+				class={[
+					'group flex min-w-0 shrink-0 items-center gap-2 rounded-lg transition-colors hover:bg-white/5',
+					vertical ? 'pointer-events-auto mb-1 w-full border-b border-white/10 px-2.5 py-2' : 'h-full border-r border-white/10 px-2',
+				]}
+				id="cosmos-entry"
+				in:reveal
+				onclick={() => (realmManager.cosmosOpen = true)}
+				title="Cosmos"
+			>
+				<Telescope
+					class="shrink-0 text-[#cfe8ff] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110"
+					size={vertical ? 22 : 20}
+				/>
+				<span class={['min-w-0 flex-col items-start leading-tight', vertical ? 'flex w-18' : 'hidden min-[400px]:flex w-14']}>
+					<span class="max-w-full truncate text-sm font-semibold tabular-nums text-white/65 group-hover:text-white/90">{starlight}</span>
+					<span class="max-w-full truncate text-[0.65rem] text-white/35">Cosmos</span>
+				</span>
+			</button>
+		{/if}
 		<div
 			aria-orientation={vertical ? 'vertical' : 'horizontal'}
 			bind:this={track}
-			class={['relative', vertical ? 'grid auto-rows-fr' : 'flex h-full touch-none']}
+			class={['relative', vertical ? 'grid auto-rows-fr' : 'flex h-full min-w-0 flex-1 touch-none']}
 			onclickcapture={swallowDragClick}
 			onpointercancel={endDrag}
 			onpointerdown={startDrag}

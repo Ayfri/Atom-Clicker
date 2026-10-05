@@ -1,4 +1,5 @@
 import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import type { Currency } from '#lib/types.js';
@@ -17,6 +18,8 @@ export interface RealmConfig {
 }
 
 class RealmManager {
+	/** The Cosmos is a view above the realms, opened from any of them, the selected realm stays underneath. */
+	cosmosOpen = $state(false);
 	selectedRealmId = $state<RealmType>(RealmTypes.ATOMS);
 
 	realms: RealmConfig[] = [
@@ -55,6 +58,11 @@ class RealmManager {
 
 	get selectedIndex() {
 		return this.availableRealms.findIndex(r => r.id === this.selectedRealmId);
+	}
+
+	/** What fills the screen, which scopes the hints. */
+	get view(): RealmType | 'cosmos' {
+		return this.cosmosOpen && cosmosManager.unlocked ? 'cosmos' : this.selectedRealmId;
 	}
 
 	get selectedRealm() {

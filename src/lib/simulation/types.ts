@@ -126,6 +126,7 @@ export interface SimulationSnapshot {
 export type SimulationActionType =
 	| 'achievement'
 	| 'chromatic_upgrade'
+	| 'cosmos'
 	| 'currency_boost'
 	| 'generator'
 	| 'electronize'

@@ -48,6 +48,14 @@
 
 	const selectedIndex = $derived(realmManager.selectedIndex);
 
+	/** A reload of the tab reopens the Cosmos if it was open. */
+	const COSMOS_OPEN_KEY = 'cosmos-open';
+	realmManager.cosmosOpen = sessionStorage.getItem(COSMOS_OPEN_KEY) !== null;
+	$effect(() => {
+		if (realmManager.cosmosOpen) sessionStorage.setItem(COSMOS_OPEN_KEY, '1');
+		else sessionStorage.removeItem(COSMOS_OPEN_KEY);
+	});
+
 	autoBuyManager.init();
 	autoUpgradeManager.init();
 
@@ -276,6 +284,13 @@
 				</div>
 			</div>
 		{/each}
+
+		{#if realmManager.view === 'cosmos'}
+			<!-- Its chunk and Three.js only load once the player opens it. -->
+			{#await import('#components/cosmos/Cosmos.svelte') then { default: Cosmos }}
+				<Cosmos />
+			{/await}
+		{/if}
 
 		{#if saveRecovery.hasError}
 			<SaveRecovery onClose={() => saveRecovery.clearError()} />

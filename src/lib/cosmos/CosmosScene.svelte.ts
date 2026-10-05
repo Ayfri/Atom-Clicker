@@ -93,6 +93,8 @@ interface CosmosOptions {
 	/** Object to start on, skipping the intro, so a reload lands back where the player was. */
 	focus?: string;
 	hud: CosmosHud;
+	/** Starting sky, see `setSight`. */
+	sight: number;
 	/** Surfaces drawn from their shaders instead of their baked maps, to see edits without baking. */
 	live?: readonly string[];
 	/** Called once the signal is fully resolved, as the object starts condensing. */
@@ -127,7 +129,7 @@ const SKY_DISTANCE = 1800;
 const EARTH_YEAR = 720;
 const EARTH_DAY = 40;
 const AXIAL_TILT = 0.41;
-/** Refractor-era objects are too faint to resolve with a wider field of view, the player has to zoom in on them. */
+/** Objects past the naked eye era are too faint to resolve with a wider field of view, the player has to zoom in on them. */
 const REFRACTOR_FOV = 25;
 /** Smallest angle between a target and the Sun, closer ones are waited out so the player never observes into the glare. */
 const MIN_ELONGATION = 35 * MathUtils.DEG2RAD;
@@ -645,9 +647,10 @@ function milkyWay() {
 		.add(color('#4a4552').mul(coreGlow).mul(0.12));
 }
 
-function milkyWayDome(albedo: Node<'vec3'>) {
+/** The Milky Way rises out of the dark in the second half of the sight. */
+function milkyWayDome(albedo: Node<'vec3'>, sight: Node<'float'>) {
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide });
-	material.colorNode = albedo;
+	material.colorNode = albedo.mul(smoothstep(0.3, 1, sight));
 	const sky = new Mesh(new SphereGeometry(SKY_DISTANCE, 64, 32), material);
 	sky.renderOrder = -1;
 	return sky;
@@ -669,6 +672,21 @@ function glowSprite(tint: string, falloff: number, strength: number) {
 	return new Sprite(material);
 }
 
+/** Pulsing light on the Earth where an instrument is being built, it rotates with the planet and hides behind it. */
+function beaconSprite() {
+	const distance = length(uv().sub(0.5)).mul(2);
+	const phase = fract(time.mul(0.8));
+	const ring = invert(smoothstep(0, 0.1, abs(distance.sub(phase)))).mul(invert(phase));
+	const core = pow(saturate(invert(distance)), 8).mul(sin(time.mul(4)).mul(0.4).add(1));
+	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
+	material.colorNode = color('#ffd27a').mul(core.mul(2.5).add(ring));
+	const sprite = new Sprite(material);
+	sprite.position.setFromSphericalCoords(EARTH_RADIUS * 1.03, 45 * MathUtils.DEG2RAD, 0);
+	sprite.scale.setScalar(EARTH_RADIUS * 0.6);
+	sprite.visible = false;
+	return sprite;
+}
+
 function signalSprite() {
 	const distance = length(uv().sub(0.5)).mul(2);
 	const phase = fract(time.mul(0.5));
@@ -682,7 +700,8 @@ function signalSprite() {
 }
 
 /** A Milky Way band plus a uniform field, one instanced sprite draw call for every star. */
-function starField() {
+/** `sight` runs from 0, only the brightest stars, to 1, the whole field. */
+function starField(sight: Node<'float'>) {
 	const data = new Float32Array(STAR_COUNT * 4);
 	const tints = new Float32Array(STAR_COUNT * 3);
 	const palette = [
@@ -715,7 +734,9 @@ function starField() {
 	const material = new PointsNodeMaterial({ blending: AdditiveBlending, depthWrite: false, sizeAttenuation: false, transparent: true });
 	material.positionNode = star.xyz;
 	material.sizeNode = star.w.mul(mix(1.8, 6, sparkle));
-	material.colorNode = tint.mul(twinkle).mul(star.w.mul(0.3).add(0.35));
+	/** A star shows once the sight reaches its brightness: the brightest ~8% from the start, the faint majority last. */
+	const seen = smoothstep(mix(2.5, 0.7, sight), mix(2.8, 1, sight), star.w);
+	material.colorNode = tint.mul(twinkle).mul(star.w.mul(0.3).add(0.35)).mul(seen);
 	material.opacityNode = max(disc,ray(offset.x, offset.y).add(ray(offset.y, offset.x)).mul(sparkle));
 	const stars = new Sprite(material);
 	stars.count = STAR_COUNT;
@@ -862,6 +883,14 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 'locked',
 		surface: moonSurface,
 	},
+	neptune: {
+		...solarOrbit(30.07, 164.8, 5.1, 1.8),
+		build: globe(planet(3.88), BANDED_RIM('#9fbcff'), 80),
+		radius: planet(3.88),
+		spin: 11,
+		surface: () => bandedSurface(['#4a7fe6', '#2f58bd', '#6f9cf0'], 3, 0.3),
+		tilt: 28.3 * MathUtils.DEG2RAD,
+	},
 	saturn: {
 		...solarOrbit(9.537, 29.46, 0, 2.5),
 		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, () => vec3(ringShadow().mul(eclipse(['titan'])))),
@@ -899,6 +928,15 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		radius: planet(0.404),
 		spin: 'locked',
 		surface: () => bandedSurface(['#e0a64a', '#c27f2e', '#ebbd6a'], 3, 0.2),
+	},
+	/** Rolls on its side: its 98° tilt points one pole at the Sun for decades at a time. */
+	uranus: {
+		...solarOrbit(19.19, 84.01, 3.2, 0.8),
+		build: globe(planet(4.01), BANDED_RIM('#d6f6f8'), 80),
+		radius: planet(4.01),
+		spin: -12,
+		surface: () => bandedSurface(['#a8e2e8', '#8ccfd8', '#c4eef1'], 2, 0.08),
+		tilt: 97.8 * MathUtils.DEG2RAD,
 	},
 	venus: {
 		...solarOrbit(0.723, 0.615, 4, 3.4),
@@ -1057,9 +1095,10 @@ export class CosmosScene {
 	quality = $state<CosmosQuality>('high');
 	/** Id of the object of the last discovery, shown by the discovery card. */
 	revealed = $state<string | null>(null);
-	/** Object whose info panel is open, the page clears it to close the panel. */
+	/** Object whose info panel is open, the view clears it to close the panel. */
 	selected = $state<string | null>(null);
 
+	readonly #beacon = beaconSprite();
 	readonly #atmosphere = new Mesh(new SphereGeometry(EARTH_RADIUS * 1.04, 96, 64), atmosphereMaterial());
 	readonly #bodies = new Map<string, Body>();
 	readonly #corona = coronaSprite();
@@ -1078,7 +1117,10 @@ export class CosmosScene {
 	readonly #scene = new Scene();
 	readonly #signal = signalSprite();
 	readonly #sky: Mesh;
-	readonly #stars = starField();
+	/** How much of the sky the instrument shows, eased toward `#sightGoal` so a wider aperture visibly fills it with stars. */
+	readonly #sight = uniform(0);
+	#sightGoal = 0;
+	readonly #stars = starField(this.#sight);
 
 	readonly #withBloom: Node;
 	readonly #withoutBloom: Node;
@@ -1099,6 +1141,7 @@ export class CosmosScene {
 	#fpsTime = 0;
 	#lastFocus = new Vector3();
 	#lastTime = 0;
+	#paused = false;
 	#pitch = 0;
 	/** Where a pointer went down outside observation, a release close to it is a click. */
 	#press: { x: number; y: number } | null = null;
@@ -1112,7 +1155,8 @@ export class CosmosScene {
 	#warp: { from: number; to: number } | null = null;
 	#yaw = 0;
 
-	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, { discovered, focus, hud, onDiscover }: CosmosOptions, maps: Map<string, Texture>) {
+	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, { discovered, focus, hud, onDiscover, sight }: CosmosOptions, maps: Map<string, Texture>) {
+		this.#sight.value = this.#sightGoal = sight;
 		/** A baked map is a single texture read, its live shader stacks dozens of noise octaves that take seconds to compile. */
 		const albedo = (id: string) => {
 			const map = maps.get(id);
@@ -1130,11 +1174,12 @@ export class CosmosScene {
 		this.#renderer = renderer;
 		this.backend = 'isWebGPUBackend' in renderer.backend ? 'WebGPU' : 'WebGL 2';
 
-		this.#sky = milkyWayDome(albedo('sky'));
+		this.#sky = milkyWayDome(albedo('sky'), this.#sight);
 		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial(maps.get('sun') ?? null));
 		const tilt = new Group();
 		tilt.rotation.z = AXIAL_TILT;
 		tilt.add(this.#earth, this.#clouds, this.#atmosphere);
+		this.#earth.add(this.#beacon);
 		this.#earthSystem.add(tilt);
 		this.#signal.visible = false;
 
@@ -1418,6 +1463,16 @@ export class CosmosScene {
 		this.#flyTo(() => this.#overviewPosition(), () => this.#earthSystem.position, 50, 4.5, () => this.#enterOverview());
 	}
 
+	/** Eases the sky toward `sight`, 0 shows only the brightest stars, 1 the whole field and the Milky Way. */
+	setSight(sight: number) {
+		this.#sightGoal = sight;
+	}
+
+	/** Lights the beacon on the Earth while an instrument is being built. */
+	setBuilding(building: boolean) {
+		this.#beacon.visible = building;
+	}
+
 	/** Low drops bloom, the Milky Way dome, the clouds, the atmosphere shell and the corona, and keeps a quarter of the stars. */
 	setQuality(quality: CosmosQuality) {
 		const high = quality === 'high';
@@ -1537,9 +1592,12 @@ export class CosmosScene {
 	/** Renders one frame with every hidden body drawn at a near-zero scale, so a discovery never stalls on compiling its shader. */
 	#compileHidden() {
 		const hidden = [...this.#bodies.values()].filter(body => !body.group.visible);
+		const beacon = this.#beacon.visible;
 		for (const body of hidden) body.group.visible = true;
+		this.#beacon.visible = true;
 		this.#pipeline.render();
 		for (const body of hidden) body.group.visible = false;
+		this.#beacon.visible = beacon;
 	}
 
 	#direction(yaw: number, pitch: number) {
@@ -1580,6 +1638,7 @@ export class CosmosScene {
 		this.#lastTime = now;
 		this.#simTime += dt;
 		this.#placeBodies();
+		this.#sight.value += (this.#sightGoal - this.#sight.value) * Math.min(1, dt * 1.2);
 
 		if (this.#flight) this.#updateFlight(dt);
 		else if (this.mode === 'overview' || this.mode === 'discovery') this.#updateOverview(dt);
@@ -1681,9 +1740,16 @@ export class CosmosScene {
 
 	#onVisibility = () => {
 		if (this.#held) return;
-		if (document.hidden) this.#renderer.setAnimationLoop(null);
+		if (document.hidden || this.#paused) this.#renderer.setAnimationLoop(null);
 		else this.#start();
 	};
+
+	/** Stops the render loop while something covers the view, like a modal. */
+	setPaused(paused: boolean) {
+		if (paused === this.#paused) return;
+		this.#paused = paused;
+		this.#onVisibility();
+	}
 
 	/** Registered on the capture phase so it stops OrbitControls' own wheel handler, which jumps a whole step per notch. */
 	#onWheel = (event: WheelEvent) => {
@@ -1782,7 +1848,7 @@ export class CosmosScene {
 		const x = (projected.x * this.#canvas.clientWidth) / 2;
 		const y = (-projected.y * this.#canvas.clientHeight) / 2;
 		const inside = !behind && Math.hypot(x, y) < RETICLE_RADIUS;
-		const faint = inside && target.object.era === 'refractor' && this.#camera.fov > REFRACTOR_FOV;
+		const faint = inside && target.object.era !== 'naked_eye' && this.#camera.fov > REFRACTOR_FOV;
 		if (faint !== this.faint) this.faint = faint;
 		/** Zooming in resolves faster but makes the drift carry the signal out of the reticle sooner. */
 		const rate = 0.1 * (55 / this.#camera.fov);

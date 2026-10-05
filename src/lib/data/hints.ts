@@ -5,6 +5,7 @@ import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -15,14 +16,16 @@ import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 import { ui } from '#stores/ui.svelte.js';
 
+type HintScope = RealmType | 'cosmos';
+
 export interface Hint {
 	/** The action that teaches the hint, it is marked seen as soon as this holds, even if it was never displayed. Without it the hint shows a "Got it" button. */
 	done?: () => boolean;
 	/** `realm:name`, the realm prefix also scopes the replay buttons. */
 	id: string;
 	placement?: TooltipPosition;
-	/** Only shown while this realm is selected. */
-	realm: RealmType;
+	/** Only shown while this realm, or the Cosmos above them, fills the screen. */
+	realm: HintScope;
 	/** Draws a circular halo instead of a rounded rectangle around the target. */
 	round?: boolean;
 	/** When the hint becomes relevant. */
@@ -225,5 +228,45 @@ export const HINTS: Hint[] = [
 		targets: ['#nav-ionize'],
 		text: 'The core is past the ionization line. Hold it there for a full minute, then Ionize here.',
 		title: 'Ionize',
+	},
+	{
+		done: () => realmManager.cosmosOpen,
+		id: 'radiation:cosmos',
+		placement: 'left',
+		realm: RealmTypes.RADIATION,
+		show: () => cosmosManager.unlocked,
+		targets: ['#cosmos-entry'],
+		text: 'Your first Ionize lit up the sky above the realms. Look up into the Cosmos from here, whatever realm you are in.',
+		title: 'The Cosmos',
+	},
+	{
+		done: () => cosmosManager.discovered.length > 0,
+		id: 'cosmos:observe',
+		placement: 'top',
+		realm: 'cosmos',
+		round: true,
+		targets: ['[data-hint="cosmos-reticle"]'],
+		text: 'Drag the sky to keep the signal inside the reticle until its ring fills.',
+		title: 'Observe',
+	},
+	{
+		done: () => Object.keys(cosmosManager.studies).length > 0,
+		id: 'cosmos:study',
+		placement: 'top',
+		realm: 'cosmos',
+		show: () => cosmosManager.discovered.length > 0,
+		targets: ['[data-hint="cosmos-study"]', '[data-hint="cosmos-sky"]'],
+		text: 'Every object in your sky radiates Starlight. Study one to raise its Starlight and its boost to the realms.',
+		title: 'Study',
+	},
+	{
+		done: () => cosmosManager.instruments.length > 0,
+		id: 'cosmos:instrument',
+		placement: 'top',
+		realm: 'cosmos',
+		show: () => cosmosManager.nextInstrument !== null && currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
+		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
+		text: 'A better instrument reveals a new batch of the sky, and a new way to observe it.',
+		title: 'Instruments',
 	},
 ];

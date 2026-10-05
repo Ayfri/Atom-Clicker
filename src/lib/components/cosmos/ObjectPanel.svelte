@@ -65,6 +65,7 @@
 	<div class="flex gap-2">
 		<button
 			class="flex flex-1 items-center justify-between gap-2 rounded-lg bg-accent-600 px-3 py-2 font-semibold text-white transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+			data-hint="cosmos-study"
 			disabled={!affordable || !cosmosManager.unlocked}
 			onclick={onStudy}
 		>

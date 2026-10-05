@@ -29,6 +29,8 @@
 			</label>
 			<button class={btn} onclick={() => tutorial.forget(`${realm}:`)}>Replay {hintCount} hints</button>
 		{/each}
+		<span>Cosmos</span>
+		<button class={btn} onclick={() => tutorial.forget('cosmos:')}>Replay {HINTS.filter(hint => hint.realm === 'cosmos').length} hints</button>
 		<label class="flex items-center gap-2">
 			<input checked={tutorial.state.enabled} class={checkbox} onchange={e => tutorial.setEnabled(e.currentTarget.checked)} type="checkbox" />
 			Tips enabled <span class="text-white/30">({tutorial.state.seen.length} seen)</span>

@@ -21,8 +21,8 @@
 
 	let { children }: Props = $props();
 
-	// The benchmark and cosmos routes are standalone dev tools, none of the in-game overlays belong there.
-	const isStandalone = $derived(['/benchmark', '/cosmos'].some(path => page.url.pathname.startsWith(path)));
+	// The benchmark route is a standalone dev tool, none of the in-game overlays belong there.
+	const isStandalone = $derived(page.url.pathname.startsWith('/benchmark'));
 
 	let mounted = $state(false);
 	let updatePromptShown = false;
