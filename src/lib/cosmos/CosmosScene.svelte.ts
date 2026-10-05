@@ -74,6 +74,7 @@ import {
 	WebGPURenderer,
 } from 'three/webgpu';
 import { COSMOS_OBJECTS, type CosmosObject } from '#data/cosmos.js';
+import type { BenchOptions } from './CosmosBench.js';
 
 type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
 export type CosmosQuality = 'high' | 'low';
@@ -95,6 +96,8 @@ interface CosmosOptions {
 	live?: readonly string[];
 	/** Called once the signal is fully resolved, as the object starts condensing. */
 	onDiscover: (id: string) => void;
+	/** Records the GPU time of every render pass, which the benchmark reads. */
+	timestamps?: boolean;
 }
 
 interface Flight {
@@ -595,10 +598,19 @@ const GALILEAN_MOONS = ['io', 'europa', 'ganymede', 'callisto'];
 /** The Galilean moons go dark each time they pass behind Jupiter, how Rømer first measured the speed of light in 1676. */
 const jupiterShadow = () => vec3(eclipse(['jupiter']));
 
-function sunMaterial() {
-	const flow = mx_fractal_noise_float(surfacePoint.mul(2).add(vec3(0, time.mul(0.04), 0)), 3, 2, 0.5);
-	const blobs = invert(edge(0.22, mx_worley_noise_float(surfacePoint.mul(5).add(vec3(time.mul(0.05)))), 0.08));
-	const surface = mix(mix(color('#ffedc2'), color('#fffaea'), edge(0.1, flow, 0.15)), color('#ffd78c'), blobs.mul(0.4));
+/** The Sun's granulation flow and convection cells for the bake, as raw masks in the red and green channels. */
+const sunMasks = () =>
+	vec3(edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2), 3, 2, 0.5), 0.15), invert(edge(0.22, mx_worley_noise_float(surfacePoint.mul(5)), 0.08)), 0);
+
+/** `masks` reads the baked flow and cells, two reads drifting apart in longitude stand in for the live noise moving through the surface. */
+function sunMaterial(masks: Texture | null) {
+	const [flow, blobs] = masks
+		? [texture(masks, uv().add(vec2(time.mul(0.0015), 0))).r, texture(masks, uv().add(vec2(time.mul(-0.002), 0))).g]
+		: [
+				edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2).add(vec3(0, time.mul(0.04), 0)), 3, 2, 0.5), 0.15),
+				invert(edge(0.22, mx_worley_noise_float(surfacePoint.mul(5).add(vec3(time.mul(0.05)))), 0.08)),
+			];
+	const surface = mix(mix(color('#ffedc2'), color('#fffaea'), flow), color('#ffd78c'), blobs.mul(0.4));
 	const material = new MeshBasicNodeMaterial();
 	/** Near white with a warm limb, past ~2x the neutral tone mapping washes the disc out, the glow comes from the corona and bloom instead. */
 	material.colorNode = mix(surface, color('#ffb470'), smoothstep(0.55, 0.98, fresnel)).mul(1.7);
@@ -618,20 +630,23 @@ function coronaSprite() {
 	return sprite;
 }
 
-/** Faint Milky Way dome: a noisy band with dust lanes and a dim warm core, kept well below the stars so space stays dark. */
-function milkyWay(bandNormal: Vector3, core: Vector3) {
-	const direction = positionLocal.normalize();
-	const latitude = dot(direction, vec3(bandNormal.x, bandNormal.y, bandNormal.z));
+/** Faint Milky Way: a noisy band with dust lanes and a dim warm core, kept well below the stars so space stays dark. */
+function milkyWay() {
+	const latitude = dot(surfacePoint, vec3(GALAXY_NORMAL.x, GALAXY_NORMAL.y, GALAXY_NORMAL.z));
 	const band = exp(latitude.mul(latitude).mul(-48));
-	const clouds = mx_fractal_noise_float(direction.mul(4), 3, 2, 0.5).mul(0.5).add(0.6);
-	const dust = smoothstep(0, 0.3, mx_fractal_noise_float(direction.mul(8).add(4), 3, 2, 0.5)).mul(exp(latitude.mul(latitude).mul(-250)));
+	const clouds = mx_fractal_noise_float(surfacePoint.mul(4), 3, 2, 0.5).mul(0.5).add(0.6);
+	const dust = smoothstep(0, 0.3, mx_fractal_noise_float(surfacePoint.mul(8).add(4), 3, 2, 0.5)).mul(exp(latitude.mul(latitude).mul(-250)));
 	const density = saturate(band.mul(clouds).mul(invert(dust.mul(0.7))));
-	const coreGlow = pow(saturate(dot(direction, vec3(core.x, core.y, core.z))), 10).mul(band);
-	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide });
-	material.colorNode = mix(color('#17151f'), color('#3a3447'), density)
+	const coreGlow = pow(saturate(dot(surfacePoint, vec3(GALAXY_CORE.x, GALAXY_CORE.y, GALAXY_CORE.z))), 10).mul(band);
+	return mix(color('#17151f'), color('#3a3447'), density)
 		.mul(density)
 		.mul(0.36)
 		.add(color('#4a4552').mul(coreGlow).mul(0.12));
+}
+
+function milkyWayDome(albedo: Node<'vec3'>) {
+	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide });
+	material.colorNode = albedo;
 	const sky = new Mesh(new SphereGeometry(SKY_DISTANCE, 64, 32), material);
 	sky.renderOrder = -1;
 	return sky;
@@ -886,13 +901,19 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 /** Linear to sRGB, the exact piecewise curve an sRGB texture decodes. */
 const encodeSrgb = (linear: Node<'vec3'>) => mix(linear.mul(12.92), pow(linear, vec3(1 / 2.4)).mul(1.055).sub(0.055), step(0.0031308, linear));
 
-/** Every baked surface with its texture width (the height is half): the bodies, plus the Earth's day colors, masks and clouds. */
-export const BAKED_SURFACES: Record<string, { node: () => Node<'vec3'>; width: number }> = {
+/** Every baked surface with its texture width (the height is half): the bodies, the Earth's day colors, masks and clouds, the Sun and the sky. */
+export const BAKED_SURFACES: Record<string, { lossless?: boolean; node: () => Node<'vec3'>; width: number }> = {
 	clouds: { node: () => vec3(cloudCover()), width: 2048 },
 	earth: { node: () => earthSurface().day, width: 2048 },
 	earth_masks: { node: () => earthSurface().masks, width: 2048 },
+	/** Lossy WebP cut the faint gradients of the Milky Way into visible square blocks. */
+	sky: { lossless: true, node: milkyWay, width: 1024 },
+	sun: { node: sunMasks, width: 1024 },
 	...Object.fromEntries(Object.entries(BODY_LOOKS).flatMap(([id, { surface }]) => (surface ? [[id, { node: surface, width: 1024 }]] : []))),
 };
+
+/** Masks and covers stored as raw data, the color maps are sRGB. */
+const RAW_SURFACES = new Set(['clouds', 'earth_masks', 'sun']);
 
 /**
  * Loads every baked surface, the ones in `live` are left out and drawn from their shaders instead. A missing file (a body added
@@ -906,7 +927,7 @@ async function loadSurfaces(live: readonly string[]) {
 			.map(id =>
 				loader.loadAsync(`/cosmos/${id}.webp`).then(
 					map => {
-						map.colorSpace = id === 'earth_masks' || id === 'clouds' ? NoColorSpace : SRGBColorSpace;
+						map.colorSpace = RAW_SURFACES.has(id) ? NoColorSpace : SRGBColorSpace;
 						map.wrapS = RepeatWrapping;
 						map.anisotropy = 4;
 						return [id, map] as const;
@@ -988,6 +1009,23 @@ class Body {
 	}
 }
 
+/** Rendering switches the benchmark compares, `DEFAULT_TUNING` is what players get. */
+export interface CosmosTuning {
+	/** Size of the bloom buffers against the canvas, 0 turns bloom off. */
+	bloom: number;
+	/** The overview renders at 30 fps while the player isn't touching it. */
+	idleCap: boolean;
+	pixelRatio: number;
+}
+
+const DEFAULT_TUNING: CosmosTuning = { bloom: 0.5, idleCap: true, pixelRatio: 1.5 };
+
+export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'system';
+
+/** OrbitControls' damping keeps the view moving for about this long after the last input. */
+const INPUT_SETTLE = 1500;
+const IDLE_FRAME = 1000 / 30;
+
 /**
  * The sky of the Cosmos realm around the Earth: an observation mode where the player keeps a signal inside the telescope reticle,
  * then the discovered object condenses out of it and stays in the system.
@@ -1025,12 +1063,16 @@ export class CosmosScene {
 	readonly #resize: ResizeObserver;
 	readonly #scene = new Scene();
 	readonly #signal = signalSprite();
-	readonly #sky = milkyWay(GALAXY_NORMAL, GALAXY_CORE);
+	readonly #sky: Mesh;
 	readonly #stars = starField();
 	readonly #withBloom: Node;
 	readonly #withoutBloom: Node;
 
+	readonly #bloom: ReturnType<typeof bloom>;
 	readonly #clouds: Mesh;
+	#lastInput = 0;
+	#lastRender = 0;
+	#tuning: CosmosTuning = { ...DEFAULT_TUNING, pixelRatio: Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio) };
 	/** Wheel zoom eases toward these goals every frame instead of jumping a whole step per notch. */
 	#distanceGoal: number | null = null;
 	#flight: Flight | null = null;
@@ -1070,7 +1112,8 @@ export class CosmosScene {
 		this.#renderer = renderer;
 		this.backend = 'isWebGPUBackend' in renderer.backend ? 'WebGPU' : 'WebGL 2';
 
-		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial());
+		this.#sky = milkyWayDome(albedo('sky'));
+		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial(maps.get('sun') ?? null));
 		const tilt = new Group();
 		tilt.rotation.z = AXIAL_TILT;
 		tilt.add(this.#earth, this.#clouds, this.#atmosphere);
@@ -1091,8 +1134,9 @@ export class CosmosScene {
 		this.#scene.add(this.#sky, this.#stars, this.#signal);
 
 		const sceneColor = pass(this.#scene, this.#camera).getTextureNode('output');
+		this.#bloom = bloom(sceneColor, 0.65, 0.3, 1);
 		this.#withoutBloom = sceneColor;
-		this.#withBloom = sceneColor.add(bloom(sceneColor, 0.65, 0.3, 1));
+		this.#withBloom = sceneColor.add(this.#bloom);
 		this.#pipeline = new RenderPipeline(renderer, this.#withBloom);
 
 		this.#controls = new OrbitControls(this.#camera, canvas);
@@ -1122,14 +1166,24 @@ export class CosmosScene {
 		} else this.replayIntro();
 	}
 
+	/** Startup phases land in the performance timeline as `cosmos:*` measures, the startup benchmark reads them. */
 	static async create(canvas: HTMLCanvasElement, options: CosmosOptions) {
-		const renderer = new WebGPURenderer({ antialias: true, canvas });
+		const start = performance.now();
+		const renderer = new WebGPURenderer({ antialias: true, canvas, trackTimestamp: options.timestamps });
 		/** Neutral keeps the flat cartoon colors as picked, ACES shifted them toward brown and desaturated the highlights. */
 		renderer.toneMapping = NeutralToneMapping;
-		renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-		const [maps] = await Promise.all([loadSurfaces(options.live ?? []), renderer.init()]);
+		renderer.setPixelRatio(Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio));
+		const [maps] = await Promise.all([
+			loadSurfaces(options.live ?? []).finally(() => performance.measure('cosmos:textures', { start })),
+			renderer.init().finally(() => performance.measure('cosmos:device', { start })),
+		]);
+		const building = performance.now();
 		const scene = new CosmosScene(canvas, renderer, options, maps);
+		const compiling = performance.now();
 		scene.#compileHidden();
+		performance.measure('cosmos:build', { end: compiling, start: building });
+		performance.measure('cosmos:compile', { start: compiling });
+		performance.measure('cosmos:ready', { start });
 		scene.#start();
 		return scene;
 	}
@@ -1175,13 +1229,13 @@ export class CosmosScene {
 		const camera = new PerspectiveCamera();
 		const sphereGeometry = new SphereGeometry(1, 512, 256);
 		const baked: { blob: Blob; id: string }[] = [];
-		for (const [id, { node, width }] of Object.entries(BAKED_SURFACES)) {
+		for (const [id, { lossless, node, width }] of Object.entries(BAKED_SURFACES)) {
 			const height = width / 2;
 			const target = new RenderTarget(width, height);
 			const material = new MeshBasicNodeMaterial({ depthTest: false, depthWrite: false, side: DoubleSide });
 			material.vertexNode = vec4(uv().mul(2).sub(1), 0, 1);
 			/** Colors are stored in sRGB to keep 8 bits of precision in the darks, masks and cloud cover are raw data. */
-			material.colorNode = id === 'earth_masks' || id === 'clouds' ? node() : encodeSrgb(node());
+			material.colorNode = RAW_SURFACES.has(id) ? node() : encodeSrgb(node());
 			const mesh = new Mesh(sphereGeometry, material);
 			mesh.frustumCulled = false;
 			const scene = new Scene().add(mesh);
@@ -1191,12 +1245,97 @@ export class CosmosScene {
 			const pixels = (await this.#renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height)) as Uint8Array;
 			const canvas = new OffscreenCanvas(width, height);
 			canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0);
-			baked.push({ blob: await canvas.convertToBlob({ quality: 0.9, type: 'image/webp' }), id });
+			/** Chrome encodes a WebP at quality 1 losslessly. */
+			baked.push({ blob: await canvas.convertToBlob({ quality: lossless ? 1 : 0.9, type: 'image/webp' }), id });
 			material.dispose();
 			target.dispose();
 		}
 		sphereGeometry.dispose();
 		return baked;
+	}
+
+	/** Dev only: times every tuning variant on fixed views with the GPU's timestamps, see `CosmosBench.ts`. Needs `timestamps`. */
+	async bench(options?: Partial<BenchOptions>) {
+		if (this.mode !== 'overview') throw new Error('The benchmark starts from the overview.');
+		const { runBench } = await import('./CosmosBench.js');
+		const restore = this.#snapshot();
+		this.setQuality('high');
+		this.#renderer.setAnimationLoop(null);
+		try {
+			return await runBench(
+				{
+					defaults: DEFAULT_TUNING,
+					loop: on => (on ? this.#start() : this.#renderer.setAnimationLoop(null)),
+					render: () => this.#render(),
+					renderer: this.#renderer,
+					restore,
+					stage: scenario => this.#stage(scenario),
+					tune: tuning => this.tune(tuning),
+				},
+				options,
+			);
+		} finally {
+			restore();
+			this.#start();
+		}
+	}
+
+	/** Dev only: stops on a benchmark view, so screenshots of two variants show the exact same frame. A reload resumes. */
+	freeze(scenario: BenchScenario) {
+		this.#renderer.setAnimationLoop(null);
+		this.#stage(scenario);
+		this.#render();
+	}
+
+	/** Puts back everything `#stage` and the benchmark's tuning change. */
+	#snapshot() {
+		const bodies = [...this.#bodies.values()].map(body => ({ body, orbit: body.orbit?.visible ?? false, reveal: body.reveal.value, scale: body.mesh.scale.x, visible: body.group.visible }));
+		const { far, fov } = this.#camera;
+		const position = this.#camera.position.clone();
+		const quaternion = this.#camera.quaternion.clone();
+		const [quality, simTime, tuning] = [this.quality, this.#simTime, this.#tuning];
+		return () => {
+			for (const { body, orbit, reveal, scale, visible } of bodies) {
+				body.group.visible = visible;
+				body.mesh.scale.setScalar(scale);
+				body.reveal.value = reveal;
+				if (body.orbit) body.orbit.visible = orbit;
+			}
+			Object.assign(this.#camera, { far, fov });
+			this.#camera.position.copy(position);
+			this.#camera.quaternion.copy(quaternion);
+			this.#camera.updateProjectionMatrix();
+			this.#simTime = simTime;
+			this.#placeBodies();
+			this.setQuality(quality);
+			this.tune(tuning);
+		};
+	}
+
+	/** Every body in the sky, the clock frozen and the camera on a fixed view, so each variant renders the exact same frame. */
+	#stage(scenario: BenchScenario) {
+		for (const body of this.#bodies.values()) {
+			body.group.visible = true;
+			body.mesh.scale.setScalar(1);
+			body.reveal.value = 1;
+			if (body.orbit) body.orbit.visible = true;
+		}
+		this.#simTime = 100;
+		this.#placeBodies();
+		const views: Record<BenchScenario, () => [Vector3, Vector3]> = {
+			home: () => [this.#overviewPosition(), this.#earthSystem.position],
+			jupiter: () => [this.#viewpoint('jupiter'), this.#positionOf('jupiter')!],
+			saturn: () => [this.#viewpoint('saturn'), this.#positionOf('saturn')!],
+			sky: () => [this.#observerPosition(), this.#observerPosition().add(GALAXY_CORE)],
+			sun: () => [this.#viewpoint('sun'), ORIGIN],
+			system: () => [new Vector3(0, 1600, 2600), ORIGIN],
+		};
+		const [position, look] = views[scenario]();
+		this.#camera.fov = 50;
+		this.#camera.far = 4 * EARTH_ORBIT * 9.6 + SKY_DISTANCE;
+		this.#camera.position.copy(position);
+		this.#camera.lookAt(look);
+		this.#camera.updateProjectionMatrix();
 	}
 
 	/** Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. */
@@ -1264,8 +1403,14 @@ export class CosmosScene {
 		this.quality = quality;
 		this.#stars.count = high ? STAR_COUNT : STAR_COUNT / 4;
 		for (const object of [this.#atmosphere, this.#clouds, this.#sky]) object.visible = high;
+		this.tune({ pixelRatio: high ? Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio) : 1 });
+	}
+
+	tune(tuning: Partial<CosmosTuning>) {
+		this.#tuning = { ...this.#tuning, ...tuning };
+		if (this.#tuning.bloom) this.#bloom.setResolutionScale(this.#tuning.bloom);
+		this.#renderer.setPixelRatio(this.#tuning.pixelRatio);
 		this.#applyGlare();
-		this.#renderer.setPixelRatio(high ? Math.min(devicePixelRatio, 1.5) : 1);
 		this.#fit();
 	}
 
@@ -1273,7 +1418,7 @@ export class CosmosScene {
 	#applyGlare() {
 		const glare = this.quality === 'high' && this.mode !== 'observe';
 		this.#corona.visible = glare;
-		const output = glare ? this.#withBloom : this.#withoutBloom;
+		const output = glare && this.#tuning.bloom > 0 ? this.#withBloom : this.#withoutBloom;
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
 		this.#pipeline.needsUpdate = true;
@@ -1417,21 +1562,30 @@ export class CosmosScene {
 		if (this.#flight) this.#updateFlight(dt);
 		else if (this.mode === 'overview' || this.mode === 'discovery') this.#updateOverview(dt);
 		else if (this.mode === 'observe') this.#updateObserve(dt);
-		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
-		this.#stars.position.copy(this.#camera.position);
-		this.#sky.position.copy(this.#camera.position);
 		if (this.#revealing.length) {
 			for (const body of this.#revealing) body.updateReveal(dt);
 			this.#revealing = this.#revealing.filter(body => body.revealTime >= 0);
 		}
 
-		this.#pipeline.render();
+		/** A few ms of slack so a 60 Hz display renders every other frame instead of drifting between one and two. */
+		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && now - this.#lastInput > INPUT_SETTLE;
+		if (!idle || now - this.#lastRender >= IDLE_FRAME - 4) {
+			this.#lastRender = now;
+			this.#render();
+			this.#fpsFrames++;
+		}
 		this.#measure(dt);
 	};
 
-	/** Counts frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. */
+	#render() {
+		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
+		this.#stars.position.copy(this.#camera.position);
+		this.#sky.position.copy(this.#camera.position);
+		this.#pipeline.render();
+	}
+
+	/** Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. */
 	#measure(dt: number) {
-		this.#fpsFrames++;
 		this.#fpsTime += dt;
 		if (this.#fpsTime >= 1) {
 			this.fps = Math.round(this.#fpsFrames / this.#fpsTime);
@@ -1460,6 +1614,7 @@ export class CosmosScene {
 	#onPointerDown = (event: PointerEvent) => {
 		/** A touch pinch goes through OrbitControls, a pending wheel goal would fight it. */
 		this.#distanceGoal = null;
+		this.#lastInput = event.timeStamp;
 		if (this.mode !== 'observe') {
 			this.#press = { x: event.clientX, y: event.clientY };
 			return;
@@ -1468,6 +1623,7 @@ export class CosmosScene {
 	};
 
 	#onPointerMove = (event: PointerEvent) => {
+		if (event.buttons) this.#lastInput = event.timeStamp;
 		if (event.pointerType === 'mouse' && !event.buttons) {
 			const hovered = this.mode === 'overview' && !this.#flight && event.target === this.#canvas ? this.#objectAt(event.clientX, event.clientY) : null;
 			if (hovered !== this.hovered) this.hovered = hovered;
@@ -1509,6 +1665,7 @@ export class CosmosScene {
 	#onWheel = (event: WheelEvent) => {
 		event.preventDefault();
 		event.stopImmediatePropagation();
+		this.#lastInput = event.timeStamp;
 		const factor = Math.exp(event.deltaY * 0.0008);
 		if (this.mode === 'observe') this.#zoom(factor);
 		if (this.mode !== 'overview') return;

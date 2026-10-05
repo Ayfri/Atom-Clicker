@@ -46,17 +46,19 @@
 			gameManager.save();
 		};
 		const focus = sessionStorage.getItem(FOCUS_KEY) ?? undefined;
+		const startupBench = dev ? pendingStartupBench() : null;
 		/** While editing, the followed object is drawn from its shader so a change shows on reload without baking. The Earth is too slow to compile live. */
-		const live = dev && focus && focus !== 'earth' ? [focus] : [];
+		const live = startupBench ? startupBench.variants[startupVariant(startupBench)] : dev && focus && focus !== 'earth' ? [focus] : [];
 		let created: CosmosScene | null = null;
 		let disposed = false;
 		// Three.js is a ~280 KB gzip chunk, only fetched once this view mounts.
 		import('#lib/cosmos/CosmosScene.svelte.js')
-			.then(({ CosmosScene }) => CosmosScene.create(target, { discovered, focus, hud, live, onDiscover }))
+			.then(({ CosmosScene }) => CosmosScene.create(target, { discovered, focus, hud, live, onDiscover, timestamps: dev }))
 			.then(instance => {
 				if (disposed) return instance.dispose();
 				created = instance;
 				scene = instance;
+				if (dev) benchTools(instance);
 			})
 			.catch((error: unknown) => (failure = error instanceof Error ? error.message : String(error)));
 		return () => {
@@ -78,6 +80,52 @@
 		}, 1000);
 		return () => clearInterval(timer);
 	});
+
+	const STARTUP_BENCH_KEY = 'cosmos-startup-bench';
+
+	interface StartupBench {
+		left: number;
+		runs: { measures: Record<string, number>; variant: string }[];
+		/** Surfaces each variant draws from their shaders instead of their baked maps, the runs alternate between variants. */
+		variants: Record<string, string[]>;
+	}
+
+	const pendingStartupBench = () => JSON.parse(sessionStorage.getItem(STARTUP_BENCH_KEY) ?? 'null') as StartupBench | null;
+	const startupVariant = ({ runs, variants }: StartupBench) => Object.keys(variants)[runs.length % Object.keys(variants).length];
+
+	/**
+	 * Dev console tools: `cosmosScene.bench(options?)` times the rendering variants, `cosmosStartupBench(runs, variants?)` reloads the
+	 * page `runs` times alternating variants, and tables the mean of each `cosmos:*` startup measure. The first, cold run is left out.
+	 * @example cosmosStartupBench(21, { baked: [], live: ['sky', 'sun'] })
+	 */
+	function benchTools(instance: CosmosScene) {
+		const pending = pendingStartupBench();
+		if (pending) {
+			const measures = Object.fromEntries(performance.getEntriesByType('measure').flatMap(({ duration, name }) => (name.startsWith('cosmos:') ? [[name.slice(7), duration]] : [])));
+			pending.runs.push({ measures, variant: startupVariant(pending) });
+			if (--pending.left > 0) {
+				sessionStorage.setItem(STARTUP_BENCH_KEY, JSON.stringify(pending));
+				location.reload();
+				return;
+			}
+			sessionStorage.removeItem(STARTUP_BENCH_KEY);
+			const warm = pending.runs.slice(1);
+			const table = Object.keys(pending.variants).map(variant => {
+				const runs = warm.filter(run => run.variant === variant);
+				const means = Object.keys(runs[0]?.measures ?? {}).map(name => [name, Math.round(runs.reduce((sum, run) => sum + run.measures[name], 0) / runs.length)]);
+				return { runs: runs.length, variant, ...Object.fromEntries(means) };
+			});
+			console.table(table);
+			Object.assign(window, { cosmosStartupResult: { runs: pending.runs, table } });
+		}
+		Object.assign(window, {
+			cosmosScene: instance,
+			cosmosStartupBench: (runs = 10, variants: Record<string, string[]> = { current: [] }) => {
+				sessionStorage.setItem(STARTUP_BENCH_KEY, JSON.stringify({ left: runs, runs: [], variants } satisfies StartupBench));
+				location.reload();
+			},
+		});
+	}
 
 	let pointer = $state({ x: 0, y: 0 });
 	const hovered = $derived(scene?.hovered ? COSMOS_OBJECTS_BY_ID[scene.hovered] : null);
