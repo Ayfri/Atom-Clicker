@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dev } from '$app/env';
 	import { COSMOS_OBJECTS_BY_ID } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
@@ -7,9 +8,11 @@
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
+	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import { ChevronRight, RotateCcw, Telescope, X } from '@lucide/svelte';
+	import { ChevronRight, List, RotateCcw, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	interface Popup {
 		key: number;
@@ -17,6 +20,10 @@
 		x: number;
 		y: number;
 	}
+
+	/** The followed object survives reloads of the tab, the view reopens on it. */
+	const FOCUS_KEY = 'cosmos-focus';
+	const wide = new MediaQuery('(min-width: 768px)');
 
 	let arrow = $state<HTMLElement>();
 	let canvas = $state<HTMLCanvasElement>();
@@ -38,15 +45,19 @@
 			cosmosManager.discover(id);
 			gameManager.save();
 		};
+		const focus = sessionStorage.getItem(FOCUS_KEY) ?? undefined;
+		/** While editing, the followed object is drawn from its shader so a change shows on reload without baking. The Earth is too slow to compile live. */
+		const live = dev && focus && focus !== 'earth' ? [focus] : [];
 		let created: CosmosScene | null = null;
 		let disposed = false;
 		// Three.js is a ~280 KB gzip chunk, only fetched once this view mounts.
 		import('#lib/cosmos/CosmosScene.svelte.js')
-			.then(({ CosmosScene }) => CosmosScene.create(target, { discovered, hud, onDiscover }))
+			.then(({ CosmosScene }) => CosmosScene.create(target, { discovered, focus, hud, live, onDiscover }))
 			.then(instance => {
 				if (disposed) return instance.dispose();
 				created = instance;
-				scene = instance;			})
+				scene = instance;
+			})
 			.catch((error: unknown) => (failure = error instanceof Error ? error.message : String(error)));
 		return () => {
 			disposed = true;
@@ -78,8 +89,29 @@
 	const revealed = $derived(scene?.revealed ? COSMOS_OBJECTS_BY_ID[scene.revealed] : null);
 	const selected = $derived(mode === 'overview' ? scene?.selected : null);
 
-	function buyInstrument() {
-		if (instrument && cosmosManager.purchaseInstrument(instrument.id)) gameManager.save();
+	let skyOpen = $state(false);
+	let baking = $state(false);
+
+	/** Writes every surface map to `static/cosmos/` through the dev server, then reloads onto them. */
+	async function bake() {
+		if (!scene || baking) return;
+		baking = true;
+		for (const { blob, id } of await scene.bakeSurfaces()) await fetch(`/__cosmos-bake?id=${id}`, { body: blob, method: 'POST' });
+		location.reload();
+	}
+
+	$effect(() => {
+		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
+	});
+
+	function buyInstrument(id: string) {
+		if (cosmosManager.purchaseInstrument(id)) gameManager.save();
+	}
+
+	/** Phones have room for one sheet, the object's own panel replaces the list. */
+	function focusFromList(id: string) {
+		if (!wide.current) skyOpen = false;
+		scene?.focus(id);
 	}
 
 	function study(id: string) {
@@ -157,6 +189,26 @@
 		</div>
 		{#if scene}
 			<div class="pointer-events-auto flex gap-2">
+				{#if dev}
+					<button
+						class="rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-2 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800 disabled:opacity-40"
+						disabled={baking}
+						onclick={bake}
+					>
+						{baking ? 'Baking…' : 'Bake'}
+					</button>
+				{/if}
+				<button
+					class={[
+						'flex items-center gap-1.5 rounded-lg border border-accent-500/30 px-3 py-2 text-xs font-semibold backdrop-blur-xs transition-colors hover:bg-accent-800 disabled:opacity-40',
+						skyOpen ? 'bg-accent-600 text-white' : 'bg-accent-900/80 text-accent-300',
+					]}
+					disabled={mode !== 'overview'}
+					onclick={() => (skyOpen = !skyOpen)}
+				>
+					<List size={14} />
+					Sky
+				</button>
 				<button
 					class="rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-2 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800"
 					onclick={() => scene?.setQuality(scene.quality === 'high' ? 'low' : 'high')}
@@ -241,7 +293,19 @@
 	{:else if !scene}
 		<p class="absolute inset-x-0 top-1/2 text-center text-sm text-white/50">Loading the cosmos…</p>
 	{:else if mode === 'overview'}
-		{#if selected}
+		{#if skyOpen}
+			<div
+				class="absolute inset-x-3 bottom-3 flex max-h-[60dvh] flex-col pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-auto md:left-4 md:top-24 md:max-h-[calc(100dvh-8rem)] md:w-80"
+			>
+				<SkyPanel
+					onBuyInstrument={buyInstrument}
+					onClose={() => (skyOpen = false)}
+					onFocus={focusFromList}
+					onStudy={study}
+				/>
+			</div>
+		{/if}
+		{#if selected && (wide.current || !skyOpen)}
 			<div class="absolute inset-x-3 bottom-3 pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:right-4 md:top-20 md:bottom-auto md:w-80">
 				<ObjectPanel
 					id={selected}
@@ -253,8 +317,8 @@
 		{/if}
 		<div
 			class={[
-				'absolute inset-x-0 bottom-0 flex-col items-center gap-2 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]',
-				selected ? 'hidden md:flex' : 'flex',
+				'pointer-events-none absolute inset-x-0 bottom-0 flex-col items-center gap-2 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] *:pointer-events-auto',
+				selected || skyOpen ? 'hidden md:flex' : 'flex',
 			]}
 		>
 			{#if next}
@@ -270,7 +334,7 @@
 				<button
 					class="flex items-center gap-3 rounded-lg bg-accent-600 px-5 py-3 font-semibold text-white shadow-lg shadow-black/40 transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
 					disabled={starlight < instrument.cost}
-					onclick={buyInstrument}
+					onclick={() => buyInstrument(instrument.id)}
 				>
 					<Telescope size={18} />
 					{instrument.name}
