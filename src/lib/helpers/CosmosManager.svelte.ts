@@ -49,6 +49,13 @@ class CosmosManager {
 		return this.studies[objectId] ?? 0;
 	}
 
+	/** Starlight per second one object radiates, 0 until it is in the sky and the Cosmos is unlocked. */
+	starlightOf(objectId: string): number {
+		const object = COSMOS_OBJECTS_BY_ID[objectId];
+		if (!this.unlocked || !object || !this.objects.includes(object)) return 0;
+		return object.starlight * (1 + this.level(objectId)) * this.starlightMultiplier;
+	}
+
 	ownsEra(era: string): boolean {
 		return COSMOS_INSTRUMENTS.some(instrument => instrument.era === era && (instrument.cost === 0 || this.instruments.includes(instrument.id)));
 	}

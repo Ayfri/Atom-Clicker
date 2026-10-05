@@ -20,7 +20,7 @@ export interface CosmosInstrument {
 
 export interface CosmosObject {
 	/** Each study level and the discovery itself multiply `boost.stat` by `1 + boost.amount`, additively. */
-	boost: { amount: number; stat: EffectStat };
+	boost: { amount: number; label: string; stat: EffectStat };
 	color: string;
 	discoverer: string;
 	era: CosmosEra;
@@ -57,7 +57,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 /** In discovery order, which follows the history of astronomy. */
 export const COSMOS_OBJECTS: CosmosObject[] = [
 	{
-		boost: { amount: 0.25, stat: 'photon_value' },
+		boost: { amount: 0.25, label: 'photon value', stat: 'photon_value' },
 		color: '#ffb52e',
 		discoverer: 'Everyone',
 		era: CosmosEras.NAKED_EYE,
@@ -69,7 +69,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Prehistory',
 	},
 	{
-		boost: { amount: 0.1, stat: 'global' },
+		boost: { amount: 0.1, label: 'production', stat: 'global' },
 		color: '#4f8fd6',
 		discoverer: 'Everyone',
 		era: CosmosEras.NAKED_EYE,
@@ -81,7 +81,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Prehistory',
 	},
 	{
-		boost: { amount: 0.25, stat: 'click' },
+		boost: { amount: 0.25, label: 'click power', stat: 'click' },
 		color: '#c9ccd6',
 		discoverer: 'Prehistoric skywatchers',
 		era: CosmosEras.NAKED_EYE,
@@ -92,7 +92,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Prehistory',
 	},
 	{
-		boost: { amount: 0.25, stat: 'xp_gain' },
+		boost: { amount: 0.25, label: 'XP', stat: 'xp_gain' },
 		color: '#a39a90',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -103,7 +103,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.25, stat: 'power_up_duration' },
+		boost: { amount: 0.25, label: 'power-up duration', stat: 'power_up_duration' },
 		color: '#e8cf9a',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -114,7 +114,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.25, stat: 'proton_gain' },
+		boost: { amount: 0.25, label: 'Protons', stat: 'proton_gain' },
 		color: '#ffb08a',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -125,7 +125,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.1, stat: 'global' },
+		boost: { amount: 0.1, label: 'production', stat: 'global' },
 		color: '#d9a877',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -136,7 +136,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.25, stat: 'electron_gain' },
+		boost: { amount: 0.25, label: 'Electrons', stat: 'electron_gain' },
 		color: '#e6d39c',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -147,7 +147,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.25, stat: 'click' },
+		boost: { amount: 0.25, label: 'click power', stat: 'click' },
 		color: '#e8d46a',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -158,7 +158,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.25, stat: 'xp_gain' },
+		boost: { amount: 0.25, label: 'XP', stat: 'xp_gain' },
 		color: '#d8c8b0',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -169,7 +169,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.1, stat: 'global' },
+		boost: { amount: 0.1, label: 'production', stat: 'global' },
 		color: '#9c8f80',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -180,7 +180,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.25, stat: 'stability_capacity' },
+		boost: { amount: 0.25, label: 'Stability Field capacity', stat: 'stability_capacity' },
 		color: '#6f675e',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -191,7 +191,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.25, stat: 'photon_value' },
+		boost: { amount: 0.25, label: 'photon value', stat: 'photon_value' },
 		color: '#e0a64a',
 		discoverer: 'Christiaan Huygens',
 		era: CosmosEras.REFRACTOR,
@@ -202,7 +202,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1655',
 	},
 	{
-		boost: { amount: 0.25, stat: 'power_up_multiplier' },
+		boost: { amount: 0.25, label: 'power-up strength', stat: 'power_up_multiplier' },
 		color: '#d9cfb8',
 		discoverer: 'Christiaan Huygens',
 		era: CosmosEras.REFRACTOR,

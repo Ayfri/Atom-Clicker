@@ -37,6 +37,7 @@ import {
 	AdditiveBlending,
 	BackSide,
 	BufferGeometry,
+	DoubleSide,
 	Float32BufferAttribute,
 	Group,
 	InstancedBufferAttribute,
@@ -51,6 +52,7 @@ import {
 	PerspectiveCamera,
 	PointsNodeMaterial,
 	RenderPipeline,
+	RingGeometry,
 	Scene,
 	SphereGeometry,
 	Sprite,
@@ -58,15 +60,24 @@ import {
 	Vector3,
 	WebGPURenderer,
 } from 'three/webgpu';
+import { COSMOS_OBJECTS, type CosmosObject } from '#data/cosmos.js';
 
-export type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
+type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
 export type CosmosQuality = 'high' | 'low';
 
 interface CosmosHud {
 	/** Chevron at the screen edge pointing at the signal while it is outside the reticle. */
 	arrow: HTMLElement;
-	/** Scaled on X with the resolution, written directly because it changes every frame. */
+	/** Ring centered on the signal, filled through its `--progress` variable. Written directly because it changes every frame. */
 	progress: HTMLElement;
+}
+
+interface CosmosOptions {
+	/** Ids of the objects already in the sky, the others stay hidden until discovered. */
+	discovered: readonly string[];
+	hud: CosmosHud;
+	/** Called once the signal is fully resolved, as the object starts condensing. */
+	onDiscover: (id: string) => void;
 }
 
 interface Flight {
@@ -82,22 +93,29 @@ interface Flight {
 	toPosition: () => Vector3;
 }
 
-/** Real proportions for the planet sizes and the Mars/Earth orbit ratio, distances and the Sun are shrunk so all of it fits a screen. */
+/**
+ * Real ratios for the planet sizes, the planet orbits and the orbital periods. Moon distances and the Sun are shrunk so all of it
+ * fits a screen, the Sun stays a bit larger than Jupiter.
+ */
 const EARTH_RADIUS = 1.6;
 const EARTH_ORBIT = 260;
-const MOON_RADIUS = EARTH_RADIUS * 0.273;
-const MOON_DISTANCE = 10;
-const MARS_RADIUS = EARTH_RADIUS * 0.532;
-const MARS_ORBIT = EARTH_ORBIT * 1.524;
-const SUN_RADIUS = 18;
+const SUN_RADIUS = 24;
 const STAR_DISTANCE = 1500;
 const SKY_DISTANCE = 1800;
 /** Seconds per turn, compressed so the system visibly moves without turning days into a blur. */
 const EARTH_YEAR = 720;
 const EARTH_DAY = 40;
-const MOON_MONTH = 60;
-const MARS_YEAR = EARTH_YEAR * 1.88;
 const AXIAL_TILT = 0.41;
+/** Refractor-era objects are too faint to resolve with a wider field of view, the player has to zoom in on them. */
+const REFRACTOR_FOV = 25;
+/** Smallest angle between a target and the Sun, closer ones are waited out so the player never observes into the glare. */
+const MIN_ELONGATION = 35 * MathUtils.DEG2RAD;
+/** Observation zoom range, wider than the default view stretched the sky like a fisheye. */
+const FOV_RANGE = [12, 55] as const;
+/** Screen radius under which an object still counts as clicked, so far planets stay easy to pick. */
+const PICK_RADIUS = 18;
+const TURN = Math.PI * 2;
+const ORIGIN = new Vector3();
 /** Without a clock drive the sky slides out of the eyepiece as the Earth turns, real telescopes had the same problem. */
 const SKY_DRIFT = 0.016;
 const RETICLE_RADIUS = 56;
@@ -221,14 +239,43 @@ function cloudMaterial() {
 	return material;
 }
 
-function moonMaterial() {
-	const maria = edge(0.12, mx_fractal_noise_float(surfacePoint.mul(1.6).add(3), 3, 2, 0.5), 0.1);
-	const crater = mx_worley_noise_float(surfacePoint.mul(6));
+/** Condenses out of the signal's light: starts as a cyan glow and cools down to the surface. */
+const condense = (lit: Node<'vec3'>, reveal: Node<'float'>) => mix(color('#8ff5ff').mul(3), lit, reveal);
+
+/** Moons and small rocky planets: two flat color areas and worley craters, `craters` sets how many. */
+function rockyMaterial(reveal: Node<'float'>, light: string, dark: string, craters: number, seed: number) {
+	const patches = edge(0.12, mx_fractal_noise_float(surfacePoint.mul(1.6).add(seed), 3, 2, 0.5), 0.1);
+	const crater = mx_worley_noise_float(surfacePoint.mul(craters).add(seed));
 	const floor = invert(edge(0.16, crater, 0.03));
 	const lip = edge(0.16, crater, 0.03).mul(invert(edge(0.22, crater, 0.03)));
-	const surface = mix(mix(color('#bab5ad'), color('#a19c95'), maria), color('#a8a29b'), floor).add(lip.mul(0.06));
+	const surface = mix(mix(color(light), color(dark), patches), color(dark), floor.mul(0.45)).add(lip.mul(0.06));
 	const material = new MeshBasicNodeMaterial();
-	material.colorNode = surface.mul(toon(sunFacing, 0.02)).add(outline('#ffffff', '#26356e').mul(0.25));
+	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline('#ffffff', '#26356e').mul(0.25)), reveal);
+	return material;
+}
+
+/** Gas giants and thick atmospheres: latitude bands bent by slowly drifting turbulence. */
+function bandedMaterial(reveal: Node<'float'>, [light, dark, pale]: [string, string, string], bands: number, turbulence: number) {
+	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 7, 2)).add(vec3(time.mul(0.01), 0, 0)), 3, 2, 0.5).mul(turbulence);
+	const latitude = surfacePoint.y.add(swirl);
+	const wide = sin(latitude.mul(bands)).mul(0.5).add(0.5);
+	const thin = sin(latitude.mul(bands * 2.7).add(1.3)).mul(0.5).add(0.5);
+	const surface = mix(mix(color(light), color(dark), edge(0.55, wide, 0.12)), color(pale), edge(0.7, thin, 0.1).mul(0.5));
+	const material = new MeshBasicNodeMaterial();
+	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline(pale, '#3e2a52').mul(0.4)), reveal);
+	return material;
+}
+
+/** Saturn's rings on a flat annulus: fine noisy ringlets, the dense B ring and the Cassini Division, faded in by the reveal. */
+function ringMaterial(reveal: Node<'float'>, inner: number, outer: number) {
+	const across = length(positionLocal.xy).sub(inner).div(outer - inner);
+	const ringlets = mx_noise_float(vec3(across.mul(60), 0, 0)).mul(0.3).add(0.7);
+	const denseRing = mix(0.45, 1, smoothstep(0.25, 0.35, across).mul(invert(smoothstep(0.62, 0.66, across))));
+	const cassini = smoothstep(0.015, 0.035, abs(across.sub(0.69)));
+	const edges = smoothstep(0, 0.05, across).mul(invert(smoothstep(0.95, 1, across)));
+	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: DoubleSide, transparent: true });
+	material.colorNode = condense(mix(color('#b9a57e'), color('#ead9a8'), ringlets).mul(0.9), reveal);
+	material.opacityNode = denseRing.mul(ringlets).mul(cassini).mul(edges).mul(0.85);
 	return material;
 }
 
@@ -239,8 +286,7 @@ function marsMaterial(reveal: Node<'float'>) {
 	const surface = mix(mix(color('#c75a33'), color('#e0844d'), edge(0.05, terrain, 0.1)), color('#94412a'), dark);
 	const lit = mix(surface, color('#f6eee6'), caps).mul(toon(sunFacing, 0.02)).add(outline('#ffc2a1', '#3e2a52').mul(0.5));
 	const material = new MeshBasicNodeMaterial();
-	/** Condenses out of the signal's light: starts as a cyan glow and cools down to the surface. */
-	material.colorNode = mix(color('#8ff5ff').mul(3), lit, reveal);
+	material.colorNode = condense(lit, reveal);
 	return material;
 }
 
@@ -358,29 +404,170 @@ function orbitLine(radius: number, tint: string, opacity: number) {
 	return new Line(geometry, new LineBasicNodeMaterial({ color: tint, depthWrite: false, opacity, transparent: true }));
 }
 
+interface BodyLook {
+	/** `sun`, `earth` or the id of the body it orbits. */
+	around: string;
+	build: (reveal: Node<'float'>) => Mesh;
+	distance: number;
+	/** Orbit tilt in radians, its orbit line is tilted the same way. */
+	inclination?: number;
+	/** Seconds per orbit. */
+	period: number;
+	phase: number;
+	/** Frames the discovery close-up, the outer edge for the rings. */
+	radius: number;
+	/** Seconds per turn on itself, negative for a retrograde spin, 0 for none. */
+	spin: number;
+	/** Axial tilt in radians. */
+	tilt?: number;
+}
+
+const sphere = (radius: number, material: Material, detail = 64) => new Mesh(new SphereGeometry(radius, detail, Math.round(detail * 0.7)), material);
+const planet = (earthRadii: number) => EARTH_RADIUS * earthRadii;
+/** Orbits in AU and years scale with the Earth's, so the planets keep their real spacing and pace. */
+const solarOrbit = (au: number, years: number, phase: number, inclinationDegrees: number) => ({
+	around: 'sun',
+	distance: EARTH_ORBIT * au,
+	inclination: inclinationDegrees * MathUtils.DEG2RAD,
+	period: EARTH_YEAR * years,
+	phase,
+});
+const JUPITER_RADIUS = planet(11.21);
+const SATURN_RADIUS = planet(9.45);
+const SATURN_TILT = 0.47;
+const RING_INNER = SATURN_RADIUS * 1.24;
+const RING_OUTER = SATURN_RADIUS * 2.27;
+
 /**
- * Prototype of the Cosmos realm: the Earth-Moon-Sun system, an observation mode where the player keeps a signal inside the
- * telescope reticle, and the discovery of Mars.
- * @example const scene = await CosmosScene.create(canvas, { arrow, progress });
+ * Scene side of the objects in `#data/cosmos.js`. Moon distances are in planet radii and compressed, the Galilean moons keep their
+ * 1:2:4 resonance so they visibly race around Jupiter and have to be tracked.
+ */
+const BODY_LOOKS: Record<string, BodyLook> = {
+	callisto: { around: 'jupiter', build: reveal => sphere(planet(0.378), rockyMaterial(reveal, '#6f675e', '#4a443e', 9, 41)), distance: JUPITER_RADIUS * 6.4, period: 226, phase: 4.9, radius: planet(0.378), spin: 226 },
+	europa: { around: 'jupiter', build: reveal => sphere(planet(0.245), rockyMaterial(reveal, '#e2d6c2', '#b08d6c', 3, 29)), distance: JUPITER_RADIUS * 3.6, period: 48, phase: 1.6, radius: planet(0.245), spin: 48 },
+	ganymede: { around: 'jupiter', build: reveal => sphere(planet(0.413), rockyMaterial(reveal, '#9c8f80', '#6b6157', 5, 37)), distance: JUPITER_RADIUS * 4.8, period: 97, phase: 3.3, radius: planet(0.413), spin: 97 },
+	io: { around: 'jupiter', build: reveal => sphere(planet(0.286), rockyMaterial(reveal, '#e8d46a', '#c98a3a', 8, 23)), distance: JUPITER_RADIUS * 2.6, period: 24, phase: 0, radius: planet(0.286), spin: 24 },
+	jupiter: {
+		...solarOrbit(5.203, 11.86, 1.2, 1.3),
+		build: reveal => sphere(JUPITER_RADIUS, bandedMaterial(reveal, ['#e3c9a0', '#b07a52', '#f3e6d0'], 14, 0.12), 96),
+		radius: JUPITER_RADIUS,
+		spin: 16,
+		tilt: 0.05,
+	},
+	mars: { ...solarOrbit(1.524, 1.88, 1.1, 1.85), build: reveal => sphere(planet(0.532), marsMaterial(reveal), 80), radius: planet(0.532), spin: EARTH_DAY * 1.03, tilt: 0.44 },
+	mercury: { ...solarOrbit(0.387, 0.241, 2.1, 7), build: reveal => sphere(planet(0.383), rockyMaterial(reveal, '#a39a90', '#7b736b', 7, 13)), radius: planet(0.383), spin: 400 },
+	moon: { around: 'earth', build: reveal => sphere(planet(0.273), rockyMaterial(reveal, '#bab5ad', '#a19c95', 6, 3)), distance: 10, period: 180, phase: 0, radius: planet(0.273), spin: 180 },
+	saturn: {
+		...solarOrbit(9.537, 29.46, 0, 2.5),
+		build: reveal => sphere(SATURN_RADIUS, bandedMaterial(reveal, ['#ead9a8', '#c9a96a', '#f5ecd0'], 10, 0.06), 96),
+		radius: SATURN_RADIUS,
+		spin: 17,
+		tilt: SATURN_TILT,
+	},
+	saturn_rings: {
+		around: 'saturn',
+		build: reveal => {
+			const rings = new Mesh(new RingGeometry(RING_INNER, RING_OUTER, 160, 1), ringMaterial(reveal, RING_INNER, RING_OUTER));
+			rings.rotation.x = -Math.PI / 2;
+			return rings;
+		},
+		distance: 0,
+		period: 1,
+		phase: 0,
+		radius: RING_OUTER,
+		spin: 0,
+		tilt: SATURN_TILT,
+	},
+	titan: { around: 'saturn', build: reveal => sphere(planet(0.404), bandedMaterial(reveal, ['#e0a64a', '#c27f2e', '#ebbd6a'], 3, 0.2)), distance: SATURN_RADIUS * 4.5, period: 120, phase: 2, radius: planet(0.404), spin: 120 },
+	venus: { ...solarOrbit(0.723, 0.615, 4, 3.4), build: reveal => sphere(planet(0.949), bandedMaterial(reveal, ['#f0dca0', '#d9b877', '#f7ecc8'], 4, 0.3), 80), radius: planet(0.949), spin: -600 },
+};
+
+/** One discoverable object: hidden until discovered, then grown out of the signal's flash. */
+class Body {
+	readonly flash = glowSprite('#8ff5ff', 3, 2.5);
+	readonly group = new Group();
+	readonly mesh: Mesh;
+	readonly orbit: Line | null;
+	readonly reveal = uniform(0);
+	/** Seconds since the discovery started, -1 when not condensing. */
+	revealTime = -1;
+
+	constructor(
+		readonly object: CosmosObject,
+		readonly look: BodyLook,
+		discovered: boolean,
+	) {
+		this.mesh = look.build(this.reveal);
+		this.group.rotation.z = look.tilt ?? 0;
+		this.group.add(this.mesh, this.flash);
+		this.group.visible = discovered;
+		this.flash.scale.setScalar(0);
+		this.reveal.value = discovered ? 1 : 0;
+		if (!discovered) this.mesh.scale.setScalar(0.001);
+		this.orbit = look.distance > 0 ? orbitLine(look.distance, object.color, look.around === 'sun' ? 0.18 : 0.12) : null;
+		if (this.orbit) {
+			this.orbit.rotation.x = look.inclination ?? 0;
+			this.orbit.visible = discovered;
+		}
+	}
+
+	place(parent: Vector3, time: number) {
+		const { distance, inclination = 0, period, phase, spin } = this.look;
+		const angle = (time / period) * TURN + phase;
+		const along = Math.sin(angle) * distance;
+		this.group.position.set(Math.cos(angle) * distance, -along * Math.sin(inclination), along * Math.cos(inclination)).add(parent);
+		if (spin) this.mesh.rotation.y = (time / spin) * TURN;
+		this.orbit?.position.copy(parent);
+	}
+
+	startReveal() {
+		this.group.visible = true;
+		if (this.orbit) this.orbit.visible = true;
+		this.revealTime = 0;
+	}
+
+	/** Grows with an overshoot while the flash fades, then cools from the signal's cyan to its own colors. */
+	updateReveal(dt: number) {
+		this.revealTime += dt;
+		const t = this.revealTime;
+		this.mesh.scale.setScalar(Math.max(0.001, easeOutBack(Math.min(1, t / 1.6))));
+		this.reveal.value = MathUtils.clamp((t - 0.6) / 1.4, 0, 1);
+		this.flash.scale.setScalar(this.look.radius * 9 * Math.max(0, 1 - t / 1.2));
+		if (t > 2.2) this.revealTime = -1;
+	}
+}
+
+/**
+ * The sky of the Cosmos realm around the Earth: an observation mode where the player keeps a signal inside the telescope reticle,
+ * then the discovered object condenses out of it and stays in the system.
+ * @example const scene = await CosmosScene.create(canvas, { discovered: ['moon'], hud: { arrow, progress }, onDiscover });
  */
 export class CosmosScene {
 	backend = $state('');
-	discovered = $state(false);
+	/** The signal is in the reticle but needs a narrower field of view to resolve. */
+	faint = $state(false);
+	/** Object the camera orbits and follows. */
+	focused = $state('earth');
 	fps = $state(0);
+	/** Object under the mouse in the overview, for its tooltip. */
+	hovered = $state<string | null>(null);
 	mode = $state<CosmosMode>('intro');
 	quality = $state<CosmosQuality>('high');
+	/** Id of the object of the last discovery, shown by the discovery card. */
+	revealed = $state<string | null>(null);
+	/** Object whose info panel is open, the page clears it to close the panel. */
+	selected = $state<string | null>(null);
 
-	readonly #camera = new PerspectiveCamera(50, 1, 0.05, 4000);
+	readonly #atmosphere = new Mesh(new SphereGeometry(EARTH_RADIUS * 1.04, 96, 64), atmosphereMaterial());
+	readonly #bodies = new Map<string, Body>();
+	readonly #corona = coronaSprite();
+	readonly #camera = new PerspectiveCamera(50, 1, 0.05, 8000);
 	readonly #canvas: HTMLCanvasElement;
 	readonly #controls: OrbitControls;
 	readonly #earth = new Mesh(new SphereGeometry(EARTH_RADIUS, 96, 64), earthMaterial());
 	readonly #earthSystem = new Group();
 	readonly #hud: CosmosHud;
-	readonly #mars = new Group();
-	readonly #marsFlash = glowSprite('#8ff5ff', 3, 2.5);
-	readonly #marsOrbit = orbitLine(MARS_ORBIT, '#ff9d6e', 0.22);
-	readonly #marsReveal = uniform(0);
-	readonly #moonPivot = new Group();
+	readonly #onDiscover: (id: string) => void;
 	readonly #pipeline: RenderPipeline;
 	readonly #pointers = new Map<number, { x: number; y: number }>();
 	readonly #renderer: WebGPURenderer;
@@ -399,39 +586,44 @@ export class CosmosScene {
 	#fovGoal = 55;
 	#fpsFrames = 0;
 	#fpsTime = 0;
-	#lastEarth = new Vector3();
+	#lastFocus = new Vector3();
 	#lastTime = 0;
 	#pitch = 0;
+	/** Where a pointer went down outside observation, a release close to it is a click. */
+	#press: { x: number; y: number } | null = null;
 	#progress = 0;
 	#qualityProbe = { frames: 0, time: 0 };
-	#revealTime = -1;
+	#revealing: Body | null = null;
 	#simTime = 0;
+	#target: Body | null = null;
+	/** Sky clock fast-forward played during a flight, it carries a target out of the Sun's glare. */
+	#warp: { from: number; to: number } | null = null;
 	#yaw = 0;
 
-	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, hud: CosmosHud) {
+	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, { discovered, hud, onDiscover }: CosmosOptions) {
 		this.#canvas = canvas;
 		this.#hud = hud;
+		this.#onDiscover = onDiscover;
 		this.#renderer = renderer;
 		this.backend = 'isWebGPUBackend' in renderer.backend ? 'WebGPU' : 'WebGL 2';
 
 		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial());
 		const tilt = new Group();
 		tilt.rotation.z = AXIAL_TILT;
-		tilt.add(this.#earth, this.#clouds, new Mesh(new SphereGeometry(EARTH_RADIUS * 1.04, 96, 64), atmosphereMaterial()));
-		const moon = new Mesh(new SphereGeometry(MOON_RADIUS, 64, 48), moonMaterial());
-		moon.position.x = MOON_DISTANCE;
-		this.#moonPivot.add(moon);
-		this.#earthSystem.add(tilt, this.#moonPivot, orbitLine(MOON_DISTANCE, '#9fb4d9', 0.18));
-
-		const marsBody = new Mesh(new SphereGeometry(MARS_RADIUS, 80, 56), marsMaterial(this.#marsReveal));
-		/** Drawn from the start at a near-zero scale, so its shader compiles now instead of stuttering the discovery. */
-		marsBody.scale.setScalar(0.001);
-		this.#mars.add(marsBody, this.#marsFlash);
-		this.#marsOrbit.visible = false;
-		this.#marsFlash.scale.setScalar(0);
+		tilt.add(this.#earth, this.#clouds, this.#atmosphere);
+		this.#earthSystem.add(tilt);
 		this.#signal.visible = false;
 
-		this.#scene.add(sun, coronaSprite(), orbitLine(EARTH_ORBIT, '#6f8cff', 0.12), this.#earthSystem, this.#mars, this.#marsOrbit);
+		this.#scene.add(sun, this.#corona, orbitLine(EARTH_ORBIT, '#6f8cff', 0.12), this.#earthSystem);
+		/** In discovery order, so every parent is placed before the moons orbiting it. */
+		for (const object of COSMOS_OBJECTS) {
+			const look = BODY_LOOKS[object.id];
+			if (!look) continue;
+			const body = new Body(object, look, discovered.includes(object.id));
+			this.#bodies.set(object.id, body);
+			this.#scene.add(body.group);
+			if (body.orbit) this.#scene.add(body.orbit);
+		}
 		this.#scene.add(this.#sky, this.#stars, this.#signal);
 
 		const sceneColor = pass(this.#scene, this.#camera).getTextureNode('output');
@@ -443,7 +635,7 @@ export class CosmosScene {
 		this.#controls.enableDamping = true;
 		this.#controls.enablePan = false;
 		this.#controls.minDistance = 3;
-		this.#controls.maxDistance = 700;
+		this.#controls.maxDistance = 3500;
 		this.#controls.enabled = false;
 
 		this.#placeBodies();
@@ -459,21 +651,32 @@ export class CosmosScene {
 		document.addEventListener('visibilitychange', this.#onVisibility);
 
 		this.replayIntro();
-		this.#start();
 	}
 
-	static async create(canvas: HTMLCanvasElement, hud: CosmosHud) {
+	static async create(canvas: HTMLCanvasElement, options: CosmosOptions) {
 		const renderer = new WebGPURenderer({ antialias: true, canvas });
 		/** Neutral keeps the flat cartoon colors as picked, ACES shifted them toward brown and desaturated the highlights. */
 		renderer.toneMapping = NeutralToneMapping;
 		renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 		await renderer.init();
-		return new CosmosScene(canvas, renderer, hud);
+		const scene = new CosmosScene(canvas, renderer, options);
+		scene.#compileHidden();
+		scene.#start();
+		return scene;
 	}
 
-	/** Leaves the discovery card for the overview, Mars stays in the system. */
+	/** Closes the discovery card, the camera keeps orbiting the new object and its info panel opens. */
 	continue() {
-		this.#flyTo(() => this.#overviewPosition(), () => this.#earthSystem.position, 50, 2.6, () => this.#enterOverview());
+		if (this.mode !== 'discovery') return;
+		this.mode = 'overview';
+		this.selected = this.revealed;
+	}
+
+	/** Flies to an object and orbits it from then on, `earth` goes back to the home view. */
+	focus(id: string) {
+		if (this.mode !== 'overview' || !this.#positionOf(id)) return;
+		this.selected = id;
+		this.#flyTo(() => this.#viewpoint(id), () => this.#positionOf(id)!, 50, 2.2, () => this.#orbit(id));
 	}
 
 	dispose() {
@@ -495,21 +698,55 @@ export class CosmosScene {
 		this.#renderer.dispose();
 	}
 
-	/** Moves the camera next to the Earth's night side and hands the view to the player, the signal sits on Mars. */
-	observe() {
-		if (this.discovered) return;
-		const toMars = this.#mars.position.clone().sub(this.#observerPosition()).normalize();
-		const yaw = Math.atan2(toMars.x, toMars.z) + 1.1;
-		const pitch = Math.asin(toMars.y) + 0.35;
-		const look = () => this.#observerPosition().add(this.#direction(yaw, pitch));
-		this.#flyTo(() => this.#observerPosition(), look, 55, 2.4, () => {
-			this.#yaw = yaw;
-			this.#pitch = pitch;
+	/** Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. */
+	observe(id: string) {
+		const target = this.#bodies.get(id);
+		if (!target || target.group.visible || this.mode !== 'overview') return;
+		this.selected = null;
+		this.#target = target;
+		this.#warp = { from: this.#simTime, to: this.#clearOfSun(target) };
+		/** The starting view is aimed where the target will be once the warp ends, the flight lands looking past it. */
+		const aim = () => {
+			const toTarget = target.group.position.clone().sub(this.#observerPosition()).normalize();
+			return { pitch: Math.asin(toTarget.y) + 0.35, yaw: Math.atan2(toTarget.x, toTarget.z) + 1.1 };
+		};
+		const look = () => {
+			const { pitch, yaw } = aim();
+			return this.#observerPosition().add(this.#direction(yaw, pitch));
+		};
+		this.#flyTo(() => this.#observerPosition(), look, 50, 2.4, () => {
+			({ pitch: this.#pitch, yaw: this.#yaw } = aim());
 			this.#progress = 0;
-			this.#fovGoal = 55;
+			this.#fovGoal = 50;
 			this.#signal.visible = true;
 			this.mode = 'observe';
+			this.#applyGlare();
 		});
+	}
+
+	/** Canvas pixel position of every object in the sky that is in front of the camera and inside the view. */
+	onScreen(): { id: string; x: number; y: number }[] {
+		if (this.mode === 'observe' || this.mode === 'intro') return [];
+		const { clientHeight, clientWidth } = this.#canvas;
+		const ids = ['sun', 'earth', ...[...this.#bodies].filter(([, body]) => body.group.visible && body.revealTime < 0).map(([id]) => id)];
+		return ids.flatMap(id => {
+			const projected = this.#positionOf(id)!.clone().project(this.#camera);
+			if (projected.z > 1 || Math.abs(projected.x) > 0.95 || Math.abs(projected.y) > 0.95) return [];
+			return [{ id, x: ((projected.x + 1) / 2) * clientWidth, y: ((1 - projected.y) / 2) * clientHeight }];
+		});
+	}
+
+	/** Gives up on the signal and flies back to the home view, the progress is lost. */
+	stopObserving() {
+		if (this.mode !== 'observe') return;
+		this.#target = null;
+		this.#signal.visible = false;
+		this.#hud.arrow.style.opacity = '0';
+		this.#hud.progress.style.opacity = '0';
+		this.faint = false;
+		this.mode = 'intro';
+		this.#applyGlare();
+		this.#flyTo(() => this.#overviewPosition(), () => this.#earthSystem.position, 50, 2.4, () => this.#enterOverview());
 	}
 
 	replayIntro() {
@@ -521,12 +758,109 @@ export class CosmosScene {
 		this.#flyTo(() => this.#overviewPosition(), () => this.#earthSystem.position, 50, 4.5, () => this.#enterOverview());
 	}
 
+	/** Low drops bloom, the Milky Way dome, the clouds, the atmosphere shell and the corona, and keeps a quarter of the stars. */
 	setQuality(quality: CosmosQuality) {
+		const high = quality === 'high';
 		this.quality = quality;
-		this.#pipeline.outputNode = quality === 'high' ? this.#withBloom : this.#withoutBloom;
-		this.#stars.count = quality === 'high' ? STAR_COUNT : STAR_COUNT / 2;
-		this.#renderer.setPixelRatio(quality === 'high' ? Math.min(devicePixelRatio, 1.5) : 1);
+		this.#stars.count = high ? STAR_COUNT : STAR_COUNT / 4;
+		for (const object of [this.#atmosphere, this.#clouds, this.#sky]) object.visible = high;
+		this.#applyGlare();
+		this.#renderer.setPixelRatio(high ? Math.min(devicePixelRatio, 1.5) : 1);
 		this.#fit();
+	}
+
+	/** Bloom and the corona, off in low quality and at the eyepiece, where the Sun would dazzle the player hunting a faint signal. */
+	#applyGlare() {
+		const glare = this.quality === 'high' && this.mode !== 'observe';
+		this.#corona.visible = glare;
+		const output = glare ? this.#withBloom : this.#withoutBloom;
+		if (this.#pipeline.outputNode === output) return;
+		this.#pipeline.outputNode = output;
+		this.#pipeline.needsUpdate = true;
+	}
+
+	/**
+	 * Earliest sky clock within a year where the target sits far enough from the Sun as seen from the Earth: MIN_ELONGATION, or 90% of
+	 * the widest angle an inner planet ever reaches, Mercury never strays past ~23°.
+	 */
+	#clearOfSun(target: Body) {
+		const { around, distance } = target.look;
+		const widest = around === 'sun' && distance < EARTH_ORBIT ? Math.asin(distance / EARTH_ORBIT) * 0.9 : Infinity;
+		const needed = Math.min(MIN_ELONGATION, widest);
+		const now = this.#simTime;
+		let clear = now;
+		for (let time = now; time < now + EARTH_YEAR; time += 2) {
+			this.#simTime = time;
+			this.#placeBodies();
+			const earth = this.#earthSystem.position;
+			if (target.group.position.clone().sub(earth).angleTo(earth.clone().negate()) >= needed) {
+				clear = time;
+				break;
+			}
+		}
+		this.#simTime = now;
+		this.#placeBodies();
+		return clear;
+	}
+
+	#positionOf(id: string): Vector3 | null {
+		if (id === 'sun') return ORIGIN;
+		if (id === 'earth') return this.#earthSystem.position;
+		return this.#bodies.get(id)?.group.position ?? null;
+	}
+
+	#radiusOf(id: string) {
+		if (id === 'sun') return SUN_RADIUS;
+		if (id === 'earth') return EARTH_RADIUS;
+		return this.#bodies.get(id)?.look.radius ?? EARTH_RADIUS;
+	}
+
+	/** Lit-side close-up, the Earth keeps its home view and the Sun is framed from the Earth's side. */
+	#viewpoint(id: string) {
+		if (id === 'earth') return this.#overviewPosition();
+		const position = this.#positionOf(id)!;
+		const size = this.#radiusOf(id);
+		const fromSun = id === 'sun' ? this.#earthSystem.position.clone().normalize().negate() : position.clone().normalize();
+		const along = new Vector3().crossVectors(UP, fromSun).normalize();
+		return position.clone().addScaledVector(fromSun, -5.6 * size).addScaledVector(along, 2.8 * size).addScaledVector(UP, 1.4 * size);
+	}
+
+	/** Hands the camera to the orbit controls around an object, which then carry the camera along its orbit. */
+	#orbit(id: string) {
+		const position = this.#positionOf(id)!;
+		this.focused = id;
+		this.#lastFocus.copy(position);
+		this.#controls.target.copy(position);
+		this.#controls.minDistance = this.#radiusOf(id) * 1.6;
+		this.#controls.enabled = true;
+		this.#controls.update();
+	}
+
+	/** Visible object under the pointer, the smallest one wins where they overlap so a planet stays clickable over its rings. */
+	#objectAt(clientX: number, clientY: number): string | null {
+		const rect = this.#canvas.getBoundingClientRect();
+		const x = clientX - rect.left - rect.width / 2;
+		const y = clientY - rect.top - rect.height / 2;
+		const halfView = Math.tan((this.#camera.fov * MathUtils.DEG2RAD) / 2);
+		const ids = ['sun', 'earth', ...[...this.#bodies].filter(([, body]) => body.group.visible && body.revealTime < 0).map(([id]) => id)];
+		let best: { id: string; size: number } | null = null;
+		for (const id of ids) {
+			const position = this.#positionOf(id)!;
+			const projected = position.clone().project(this.#camera);
+			if (projected.z > 1) continue;
+			const size = Math.max(PICK_RADIUS, (this.#radiusOf(id) / (position.distanceTo(this.#camera.position) * halfView)) * (rect.height / 2));
+			const hit = Math.hypot(x - (projected.x * rect.width) / 2, y + (projected.y * rect.height) / 2) <= size;
+			if (hit && (!best || size < best.size)) best = { id, size };
+		}
+		return best?.id ?? null;
+	}
+
+	/** Renders one frame with every hidden body drawn at a near-zero scale, so a discovery never stalls on compiling its shader. */
+	#compileHidden() {
+		const hidden = [...this.#bodies.values()].filter(body => !body.group.visible);
+		for (const body of hidden) body.group.visible = true;
+		this.#pipeline.render();
+		for (const body of hidden) body.group.visible = false;
 	}
 
 	#direction(yaw: number, pitch: number) {
@@ -534,10 +868,7 @@ export class CosmosScene {
 	}
 
 	#enterOverview() {
-		this.#lastEarth.copy(this.#earthSystem.position);
-		this.#controls.target.copy(this.#earthSystem.position);
-		this.#controls.enabled = true;
-		this.#controls.update();
+		this.#orbit('earth');
 		this.mode = 'overview';
 	}
 
@@ -574,9 +905,12 @@ export class CosmosScene {
 		this.#sky.position.copy(this.#camera.position);
 
 		if (this.#flight) this.#updateFlight(dt);
-		else if (this.mode === 'overview') this.#updateOverview(dt);
+		else if (this.mode === 'overview' || this.mode === 'discovery') this.#updateOverview(dt);
 		else if (this.mode === 'observe') this.#updateObserve(dt);
-		if (this.#revealTime >= 0) this.#updateReveal(dt);
+		if (this.#revealing) {
+			this.#revealing.updateReveal(dt);
+			if (this.#revealing.revealTime < 0) this.#revealing = null;
+		}
 
 		this.#pipeline.render();
 		this.#measure(dt);
@@ -600,19 +934,28 @@ export class CosmosScene {
 		probe.frames = -1;
 	}
 
+	/** Above the dusk side of the Earth, from where both the planets near the Sun and the outer sky are in view. */
 	#observerPosition() {
-		const away = this.#earthSystem.position.clone().normalize();
-		return away.multiplyScalar(EARTH_RADIUS * 1.7).addScaledVector(UP, 0.4).add(this.#earthSystem.position);
+		const earth = this.#earthSystem.position;
+		const dusk = new Vector3().crossVectors(UP, earth).normalize();
+		return dusk.multiplyScalar(EARTH_RADIUS * 1.7).addScaledVector(UP, 0.4).add(earth);
 	}
 
 	#onPointerDown = (event: PointerEvent) => {
 		/** A touch pinch goes through OrbitControls, a pending wheel goal would fight it. */
 		this.#distanceGoal = null;
-		if (this.mode !== 'observe') return;
+		if (this.mode !== 'observe') {
+			this.#press = { x: event.clientX, y: event.clientY };
+			return;
+		}
 		this.#pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 	};
 
 	#onPointerMove = (event: PointerEvent) => {
+		if (event.pointerType === 'mouse' && !event.buttons) {
+			const hovered = this.mode === 'overview' && !this.#flight && event.target === this.#canvas ? this.#objectAt(event.clientX, event.clientY) : null;
+			if (hovered !== this.hovered) this.hovered = hovered;
+		}
 		const previous = this.#pointers.get(event.pointerId);
 		if (!previous || this.mode !== 'observe') return;
 		if (this.#pointers.size === 1) {
@@ -633,6 +976,12 @@ export class CosmosScene {
 
 	#onPointerUp = (event: PointerEvent) => {
 		this.#pointers.delete(event.pointerId);
+		const press = this.#press;
+		this.#press = null;
+		if (press && !this.#flight && this.mode === 'overview' && Math.hypot(event.clientX - press.x, event.clientY - press.y) < 6) {
+			const id = this.#objectAt(event.clientX, event.clientY);
+			if (id) this.focus(id);
+		}
 	};
 
 	#onVisibility = () => {
@@ -644,7 +993,7 @@ export class CosmosScene {
 	#onWheel = (event: WheelEvent) => {
 		event.preventDefault();
 		event.stopImmediatePropagation();
-		const factor = Math.exp(event.deltaY * 0.0012);
+		const factor = Math.exp(event.deltaY * 0.0008);
 		if (this.mode === 'observe') this.#zoom(factor);
 		if (this.mode !== 'overview') return;
 		const current = this.#distanceGoal ?? this.#camera.position.distanceTo(this.#controls.target);
@@ -660,15 +1009,15 @@ export class CosmosScene {
 	}
 
 	#placeBodies() {
-		const turn = Math.PI * 2;
-		const earthAngle = (this.#simTime / EARTH_YEAR) * turn + 0.6;
+		const earthAngle = (this.#simTime / EARTH_YEAR) * TURN + 0.6;
 		this.#earthSystem.position.set(Math.cos(earthAngle) * EARTH_ORBIT, 0, Math.sin(earthAngle) * EARTH_ORBIT);
-		this.#earth.rotation.y = (this.#simTime / EARTH_DAY) * turn;
+		this.#earth.rotation.y = (this.#simTime / EARTH_DAY) * TURN;
 		this.#clouds.rotation.y = this.#earth.rotation.y * 1.04;
-		this.#moonPivot.rotation.y = (this.#simTime / MOON_MONTH) * turn;
-		const marsAngle = (this.#simTime / MARS_YEAR) * turn + 1.1;
-		this.#mars.position.set(Math.cos(marsAngle) * MARS_ORBIT, 1.2, Math.sin(marsAngle) * MARS_ORBIT);
-		this.#mars.rotation.y = (this.#simTime / (EARTH_DAY * 1.03)) * turn;
+		for (const body of this.#bodies.values()) {
+			const { around } = body.look;
+			const parent = around === 'sun' ? ORIGIN : around === 'earth' ? this.#earthSystem.position : this.#bodies.get(around)!.group.position;
+			body.place(parent, this.#simTime);
+		}
 	}
 
 	#start() {
@@ -676,25 +1025,30 @@ export class CosmosScene {
 		void this.#renderer.setAnimationLoop(this.#frame);
 	}
 
-	#startDiscovery() {
+	#startDiscovery(body: Body) {
 		this.#signal.visible = false;
 		this.#hud.arrow.style.opacity = '0';
-		this.#marsOrbit.visible = true;
-		this.#revealTime = 0;
-		this.discovered = true;
+		this.#hud.progress.style.opacity = '0';
+		this.#target = null;
+		this.faint = false;
+		body.startReveal();
+		this.#revealing = body;
+		this.revealed = body.object.id;
 		this.mode = 'discovery';
-		const litSide = () => {
-			const fromSun = this.#mars.position.clone().normalize();
-			const along = new Vector3().crossVectors(UP, fromSun).normalize();
-			return this.#mars.position.clone().addScaledVector(fromSun, -3.2).addScaledVector(along, 1.6).addScaledVector(UP, 0.8);
-		};
-		this.#flyTo(litSide, () => this.#mars.position, 45, 3.2);
+		this.#applyGlare();
+		this.#onDiscover(body.object.id);
+		const { id } = body.object;
+		this.#flyTo(() => this.#viewpoint(id), () => body.group.position, 50, 3.2, () => this.#orbit(id));
 	}
 
 	#updateFlight(dt: number) {
 		const flight = this.#flight!;
 		flight.elapsed += dt;
 		const t = easeInOut(Math.min(1, flight.elapsed / flight.duration));
+		if (this.#warp) {
+			this.#simTime = this.#warp.from + (this.#warp.to - this.#warp.from) * t;
+			if (t >= 1) this.#warp = null;
+		}
 		this.#camera.position.lerpVectors(flight.fromPosition, flight.toPosition(), t);
 		this.#camera.fov = flight.fromFov + (flight.toFov - flight.fromFov) * t;
 		this.#camera.updateProjectionMatrix();
@@ -705,6 +1059,8 @@ export class CosmosScene {
 	}
 
 	#updateObserve(dt: number) {
+		const target = this.#target;
+		if (!target) return;
 		this.#yaw -= SKY_DRIFT * dt;
 		if (Math.abs(this.#fovGoal - this.#camera.fov) > 1e-3) {
 			this.#camera.fov += (this.#fovGoal - this.#camera.fov) * (1 - Math.exp(-dt * ZOOM_EASE));
@@ -715,7 +1071,7 @@ export class CosmosScene {
 		this.#camera.lookAt(position.add(this.#direction(this.#yaw, this.#pitch)));
 
 		const signal = this.#signal;
-		signal.position.copy(this.#mars.position);
+		signal.position.copy(target.group.position);
 		const distance = signal.position.distanceTo(this.#camera.position);
 		const viewHeight = 2 * distance * Math.tan((this.#camera.fov * MathUtils.DEG2RAD) / 2);
 		signal.scale.setScalar((viewHeight * SIGNAL_SIZE) / this.#canvas.clientHeight);
@@ -725,26 +1081,31 @@ export class CosmosScene {
 		const x = (projected.x * this.#canvas.clientWidth) / 2;
 		const y = (-projected.y * this.#canvas.clientHeight) / 2;
 		const inside = !behind && Math.hypot(x, y) < RETICLE_RADIUS;
+		const faint = inside && target.object.era === 'refractor' && this.#camera.fov > REFRACTOR_FOV;
+		if (faint !== this.faint) this.faint = faint;
 		/** Zooming in resolves faster but makes the drift carry the signal out of the reticle sooner. */
 		const rate = 0.1 * (55 / this.#camera.fov);
-		this.#progress = inside ? Math.min(1, this.#progress + dt * rate) : Math.max(0, this.#progress - dt * 0.06);
-		this.#hud.progress.style.transform = `scaleX(${this.#progress})`;
-
+		this.#progress = inside && !faint ? Math.min(1, this.#progress + dt * rate) : Math.max(0, this.#progress - dt * 0.06);
 		const onScreen = !behind && Math.abs(projected.x) < 0.92 && Math.abs(projected.y) < 0.92;
+		const ring = this.#hud.progress.style;
+		ring.opacity = onScreen ? '1' : '0';
+		ring.transform = `translate(${x}px, ${y}px)`;
+		ring.setProperty('--progress', String(this.#progress));
 		this.#hud.arrow.style.opacity = inside || onScreen ? '0' : '1';
 		if (!onScreen) {
 			const angle = Math.atan2(behind ? -y : y, behind ? -x : x);
 			const radius = Math.min(this.#canvas.clientWidth, this.#canvas.clientHeight) / 2 - 36;
 			this.#hud.arrow.style.transform = `translate(${Math.cos(angle) * radius}px, ${Math.sin(angle) * radius}px) rotate(${angle}rad)`;
 		}
-		if (this.#progress >= 1) this.#startDiscovery();
+		if (this.#progress >= 1) this.#startDiscovery(target);
 	}
 
 	#updateOverview(dt: number) {
-		const delta = this.#earthSystem.position.clone().sub(this.#lastEarth);
+		const focus = this.#positionOf(this.focused)!;
+		const delta = focus.clone().sub(this.#lastFocus);
 		this.#camera.position.add(delta);
 		this.#controls.target.add(delta);
-		this.#lastEarth.copy(this.#earthSystem.position);
+		this.#lastFocus.copy(focus);
 		if (this.#distanceGoal !== null) {
 			const offset = this.#camera.position.clone().sub(this.#controls.target);
 			const distance = offset.length();
@@ -755,17 +1116,7 @@ export class CosmosScene {
 		this.#controls.update();
 	}
 
-	#updateReveal(dt: number) {
-		this.#revealTime += dt;
-		const grow = Math.min(1, this.#revealTime / 1.6);
-		this.#mars.children[0].scale.setScalar(Math.max(0.001, easeOutBack(grow)));
-		this.#marsReveal.value = Math.min(1, Math.max(0, (this.#revealTime - 0.6) / 1.4));
-		const flash = Math.max(0, 1 - this.#revealTime / 1.2);
-		this.#marsFlash.scale.setScalar(MARS_RADIUS * 9 * flash);
-		if (this.#revealTime > 2.2) this.#revealTime = -1;
-	}
-
 	#zoom(factor: number) {
-		this.#fovGoal = MathUtils.clamp(this.#fovGoal * factor, 12, 70);
+		this.#fovGoal = MathUtils.clamp(this.#fovGoal * factor, ...FOV_RANGE);
 	}
 }
