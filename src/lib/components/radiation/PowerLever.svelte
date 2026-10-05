@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
 
 	interface Props {
 		/** Phones get a horizontal throttle under the reactor, the narrow column has no room beside it for the vertical one. */
@@ -17,7 +18,10 @@
 	const travel = (value: number) => `calc(${THUMB_PX / 2}px + (100% - ${THUMB_PX}px) * ${value})`;
 </script>
 
-<div class="flex items-center gap-2 {vertical ? 'h-full w-14 flex-col py-2' : 'w-full'}">
+<div
+	class="flex items-center gap-2 {vertical ? 'h-full w-14 flex-col py-2' : 'w-full'}"
+	data-hint="radiation-lever"
+>
 	<span class="text-[10px] font-bold uppercase tracking-[0.2em] {vertical ? 'text-red-400/70' : 'text-sky-400/70'}">
 		{vertical ? 'Max' : 'Off'}
 	</span>
@@ -36,7 +40,7 @@
 				class="pointer-events-none absolute flex items-center justify-center {vertical ? 'inset-x-1 translate-y-1/2' : 'inset-y-2 -translate-x-1/2'}"
 				style:bottom={vertical ? travel(stableLevel) : undefined}
 				style:left={vertical ? undefined : travel(stableLevel)}
-				title="Sustainable up to {(stableLevel * 100).toFixed(0)}%"
+				title="Sustainable up to {(stableLevel * 100).toFixed(0)}% with {formatNumber(radiationManager.mass, 1)} u of fuel, more fuel lowers it"
 			>
 				<span class="rounded-full bg-white/90 {vertical ? 'h-0.5 w-full' : 'h-full w-0.5'}"></span>
 				<span class="absolute text-xs font-bold leading-none text-white/90 {vertical ? '-left-3' : '-top-2'}">∞</span>

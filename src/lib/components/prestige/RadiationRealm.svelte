@@ -44,6 +44,12 @@
 		!hasMass ? { color: 'text-white/50', detail: 'inject fuel to start', label: 'Core empty' }
 		: power <= 0 ? { color: 'text-sky-400', detail: 'pull the power lever up', label: 'Idle' }
 		: netChange >= 0 ? { color: 'text-radiation', detail: 'runs forever', label: 'Stable' }
+		: radiationManager.settledMass > 0 ?
+			{
+				color: 'text-yellow-300',
+				detail: `settles at ${formatNumber(radiationManager.settledMass, 1)} u, ${formatNumber(radiationManager.cpmFor(radiationManager.settledMass, power), 1)} CPM`,
+				label: 'Settling',
+			}
 		: timeToEmpty < 60 ? { color: 'text-red-400 animate-pulse', detail: `empty in ${formatTime(timeToEmpty)}`, label: 'Critical' }
 		: { color: 'text-yellow-300', detail: `empty in ${formatTime(timeToEmpty)}`, label: 'Draining' },
 	);
@@ -82,7 +88,11 @@
 								<p><span class="text-radiation">Fuel</span> x <span class="text-radiation">Power</span> makes the output, the output multiplies all your production.</p>
 								<p>Output is counted in CPM, counts per minute, like a Geiger counter.</p>
 								<p>Double the power: double the output, four times the fuel burn.</p>
-								<p>The ∞ mark on the lever is the highest power your fuel regen keeps up with forever.</p>
+								<p>
+									The core burns a share of its fuel, so a bigger core burns more. The ∞ mark on the lever is the highest power your regen keeps up with at
+									the current fuel: it drops as fuel grows and climbs as it shrinks.
+								</p>
+								<p>Above the mark the core shrinks until burn and regen meet, then holds there.</p>
 								<p class="text-white/50">The ring around the reactor is the output, it has a cap that Coolant Pumps raise.</p>
 							</div>
 						{/snippet}

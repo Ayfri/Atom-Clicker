@@ -79,6 +79,11 @@ class RadiationManager {
 		return Math.min(0.5, level * 0.1);
 	});
 
+	/** Mass the core drifts to at the current power, where regen matches the expected burn. With regen it never empties. */
+	settledMass = $derived(
+		this.regenRate > 0 && this.decayRatePercent > 0 ? this.regenRate / (this.decayRatePercent * (1 - 0.5 * this.preservationChance)) : 0,
+	);
+
 	criticalChance = $derived.by(() => {
 		const level = this.upgradeLevels['cherenkov_glow'] || 0;
 		return level * 0.05;
