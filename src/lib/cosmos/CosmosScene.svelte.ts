@@ -711,6 +711,23 @@ function plutoSurface() {
 	return mix(plains, color('#f1e6d8'), heart).mul(invert(cells.mul(0.12)));
 }
 
+/**
+ * Neptune as Voyager 2 saw it in 1989: the Great Dark Spot at 22°S edged by bright methane clouds, the small white "Scooter" below
+ * it, and the second dark spot with a bright core further south.
+ */
+function neptuneSurface() {
+	const wobble = mx_noise_float(surfacePoint.mul(9).add(27)).mul(0.15);
+	/** Oval in arc degrees around a latitude and longitude, its half sizes along and across the latitude line. */
+	const oval = (latitude: number, longitude: number, along: number, across: number) => {
+		const offset = vec2(longitudeDegrees.sub(longitude).mul(Math.cos(latitude * MathUtils.DEG2RAD)).div(along), latitudeDegrees.sub(latitude).div(across));
+		return invert(smoothstep(0.7, 1.05, length(offset).add(wobble)));
+	};
+	const dark = max(oval(-22, 0, 15, 7.6), oval(-55, -60, 5, 3.5).mul(0.8));
+	const white = max(max(oval(-29, -6, 11, 2.2), oval(-42, 40, 5, 2.4)), oval(-55, -60, 1.8, 1.2));
+	/** Kept under the bloom threshold, like Saturn's pale zones. */
+	return mix(mix(bandedSurface(['#4a7fe6', '#2f58bd', '#6f9cf0'], 3, 0.3), color('#1d3a8c'), dark.mul(0.85)), color('#dbe5ff'), white.mul(0.9));
+}
+
 /** Simulation clock for the shaders, the belt's rocks keep pace with the bodies through a warp. */
 const simClock = uniform(0);
 const BELT_ROCKS = 2400;
@@ -1258,7 +1275,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		build: globe(NEPTUNE_RADIUS, BANDED_RIM('#9fbcff'), 80),
 		radius: NEPTUNE_RADIUS,
 		spin: 11,
-		surface: () => bandedSurface(['#4a7fe6', '#2f58bd', '#6f9cf0'], 3, 0.3),
+		surface: neptuneSurface,
 		tilt: 28.3 * MathUtils.DEG2RAD,
 	},
 	/** Its real distance, at 2.76 Mars radii, and its real pace against the planet's day: it laps Mars three times a day. */
