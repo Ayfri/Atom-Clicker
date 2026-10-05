@@ -1965,6 +1965,11 @@ export class CosmosScene {
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
 		this.#pipeline.needsUpdate = true;
+		/**
+		 * The rebuild only registers the bloom for frame updates if its next render has it on: built on a skipped frame, it stayed
+		 * frozen on its last image, the Sun's glare from before the eyepiece.
+		 */
+		this.#renders = -1;
 	}
 
 	/**
