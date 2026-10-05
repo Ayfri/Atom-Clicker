@@ -199,7 +199,7 @@ describe('save round trip', () => {
 	test('a played save survives storage and a reload into the game', () => {
 		currenciesManager.add(CurrenciesTypes.ATOMS, 5e12);
 		currenciesManager.add(CurrenciesTypes.ELECTRONS, 30);
-		gameManager.achievements = ['a', 'b'];
+		gameManager.achievements = ['clicks_1', 'ionizes_1'];
 		gameManager.activePowerUps = [{ description: '', duration: 600_000, id: 'live', multiplier: 3, name: 'Boost', startTime: Date.now() }];
 		gameManager.chromaticUpgrades = { red_focus: 2 };
 		gameManager.currencyBoosts = { [CurrenciesTypes.ATOMS]: 2 };
@@ -218,6 +218,11 @@ describe('save round trip', () => {
 		const { state } = loadSavedState();
 		gameManager.loadSaveData(state!);
 		expect(JSON.parse(JSON.stringify(gameManager.getCurrentState()))).toEqual(played);
+	});
+
+	test('retired achievement ids drop out on load', () => {
+		gameManager.loadSaveData({ achievements: ['2000_molecule', 'clicks_1', 'total_1500'] });
+		expect(gameManager.achievements).toEqual(['clicks_1']);
 	});
 
 	test('flags a payload edited without its checksum', () => {
