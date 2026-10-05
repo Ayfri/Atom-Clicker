@@ -129,7 +129,8 @@
 							stroke-dasharray={RING_LENGTH}
 							stroke-linecap="round"
 							stroke-width="3"
-							style:--duration="{Math.max(0, colliderManager.readyAt - Date.now())}ms"
+							style:--cooldown="{COLLIDER_COOLDOWN_SECONDS * 1000}ms"
+							style:--elapsed="{Math.min(0, colliderManager.readyAt - Date.now() - COLLIDER_COOLDOWN_SECONDS * 1000)}ms"
 							style:--length={RING_LENGTH}
 						/>
 					{/key}
@@ -216,7 +217,8 @@
 
 <style>
 	.cooldown {
-		animation: charge var(--duration) linear both;
+		/** A negative delay resumes the fill where the cooldown is, instead of restarting it empty on open. */
+		animation: charge var(--cooldown) linear var(--elapsed) both;
 	}
 
 	.orbit {
