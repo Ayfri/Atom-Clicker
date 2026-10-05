@@ -78,11 +78,12 @@ export class LeaderboardStore {
 	async fetchLeaderboard() {
 		this.hasFetched = true;
 		try {
-			const userId = supabaseAuth && supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : '';
-			const response = await fetch(`/api/leaderboard?userId=${userId}`);
+			const response = await fetch('/api/leaderboard');
 			if (!response.ok) throw new Error('Failed to fetch leaderboard');
 			const data: LeaderboardData = await response.json();
-			this.entries = data.entries;
+			/** The server caches one board for everyone, so the player's own row is marked here. */
+			const userId = supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : undefined;
+			this.entries = userId ? data.entries.map((entry) => (entry.userId === userId ? { ...entry, self: true } : entry)) : data.entries;
 			this.stats = data.stats;
 			this.fetchedAt = Date.now();
 			if (this.visiting) this.saveRanks();
