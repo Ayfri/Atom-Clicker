@@ -32,14 +32,17 @@
 
 	/** What each boost raises: a currency shows its own icon, the other stats a pictogram. */
 	const BOOST_ICONS: Partial<Record<EffectStat, typeof Factory | CurrencyName>> = {
+		blue_light_gain: CurrenciesTypes.BLUE_LIGHT,
 		click: MousePointerClick,
 		electron_gain: CurrenciesTypes.ELECTRONS,
 		generator: Cog,
 		global: Factory,
+		green_light_gain: CurrenciesTypes.GREEN_LIGHT,
 		photon_value: CurrenciesTypes.PHOTONS,
 		power_up_duration: Timer,
 		power_up_multiplier: Zap,
 		proton_gain: CurrenciesTypes.PROTONS,
+		red_light_gain: CurrenciesTypes.RED_LIGHT,
 		stability_boost: ShieldPlus,
 		stability_capacity: Shield,
 		xp_gain: ChevronsUp,

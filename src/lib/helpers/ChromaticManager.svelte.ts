@@ -19,7 +19,11 @@ import {
 import { CurrenciesTypes } from '#data/currencies.js';
 import type { ChromaticBreak } from '#helpers/chromaticField.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import type { GameManager } from '#helpers/GameManager.svelte.js';
 import type { ChromaticState } from '#lib/types.js';
+
+/** The game state Light scales with, `gameManager` in the game. */
+type LightSource = Pick<GameManager, 'lightGain' | 'totalIonizesAllTime'>;
 
 const EMPTY_KILLS: Record<ChromaticColor, number> = { blue: 0, green: 0, red: 0 };
 
@@ -61,16 +65,16 @@ class ChromaticManager {
 		return auto ? damage * (CHROMATIC_AUTO_DAMAGE + 0.15 * this.level('prism_autofocus')) : damage;
 	}
 
-	lightFor(color: ChromaticColor, drop: number, ionizes: number): number {
+	lightFor(color: ChromaticColor, drop: number, { lightGain, totalIonizesAllTime }: LightSource): number {
 		const upgrades = (1 + 0.25 * this.level(`${color}_yield`)) * (1 + 0.5 * this.level('white_spectrum'));
-		return drop * SPECTRUM_DROP_GROWTH ** this.spectrumLevel(color) * upgrades * ionizeLightMultiplier(ionizes);
+		return drop * SPECTRUM_DROP_GROWTH ** this.spectrumLevel(color) * upgrades * ionizeLightMultiplier(totalIonizesAllTime) * lightGain[color];
 	}
 
 	/**
 	 * Light per second the photon auto-clicker earns on its own, for offline progress. Half its clicks land on colored photons,
 	 * split evenly between the colors, and a color never breaks faster than it spawns. A Blue photon counts its two halves.
 	 */
-	autoLightPerSecond(autoClicksPerSecond: number, spawnFactor: number, ionizes: number): Record<ChromaticColor, number> {
+	autoLightPerSecond(autoClicksPerSecond: number, spawnFactor: number, source: LightSource): Record<ChromaticColor, number> {
 		const spawnsPerColor = 1000 / this.spawnInterval / CHROMATIC_COLORS.length / spawnFactor;
 		const clicksPerColor = autoClicksPerSecond / 2 / CHROMATIC_COLORS.length;
 		const rates = { ...EMPTY_KILLS };
@@ -79,7 +83,7 @@ class ChromaticManager {
 			const hp = this.maxHp(color) * (blue ? 1 + 2 * BLUE_HALF.hp : 1);
 			const drop = blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop;
 			const breaks = Math.min(spawnsPerColor, (clicksPerColor * this.tapDamage(color, true)) / hp);
-			rates[color] = breaks * this.lightFor(color, drop, ionizes);
+			rates[color] = breaks * this.lightFor(color, drop, source);
 		}
 		return rates;
 	}
@@ -98,8 +102,8 @@ class ChromaticManager {
 	}
 
 	/** Pays the Light of one break and counts it toward the color's spectrum level, unless it is a Blue half. */
-	collect({ color, drop, half }: ChromaticBreak, ionizes: number) {
-		currenciesManager.add(CHROMATIC[color].currency, this.lightFor(color, drop, ionizes));
+	collect({ color, drop, half }: ChromaticBreak, source: LightSource) {
+		currenciesManager.add(CHROMATIC[color].currency, this.lightFor(color, drop, source));
 		if (!half) this.kills = { ...this.kills, [color]: this.kills[color] + 1 };
 	}
 

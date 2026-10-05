@@ -309,6 +309,13 @@ export class GameManager {
 
 	photonValueBonus = $derived(this.effects.value('photon_value', 0, this));
 
+	/** Multiplier on each color's Light from outside the Prism, read by `chromaticManager.lightFor`. */
+	lightGain = $derived<Record<ChromaticColor, number>>({
+		blue: this.effects.value('blue_light_gain', 1, this),
+		green: this.effects.value('green_light_gain', 1, this),
+		red: this.effects.value('red_light_gain', 1, this),
+	});
+
 	powerUpDurationMultiplier = $derived(this.effects.value('power_up_duration', 1, this));
 
 	powerUpEffectMultiplier = $derived(this.effects.value('power_up_multiplier', 1, this));

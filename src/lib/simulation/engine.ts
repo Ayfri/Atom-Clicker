@@ -636,7 +636,7 @@ export class SimulationEngine {
 			this.chromaticHp[color] = pool - damage;
 
 			const breaks = damage / hp;
-			currenciesManager.add(CHROMATIC[color].currency, breaks * chromaticManager.lightFor(color, blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop, gameManager.totalIonizesAllTime));
+			currenciesManager.add(CHROMATIC[color].currency, breaks * chromaticManager.lightFor(color, blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop, gameManager));
 			kills[color] += breaks;
 			gameManager.countChromaticBreak(color, breaks);
 		});

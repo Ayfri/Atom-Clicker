@@ -170,7 +170,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		addCurrency(CurrenciesTypes.EXCITED_PHOTONS, expectedExcited);
 
 		if (manager.totalIonizesAllTime > 0) {
-			const rates = chromaticManager.autoLightPerSecond(photonAutoClicksPerSecond, OFFLINE_AUTO_FACTOR, manager.totalIonizesAllTime);
+			const rates = chromaticManager.autoLightPerSecond(photonAutoClicksPerSecond, OFFLINE_AUTO_FACTOR, manager);
 			for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, rates[color] * (appliedMs / 1000));
 		}
 	}

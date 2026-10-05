@@ -214,7 +214,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.05, label: 'Protons', stat: 'proton_gain' },
+		boost: { amount: 0.05, label: 'Red Light', stat: 'red_light_gain' },
 		color: '#ffb08a',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -250,7 +250,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.02, label: 'production', stat: 'global' },
+		boost: { amount: 0.05, label: 'generator output', stat: 'generator' },
 		color: '#9c8f80',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -329,7 +329,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1659',
 	},
 	{
-		boost: { amount: 0.05, label: 'generator output', stat: 'generator' },
+		boost: { amount: 0.05, label: 'Green Light', stat: 'green_light_gain' },
 		color: '#9fdde3',
 		discoverer: 'William Herschel',
 		era: CosmosEras.REFLECTOR,
@@ -366,7 +366,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1845',
 	},
 	{
-		boost: { amount: 0.05, label: 'Stability Field strength', stat: 'stability_boost' },
+		boost: { amount: 0.05, label: 'Blue Light', stat: 'blue_light_gain' },
 		color: '#4f7be0',
 		discoverer: 'Urbain Le Verrier and Johann Galle',
 		era: CosmosEras.PREDICTION,
@@ -378,7 +378,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1846',
 	},
 	{
-		boost: { amount: 0.05, label: 'Electrons', stat: 'electron_gain' },
+		boost: { amount: 0.05, label: 'Stability Field strength', stat: 'stability_boost' },
 		color: '#d9c2bb',
 		discoverer: 'William Lassell',
 		era: CosmosEras.PREDICTION,

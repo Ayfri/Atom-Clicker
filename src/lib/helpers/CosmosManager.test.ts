@@ -89,6 +89,12 @@ describe('sky', () => {
 		expect(cosmosManager.canObserve).toBe(false);
 	});
 
+	test('a color boost raises the Light of that color only', () => {
+		const mars = COSMOS_OBJECTS_BY_ID.mars;
+		cosmosManager.discovered = ['mars'];
+		expect(gameManager.lightGain).toEqual({ blue: 1, green: 1, red: 1 + mars.boost.amount });
+	});
+
 	test('every object sits within the reach of the instrument of its era', () => {
 		for (const object of COSMOS_OBJECTS) {
 			const instrument = COSMOS_INSTRUMENTS.find(item => item.era === object.era)!;
