@@ -131,6 +131,7 @@
 
 			<Journey
 				electronizes={stats.electronizes}
+				ionizes={stats.ionizes}
 				photonRealm={stats.realms.includes(RealmTypes.PHOTONS)}
 				protonizes={stats.protonizes}
 				radiationRealm={stats.realms.includes(RealmTypes.RADIATION)}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ElectronizeIcon from '#components/icons/Electronize.svelte';
+	import IonizeIcon from '#components/icons/Ionize.svelte';
 	import PhotonIcon from '#components/icons/Photon.svelte';
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
 	import { CURRENCIES } from '#data/currencies.js';
@@ -18,12 +19,13 @@
 
 	interface Props {
 		electronizes: number;
+		ionizes: number;
 		photonRealm: boolean;
 		protonizes: number;
 		radiationRealm: boolean;
 	}
 
-	let { electronizes, photonRealm, protonizes, radiationRealm }: Props = $props();
+	let { electronizes, ionizes, photonRealm, protonizes, radiationRealm }: Props = $props();
 
 	/** Locked milestones stay hidden behind `???` so a profile never spoils what comes next. */
 	const milestones: Milestone[] = $derived([
@@ -31,14 +33,15 @@
 		{ color: CURRENCIES.Electrons.color, count: electronizes, icon: ElectronizeIcon, label: 'Electronized', reached: electronizes > 0 },
 		{ color: REALMS.photons.color, count: null, icon: PhotonIcon, label: 'Photon Realm', reached: photonRealm },
 		{ color: REALMS.radiation.color, count: null, icon: Radiation, label: 'Radiation Realm', reached: radiationRealm },
+		{ color: REALMS.radiation.color, count: ionizes, icon: IonizeIcon, label: 'Ionized', reached: ionizes > 0 },
 	]);
 </script>
 
 <section class="rounded-2xl border border-white/10 bg-black/20 p-4">
 	<h3 class="mb-3 text-xs font-semibold tracking-wider text-white/40 uppercase">Journey</h3>
-	<ol class="grid grid-cols-2 gap-3 md:grid-cols-4">
+	<ol class="grid grid-cols-2 gap-3 md:grid-cols-5">
 		{#each milestones as milestone (milestone.label)}
-			<li class="flex flex-col items-center gap-2 rounded-xl p-3 text-center {milestone.reached ? 'bg-white/5' : 'border border-dashed border-white/10 opacity-50'}">
+			<li class="flex flex-col max-md:last:odd:col-span-2 items-center gap-2 rounded-xl p-3 text-center {milestone.reached ? 'bg-white/5' : 'border border-dashed border-white/10 opacity-50'}">
 				<span class="flex size-11 items-center justify-center rounded-full bg-black/40">
 					{#if milestone.reached}
 						<milestone.icon color={milestone.color} size={24} />

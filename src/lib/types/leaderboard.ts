@@ -28,6 +28,7 @@ export interface PublicProfileStats {
     electronizes: number;
     generators: Partial<Record<GeneratorType, number>>;
     highestAPS: number;
+    ionizes: number;
     lifetime: Partial<Record<CurrencyName, number>>;
     playTime: number;
     protonizes: number;
