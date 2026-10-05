@@ -157,21 +157,22 @@ export class SupabaseAuth {
 	private startHeartbeat() {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
-				if (this.currentSession?.access_token) {
-					try {
-						await fetch('/api/auth/status', {
-							method: 'POST',
-							headers: {
-								'Authorization': `Bearer ${this.currentSession.access_token}`,
-							'Content-Type': 'application/json',
-							},
-						body: JSON.stringify({ is_online: true }),
-						});
-				} catch (err) {
-						console.error('Heartbeat failed:', err);
-					}
-				}
-		}, 45_000); // Pulse every 45 seconds
+			/** supabase-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
+			const accessToken = await this.getAccessToken();
+			if (!accessToken) return;
+			try {
+				await fetch('/api/auth/status', {
+					body: JSON.stringify({ is_online: true }),
+					headers: {
+						'Authorization': `Bearer ${accessToken}`,
+						'Content-Type': 'application/json',
+					},
+					method: 'POST',
+				});
+			} catch (err) {
+				console.error('Heartbeat failed:', err);
+			}
+		}, 45_000);
 	}
 
 	private stopHeartbeat() {
