@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Achievements**: New achievements for Ionize, the Prism's Spectrum and every colored Light, and the other tiers now spread further into the late game.
+
 # What's new 05-10-2026
 
 - **Fair Leaderboard**: Every score is now verified, and a run carried over from an older balance is brought down once to what today's game allows.
