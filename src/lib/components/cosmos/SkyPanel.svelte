@@ -177,10 +177,15 @@
 				{@const next = cosmosManager.nextInstrument?.id === instrument.id}
 				<li class={['flex items-center gap-3 rounded-lg px-2 py-2', !owned && !next && 'opacity-50']}>
 					<div class="min-w-0 flex-1">
-						<p class="text-sm font-semibold text-white">
-							{instrument.name} <span class="text-xs font-normal text-white/40">{instrument.year}</span>
-						</p>
-						<p class="text-xs text-white/50">{instrument.description}</p>
+						{#if owned || next}
+							<p class="text-sm font-semibold text-white">
+								{instrument.name} <span class="text-xs font-normal text-white/40">{instrument.year}</span>
+							</p>
+							<p class="text-xs text-white/50">{instrument.description}</p>
+						{:else}
+							<p class="text-sm font-semibold text-white">????</p>
+							<p class="text-xs text-white/50">????</p>
+						{/if}
 					</div>
 					{#if owned}
 						<Check
