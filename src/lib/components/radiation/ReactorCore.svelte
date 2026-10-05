@@ -89,7 +89,7 @@
 			<span class="text-xs font-bold uppercase tracking-[0.2em] text-white/40">Core empty</span>
 		{:else}
 			<span class="font-mono text-sm font-bold tabular-nums {cpm >= maxCpm ? 'text-orange-400' : 'text-white'}">
-				{formatNumber(cpm, 0)}<span class="text-white/35">/{formatNumber(maxCpm, 0)}</span>
+				{formatNumber(cpm, 1)}<span class="text-white/35">/{formatNumber(maxCpm, 1)}</span>
 			</span>
 			<span class="text-[10px] font-semibold uppercase tracking-[0.2em] {cpm >= maxCpm ? 'text-orange-400/80' : 'text-white/40'}">
 				{cpm >= maxCpm ? 'capped' : 'CPM'}
