@@ -18,13 +18,15 @@
 		containerClass?: string;
 		/** A centered card sized to its content, whose heading lives in its children while `title` names it for screen readers. */
 		dialog?: boolean;
+		/** On desktop, sized to its content up to 85vh instead of always 85vh tall. */
+		fit?: boolean;
 		header?: Snippet;
 		onClose?: () => void;
 		title?: string;
 		width?: 'sm' | 'md' | 'lg' | 'xl';
 	}
 
-	let { children, class: className, containerClass, dialog = false, header, onClose = () => {}, title, width = 'md' }: Props = $props();
+	let { children, class: className, containerClass, dialog = false, fit = false, header, onClose = () => {}, title, width = 'md' }: Props = $props();
 
 	const widthClasses = $derived({ lg: 'max-w-5xl', md: 'max-w-3xl', sm: 'max-w-xl', xl: 'max-w-7xl' }[width]);
 
@@ -79,7 +81,11 @@
 			aria-modal="true"
 			bind:offsetHeight={modalHeight}
 			bind:offsetWidth={modalWidth}
-			class="modal flex h-dvh w-screen md:h-[85vh] md:w-[85vw] {widthClasses} flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800"
+			class={[
+				'modal flex h-dvh w-screen md:w-[85vw] flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800',
+				fit ? 'md:h-auto md:max-h-[85vh]' : 'md:h-[85vh]',
+				widthClasses,
+			]}
 			role="dialog"
 			tabindex="-1"
 			transition:fly={{ duration: 300, y: -100 }}

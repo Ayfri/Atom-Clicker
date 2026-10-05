@@ -111,8 +111,9 @@
 {/snippet}
 
 <Modal
+	fit
 	{onClose}
-	width="sm"
+	width="md"
 >
 	{#snippet header()}
 		<h2 class="flex flex-1 items-baseline gap-3 text-2xl font-bold text-white">
@@ -123,8 +124,8 @@
 		</h2>
 	{/snippet}
 
-	<div class="flex flex-col gap-7">
-		<p class="text-center text-gray-300">Push the reactor past its limits and strip every atom of its electrons.</p>
+	<div class="flex flex-col gap-4">
+		<p class="text-center text-sm text-gray-300">Push the reactor past its limits and strip every atom of its electrons.</p>
 
 		<div class="flex items-center gap-5">
 			<div class="relative grid size-22 shrink-0 place-items-center">
@@ -185,7 +186,7 @@
 			</div>
 		</div>
 
-		<section class="flex flex-col gap-3">
+		<section class="flex flex-col gap-2">
 			<div class="flex items-baseline justify-between gap-2">
 				<h3 class="text-xs font-semibold uppercase tracking-wider text-white/40">Milestones</h3>
 				{#if lightBonus > 0}
@@ -233,41 +234,41 @@
 					Every milestone is reached.
 				{/if}
 			</p>
-			{#if ionizes > 0}
-				<p class="flex items-center gap-2 text-sm text-white/80">
-					<Rainbow
-						class="shrink-0 text-white/50"
-						size={16}
-					/>
-					<span class="flex-1">Light multiplier, +0.5 per Ionize</span>
-					<span class="font-mono tabular-nums text-white/50">x{formatNumber(ionizeLightMultiplier(ionizes))}</span>
-					<span class="text-white/30">→</span>
-					<span class="font-mono font-semibold tabular-nums text-white">x{formatNumber(ionizeLightMultiplier(ionizes + 1))}</span>
-				</p>
-				<p class="flex items-center gap-2 text-sm text-white/80">
-					<Sparkles
-						class="shrink-0 text-white/50"
-						size={16}
-					/>
-					<span class="flex-1">Starlight multiplier, +{IONIZE_STARLIGHT_STEP} per Ionize</span>
-					<span class="font-mono tabular-nums text-white/50">x{formatNumber(ionizeStarlightMultiplier(ionizes))}</span>
-					<span class="text-white/30">→</span>
-					<span class="font-mono font-semibold tabular-nums text-white">x{formatNumber(ionizeStarlightMultiplier(ionizes + 1))}</span>
-				</p>
-			{/if}
-			{#if flash > 0}
-				<p
-					class="flex items-center gap-2 text-sm text-white/80"
-					title="Grows with how far past the ionization line your core went this run"
-				>
-					<Currency
-						class="shrink-0"
-						name={CurrenciesTypes.STARLIGHT}
-						size={16}
-					/>
-					<span class="flex-1">Starlight flash</span>
-					<span class="font-mono font-semibold tabular-nums text-white">+{formatNumber(flash)}</span>
-				</p>
+			{#if ionizes > 0 || flash > 0}
+				<dl class="grid auto-cols-fr grid-flow-col gap-3 text-sm">
+					{#if ionizes > 0}
+						<div title="Every Ionize adds x0.5 to colored Light">
+							<dt class="flex items-center gap-1.5 text-xs text-white/50">
+								<Rainbow size={13} />
+								Light
+							</dt>
+							<dd class="font-mono tabular-nums text-white/50">
+								x{formatNumber(ionizeLightMultiplier(ionizes))} → <span class="font-semibold text-white">x{formatNumber(ionizeLightMultiplier(ionizes + 1))}</span>
+							</dd>
+						</div>
+						<div title="Every Ionize adds x{IONIZE_STARLIGHT_STEP} to Starlight">
+							<dt class="flex items-center gap-1.5 text-xs text-white/50">
+								<Sparkles size={13} />
+								Starlight
+							</dt>
+							<dd class="font-mono tabular-nums text-white/50">
+								x{formatNumber(ionizeStarlightMultiplier(ionizes))} → <span class="font-semibold text-white">x{formatNumber(ionizeStarlightMultiplier(ionizes + 1))}</span>
+							</dd>
+						</div>
+					{/if}
+					{#if flash > 0}
+						<div title="Grows with how far past the ionization line your core went this run">
+							<dt class="flex items-center gap-1.5 text-xs text-white/50">
+								<Currency
+									name={CurrenciesTypes.STARLIGHT}
+									size={13}
+								/>
+								Starlight flash
+							</dt>
+							<dd class="font-mono font-semibold tabular-nums text-white">+{formatNumber(flash)}</dd>
+						</div>
+					{/if}
+				</dl>
 			{/if}
 		</section>
 
