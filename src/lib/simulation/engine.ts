@@ -47,6 +47,9 @@ const PHOTON_AVERAGE_VALUE = (PHOTON_MIN_VALUE + PHOTON_MAX_VALUE) / 2;
 
 /** Prestige budgets are a pacing limit per play session, not a lifetime cap. */
 const PRESTIGE_WINDOW_MS = HOUR_MS;
+/** A reset gain that grew less than PLATEAU_GROWTH over PLATEAU_MS has stalled, a player takes it rather than wait for the ratio target. */
+const PLATEAU_GROWTH = 1.1;
+const PLATEAU_MS = HOUR_MS;
 
 const SPIKE_WINDOW_MS = 60_000;
 const SPIKE_MIN_HISTORY = 5;
@@ -73,6 +76,8 @@ export class SimulationEngine {
 	private autoUpgradeInterval = 0;
 	private autoUpgradeNext = 0;
 	private readonly config: BenchmarkConfig;
+	/** Last time each reset gain grew past PLATEAU_GROWTH, and the gain it grew to. */
+	private readonly gainPlateaus = { electronize: { gain: 0, since: 0 }, protonise: { gain: 0, since: 0 } };
 	private readonly idleGaps: IdleGap[] = [];
 	private idleMs = 0;
 	private idleStart = 0;
@@ -316,13 +321,16 @@ export class SimulationEngine {
 		// Thresholds are ratios against the previous run's gain: an absolute proton count is meaningless once the curve takes off.
 		const protoniseGain = gameManager.protoniseProtonsGain;
 		const rawAps = gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1);
+		const protonisePlateau = this.plateaued('protonise', protoniseGain);
 		if (
 			canPrestige() &&
 			prestigeStrategy.autoProtonise &&
-			protoniseGain >= Math.max(1, this.lastProtoniseGain * prestigeStrategy.protoniseThreshold) &&
+			(protoniseGain >= Math.max(1, this.lastProtoniseGain * prestigeStrategy.protoniseThreshold) ||
+				(protonisePlateau && protoniseGain > Math.max(1, this.lastProtoniseGain))) &&
 			gameManager.protonise()
 		) {
 			this.lastProtoniseGain = protoniseGain;
+			this.restartPlateaus('protonise');
 			this.logPrestige('protonise', protoniseGain, rawAps);
 			this.record('protonise', `+${protoniseGain} protons`);
 			this.prestigesThisActiveWindow++;
@@ -330,16 +338,19 @@ export class SimulationEngine {
 		}
 
 		const electronizeGain = gameManager.electronizeElectronsGain;
+		const electronizePlateau = this.plateaued('electronize', electronizeGain);
 		if (
 			canPrestige() &&
 			prestigeStrategy.autoElectronize &&
-			electronizeGain >= Math.max(1, this.lastElectronizeGain * prestigeStrategy.electronizeThreshold) &&
+			(electronizeGain >= Math.max(1, this.lastElectronizeGain * prestigeStrategy.electronizeThreshold) ||
+				(electronizePlateau && electronizeGain > Math.max(1, this.lastElectronizeGain))) &&
 			!this.planner.canSpend(CurrenciesTypes.PROTONS) &&
 			gameManager.electronize()
 		) {
 			this.lastElectronizeGain = electronizeGain;
 			/** Electronize wipes protons, a threshold left on the last proton run would block every protonise after it. */
 			this.lastProtoniseGain = 0;
+			this.restartPlateaus('protonise', 'electronize');
 			this.logPrestige('electronize', electronizeGain, rawAps);
 			this.record('electronize', `+${electronizeGain} electrons`);
 			this.prestigesThisActiveWindow++;
@@ -354,6 +365,7 @@ export class SimulationEngine {
 		if (canPrestige() && radiationManager.ionizeReady && gameManager.ionize()) {
 			this.lastElectronizeGain = 0;
 			this.lastProtoniseGain = 0;
+			this.restartPlateaus('protonise', 'electronize');
 			this.logPrestige('ionize', 0, rawAps);
 			this.record('ionize', `#${gameManager.totalIonizesAllTime}`);
 			this.prestigesThisActiveWindow++;
@@ -470,6 +482,20 @@ export class SimulationEngine {
 		}
 		if (best && CHROMATIC_UPGRADES[best.id].currencies.includes(CurrenciesTypes.WHITE_LIGHT)) chromaticManager.recombine();
 		return best?.id ?? null;
+	}
+
+	/** Tracks the peak, spending protons dips the Electronize gain without the run having stalled. */
+	private plateaued(layer: keyof SimulationEngine['gainPlateaus'], gain: number): boolean {
+		const plateau = this.gainPlateaus[layer];
+		if (gain > plateau.gain * PLATEAU_GROWTH) {
+			plateau.gain = gain;
+			plateau.since = gameManager.inGameTime;
+		}
+		return gameManager.inGameTime - plateau.since >= PLATEAU_MS;
+	}
+
+	private restartPlateaus(...layers: (keyof SimulationEngine['gainPlateaus'])[]) {
+		for (const layer of layers) this.gainPlateaus[layer] = { gain: 0, since: gameManager.inGameTime };
 	}
 
 	/** Saves for the Aperture level or the instrument that unlocks the next discovery, a new object is worth more than a study level. */
