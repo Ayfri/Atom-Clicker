@@ -91,6 +91,9 @@ class RadiationManager {
 
 	currentCpm = $derived(this.cpmFor(this.mass, this.controlRodLevel));
 
+	/** Lowest power that reaches the output cap, any more only burns fuel faster. Above 1 when the fuel can't reach the cap. */
+	capControlLevel = $derived(this.mass > 0 ? this.maxCpm / (this.mass * 10 * this.enrichmentBonus) : Infinity);
+
 	/** Same formula as currentCpm for arbitrary inputs, used by the UI to preview a fuel purchase before spending. */
 	cpmFor(mass: number, controlLevel: number): number {
 		if (mass <= 0 || controlLevel <= 0) return 0;
