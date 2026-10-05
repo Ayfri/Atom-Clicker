@@ -1,5 +1,7 @@
 # What's new 08-10-2026
 
+- **The Cosmos**: Your first Ionize opens a 3D sky above the realms, where you rediscover the planets and moons in the order astronomers did, from the naked eye to Neptune, and every find radiates Starlight and boosts the rest of the game.
+- **Quark Shop**: A Cosmos banner for the leaderboard.
 - **Achievements**: New achievements for Ionize, the Prism's Spectrum and every colored Light, and the other tiers now spread further into the late game.
 - **Reactor**: The power lever shows where your output caps with a max output button, and Ionize tells you which upgrades lift the cap when it sits under the line.
 - **Saving**: Your progress saves the moment you hide or close the tab, locally and to the cloud.
