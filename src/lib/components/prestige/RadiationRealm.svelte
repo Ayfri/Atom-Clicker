@@ -93,7 +93,7 @@
 									the current fuel: it drops as fuel grows and climbs as it shrinks.
 								</p>
 								<p>Above the mark the core shrinks until burn and regen meet, then holds there.</p>
-								<p>The faint mark under it is where the output hits its cap, more power past it only burns fuel. The gauge button picks the best of the two.</p>
+								<p>The faint gauge mark under it is where the output hits its cap, more power past it only burns fuel. The gauge button picks the best of the two.</p>
 								<p class="text-white/50">The ring around the reactor is the output, it has a cap that Coolant Pumps raise.</p>
 							</div>
 						{/snippet}

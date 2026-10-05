@@ -54,12 +54,21 @@
 			</div>
 		{/if}
 		{#if capLevel < stableLevel}
-			<span
-				class="pointer-events-none absolute rounded-full bg-white/35 {vertical ? 'inset-x-2 h-px translate-y-1/2' : 'inset-y-3 w-px -translate-x-1/2'}"
+			<div
+				class="pointer-events-none absolute flex items-center justify-center {vertical ? 'inset-x-2 translate-y-1/2' : 'inset-y-3 -translate-x-1/2'}"
 				style:bottom={vertical ? travel(capLevel) : undefined}
 				style:left={vertical ? undefined : travel(capLevel)}
 				title="Output caps at {(capLevel * 100).toFixed(0)}%, more power only burns fuel faster"
-			></span>
+			>
+				<span class="rounded-full bg-white/35 {vertical ? 'h-px w-full' : 'h-full w-px'}"></span>
+				<!-- Only past a 3% gap, closer it would sit on the ∞ glyph. -->
+				{#if stableLevel - capLevel >= 0.03}
+					<Gauge
+						class="absolute text-white/45 {vertical ? '-left-4' : '-top-3'}"
+						size={10}
+					/>
+				{/if}
+			</div>
 		{/if}
 		<input
 			aria-label="Reactor power"
