@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dev } from '$app/env';
-	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude, skySight } from '#data/cosmos.js';
+	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -52,9 +52,9 @@
 				discovered,
 				focus,
 				hud,
+				limit: untrack(() => cosmosManager.limit),
 				live: tools?.liveSurfaces(focus),
 				onDiscover: id => cosmosManager.discover(id),
-				sight: untrack(() => skySight(cosmosManager.limit)),
 				timestamps: dev,
 			});
 			if (disposed) return instance.dispose();
@@ -100,7 +100,7 @@
 	/** The sky stops under a modal. */
 	$effect(() => scene?.setPaused(ui.activeModal !== null));
 	$effect(() => scene?.setBuilding(research !== null));
-	$effect(() => scene?.setSight(skySight(cosmosManager.limit)));
+	$effect(() => scene?.setLimit(cosmosManager.limit));
 
 	$effect(() => {
 		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
