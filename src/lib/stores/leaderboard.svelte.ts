@@ -4,10 +4,14 @@ import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 import { obfuscateClientData } from '#lib/utils/obfuscation.js';
 import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 
 export const REFRESH_INTERVAL = 60_000; // 1 minute between leaderboard refreshes
 const RANKS_KEY = 'atomic-clicker-leaderboard-ranks';
-const MIN_UPDATE_INTERVAL = 30_000; // 30 seconds minimum between updates
+/** Above the server's 20 s per-player limit, so an honest client never meets a 429 from a single tab. */
+const MIN_UPDATE_INTERVAL = 30_000;
+/** A run the audit refuses keeps failing until it changes a lot, retrying it every 30 s only costs a full audit each time. */
+const REJECTED_RETRY_INTERVAL = 5 * 60_000;
 
 const MIN_ATOMS_CHANGE_PERCENT = 0.05; // 5% minimum change in atoms
 
@@ -17,6 +21,8 @@ interface LeaderboardStats {
 	/** Every account, the community upgrade scales with it. */
 	totalUsers: number;
 }
+
+type ScoreVerdict = 'outdated' | 'rejected' | 'rolled_back' | 'valid';
 
 interface LeaderboardData {
 	entries: LeaderboardEntry[];
@@ -37,6 +43,9 @@ export class LeaderboardStore {
 	previousRanks = $state.raw<Record<string, number> | null>(null);
 
 	private hasFetched = false;
+	/** Pushed back by every submission and by the server's answers (429 delay, 409 outdated game), the effect waits for it. */
+	private nextSubmitAt = 0;
+	private notified = new Set<ScoreVerdict>();
 	private visiting = false;
 
 	/** Rank 1 of 100 is the top 1%, never shown as 0%. */
@@ -74,11 +83,12 @@ export class LeaderboardStore {
 	async fetchLeaderboard() {
 		this.hasFetched = true;
 		try {
-			const userId = supabaseAuth && supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : '';
-			const response = await fetch(`/api/leaderboard?userId=${userId}`);
+			const response = await fetch('/api/leaderboard');
 			if (!response.ok) throw new Error('Failed to fetch leaderboard');
 			const data: LeaderboardData = await response.json();
-			this.entries = data.entries;
+			/** The server caches one board for everyone, so the player's own row is marked here. */
+			const userId = supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : undefined;
+			this.entries = userId ? data.entries.map((entry) => (entry.userId === userId ? { ...entry, self: true } : entry)) : data.entries;
 			this.stats = data.stats;
 			this.fetchedAt = Date.now();
 			if (this.visiting) this.saveRanks();
@@ -87,7 +97,15 @@ export class LeaderboardStore {
 		}
 	}
 
-	async updateScore(atoms: number, level: number) {
+	/** A run that fails keeps failing on every submission until the next Protonize, so each verdict is told once per session. */
+	private notifyOnce(key: ScoreVerdict, message: string) {
+		if (this.notified.has(key)) return;
+		this.notified.add(key);
+		toastStore.warning({ duration: 15_000, message, title: 'Leaderboard' });
+	}
+
+	/** Sends the whole game state, the server audits it and reads the score from it, see /api/leaderboard. */
+	async updateScore() {
 		if (!browser || this.isUpdating) return;
 		// Skip submission for saves flagged by the integrity checks, see plausibility.ts.
 		if (gameManager.integrityFlagged || gameManager.saveIntegrityWarnings.length > 0) return;
@@ -98,35 +116,46 @@ export class LeaderboardStore {
 
 			const accessToken = await supabaseAuth.getAccessToken();
 			if (!accessToken) return;
+			this.nextSubmitAt = Date.now() + MIN_UPDATE_INTERVAL;
 
+			const { dailyStats, settings, tutorial, ...state } = gameManager.getCurrentState();
 			const data = {
-				username: supabaseAuth.displayName ?? 'Anonymous',
-				atoms,
-				level,
 				picture: supabaseAuth.avatarUrl ?? undefined,
+				state,
+				username: supabaseAuth.displayName ?? 'Anonymous',
 			};
 
-			const obfuscatedData = obfuscateClientData(data);
-
 			const response = await fetch('/api/leaderboard', {
-				method: 'POST',
+				body: JSON.stringify(obfuscateClientData(data)),
 				headers: {
-					'Content-Type': 'application/json',
 					'Authorization': `Bearer ${accessToken}`,
+					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify(obfuscatedData),
+				method: 'POST',
 			});
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				if (response.status === 429) {
-					console.log(`Leaderboard rate limited. Next update in ${errorData.nextUpdateIn} seconds`);
-					return;
-				}
-				throw new Error('Failed to update leaderboard');
+			if (response.status === 409) {
+				this.nextSubmitAt = Infinity;
+				this.notifyOnce('outdated', 'The game was updated, reload the page to keep submitting your score.');
+				return;
 			}
+			if (response.status === 429) {
+				const { nextUpdateIn } = (await response.json()) as { nextUpdateIn: number };
+				this.nextSubmitAt = Date.now() + nextUpdateIn * 1000;
+				return;
+			}
+			if (!response.ok) throw new Error('Failed to update leaderboard');
 
-			await this.fetchLeaderboard();
+			const { issues, status } = (await response.json()) as { issues: string[]; status: ScoreVerdict };
+			if (status !== 'valid') this.nextSubmitAt = Date.now() + REJECTED_RETRY_INTERVAL;
+			if (status === 'rolled_back') {
+				this.notifyOnce(status, "This run couldn't be verified, so your leaderboard entry went back to your last verified score. Your next Protonize starts a run that counts again.");
+			} else if (status === 'rejected') {
+				this.notifyOnce(status, "This run couldn't be verified, so it isn't submitted. Your leaderboard entry stays as it was.");
+			}
+			if (issues.length > 0) console.warn('Leaderboard checks failed:', issues);
+
+			if (this.hasFetched) await this.fetchLeaderboard();
 		} catch (error) {
 			console.error('Error updating leaderboard:', error);
 		} finally {
@@ -138,30 +167,19 @@ export class LeaderboardStore {
 		if (browser) {
 			let lastAtoms = 0;
 			let lastLevel = 0;
-			let lastUpdate = 0;
 
 			$effect.root(() => {
 				$effect(() => {
 					const atoms = gameManager.atoms;
 					const level = gameManager.playerLevel;
-
-					if (!supabaseAuth || !supabaseAuth.isAuthenticated) return;
-
-					const now = Date.now();
-					if (now - lastUpdate < MIN_UPDATE_INTERVAL) return;
+					if (!supabaseAuth.isAuthenticated || this.isUpdating || Date.now() < this.nextSubmitAt) return;
 
 					const atomsChange = Math.abs(atoms - lastAtoms) / Math.max(lastAtoms, 1);
-					const shouldUpdate =
-						lastAtoms === 0 || // First update
-					atomsChange > MIN_ATOMS_CHANGE_PERCENT || // Significant change in atoms
-					level !== lastLevel; // Level change
+					if (lastAtoms !== 0 && atomsChange <= MIN_ATOMS_CHANGE_PERCENT && level === lastLevel) return;
 
-					if (shouldUpdate) {
-						lastAtoms = atoms;
-						lastLevel = level;
-						lastUpdate = now;
-						this.updateScore(atoms, level);
-					}
+					lastAtoms = atoms;
+					lastLevel = level;
+					this.updateScore();
 				});
 			});
 		}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Tabs from '#components/ui/Tabs.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
@@ -11,13 +12,13 @@
 	import { Fuel } from '@lucide/svelte';
 
 	const SHARES = [
-		{ label: '10%', share: 0.1 },
-		{ label: '25%', share: 0.25 },
-		{ label: '50%', share: 0.5 },
-		{ label: 'Max', share: 1 },
+		{ id: 0.1, label: '10%' },
+		{ id: 0.25, label: '25%' },
+		{ id: 0.5, label: '50%' },
+		{ id: 1, label: 'Max' },
 	] as const;
 
-	let share = $state(0.25);
+	let share = $state<number>(0.25);
 
 	const balance = $derived(currenciesManager.getAmount(CurrenciesTypes.ELECTRONS));
 	const electrons = $derived(Math.max(1, Math.floor(balance * share)));
@@ -37,19 +38,15 @@
 <div class="flex w-full flex-col gap-2" data-hint="radiation-fuel">
 	<div class="flex items-center justify-between gap-2">
 		<span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Inject</span>
-		<div class="flex gap-0.5 rounded-md bg-white/5 p-0.5">
-			{#each SHARES as option (option.label)}
-				<button
-					aria-pressed={share === option.share}
-					class="cursor-pointer rounded-sm px-2 py-0.5 text-xs transition-colors duration-200 {share === option.share ?
-						'bg-white/20 text-white'
-					:	'text-white/60 hover:bg-white/10 hover:text-white'}"
-					onclick={() => (share = option.share)}
-				>
-					{option.label}
-				</button>
-			{/each}
-		</div>
+		<Tabs
+			accent="var(--color-radiation)"
+			buttonClass="px-2 py-0.5 text-xs"
+			label="Fuel share"
+			onselect={id => (share = id)}
+			role="radiogroup"
+			selected={share}
+			tabs={SHARES}
+		/>
 	</div>
 
 	<button

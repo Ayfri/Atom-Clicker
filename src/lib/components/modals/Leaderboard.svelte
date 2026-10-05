@@ -5,6 +5,7 @@
 	import Avatar from '#components/ui/Avatar.svelte';
 	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
 	import Modal from '#components/ui/Modal.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 	import { formatNumber, formatNumberFull } from '#lib/utils.js';
 	import { leaderboard, REFRESH_INTERVAL } from '#stores/leaderboard.svelte.js';
@@ -137,18 +138,7 @@
 	{:else}
 		<div class="flex h-full min-h-0 flex-col gap-3">
 			<div class="flex flex-wrap items-center gap-2">
-				<div class="flex rounded-lg bg-black/30 p-1" role="tablist">
-					{#each tabs as { id, label } (id)}
-						<button
-							aria-selected={activeTab === id}
-							class="rounded-md px-3 py-1.5 text-sm font-semibold transition-colors {activeTab === id ? 'bg-accent-500 text-white shadow' : 'text-white/60 hover:text-white'}"
-							onclick={() => (tab = id)}
-							role="tab"
-						>
-							{label}
-						</button>
-					{/each}
-				</div>
+				<Tabs buttonClass="px-3 py-1.5 text-sm" onselect={id => (tab = id)} selected={activeTab} {tabs} />
 				<label class="relative min-w-40 flex-1">
 					<Search class="absolute top-1/2 left-3 -translate-y-1/2 text-white/40" size={16} />
 					<input

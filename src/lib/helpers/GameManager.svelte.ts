@@ -33,6 +33,7 @@ import { applyOfflineProgress } from '#helpers/offlineProgress.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
+import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds } from '#helpers/runBounds.js';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/saves.js';
 import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
 import { TutorialManager } from '#helpers/TutorialManager.svelte.js';
@@ -42,6 +43,7 @@ import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
 const AUTO_PURCHASE_BASE_INTERVAL = 30_000;
+const LEGACY_BACKUP_KEY = 'atomic-clicker-save-legacy-backup';
 const AUTO_PURCHASE_MIN_INTERVAL = 1000;
 const STABILITY_BASE_TIME_MS = 600_000;
 
@@ -54,6 +56,7 @@ function scheduleExpiry(callback: () => void, delay: number) {
 export class GameManager {
 	achievements = $state.raw<string[]>([]);
 	activePowerUps = $state.raw<PowerUp[]>([]);
+	balanceVersion = $state(BALANCE_VERSION);
 	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseGenerator/purchaseUpgrade directly. */
 	applyingOfflineProgress = false;
 	/** The simulation swaps this for its own clock, a 24h benchmark run finishes in seconds of wall time. */
@@ -79,6 +82,7 @@ export class GameManager {
 	/** Owned Quark shop item ids, gating prestige-persistence behaviors the effect pipeline can't express. */
 	quarkEntitlements = $state.raw<string[]>([]);
 	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
+	runStartedAt = $state(Date.now());
 	saveIntegrityWarnings = $state<string[]>([]);
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
 	skillUpgrades = $state.raw<string[]>([]);
@@ -465,6 +469,7 @@ export class GameManager {
 		return {
 			achievements: this.achievements,
 			activePowerUps: this.activePowerUps,
+			balanceVersion: this.balanceVersion,
 			chromatic: this.chromatic,
 			chromaticUpgrades: this.chromaticUpgrades,
 			currencies: this.currencies,
@@ -482,6 +487,7 @@ export class GameManager {
 			radiation: radiationManager.getState(),
 			radiationUpgrades: this.radiationUpgrades,
 			realms: this.realms,
+			runStartedAt: this.runStartedAt,
 			selectedRealmId: realmManager.selectedRealmId,
 			settings: this.settings,
 			skillUpgrades: this.skillUpgrades,
@@ -575,6 +581,41 @@ export class GameManager {
 		this.save();
 	}
 
+	/**
+	 * A run carried over from an older, more generous balance can hold far more atoms than its generators make today, which the
+	 * leaderboard would refuse until the next Protonize. Those atoms are cut to what the run could earn under the current balance,
+	 * the same bound the server checks, and the untouched save is kept aside.
+	 */
+	private rebaseRun() {
+		const now = this.clock();
+		const atoms = this.currencies[CurrenciesTypes.ATOMS];
+		const backup = serializeSaveState(this.getCurrentState());
+		this.balanceVersion = BALANCE_VERSION;
+		/** Its purchases were priced by the old balance, so the server stops matching them against its earned total. */
+		this.runStartedAt = 0;
+
+		/** XP sets the level, which multiplies production, so a cut can lower the bound again: it repeats until both fit. */
+		let trimmed = false;
+		for (let pass = 0; pass < 10; pass++) {
+			const bounds = measureRunBounds(this, now);
+			const cap = maxRunAtoms(bounds, runSeconds(this.runStartedAt, this.startDate, now), this.totalClicksRun);
+			const xpCap = Math.min(atoms.earnedRun, cap) * bounds.xpPerAtom * RUN_BOUND_SLACK;
+			if (atoms.earnedRun <= cap && this.totalXP <= xpCap) break;
+			trimmed = true;
+			atoms.amount = Math.min(atoms.amount, cap);
+			atoms.earnedRun = Math.min(atoms.earnedRun, cap);
+			this.totalXP = Math.min(this.totalXP, xpCap);
+		}
+		if (!trimmed) return;
+
+		setItem(LEGACY_BACKUP_KEY, backup);
+		toastStore.info({
+			duration: 20_000,
+			message: 'Your current run held atoms from an older balance, they were brought down to what your generators make today. Your next Protonize starts fresh.',
+			title: 'Save updated',
+		});
+	}
+
 	private reportIntegrity(warnings: string[]) {
 		this.saveIntegrityWarnings = warnings;
 		if (!this.integrityFlagged && warnings.length === 0) return;
@@ -622,6 +663,7 @@ export class GameManager {
 			}
 		}
 		if (data.lastInteractionTime) this.lastInteractionTime = data.lastInteractionTime;
+		if (this.balanceVersion < BALANCE_VERSION) this.rebaseRun();
 
 		if (this.activePowerUps.length === 0) return;
 		const now = this.clock();
@@ -641,7 +683,7 @@ export class GameManager {
 		this.upgrades = upgrades;
 		this.photonUpgrades = photonUpgrades;
 		if (gain) currenciesManager.add(gain.currency, gain.amount);
-		this.lastInteractionTime = this.clock();
+		this.lastInteractionTime = this.runStartedAt = this.clock();
 	}
 
 	protonise() {
@@ -723,7 +765,8 @@ export class GameManager {
 	reset() {
 		this.resetAll();
 		this.saveIntegrityWarnings = [];
-		this.startDate = Date.now();
+		this.startDate = this.runStartedAt = Date.now();
+		this.balanceVersion = BALANCE_VERSION;
 		this.save();
 	}
 
@@ -746,6 +789,10 @@ export class GameManager {
 
 	private resetStat(key: string, defaultValue: unknown) {
 		switch (key) {
+			/** Its default of 0 is what a save from before it existed reads as, a reset state is already current. */
+			case 'balanceVersion':
+				this.balanceVersion = BALANCE_VERSION;
+				break;
 			case 'currencies':
 				currenciesManager.hardReset();
 				break;

@@ -129,7 +129,8 @@
 							stroke-dasharray={RING_LENGTH}
 							stroke-linecap="round"
 							stroke-width="3"
-							style:--duration="{Math.max(0, colliderManager.readyAt - Date.now())}ms"
+							style:--cooldown="{COLLIDER_COOLDOWN_SECONDS * 1000}ms"
+							style:--elapsed="{Math.min(0, colliderManager.readyAt - Date.now() - COLLIDER_COOLDOWN_SECONDS * 1000)}ms"
 							style:--length={RING_LENGTH}
 						/>
 					{/key}
@@ -165,6 +166,9 @@
 			<div class="flex flex-col gap-0.5">
 				<span class="font-mono text-xl font-bold text-white sm:text-3xl">{formatNumberFull(colliderManager.total)}</span>
 				<span class="text-xs text-white/50">particles in the ring</span>
+				{#if colliderManager.today > 0}
+					<span class="text-xs text-accent-300">+{formatNumberFull(colliderManager.today)} today</span>
+				{/if}
 			</div>
 			<div class="flex flex-col gap-0.5">
 				<span class="font-mono text-xl font-bold text-white sm:text-3xl">{formatNumberFull(colliderManager.injections)}</span>
@@ -216,7 +220,8 @@
 
 <style>
 	.cooldown {
-		animation: charge var(--duration) linear both;
+		/** A negative delay resumes the fill where the cooldown is, instead of restarting it empty on open. */
+		animation: charge var(--cooldown) linear var(--elapsed) both;
 	}
 
 	.orbit {

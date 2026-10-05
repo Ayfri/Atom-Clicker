@@ -9,8 +9,9 @@
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
 	import { setGlobals } from '#lib/globals.js';
-	import { isLocalStorageUnavailable } from '#lib/utils/safeLocalStorage.js';
+	import { getItem, isLocalStorageUnavailable, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
+	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
@@ -112,6 +113,15 @@
 		} catch (error) {
 			console.warn('Cloud save check failed:', error);
 		}
+		promptCloudSave();
+	}
+
+	/** Asked once per account on sign-in, the Cloud Save tab keeps the toggle. A modal already open defers it to the next load. */
+	function promptCloudSave() {
+		const key = `cloudSavePromptSeen:${supabaseAuth.user?.id}`;
+		if (autoSave.enabled || getItem(key) || ui.activeModal) return;
+		setItem(key, 'true');
+		ui.openModalLazy('cloud-save-prompt', () => import('#components/modals/CloudSavePrompt.svelte'));
 	}
 
 	/** Account bootstrap is network-bound, so it runs beside the game loop instead of delaying it. */

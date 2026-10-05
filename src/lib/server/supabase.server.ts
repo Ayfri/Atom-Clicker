@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { COLLIDER_COOLDOWN_SECONDS } from '#data/collider.js';
+import type { PreviousScore, ScoreAudit } from '#lib/server/scoreAudit.server.js';
 import type { ColliderState } from '#lib/types.js';
-import type { Database } from '#lib/types/supabase.js';
+import type { Database, Json } from '#lib/types/supabase.js';
 import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
@@ -11,6 +12,15 @@ export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABAS
 		persistSession: false
 	}
 })
+
+export interface ScoreContext {
+	colliderTotal: number;
+	/** Last submission of any status, the throttle reads it. */
+	lastReceivedAt: number | null;
+	previous: PreviousScore | null;
+}
+
+export type ScoreStatus = 'rejected' | 'rolled_back' | 'valid';
 
 /** The caller's identity comes from their session token only: user ids are public in the leaderboard, so a payload-supplied one is worthless. */
 export async function resolveUserFromRequest(request: Request): Promise<string | null> {
@@ -38,27 +48,37 @@ export const leaderboardService = {
 		return data;
 	},
 
-	async updateProfileStats(
-		userId: string,
-		atoms: number,
-		level: number,
-		username?: string,
-		picture?: string
-	) {
-		const atomsString = atoms.toString();
+	async getScoreContext(userId: string): Promise<ScoreContext> {
+		const { data, error } = await supabaseAdmin.rpc('get_score_context', { p_user_id: userId });
 
-		const { error } = await supabaseAdmin.rpc('update_profile_stats', {
+		if (error) {
+			console.error('Error fetching score context:', error);
+			throw error;
+		}
+
+		return data as unknown as ScoreContext;
+	},
+
+	/** Stores the audited submission and moves the board score, see the record_score migration for the rollback rule. */
+	async recordScore(userId: string, audit: ScoreAudit, username: string, picture?: string): Promise<ScoreStatus> {
+		const { data, error } = await supabaseAdmin.rpc('record_score', {
+			p_atoms: audit.atoms,
+			p_issues: audit.issues,
+			p_level: audit.level,
+			p_picture: picture,
+			p_snapshot: audit.snapshot as unknown as Json,
 			p_user_id: userId,
-			p_atoms: atomsString,
-			p_level: level,
 			p_username: username,
-			p_picture: picture
+			p_valid: audit.issues.length === 0,
+			p_warnings: audit.warnings,
 		});
 
 		if (error) {
-			console.error('Error updating profile stats:', error);
+			console.error('Error recording score:', error);
 			throw error;
 		}
+
+		return (data as { status: ScoreStatus }).status;
 	},
 
 	async getProfile(userId: string) {
@@ -87,24 +107,6 @@ export const leaderboardService = {
 
 		if (error) {
 			console.error('Error fetching public save:', error)
-			throw error
-		}
-
-		return data
-	},
-
-	/** Only the save fields the integrity checks read, so a score update never downloads the whole save. */
-	async getSaveIntegrityFields(userId: string) {
-		const { data, error } = await supabaseAdmin
-			.from('profiles')
-			.select(
-				'currencies:save->currencies, inGameTime:save->inGameTime, integrityFlagged:save->integrityFlagged, lastSave:save->lastSave, startDate:save->startDate, totalClicksAllTime:save->totalClicksAllTime, totalClicksRun:save->totalClicksRun, totalElectronizesAllTime:save->totalElectronizesAllTime, totalElectronizesRun:save->totalElectronizesRun, totalProtonisesAllTime:save->totalProtonisesAllTime, totalProtonisesRun:save->totalProtonisesRun',
-			)
-			.eq('id', userId)
-			.maybeSingle()
-
-		if (error) {
-			console.error('Error fetching save integrity fields:', error)
 			throw error
 		}
 

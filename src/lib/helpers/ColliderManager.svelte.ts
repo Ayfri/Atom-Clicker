@@ -14,11 +14,13 @@ export class ColliderManager {
 	ready = $state(false);
 	/** Built from the server's remaining cooldown rather than its timestamp, so a skewed device clock changes nothing. */
 	readyAt = $state(0);
+	today = $state(0);
 	total = $state(0);
 	private readyTimer: ReturnType<typeof setTimeout> | undefined;
 
 	private apply(state: ColliderState) {
 		this.injections = state.injections;
+		this.today = state.today;
 		this.total = state.total;
 		gameManager.colliderBonus = colliderBonus(state.total);
 

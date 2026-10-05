@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { PHOTON_UPGRADES, EXCITED_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { reveal } from '#helpers/reveals.svelte.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import Tabs from '#components/ui/Tabs.svelte';
 	import PhotonUpgradeItem from './PhotonUpgradeItem.svelte';
 	import PrismUpgrades from './PrismUpgrades.svelte';
 	import { Eye, EyeOff, Triangle } from '@lucide/svelte';
@@ -63,37 +63,26 @@
 		</button>
 	</div>
 
-	<div class="currency-tabs flex gap-1 mb-1">
-		<button
-			class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]', selectedCurrency === CurrenciesTypes.PHOTONS && 'active']}
-			onclick={() => photonUpgradesTab.selected = CurrenciesTypes.PHOTONS}
-			title={CURRENCIES[CurrenciesTypes.PHOTONS].name}
-		>
-			<Currency name={CurrenciesTypes.PHOTONS} />
-		</button>
-		{#if showExcitedTab}
-			<button
-				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]', selectedCurrency === CurrenciesTypes.EXCITED_PHOTONS && 'active']}
-				data-hint="excited-photons-tab"
-				in:reveal={{ y: 0 }}
-				onclick={() => photonUpgradesTab.selected = CurrenciesTypes.EXCITED_PHOTONS}
-				title={CURRENCIES[CurrenciesTypes.EXCITED_PHOTONS].name}
-			>
-				<Currency name={CurrenciesTypes.EXCITED_PHOTONS} />
-			</button>
-		{/if}
-		{#if showPrismTab}
-			<button
-				class={['currency-tab flex items-center bg-white/5 border-none rounded-lg cursor-pointer p-2 text-realm-200 transition-all duration-200 hover:bg-white/10 active:bg-white/15 active:shadow-[0_0_10px_rgba(255,255,255,0.1)]', selectedCurrency === 'prism' && 'active']}
-				data-hint="prism-tab"
-				in:reveal={{ y: 0 }}
-				onclick={() => photonUpgradesTab.selected = 'prism'}
-				title="Prism"
-			>
-				<Triangle size={18} />
-			</button>
-		{/if}
-	</div>
+	<Tabs
+		accent={selectedCurrency === 'prism' ? 'var(--color-realm-200)' : CURRENCIES[selectedCurrency].color}
+		buttonClass="p-1.5"
+		class="mb-1 self-start"
+		onselect={tab => (photonUpgradesTab.selected = tab)}
+		selected={selectedCurrency}
+		tabs={[
+			{ id: CurrenciesTypes.PHOTONS, title: CURRENCIES[CurrenciesTypes.PHOTONS].name },
+			...(showExcitedTab ? [{ hint: 'excited-photons-tab', id: CurrenciesTypes.EXCITED_PHOTONS, title: CURRENCIES[CurrenciesTypes.EXCITED_PHOTONS].name }] : []),
+			...(showPrismTab ? [{ hint: 'prism-tab', id: 'prism' as const, title: 'Prism' }] : []),
+		]}
+	>
+		{#snippet item(tab)}
+			{#if tab.id === 'prism'}
+				<Triangle class="text-realm-200" size={18} />
+			{:else}
+				<Currency name={tab.id} />
+			{/if}
+		{/snippet}
+	</Tabs>
 
 	<div class="flex-1 lg:overflow-y-auto px-1 custom-scrollbar">
 		{#if selectedCurrency === 'prism'}
@@ -117,10 +106,3 @@
 		{/if}
 	</div>
 </div>
-
-<style>
-	.currency-tab.active {
-		background: rgba(255, 255, 255, 0.15);
-		box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-	}
-</style>
