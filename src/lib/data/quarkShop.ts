@@ -20,6 +20,7 @@ export type BannerPattern =
 	| 'cloud'
 	| 'constellation'
 	| 'facets'
+	| 'galaxy'
 	| 'hazard'
 	| 'lattice'
 	| 'nucleus'
@@ -428,6 +429,14 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 		description: 'A blue banner rippling like a Blue photon splitting in two.',
 		id: 'banner_blue_light',
 		name: 'Blue Light',
+		type: 'banner',
+	},
+	banner_cosmos: {
+		banner: { gradient: ['#3a3447', '#17151f', '#05070f'], pattern: 'galaxy' },
+		cost: 40,
+		description: 'A deep-space banner crossed by the Milky Way, with a distant Sun and a ringed planet.',
+		id: 'banner_cosmos',
+		name: 'Cosmos',
 		type: 'banner',
 	},
 };
