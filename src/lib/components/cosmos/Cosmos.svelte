@@ -362,15 +362,23 @@
 				</p>
 			{:else if research}
 				{const researched = $derived(COSMOS_INSTRUMENTS.find(item => item.id === research.id)!)}
-				<div class="flex w-full max-w-xs flex-col gap-1.5 rounded-lg bg-accent-900/80 px-4 py-3 backdrop-blur-xs">
-					<p class="flex items-center justify-between gap-3 text-sm font-semibold">
-						<span class="flex items-center gap-2"><Telescope size={16} />Building {researched.name}</span>
-						<span class="font-mono text-xs tabular-nums text-white/60">{formatDuration(research.leftMs)}</span>
-					</p>
-					<div class="h-1.5 overflow-hidden rounded-full bg-white/10">
+				{const progress = $derived(1 - research.leftMs / researched.researchMs)}
+				<div class="flex w-full max-w-sm flex-col gap-2.5 rounded-lg bg-accent-900/80 px-4 py-3 backdrop-blur-xs">
+					<div class="flex items-center gap-3">
+						<Telescope
+							class="shrink-0 text-[#ffd27a]"
+							size={20}
+						/>
+						<div class="min-w-0 flex-1">
+							<p class="text-[10px] font-semibold uppercase tracking-widest text-white/40">Building · {Math.floor(progress * 100)}%</p>
+							<p class="truncate text-sm font-semibold">{researched.name}</p>
+						</div>
+						<span class="shrink-0 whitespace-nowrap font-mono text-sm tabular-nums text-[#ffd27a]">{formatDuration(research.leftMs)}</span>
+					</div>
+					<div class="h-1.5 rounded-full bg-white/10">
 						<div
-							class="h-full origin-left bg-[#ffd27a] transition-transform duration-1000 ease-linear"
-							style:transform="scaleX({1 - research.leftMs / researched.researchMs})"
+							class="h-full origin-left rounded-full bg-linear-to-r from-[#b8792a] to-[#ffd27a] shadow-[0_0_8px_#ffd27a80] transition-transform duration-1000 ease-linear"
+							style:transform="scaleX({progress})"
 						></div>
 					</div>
 				</div>
