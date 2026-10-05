@@ -31,11 +31,14 @@ import {
 	saturate,
 	sin,
 	smoothstep,
+	step,
+	texture,
 	time,
 	uniform,
 	uv,
 	vec2,
 	vec3,
+	vec4,
 } from 'three/tsl';
 import {
 	AdditiveBlending,
@@ -53,14 +56,20 @@ import {
 	MeshBasicNodeMaterial,
 	NeutralToneMapping,
 	type Node,
+	NoColorSpace,
 	PerspectiveCamera,
 	PointsNodeMaterial,
 	RenderPipeline,
+	RenderTarget,
+	RepeatWrapping,
 	RingGeometry,
 	Scene,
 	SphereGeometry,
 	Sprite,
 	SpriteNodeMaterial,
+	SRGBColorSpace,
+	type Texture,
+	TextureLoader,
 	Vector3,
 	WebGPURenderer,
 } from 'three/webgpu';
@@ -79,7 +88,11 @@ interface CosmosHud {
 interface CosmosOptions {
 	/** Ids of the objects already in the sky, the others stay hidden until discovered. */
 	discovered: readonly string[];
+	/** Object to start on, skipping the intro, so a reload lands back where the player was. */
+	focus?: string;
 	hud: CosmosHud;
+	/** Surfaces drawn from their shaders instead of their baked maps, to see edits without baking. */
+	live?: readonly string[];
 	/** Called once the signal is fully resolved, as the object starts condensing. */
 	onDiscover: (id: string) => void;
 }
@@ -160,7 +173,8 @@ const outline = (lit: string, night: string) =>
 		.mul(smoothstep(-0.25, 0.1, sunFacing))
 		.add(color(night).mul(edge(0.86, fresnel)).mul(invert(smoothstep(-0.25, 0.1, sunFacing))));
 
-function earthMaterial() {
+/** The Earth's day colors, and its masks: land, city lights and ice or snow. */
+function earthSurface() {
 	const height = mx_fractal_noise_float(surfacePoint.mul(1.5), 3, 2, 0.5);
 	const latitude = abs(surfacePoint.y);
 	const land = edge(0.03, height);
@@ -184,23 +198,25 @@ function earthMaterial() {
 	const snow = smoothstep(0.75, 0.9, ranges.mul(spindle).mul(rugged.mul(0.5).add(0.6)));
 	const terrain = mix(mix(ground, mix(color('#6e5f4f'), color('#9a8a76'), rugged), rock), color('#f2f4f7'), snow.mul(0.85));
 	const ice = edge(0.87, latitude.add(height.mul(0.12)), 0.03);
-	const surface = mix(mix(ocean, terrain, land), color('#eef3f8'), ice);
+	/** Fine points grouped in urban regions, a high frequency keeps them from reading as flat yellow blobs up close. */
+	const urban = smoothstep(0.1, 0.4, mx_fractal_noise_float(surfacePoint.mul(5).add(23), 3, 2, 0.5)).mul(land).mul(invert(ice));
+	const cities = smoothstep(0.62, 0.72, mx_noise_float(surfacePoint.mul(180))).mul(urban);
+	return { day: mix(mix(ocean, terrain, land), color('#eef3f8'), ice), masks: vec3(land, cities, max(ice, snow)) };
+}
+
+/** Lights the baked or live Earth surface: sea glint, night side with city lights, dusk greying and the atmosphere's limb. */
+function earthMaterial(surface: Node<'vec3'>, masks: Node<'vec3'>) {
+	const [land, cities, frozen] = [masks.x, masks.y, masks.z];
 	/** Divided by a clamped length: with the Sun right behind the Earth the sum is near zero and `normalize` returned NaN pixels. */
 	const halfwaySum = toSun.add(cameraPosition.sub(positionWorld).normalize());
 	const halfway = halfwaySum.div(max(length(halfwaySum), 1e-4));
 	const highlight = edge(0.985, dot(normalWorld, halfway), 0.01).mul(invert(land)).mul(0.35);
 	const day = surface.mul(smoothstep(-0.1, 0.55, sunFacing).mul(0.7).add(0.3)).add(highlight);
-
-	/** Fine points grouped in urban regions, a high frequency keeps them from reading as flat yellow blobs up close. */
-	const urban = smoothstep(0.1, 0.4, mx_fractal_noise_float(surfacePoint.mul(5).add(23), 3, 2, 0.5)).mul(land).mul(invert(ice));
-	const cities = smoothstep(0.62, 0.72, mx_noise_float(surfacePoint.mul(180))).mul(urban);
 	/**
 	 * Day and night are two palettes cross-faded on the Sun angle, like three.js' `webgpu_tsl_earth` example: scaling the day
 	 * colors down instead turned green coasts black and sand yellow on the night side.
 	 */
-	const night = mix(mix(color('#020306'), color('#0e0f12'), land), color('#1f2227'), max(ice, snow)).add(
-		color('#ffcf73').mul(cities).mul(0.9),
-	);
+	const night = mix(mix(color('#020306'), color('#0e0f12'), land), color('#1f2227'), frozen).add(color('#ffcf73').mul(cities).mul(0.9));
 	/** Colors drain toward a neutral grey as the light fades, dim sand and grass otherwise read as a brown-yellow band at dusk. */
 	const dusk = mix(color('#8c9099').mul(luminance(day)), day, smoothstep(0, 0.35, sunFacing));
 	const lit = mix(night, dusk, smoothstep(-0.2, 0.4, sunFacing));
@@ -227,13 +243,18 @@ function atmosphereMaterial() {
 	return material;
 }
 
-function cloudMaterial() {
-	/** Stretched along the latitude so clouds form bands, and domain-warped over time so they drift and reshape instead of sliding as a block. */
+/** Cloud cover, stretched along the latitude so clouds form bands, domain-warped so they curl. */
+function cloudCover() {
 	const stretched = surfacePoint.mul(vec3(4.5, 8, 4.5));
-	const warp = mx_fractal_noise_float(stretched.mul(0.35).add(vec3(0, time.mul(0.012), 0)), 2, 2, 0.5).mul(0.9);
-	const drift = vec3(time.mul(0.03), 0, time.mul(0.01));
-	const cover = mx_fractal_noise_float(stretched.add(warp).add(drift), 5, 2.1, 0.5);
-	const density = smoothstep(0.06, 0.45, cover).mul(smoothstep(-0.35, 0.2, mx_fractal_noise_float(surfacePoint.mul(1.2).add(31), 2, 2, 0.5)));
+	const warp = mx_fractal_noise_float(stretched.mul(0.35), 2, 2, 0.5).mul(0.9);
+	const cover = mx_fractal_noise_float(stretched.add(warp), 5, 2.1, 0.5);
+	return smoothstep(0.06, 0.45, cover).mul(smoothstep(-0.35, 0.2, mx_fractal_noise_float(surfacePoint.mul(1.2).add(31), 2, 2, 0.5)));
+}
+
+/** Clouds from their cover map, two drifting reads cross-faded so they slowly reshape instead of sliding as a block. */
+function cloudMaterial(cover: (offset: Node<'vec2'>) => Node<'float'>) {
+	const phase = sin(time.mul(0.05)).mul(0.5).add(0.5);
+	const density = mix(cover(vec2(time.mul(0.0006), 0)), cover(vec2(time.mul(-0.0004), 0.004)), phase);
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, transparent: true });
 	/** A faint moonlit blue on the night side, at the ground's 2-3% floor the clouds vanished there and only showed against the Sun's glow. */
 	const night = invert(smoothstep(-0.12, 0.08, sunFacing));
@@ -246,28 +267,33 @@ function cloudMaterial() {
 /** Condenses out of the signal's light: starts as a cyan glow and cools down to the surface. */
 const condense = (lit: Node<'vec3'>, reveal: Node<'float'>) => mix(color('#8ff5ff').mul(3), lit, reveal);
 
+/** Limb colors on the lit and night sides, and how strong the band is. */
+type Rim = readonly [lit: string, night: string, strength: number];
+const ICY_RIM: Rim = ['#ffffff', '#26356e', 0.25];
+
+/** Lights a body's albedo with the soft cel shading and its limb, `shade` darkens it further (Saturn's ring shadow). */
+function bodyMaterial(reveal: Node<'float'>, albedo: Node<'vec3'>, [lit, night, strength]: Rim, shade: Node<'float'> = float(1)) {
+	const material = new MeshBasicNodeMaterial();
+	material.colorNode = condense(albedo.mul(toon(sunFacing, 0.02)).mul(shade).add(outline(lit, night).mul(strength)), reveal);
+	return material;
+}
+
 /** Moons and small rocky planets: two flat color areas and worley craters, `craters` sets how many. */
-function rockyMaterial(reveal: Node<'float'>, light: string, dark: string, craters: number, seed: number) {
+function rockySurface(light: string, dark: string, craters: number, seed: number) {
 	const patches = edge(0.12, mx_fractal_noise_float(surfacePoint.mul(1.6).add(seed), 3, 2, 0.5), 0.1);
 	const crater = mx_worley_noise_float(surfacePoint.mul(craters).add(seed));
 	const floor = invert(edge(0.16, crater, 0.03));
 	const lip = edge(0.16, crater, 0.03).mul(invert(edge(0.22, crater, 0.03)));
-	const surface = mix(mix(color(light), color(dark), patches), color(dark), floor.mul(0.45)).add(lip.mul(0.06));
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline('#ffffff', '#26356e').mul(0.25)), reveal);
-	return material;
+	return mix(mix(color(light), color(dark), patches), color(dark), floor.mul(0.45)).add(lip.mul(0.06));
 }
 
-/** Thick atmospheres: latitude bands bent by slowly drifting turbulence. */
-function bandedMaterial(reveal: Node<'float'>, [light, dark, pale]: [string, string, string], bands: number, turbulence: number) {
-	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 7, 2)).add(vec3(time.mul(0.01), 0, 0)), 3, 2, 0.5).mul(turbulence);
+/** Thick atmospheres: latitude bands bent by turbulence. */
+function bandedSurface([light, dark, pale]: readonly [string, string, string], bands: number, turbulence: number) {
+	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 7, 2)), 3, 2, 0.5).mul(turbulence);
 	const latitude = surfacePoint.y.add(swirl);
 	const wide = sin(latitude.mul(bands)).mul(0.5).add(0.5);
 	const thin = sin(latitude.mul(bands * 2.7).add(1.3)).mul(0.5).add(0.5);
-	const surface = mix(mix(color(light), color(dark), edge(0.55, wide, 0.12)), color(pale), edge(0.7, thin, 0.1).mul(0.5));
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline(pale, '#3e2a52').mul(0.4)), reveal);
-	return material;
+	return mix(mix(color(light), color(dark), edge(0.55, wide, 0.12)), color(pale), edge(0.7, thin, 0.1).mul(0.5));
 }
 
 /** Unit vector at a latitude and east longitude in degrees. East runs toward -z, the way the bodies spin. */
@@ -318,7 +344,7 @@ const RAY_CRATERS: Spot[] = [
 	[8.1, -38, 18],
 ];
 
-function moonMaterial(reveal: Node<'float'>) {
+function moonSurface() {
 	const wobble = mx_fractal_noise_float(surfacePoint.mul(6), 2, 2, 0.5);
 	const maria = spots(MARIA, wobble);
 	const highlands = mix(color('#cbc6bd'), color('#bcb7ae'), edge(0.1, mx_fractal_noise_float(surfacePoint.mul(3).add(7), 3, 2, 0.5), 0.25));
@@ -333,10 +359,7 @@ function moonMaterial(reveal: Node<'float'>) {
 		const fade = invert(smoothstep(0.02, reach * MathUtils.DEG2RAD, distance));
 		return max(glow, max(streaks.mul(fade).mul(0.55), invert(smoothstep(0.025, 0.04, distance))));
 	}, float(0));
-	const surface = mix(mix(highlands, color('#77746f'), maria.mul(0.9)), color('#8f8b85'), pits.mul(0.4)).add(rays.mul(0.22));
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline('#ffffff', '#26356e').mul(0.25)), reveal);
-	return material;
+	return mix(mix(highlands, color('#77746f'), maria.mul(0.9)), color('#8f8b85'), pits.mul(0.4)).add(rays.mul(0.22));
 }
 
 /** Olympus Mons and the three Tharsis Montes, a bit wider than life so they read as dots from afar. */
@@ -357,7 +380,7 @@ const MARS_DARK: Spot[] = [
 	[-30, 20, 12],
 ];
 
-function marsMaterial(reveal: Node<'float'>) {
+function marsSurface() {
 	const wobble = mx_fractal_noise_float(surfacePoint.mul(5).add(9), 2, 2, 0.5);
 	const terrain = mx_fractal_noise_float(surfacePoint.mul(2).add(5), 3, 2, 0.5);
 	const dark = max(spots(MARS_DARK, wobble.mul(1.5)), edge(0.3, mx_fractal_noise_float(surfacePoint.mul(1.3).add(17), 2, 2, 0.5), 0.18));
@@ -391,11 +414,7 @@ function marsMaterial(reveal: Node<'float'>) {
 	const relief = mix(mix(ground, color('#d8835a'), tharsis.mul(0.25)), color('#d99470'), basin.mul(0.3)).mul(invert(basinRim.mul(0.06)));
 	const carved = mix(mix(relief, color('#9a4529'), max(canyon, labyrinth.mul(0.4)).mul(0.6)), color('#dc8c60'), volcano.x.mul(0.45));
 	const surface = mix(mix(carved, color('#b45a37'), volcano.y.mul(0.2)), color('#94442a'), volcano.z.mul(0.5));
-	const caps = edge(0.9, abs(surfacePoint.y), 0.02);
-	const lit = mix(surface, color('#f6eee6'), caps).mul(toon(sunFacing, 0.02)).add(outline('#ffc2a1', '#3e2a52').mul(0.5));
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(lit, reveal);
-	return material;
+	return mix(surface, color('#f6eee6'), edge(0.9, abs(surfacePoint.y), 0.02));
 }
 
 /** Belts at their real latitudes as [sine of latitude, half width, strength]: north and south equatorial, north and south temperate. */
@@ -408,8 +427,8 @@ const JUPITER_BELTS = [
 /** The Great Red Spot sits on the southern edge of the South Equatorial Belt, about 22°S. */
 const RED_SPOT_LATITUDE = -22 * MathUtils.DEG2RAD;
 
-function jupiterMaterial(reveal: Node<'float'>) {
-	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 9, 2)).add(vec3(time.mul(0.01), 0, 0)), 3, 2, 0.5);
+function jupiterSurface() {
+	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 9, 2)), 3, 2, 0.5);
 	const latitude = surfacePoint.y.add(swirl.mul(0.025));
 	const belts = JUPITER_BELTS.reduce<Node<'float'>>(
 		(cover, [center, half, strength]) => max(cover, invert(smoothstep(half - 0.02, half + 0.02, abs(latitude.sub(center)))).mul(strength)),
@@ -421,19 +440,19 @@ function jupiterMaterial(reveal: Node<'float'>) {
 	/** An oval in longitude and latitude, ringed by the pale "hollow" it carves in the belt, its swirl turns counterclockwise. */
 	const offset = vec2(atan(surfacePoint.z.negate(), surfacePoint.x).mul(Math.cos(RED_SPOT_LATITUDE)).div(0.13), asin(surfacePoint.y).sub(RED_SPOT_LATITUDE).div(0.075));
 	const spot = length(offset);
-	const spiral = sin(atan(offset.y, offset.x).add(spot.mul(5)).sub(time.mul(0.25))).mul(0.5).add(0.5);
+	const spiral = sin(atan(offset.y, offset.x).add(spot.mul(5))).mul(0.5).add(0.5);
 	const hollow = invert(smoothstep(0.1, 0.25, abs(spot.sub(1.15))));
 	const core = invert(smoothstep(0.75, 0.95, spot));
-	const surface = mix(mix(banded, color('#f3e8d4'), hollow.mul(0.85)), mix(color('#bf5a3a'), color('#dc8a62'), spiral.mul(spot)), core);
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).mul(0.9).add(outline('#f3e6d0', '#3e2a52').mul(0.25)), reveal);
-	return material;
+	/** Dimmed under the bloom threshold, the pale zones otherwise blurred the disc. */
+	return mix(mix(banded, color('#f3e8d4'), hollow.mul(0.85)), mix(color('#bf5a3a'), color('#dc8a62'), spiral.mul(spot)), core).mul(0.9);
 }
 
-/** Io has no impact craters, its volcanoes repave it: sulfur plains dotted with dark calderas, and Pele's great red ring. */
-function ioMaterial(reveal: Node<'float'>) {
+/** Io has no impact craters, its volcanoes repave it: sulfur plains with faint green patches, dark calderas and Pele's great red ring. */
+function ioSurface() {
 	const flows = mx_fractal_noise_float(surfacePoint.mul(3).add(23), 3, 2, 0.5);
-	const plains = mix(mix(color('#e4cf6c'), color('#ede2ad'), edge(0.15, flows, 0.2)), color('#d3a04e'), edge(-0.2, flows, 0.2).mul(0.4));
+	const greens = edge(0.25, mx_fractal_noise_float(surfacePoint.mul(2.2).add(61), 2, 2, 0.5), 0.15);
+	const sulfur = mix(mix(color('#e4cf6c'), color('#ede2ad'), edge(0.15, flows, 0.2)), color('#d3a04e'), edge(-0.2, flows, 0.2).mul(0.4));
+	const plains = mix(sulfur, color('#bfc27a'), greens.mul(0.45));
 	const vent = mx_worley_noise_float(surfacePoint.mul(5).add(23));
 	const active = smoothstep(-0.3, 0.1, mx_noise_float(surfacePoint.mul(4).add(41)));
 	const calderas = invert(edge(0.06, vent, 0.02)).mul(active);
@@ -442,23 +461,37 @@ function ioMaterial(reveal: Node<'float'>) {
 	const peleRing = invert(smoothstep(0.02, 0.09, abs(pele.sub(0.2)))).mul(0.6);
 	const poles = smoothstep(0.55, 0.9, abs(surfacePoint.y));
 	const deposits = mix(mix(plains, color('#a8683b'), poles.mul(0.6)), color('#c8552d'), max(halos, peleRing.mul(0.8)));
-	const surface = mix(deposits, color('#2e2219'), max(calderas, invert(smoothstep(0.03, 0.05, pele))));
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline('#ffffff', '#26356e').mul(0.25)), reveal);
-	return material;
+	return mix(deposits, color('#2e2219'), max(calderas, invert(smoothstep(0.03, 0.05, pele))));
 }
 
 /** Europa's young ice shell: almost no craters, crossed by long reddish cracks (lineae) and patches of brown chaos terrain. */
-function europaMaterial(reveal: Node<'float'>) {
-	const ice = mix(color('#ece6da'), color('#d8c6aa'), edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2.5).add(29), 3, 2, 0.5), 0.15));
-	/** The zero line of a low-frequency noise field is a long gentle arc, three of them at different scales cross like the real lineae. */
-	const crack = (scale: number, seed: number, width: number) => invert(smoothstep(width * 0.3, width, abs(mx_noise_float(surfacePoint.mul(scale).add(seed)))));
-	const lineae = max(max(crack(1.1, 29, 0.018), crack(1.7, 71, 0.014)), crack(2.6, 113, 0.01).mul(0.6));
-	const chaos = edge(0.38, mx_fractal_noise_float(surfacePoint.mul(3).add(5), 2, 2, 0.5), 0.15);
-	const surface = mix(mix(ice, color('#c4a07c'), chaos.mul(0.35)), color('#a2654a'), lineae.mul(0.65));
-	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).add(outline('#ffffff', '#26356e').mul(0.25)), reveal);
-	return material;
+function europaSurface() {
+	const ice = mix(color('#d3d6dc'), color('#bfc4cc'), edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2.5).add(29), 3, 2, 0.5), 0.2));
+	/**
+	 * Sets of bent stripes at scattered angles, cut into segments and confined to their own regions, so they read as broken scratches,
+	 * crowded in places and absent in others. Every set mixes the same four noise fields with its own weights: a noise call per set
+	 * per mask made the shader heavy enough to time the GPU out.
+	 */
+	const fields = [0.9, 1.6, 3.5, 4].map((scale, i) => mx_noise_float(surfacePoint.mul(scale).add(29 + i * 17)));
+	/** Fixed-seed generator, Europa looks the same on every load. */
+	let state = 7;
+	const random = () => (state = (state * 16807) % 2147483647) / 2147483647;
+	const weighted = (scale = 1) => fields.reduce<Node<'float'>>((sum, field) => sum.add(field.mul((random() * 2 - 1) * scale)), float(0));
+	const lineae = Array.from({ length: 14 }, () => {
+		const normal = new Vector3(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).normalize();
+		const across = dot(surfacePoint, vec3(normal.x, normal.y, normal.z)).mul(3 + random() * 6).add(weighted(0.5));
+		/** Zero crossings of two incommensurate sines, so the stripes of a set sit at uneven gaps. */
+		const wave = sin(across.add(random() * 6)).add(sin(across.mul(1.618).add(random() * 6)).mul(0.7));
+		const line = invert(smoothstep(0.03, 0.09, abs(wave)));
+		const segments = smoothstep(-0.15, 0.15, weighted());
+		const region = smoothstep(0, 0.35, weighted());
+		return line.mul(segments).mul(region).mul(0.55 + random() * 0.45);
+	}).reduce((all, set) => max(all, set));
+	/** Low-frequency regions keep the reddish terrain gathered in a few large provinces instead of scattered blots. */
+	const regions = smoothstep(0.05, 0.35, mx_fractal_noise_float(surfacePoint.mul(1.2).add(5), 2, 2, 0.5));
+	const tint = regions.mul(mx_fractal_noise_float(surfacePoint.mul(5).add(17), 2, 2, 0.5).mul(0.3).add(0.7));
+	/** Dimmed under the bloom threshold, the bright ice otherwise haloed and washed the thin lines out. */
+	return mix(mix(ice, color('#d8ab86'), tint.mul(0.55)), color('#b48e7b'), lineae.mul(0.65)).mul(0.88);
 }
 
 /**
@@ -497,8 +530,8 @@ function ringMaterial(reveal: Node<'float'>) {
  * Saturn's haze mutes its bands into soft butterscotch stripes, with a pale equator, a blue-grey north pole and the hexagon: a
  * six-sided jet stream around the north pole at 78°N, with a dark vortex at its center.
  */
-function saturnMaterial(reveal: Node<'float'>) {
-	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 12, 2)).add(vec3(time.mul(0.008), 0, 0)), 3, 2, 0.5);
+function saturnSurface() {
+	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 12, 2)), 3, 2, 0.5);
 	const latitude = surfacePoint.y.add(swirl.mul(0.012));
 	const belts = smoothstep(0.35, 0.9, sin(latitude.mul(11).add(0.6)).mul(0.5).add(0.5));
 	const fine = sin(latitude.mul(70)).mul(0.5).add(0.5);
@@ -516,11 +549,8 @@ function saturnMaterial(reveal: Node<'float'>) {
 	const inside = invert(smoothstep(0.17, 0.23, hexagon)).mul(north);
 	const jet = invert(smoothstep(0, 0.04, abs(hexagon.sub(0.208)))).mul(smoothstep(0.9, 0.95, surfacePoint.y));
 	const eye = invert(smoothstep(0, 0.06, length(polar))).mul(north);
-	const surface = mix(mix(mix(poles, color('#8a989b'), inside.mul(0.35)), color('#76858b'), jet.mul(0.3)), color('#5d6a70'), eye.mul(0.5));
-	const material = new MeshBasicNodeMaterial();
 	/** Kept under the bloom threshold, the pale cream otherwise blurred the whole disc. */
-	material.colorNode = condense(surface.mul(toon(sunFacing, 0.02)).mul(ringShadow()).mul(0.88).add(outline('#f0e4c4', '#3e2a52').mul(0.25)), reveal);
-	return material;
+	return mix(mix(mix(poles, color('#8a989b'), inside.mul(0.35)), color('#76858b'), jet.mul(0.3)), color('#5d6a70'), eye.mul(0.5)).mul(0.88);
 }
 
 /** Where the rings shade Saturn: the way to the Sun crosses the ring plane inside the rings. */
@@ -650,7 +680,8 @@ function orbitLine(radius: number, tint: string, opacity: number) {
 interface BodyLook {
 	/** `sun`, `earth` or the id of the body it orbits. */
 	around: string;
-	build: (reveal: Node<'float'>) => Mesh;
+	/** `albedo` is the baked texture or the live `surface`. */
+	build: (reveal: Node<'float'>, albedo: Node<'vec3'>) => Mesh;
 	distance: number;
 	/** Orbit tilt in radians, its orbit line is tilted the same way. */
 	inclination?: number;
@@ -663,11 +694,28 @@ interface BodyLook {
 	shownWith?: string;
 	/** Seconds per turn on itself, negative for a retrograde spin, 0 for none, `locked` to always show the same face to its parent. */
 	spin: number | 'locked';
+	/** Albedo from `surfacePoint`, baked into `static/cosmos/<id>.webp`. */
+	surface?: () => Node<'vec3'>;
 	/** Axial tilt in radians. */
 	tilt?: number;
 }
 
 const sphere = (radius: number, material: Material, detail = 64) => new Mesh(new SphereGeometry(radius, detail, Math.round(detail * 0.7)), material);
+const globe =
+	(radius: number, rim: Rim = ICY_RIM, detail = 64, shade?: () => Node<'float'>) =>
+	(reveal: Node<'float'>, albedo: Node<'vec3'>) =>
+		sphere(radius, bodyMaterial(reveal, albedo, rim, shade?.()), detail);
+const BANDED_RIM = (pale: string): Rim => [pale, '#3e2a52', 0.4];
+
+/** Back-face shell around a body: a haze fading outward from its limb, on the lit side, hidden until the body is revealed. */
+function hazeShell(radius: number, tint: string, reveal: Node<'float'>) {
+	const facing = dot(normalWorldGeometry, toSun);
+	const shellFresnel = invert(abs(dot(normalView, positionViewDirection)));
+	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide, transparent: true });
+	material.colorNode = color(tint);
+	material.opacityNode = pow(remapClamp(shellFresnel, 0.7, 1, 1, 0), 2).mul(smoothstep(-0.4, 0.8, facing)).mul(reveal).mul(0.75);
+	return sphere(radius, material, 48);
+}
 const planet = (earthRadii: number) => EARTH_RADIUS * earthRadii;
 /** Orbits in AU and years scale with the Earth's, so the planets keep their real spacing and pace. */
 const solarOrbit = (au: number, years: number, phase: number, inclinationDegrees: number) => ({
@@ -688,26 +736,68 @@ const RING_OUTER = SATURN_RADIUS * 2.27;
  * 1:2:4 resonance so they visibly race around Jupiter and have to be tracked.
  */
 const BODY_LOOKS: Record<string, BodyLook> = {
-	callisto: { around: 'jupiter', build: reveal => sphere(planet(0.378), rockyMaterial(reveal, '#6f675e', '#4a443e', 9, 41)), distance: JUPITER_RADIUS * 6.4, period: 226, phase: 4.9, radius: planet(0.378), spin: 'locked' },
-	europa: { around: 'jupiter', build: reveal => sphere(planet(0.245), europaMaterial(reveal)), distance: JUPITER_RADIUS * 3.6, period: 48, phase: 1.6, radius: planet(0.245), spin: 'locked' },
-	ganymede: { around: 'jupiter', build: reveal => sphere(planet(0.413), rockyMaterial(reveal, '#9c8f80', '#6b6157', 5, 37)), distance: JUPITER_RADIUS * 4.8, period: 97, phase: 3.3, radius: planet(0.413), spin: 'locked' },
-	io: { around: 'jupiter', build: reveal => sphere(planet(0.286), ioMaterial(reveal)), distance: JUPITER_RADIUS * 2.6, period: 24, phase: 0, radius: planet(0.286), spin: 'locked' },
+	callisto: {
+		around: 'jupiter',
+		build: globe(planet(0.378)),
+		distance: JUPITER_RADIUS * 6.4,
+		period: 226,
+		phase: 4.9,
+		radius: planet(0.378),
+		spin: 'locked',
+		surface: () => rockySurface('#6f675e', '#4a443e', 9, 41),
+	},
+	europa: {
+		around: 'jupiter',
+		build: globe(planet(0.245), ['#ffffff', '#26356e', 0.15]),
+		distance: JUPITER_RADIUS * 3.6,
+		period: 48,
+		phase: 1.6,
+		radius: planet(0.245),
+		spin: 'locked',
+		surface: europaSurface,
+	},
+	ganymede: {
+		around: 'jupiter',
+		build: globe(planet(0.413)),
+		distance: JUPITER_RADIUS * 4.8,
+		period: 97,
+		phase: 3.3,
+		radius: planet(0.413),
+		spin: 'locked',
+		surface: () => rockySurface('#9c8f80', '#6b6157', 5, 37),
+	},
+	io: { around: 'jupiter', build: globe(planet(0.286)), distance: JUPITER_RADIUS * 2.6, period: 24, phase: 0, radius: planet(0.286), spin: 'locked', surface: ioSurface },
 	jupiter: {
 		...solarOrbit(5.203, 11.86, 1.2, 1.3),
-		build: reveal => sphere(JUPITER_RADIUS, jupiterMaterial(reveal), 96),
+		build: globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96),
 		radius: JUPITER_RADIUS,
 		spin: 16,
+		surface: jupiterSurface,
 		tilt: 0.05,
 	},
-	mars: { ...solarOrbit(1.524, 1.88, 1.1, 1.85), build: reveal => sphere(planet(0.532), marsMaterial(reveal), 96), radius: planet(0.532), spin: EARTH_DAY * 1.03, tilt: 0.44 },
+	mars: {
+		...solarOrbit(1.524, 1.88, 1.1, 1.85),
+		build: globe(planet(0.532), ['#ffc2a1', '#3e2a52', 0.5], 96),
+		radius: planet(0.532),
+		spin: EARTH_DAY * 1.03,
+		surface: marsSurface,
+		tilt: 0.44,
+	},
 	/** Spins three times for every two orbits, the reason one of its solar days lasts two of its years. */
-	mercury: { ...solarOrbit(0.387, 0.241, 2.1, 7), build: reveal => sphere(planet(0.383), rockyMaterial(reveal, '#a39a90', '#7b736b', 7, 13)), radius: planet(0.383), spin: (EARTH_YEAR * 0.241 * 2) / 3 },
-	moon: { around: 'earth', build: reveal => sphere(planet(0.273), moonMaterial(reveal)), distance: 10, period: 180, phase: 0, radius: planet(0.273), spin: 'locked' },
+	mercury: {
+		...solarOrbit(0.387, 0.241, 2.1, 7),
+		build: globe(planet(0.383)),
+		radius: planet(0.383),
+		spin: (EARTH_YEAR * 0.241 * 2) / 3,
+		surface: () => rockySurface('#a39a90', '#7b736b', 7, 13),
+	},
+	moon: { around: 'earth', build: globe(planet(0.273)), distance: 10, period: 180, phase: 0, radius: planet(0.273), spin: 'locked', surface: moonSurface },
 	saturn: {
 		...solarOrbit(9.537, 29.46, 0, 2.5),
-		build: reveal => sphere(SATURN_RADIUS, saturnMaterial(reveal), 96),
+		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, ringShadow),
 		radius: SATURN_RADIUS,
 		spin: 17,
+		surface: saturnSurface,
 		tilt: SATURN_TILT,
 	},
 	saturn_rings: {
@@ -725,9 +815,64 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 0,
 		tilt: SATURN_TILT,
 	},
-	titan: { around: 'saturn', build: reveal => sphere(planet(0.404), bandedMaterial(reveal, ['#e0a64a', '#c27f2e', '#ebbd6a'], 3, 0.2)), distance: SATURN_RADIUS * 4.5, period: 120, phase: 2, radius: planet(0.404), spin: 'locked' },
-	venus: { ...solarOrbit(0.723, 0.615, 4, 3.4), build: reveal => sphere(planet(0.949), bandedMaterial(reveal, ['#f0dca0', '#d9b877', '#f7ecc8'], 4, 0.3), 80), radius: planet(0.949), spin: -600 },
+	titan: {
+		around: 'saturn',
+		/** Its upper haze scatters blue light, a pale blue glow spills past the orange disc. */
+		build: (reveal, albedo) => {
+			const titan = globe(planet(0.404), ['#a9c8ff', '#2c3f7a', 0.45])(reveal, albedo);
+			titan.add(hazeShell(planet(0.404) * 1.05, '#9fc0ff', reveal));
+			return titan;
+		},
+		distance: SATURN_RADIUS * 4.5,
+		period: 120,
+		phase: 2,
+		radius: planet(0.404),
+		spin: 'locked',
+		surface: () => bandedSurface(['#e0a64a', '#c27f2e', '#ebbd6a'], 3, 0.2),
+	},
+	venus: {
+		...solarOrbit(0.723, 0.615, 4, 3.4),
+		build: globe(planet(0.949), BANDED_RIM('#f7ecc8'), 80),
+		radius: planet(0.949),
+		spin: -600,
+		surface: () => bandedSurface(['#f0dca0', '#d9b877', '#f7ecc8'], 4, 0.3),
+	},
 };
+
+/** Linear to sRGB, the exact piecewise curve an sRGB texture decodes. */
+const encodeSrgb = (linear: Node<'vec3'>) => mix(linear.mul(12.92), pow(linear, vec3(1 / 2.4)).mul(1.055).sub(0.055), step(0.0031308, linear));
+
+/** Every baked surface with its texture width (the height is half): the bodies, plus the Earth's day colors, masks and clouds. */
+export const BAKED_SURFACES: Record<string, { node: () => Node<'vec3'>; width: number }> = {
+	clouds: { node: () => vec3(cloudCover()), width: 2048 },
+	earth: { node: () => earthSurface().day, width: 2048 },
+	earth_masks: { node: () => earthSurface().masks, width: 2048 },
+	...Object.fromEntries(Object.entries(BODY_LOOKS).flatMap(([id, { surface }]) => (surface ? [[id, { node: surface, width: 1024 }]] : []))),
+};
+
+/**
+ * Loads every baked surface, the ones in `live` are left out and drawn from their shaders instead. A missing file (a body added
+ * since the last bake) falls back to its shader too.
+ */
+async function loadSurfaces(live: readonly string[]) {
+	const loader = new TextureLoader();
+	const entries = await Promise.all(
+		Object.keys(BAKED_SURFACES)
+			.filter(id => !live.includes(id))
+			.map(id =>
+				loader.loadAsync(`/cosmos/${id}.webp`).then(
+					map => {
+						map.colorSpace = id === 'earth_masks' || id === 'clouds' ? NoColorSpace : SRGBColorSpace;
+						map.wrapS = RepeatWrapping;
+						map.anisotropy = 4;
+						return [id, map] as const;
+					},
+					() => null,
+				),
+			),
+	);
+	return new Map(entries.filter(entry => entry !== null));
+}
 
 /** One discoverable object: hidden until discovered, then grown out of the signal's flash. */
 class Body {
@@ -746,8 +891,9 @@ class Body {
 		readonly look: BodyLook,
 		public discovered: boolean,
 		shown: boolean,
+		albedo: Node<'vec3'>,
 	) {
-		this.mesh = look.build(this.reveal);
+		this.mesh = look.build(this.reveal, albedo);
 		this.group.rotation.z = look.tilt ?? 0;
 		this.group.add(this.mesh, this.flash);
 		this.group.visible = shown;
@@ -823,7 +969,7 @@ export class CosmosScene {
 	readonly #camera = new PerspectiveCamera(50, 1, 0.05, 8000);
 	readonly #canvas: HTMLCanvasElement;
 	readonly #controls: OrbitControls;
-	readonly #earth = new Mesh(new SphereGeometry(EARTH_RADIUS, 96, 64), earthMaterial());
+	readonly #earth: Mesh;
 	readonly #earthSystem = new Group();
 	readonly #hud: CosmosHud;
 	readonly #onDiscover: (id: string) => void;
@@ -838,7 +984,7 @@ export class CosmosScene {
 	readonly #withBloom: Node;
 	readonly #withoutBloom: Node;
 
-	readonly #clouds = new Mesh(new SphereGeometry(EARTH_RADIUS * 1.015, 96, 64), cloudMaterial());
+	readonly #clouds: Mesh;
 	/** Wheel zoom eases toward these goals every frame instead of jumping a whole step per notch. */
 	#distanceGoal: number | null = null;
 	#flight: Flight | null = null;
@@ -860,7 +1006,18 @@ export class CosmosScene {
 	#warp: { from: number; to: number } | null = null;
 	#yaw = 0;
 
-	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, { discovered, hud, onDiscover }: CosmosOptions) {
+	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, { discovered, focus, hud, onDiscover }: CosmosOptions, maps: Map<string, Texture>) {
+		/** A baked map is a single texture read, its live shader stacks dozens of noise octaves that take seconds to compile. */
+		const albedo = (id: string) => {
+			const map = maps.get(id);
+			return map ? texture(map).rgb : BAKED_SURFACES[id].node();
+		};
+		const clouds = maps.get('clouds');
+		this.#earth = new Mesh(new SphereGeometry(EARTH_RADIUS, 96, 64), earthMaterial(albedo('earth'), albedo('earth_masks')));
+		this.#clouds = new Mesh(
+			new SphereGeometry(EARTH_RADIUS * 1.015, 96, 64),
+			cloudMaterial(offset => (clouds ? texture(clouds, uv().add(offset)).r : cloudCover())),
+		);
 		this.#canvas = canvas;
 		this.#hud = hud;
 		this.#onDiscover = onDiscover;
@@ -880,7 +1037,7 @@ export class CosmosScene {
 			const look = BODY_LOOKS[object.id];
 			if (!look) continue;
 			const shown = discovered.includes(object.id) || (look.shownWith !== undefined && discovered.includes(look.shownWith));
-			const body = new Body(object, look, discovered.includes(object.id), shown);
+			const body = new Body(object, look, discovered.includes(object.id), shown, look.surface ? albedo(object.id) : vec3(0));
 			this.#bodies.set(object.id, body);
 			this.#scene.add(body.group);
 			if (body.orbit) this.#scene.add(body.orbit);
@@ -911,7 +1068,12 @@ export class CosmosScene {
 		window.addEventListener('pointercancel', this.#onPointerUp);
 		document.addEventListener('visibilitychange', this.#onVisibility);
 
-		this.replayIntro();
+		if (focus && this.#pickable().includes(focus)) {
+			this.#camera.position.copy(this.#viewpoint(focus));
+			this.#camera.lookAt(this.#positionOf(focus)!);
+			this.#orbit(focus);
+			this.mode = 'overview';
+		} else this.replayIntro();
 	}
 
 	static async create(canvas: HTMLCanvasElement, options: CosmosOptions) {
@@ -919,8 +1081,8 @@ export class CosmosScene {
 		/** Neutral keeps the flat cartoon colors as picked, ACES shifted them toward brown and desaturated the highlights. */
 		renderer.toneMapping = NeutralToneMapping;
 		renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-		await renderer.init();
-		const scene = new CosmosScene(canvas, renderer, options);
+		const [maps] = await Promise.all([loadSurfaces(options.live ?? []), renderer.init()]);
+		const scene = new CosmosScene(canvas, renderer, options, maps);
 		scene.#compileHidden();
 		scene.#start();
 		return scene;
@@ -957,6 +1119,38 @@ export class CosmosScene {
 		});
 		this.#pipeline.dispose();
 		this.#renderer.dispose();
+	}
+
+	/**
+	 * Renders every surface of `BAKED_SURFACES` into its equirectangular map, as WebP files for `static/cosmos/`. Each vertex of a
+	 * sphere is moved to where its UV points in the map, so its fragments evaluate the surface at the matching spot.
+	 */
+	async bakeSurfaces() {
+		const camera = new PerspectiveCamera();
+		const sphereGeometry = new SphereGeometry(1, 512, 256);
+		const baked: { blob: Blob; id: string }[] = [];
+		for (const [id, { node, width }] of Object.entries(BAKED_SURFACES)) {
+			const height = width / 2;
+			const target = new RenderTarget(width, height);
+			const material = new MeshBasicNodeMaterial({ depthTest: false, depthWrite: false, side: DoubleSide });
+			material.vertexNode = vec4(uv().mul(2).sub(1), 0, 1);
+			/** Colors are stored in sRGB to keep 8 bits of precision in the darks, masks and cloud cover are raw data. */
+			material.colorNode = id === 'earth_masks' || id === 'clouds' ? node() : encodeSrgb(node());
+			const mesh = new Mesh(sphereGeometry, material);
+			mesh.frustumCulled = false;
+			const scene = new Scene().add(mesh);
+			this.#renderer.setRenderTarget(target);
+			this.#renderer.render(scene, camera);
+			this.#renderer.setRenderTarget(null);
+			const pixels = (await this.#renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height)) as Uint8Array;
+			const canvas = new OffscreenCanvas(width, height);
+			canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0);
+			baked.push({ blob: await canvas.convertToBlob({ quality: 0.9, type: 'image/webp' }), id });
+			material.dispose();
+			target.dispose();
+		}
+		sphereGeometry.dispose();
+		return baked;
 	}
 
 	/** Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. */
