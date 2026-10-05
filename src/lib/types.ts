@@ -37,6 +37,8 @@ export interface ChromaticState {
 export interface ColliderState {
 	injections: number;
 	readyInMs: number;
+	/** Particles injected by everyone since midnight UTC. */
+	today: number;
 	total: number;
 }
 

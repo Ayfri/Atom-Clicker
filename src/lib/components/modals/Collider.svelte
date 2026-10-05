@@ -166,6 +166,9 @@
 			<div class="flex flex-col gap-0.5">
 				<span class="font-mono text-xl font-bold text-white sm:text-3xl">{formatNumberFull(colliderManager.total)}</span>
 				<span class="text-xs text-white/50">particles in the ring</span>
+				{#if colliderManager.today > 0}
+					<span class="text-xs text-accent-300">+{formatNumberFull(colliderManager.today)} today</span>
+				{/if}
 			</div>
 			<div class="flex flex-col gap-0.5">
 				<span class="font-mono text-xl font-bold text-white sm:text-3xl">{formatNumberFull(colliderManager.injections)}</span>
