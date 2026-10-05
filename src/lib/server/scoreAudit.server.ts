@@ -141,10 +141,13 @@ function runSpending(state: GameState): number {
 	return cost;
 }
 
-/** Loads the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's. */
+/**
+ * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
+ * Server-compiled `$state` fields hold the objects they are given, so without the copy the wipe would zero the audited state too.
+ */
 function measure(state: GameState, colliderTotal: number, now: number): RunBounds {
 	gameManager.resetAll();
-	gameManager.loadSaveData({ ...state, activePowerUps: [] });
+	gameManager.loadSaveData(structuredClone({ ...state, activePowerUps: [] }));
 	gameManager.colliderBonus = colliderBonus(colliderTotal);
 	gameManager.quarkBoostSources = QUARK_SOURCES;
 	/**
