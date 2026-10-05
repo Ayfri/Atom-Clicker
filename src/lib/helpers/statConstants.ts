@@ -22,6 +22,7 @@ interface StatConfig {
 export const statsConfig = {
 	achievements: { defaultValue: [], layer: LAYERS.NEVER },
 	activePowerUps: { defaultValue: [], layer: LAYERS.PROTONIZER },
+	balanceVersion: { defaultValue: 0, layer: LAYERS.SPECIAL },
 	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER },
 	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER }, // Handled by CurrenciesManager
@@ -73,6 +74,7 @@ export const statsConfig = {
 		} satisfies Settings,
 		layer: LAYERS.NEVER,
 	},
+	runStartedAt: { defaultValue: 0, layer: LAYERS.SPECIAL },
 	selectedRealmId: { defaultValue: RealmTypes.ATOMS, layer: LAYERS.NEVER },
 	skillUpgrades: { defaultValue: [], layer: LAYERS.NEVER },
 	startDate: { defaultValue: Date.now(), layer: LAYERS.NEVER },

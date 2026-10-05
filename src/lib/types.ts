@@ -145,6 +145,8 @@ export interface TutorialState {
 export interface GameState {
 	achievements: string[];
 	activePowerUps: PowerUp[];
+	/** `BALANCE_VERSION` the current run was last checked against, see runBounds.ts. */
+	balanceVersion: number;
 	chromatic: ChromaticState;
 	chromaticUpgrades: Record<string, number>;
 	currencies: CurrencyStateMap;
@@ -162,6 +164,8 @@ export interface GameState {
 	radiation: RadiationState;
 	radiationUpgrades: Record<string, number>;
 	realms: Record<RealmType, RealmState>;
+	/** Wall clock of the last prestige, 0 when unknown (a run carried over from before it was tracked). */
+	runStartedAt: number;
 	selectedRealmId?: RealmType;
 	settings: Settings;
 	skillUpgrades: string[];
