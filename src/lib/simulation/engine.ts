@@ -419,7 +419,7 @@ export class SimulationEngine {
 		}
 		if (canAct() && cosmosManager.unlocked) {
 			const next = cosmosManager.canObserve ? cosmosManager.nextDiscovery : null;
-			const study = this.cheapestStudy();
+			const study = this.bestStudy();
 			this.observedMs = next ? this.observedMs + this.config.tickRate : 0;
 			if (next && this.observedMs >= COSMOS_OBSERVE_MS && cosmosManager.discover(next.id)) {
 				this.observedMs = 0;
@@ -498,15 +498,23 @@ export class SimulationEngine {
 		for (const layer of layers) this.gainPlateaus[layer] = { gain: 0, since: gameManager.inGameTime };
 	}
 
-	/** Saves for the Aperture level or the instrument that unlocks the next discovery, a new object is worth more than a study level. */
-	private cheapestStudy(): string | null {
+	/**
+	 * A study pays back in a time set by its level alone, so the lowest level goes first. While saving for the Aperture level or the
+	 * instrument that unlocks the next discovery, a study is only bought when it pays itself back before that purchase was affordable.
+	 */
+	private bestStudy(): string | null {
 		const next = cosmosManager.nextDiscovery;
 		const reserve = next && !cosmosManager.canObserve ? cosmosManager.nextApertureCost : !next && !cosmosManager.research ? (cosmosManager.nextInstrument?.cost ?? 0) : 0;
-		const budget = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) - reserve;
-		let best: { cost: number; id: string } | null = null;
+		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
+		let best: { cost: number; id: string; level: number } | null = null;
 		for (const object of cosmosManager.objects) {
-			const cost = studyCost(object, cosmosManager.level(object.id));
-			if (cost <= budget && (!best || cost < best.cost)) best = { cost, id: object.id };
+			const level = cosmosManager.level(object.id);
+			const cost = studyCost(object, level);
+			const left = starlight - cost;
+			if (left < 0) continue;
+			const payback = (cost * (1 + level)) / cosmosManager.starlightOf(object.id);
+			if (left < reserve && payback > (reserve - left) / cosmosManager.starlightPerSecond) continue;
+			if (!best || level < best.level || (level === best.level && cost < best.cost)) best = { cost, id: object.id, level };
 		}
 		return best?.id ?? null;
 	}
