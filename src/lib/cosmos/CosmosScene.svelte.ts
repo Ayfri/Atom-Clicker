@@ -133,6 +133,7 @@ const FOV_RANGE = [12, 55] as const;
 const PICK_RADIUS = 18;
 const TURN = Math.PI * 2;
 const ORIGIN = new Vector3();
+const NOWHERE = new Vector3(1e7, 1e7, 1e7);
 /** Without a clock drive the sky slides out of the eyepiece as the Earth turns, real telescopes had the same problem. */
 const SKY_DRIFT = 0.016;
 const RETICLE_RADIUS = 56;
@@ -219,7 +220,8 @@ function earthMaterial(surface: Node<'vec3'>, masks: Node<'vec3'>) {
 	const night = mix(mix(color('#020306'), color('#0e0f12'), land), color('#1f2227'), frozen).add(color('#ffcf73').mul(cities).mul(0.9));
 	/** Colors drain toward a neutral grey as the light fades, dim sand and grass otherwise read as a brown-yellow band at dusk. */
 	const dusk = mix(color('#8c9099').mul(luminance(day)), day, smoothstep(0, 0.35, sunFacing));
-	const lit = mix(night, dusk, smoothstep(-0.2, 0.4, sunFacing));
+	/** A solar eclipse: the Moon's shadow crosses the day side as a dark spot ringed by its penumbra. */
+	const lit = mix(night, dusk.mul(eclipse(['moon'])), smoothstep(-0.2, 0.4, sunFacing));
 	const atmosphereMix = saturate(smoothstep(-0.5, 1, sunFacing).mul(pow(fresnel, 2)).mul(sunsetDimming(sunFacing)).mul(0.7));
 	const material = new MeshBasicNodeMaterial();
 	material.colorNode = mix(lit, atmosphereTint(sunFacing), atmosphereMix).add(outline('#8fd3ff', '#26356e').mul(0.5));
@@ -271,12 +273,38 @@ const condense = (lit: Node<'vec3'>, reveal: Node<'float'>) => mix(color('#8ff5f
 type Rim = readonly [lit: string, night: string, strength: number];
 const ICY_RIM: Rim = ['#ffffff', '#26356e', 0.25];
 
-/** Lights a body's albedo with the soft cel shading and its limb, `shade` darkens it further (Saturn's ring shadow). */
-function bodyMaterial(reveal: Node<'float'>, albedo: Node<'vec3'>, [lit, night, strength]: Rim, shade: Node<'float'> = float(1)) {
+/** Lights a body's albedo with the soft cel shading and its limb, `shade` tints the sunlight (eclipses, Saturn's ring shadow). */
+function bodyMaterial(reveal: Node<'float'>, albedo: Node<'vec3'>, [lit, night, strength]: Rim, shade: Node<'vec3'> = vec3(1)) {
 	const material = new MeshBasicNodeMaterial();
 	material.colorNode = condense(albedo.mul(toon(sunFacing, 0.02)).mul(shade).add(outline(lit, night).mul(strength)), reveal);
 	return material;
 }
+
+/** World position of every body's center, written each frame, so the shaders can tell where their shadows fall. */
+const newCenter = () => uniform(new Vector3());
+const centers = new Map<string, ReturnType<typeof newCenter>>();
+const centerOf = (id: string) => centers.get(id) ?? centers.set(id, newCenter()).get(id)!;
+
+/**
+ * Sunlight left once the shadows of `occluders` are cast: 0 in the umbra, softening toward a penumbra that widens with the shadow's
+ * length. The Sun is much bigger than life here, its real angular size keeps the shadows crisp enough to read.
+ */
+function eclipse(occluders: readonly string[]) {
+	/** Past the terminator there is no sunlight left to block, the line through the planet would otherwise print the shadow on its night side. */
+	const dayless = invert(smoothstep(-0.2, 0.05, sunFacing));
+	return occluders.reduce<Node<'float'>>((light, id) => {
+		const radius = id === 'earth' ? EARTH_RADIUS : BODY_LOOKS[id].radius;
+		const toOccluder = centerOf(id).sub(positionWorld);
+		const along = dot(toOccluder, toSun);
+		const miss = length(toOccluder.sub(toSun.mul(along)));
+		const soft = along.mul(0.004).add(radius * 0.12);
+		const covered = invert(smoothstep(soft.negate().add(radius), soft.add(radius), miss)).mul(smoothstep(0, radius, along));
+		return light.mul(invert(covered.mul(0.94)));
+	}, float(1)).max(dayless);
+}
+
+/** In the Earth's shadow the Moon turns copper: the only light left is sunlight bent and reddened through the Earth's atmosphere. */
+const lunarEclipse = () => mix(color('#b4532e').mul(0.45), vec3(1), eclipse(['earth']));
 
 /** Moons and small rocky planets: two flat color areas and worley craters, `craters` sets how many. */
 function rockySurface(light: string, dark: string, craters: number, seed: number) {
@@ -563,6 +591,10 @@ function ringShadow() {
 	return invert(ringDensity(length(crossing).div(SATURN_RADIUS), float(1)).mul(smoothstep(0, 0.5, distance)).mul(0.65));
 }
 
+const GALILEAN_MOONS = ['io', 'europa', 'ganymede', 'callisto'];
+/** The Galilean moons go dark each time they pass behind Jupiter, how Rømer first measured the speed of light in 1676. */
+const jupiterShadow = () => vec3(eclipse(['jupiter']));
+
 function sunMaterial() {
 	const flow = mx_fractal_noise_float(surfacePoint.mul(2).add(vec3(0, time.mul(0.04), 0)), 3, 2, 0.5);
 	const blobs = invert(edge(0.22, mx_worley_noise_float(surfacePoint.mul(5).add(vec3(time.mul(0.05)))), 0.08));
@@ -702,7 +734,7 @@ interface BodyLook {
 
 const sphere = (radius: number, material: Material, detail = 64) => new Mesh(new SphereGeometry(radius, detail, Math.round(detail * 0.7)), material);
 const globe =
-	(radius: number, rim: Rim = ICY_RIM, detail = 64, shade?: () => Node<'float'>) =>
+	(radius: number, rim: Rim = ICY_RIM, detail = 64, shade?: () => Node<'vec3'>) =>
 	(reveal: Node<'float'>, albedo: Node<'vec3'>) =>
 		sphere(radius, bodyMaterial(reveal, albedo, rim, shade?.()), detail);
 const BANDED_RIM = (pale: string): Rim => [pale, '#3e2a52', 0.4];
@@ -738,7 +770,7 @@ const RING_OUTER = SATURN_RADIUS * 2.27;
 const BODY_LOOKS: Record<string, BodyLook> = {
 	callisto: {
 		around: 'jupiter',
-		build: globe(planet(0.378)),
+		build: globe(planet(0.378), ICY_RIM, 64, jupiterShadow),
 		distance: JUPITER_RADIUS * 6.4,
 		period: 226,
 		phase: 4.9,
@@ -748,7 +780,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	europa: {
 		around: 'jupiter',
-		build: globe(planet(0.245), ['#ffffff', '#26356e', 0.15]),
+		build: globe(planet(0.245), ['#ffffff', '#26356e', 0.15], 64, jupiterShadow),
 		distance: JUPITER_RADIUS * 3.6,
 		period: 48,
 		phase: 1.6,
@@ -758,7 +790,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	ganymede: {
 		around: 'jupiter',
-		build: globe(planet(0.413)),
+		build: globe(planet(0.413), ICY_RIM, 64, jupiterShadow),
 		distance: JUPITER_RADIUS * 4.8,
 		period: 97,
 		phase: 3.3,
@@ -766,10 +798,11 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 'locked',
 		surface: () => rockySurface('#9c8f80', '#6b6157', 5, 37),
 	},
-	io: { around: 'jupiter', build: globe(planet(0.286)), distance: JUPITER_RADIUS * 2.6, period: 24, phase: 0, radius: planet(0.286), spin: 'locked', surface: ioSurface },
+	io: { around: 'jupiter', build: globe(planet(0.286), ICY_RIM, 64, jupiterShadow), distance: JUPITER_RADIUS * 2.6, period: 24, phase: 0, radius: planet(0.286), spin: 'locked', surface: ioSurface },
 	jupiter: {
 		...solarOrbit(5.203, 11.86, 1.2, 1.3),
-		build: globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96),
+		/** The moons' shadows cross its clouds as black dots, a sight small telescopes catch every few days. */
+		build: globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96, () => vec3(eclipse(GALILEAN_MOONS))),
 		radius: JUPITER_RADIUS,
 		spin: 16,
 		surface: jupiterSurface,
@@ -791,10 +824,21 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: (EARTH_YEAR * 0.241 * 2) / 3,
 		surface: () => rockySurface('#a39a90', '#7b736b', 7, 13),
 	},
-	moon: { around: 'earth', build: globe(planet(0.273)), distance: 10, period: 180, phase: 0, radius: planet(0.273), spin: 'locked', surface: moonSurface },
+	/** Its orbit is tilted 5°, so it only crosses the Earth's shadow, or casts its own, during the two eclipse seasons of the year. */
+	moon: {
+		around: 'earth',
+		build: globe(planet(0.273), ICY_RIM, 64, lunarEclipse),
+		distance: 10,
+		inclination: 5.14 * MathUtils.DEG2RAD,
+		period: 180,
+		phase: 0,
+		radius: planet(0.273),
+		spin: 'locked',
+		surface: moonSurface,
+	},
 	saturn: {
 		...solarOrbit(9.537, 29.46, 0, 2.5),
-		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, ringShadow),
+		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, () => vec3(ringShadow().mul(eclipse(['titan'])))),
 		radius: SATURN_RADIUS,
 		spin: 17,
 		surface: saturnSurface,
@@ -819,7 +863,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		around: 'saturn',
 		/** Its upper haze scatters blue light, a pale blue glow spills past the orange disc. */
 		build: (reveal, albedo) => {
-			const titan = globe(planet(0.404), ['#a9c8ff', '#2c3f7a', 0.45])(reveal, albedo);
+			const titan = globe(planet(0.404), ['#a9c8ff', '#2c3f7a', 0.45], 64, () => vec3(eclipse(['saturn'])))(reveal, albedo);
 			titan.add(hazeShell(planet(0.404) * 1.05, '#9fc0ff', reveal));
 			return titan;
 		},
@@ -917,6 +961,8 @@ class Body {
 		if (spin === 'locked') this.mesh.rotation.y = Math.PI - angle;
 		else if (spin) this.mesh.rotation.y = (time / spin) * TURN;
 		this.orbit?.position.copy(parent);
+		/** A body not in the sky yet casts no shadow. */
+		centerOf(this.object.id).value.copy(this.group.visible ? this.group.position : NOWHERE);
 	}
 
 	/** `discovering` false only grows a `shownWith` companion in alongside its parent, it stays undiscovered. */
@@ -1401,11 +1447,14 @@ export class CosmosScene {
 		probe.frames = -1;
 	}
 
-	/** Above the dusk side of the Earth, from where both the planets near the Sun and the outer sky are in view. */
+	/**
+	 * Just above the side of the Earth facing the target, the day side for Mercury and Venus, so the Earth stays behind the
+	 * observer instead of hiding the target when the search swings around.
+	 */
 	#observerPosition() {
 		const earth = this.#earthSystem.position;
-		const dusk = new Vector3().crossVectors(UP, earth).normalize();
-		return dusk.multiplyScalar(EARTH_RADIUS * 1.7).addScaledVector(UP, 0.4).add(earth);
+		const toward = this.#target ? this.#target.group.position.clone().sub(earth).normalize() : new Vector3().crossVectors(UP, earth).normalize();
+		return toward.multiplyScalar(EARTH_RADIUS * 1.7).addScaledVector(UP, 0.4).add(earth);
 	}
 
 	#onPointerDown = (event: PointerEvent) => {
@@ -1485,6 +1534,7 @@ export class CosmosScene {
 			const parent = around === 'sun' ? ORIGIN : around === 'earth' ? this.#earthSystem.position : this.#bodies.get(around)!.group.position;
 			body.place(parent, this.#simTime);
 		}
+		centerOf('earth').value.copy(this.#earthSystem.position);
 	}
 
 	#start() {
