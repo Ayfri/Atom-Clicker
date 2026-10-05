@@ -49,17 +49,17 @@ export interface CosmosObject {
 	year: string;
 }
 
-/** Every Ionize adds a quarter of the base Starlight. */
-export const IONIZE_STARLIGHT_STEP = 0.25;
+/** Every Ionize adds 15% of the base Starlight. */
+export const IONIZE_STARLIGHT_STEP = 0.15;
 /** An Ionize pays this many seconds of Starlight, scaled by how far the reactor went past the ionization line. */
 export const IONIZE_FLASH_SECONDS = 600;
 /** Magnitudes one Aperture level adds to every instrument's limit. */
 export const APERTURE_STEP = 0.5;
 /** Time a paid Aperture level takes to widen, so each one is felt instead of clicked through. */
 export const APERTURE_WIDEN_MS = 5000;
-const APERTURE_BASE_COST = 60;
-const APERTURE_COST_GROWTH = 1.6;
-const STUDY_COST_GROWTH = 1.5;
+const APERTURE_BASE_COST = 90;
+const APERTURE_COST_GROWTH = 1.62;
+const STUDY_COST_GROWTH = 2.5;
 /** Seconds of the object's own Starlight the first study costs. */
 const STUDY_COST_SECONDS = 30;
 
@@ -81,7 +81,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: 'Antiquity',
 	},
 	{
-		cost: 50_000,
+		cost: 75_000,
 		description: 'Moons around Jupiter, rings around Saturn.',
 		era: CosmosEras.REFRACTOR,
 		id: 'refractor',
@@ -92,7 +92,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1609',
 	},
 	{
-		cost: 5_000_000,
+		cost: 7_500_000,
 		description: 'A mirror wide enough to tell a planet from a star.',
 		era: CosmosEras.REFLECTOR,
 		id: 'reflector',
@@ -103,7 +103,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1781',
 	},
 	{
-		cost: 50_000_000,
+		cost: 75_000_000,
 		description: 'Uranus strays from its path, something unseen pulls on it.',
 		era: CosmosEras.PREDICTION,
 		id: 'prediction',
@@ -114,7 +114,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1846',
 	},
 	{
-		cost: 500_000_000,
+		cost: 750_000_000,
 		description: "The Naval Observatory's 26-inch lens, the largest in the world, sharp enough to pull tiny moons out of the glare of Mars.",
 		era: CosmosEras.GREAT_REFRACTOR,
 		id: 'great_refractor',
@@ -125,7 +125,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1877',
 	},
 	{
-		cost: 4_000_000_000,
+		cost: 6_000_000_000,
 		description: 'Two photographs of the same stars, flipped back and forth until one dot jumps.',
 		era: CosmosEras.PHOTOGRAPHY,
 		id: 'blink_comparator',
@@ -136,7 +136,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1930',
 	},
 	{
-		cost: 30_000_000_000,
+		cost: 45_000_000_000,
 		description: 'A telescope flying above the clouds, timing a star as Uranus slides in front of it.',
 		era: CosmosEras.OCCULTATION,
 		id: 'airborne_observatory',
@@ -151,7 +151,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 /** By era, the brightest first within an era, so each Aperture level brings the next one within reach. */
 export const COSMOS_OBJECTS: CosmosObject[] = [
 	{
-		boost: { amount: 0.05, label: 'photon value', stat: 'photon_value' },
+		boost: { amount: 0.03, label: 'photon value', stat: 'photon_value' },
 		color: '#ffb52e',
 		discoverer: 'Everyone',
 		era: CosmosEras.NAKED_EYE,
@@ -164,7 +164,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Prehistory',
 	},
 	{
-		boost: { amount: 0.02, label: 'production', stat: 'global' },
+		boost: { amount: 0.01, label: 'production', stat: 'global' },
 		color: '#4f8fd6',
 		discoverer: 'Everyone',
 		era: CosmosEras.NAKED_EYE,
@@ -177,7 +177,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Prehistory',
 	},
 	{
-		boost: { amount: 0.05, label: 'click power', stat: 'click' },
+		boost: { amount: 0.03, label: 'click power', stat: 'click' },
 		color: '#c9ccd6',
 		discoverer: 'Prehistoric skywatchers',
 		era: CosmosEras.NAKED_EYE,
@@ -186,11 +186,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: -12.7,
 		name: 'Moon',
 		orbits: 'earth',
-		starlight: 2,
+		starlight: 1.4,
 		year: 'Prehistory',
 	},
 	{
-		boost: { amount: 0.05, label: 'power-up duration', stat: 'power_up_duration' },
+		boost: { amount: 0.03, label: 'power-up duration', stat: 'power_up_duration' },
 		color: '#e8cf9a',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -198,11 +198,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'venus',
 		magnitude: -4.4,
 		name: 'Venus',
-		starlight: 4,
+		starlight: 2.8,
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.02, label: 'production', stat: 'global' },
+		boost: { amount: 0.01, label: 'production', stat: 'global' },
 		color: '#d9a877',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -210,11 +210,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'jupiter',
 		magnitude: -2.4,
 		name: 'Jupiter',
-		starlight: 8,
+		starlight: 5.6,
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.05, label: 'Red Light', stat: 'red_light_gain' },
+		boost: { amount: 0.03, label: 'Red Light', stat: 'red_light_gain' },
 		color: '#ffb08a',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -222,11 +222,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'mars',
 		magnitude: -1.5,
 		name: 'Mars',
-		starlight: 16,
+		starlight: 11,
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.05, label: 'XP', stat: 'xp_gain' },
+		boost: { amount: 0.03, label: 'XP', stat: 'xp_gain' },
 		color: '#a39a90',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -234,11 +234,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'mercury',
 		magnitude: -0.4,
 		name: 'Mercury',
-		starlight: 40,
+		starlight: 28,
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.05, label: 'Electrons', stat: 'electron_gain' },
+		boost: { amount: 0.03, label: 'Electrons', stat: 'electron_gain' },
 		color: '#e6d39c',
 		discoverer: 'Babylonian astronomers',
 		era: CosmosEras.NAKED_EYE,
@@ -246,11 +246,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'saturn',
 		magnitude: 0.5,
 		name: 'Saturn',
-		starlight: 100,
+		starlight: 70,
 		year: 'Antiquity',
 	},
 	{
-		boost: { amount: 0.05, label: 'generator output', stat: 'generator' },
+		boost: { amount: 0.03, label: 'generator output', stat: 'generator' },
 		color: '#9c8f80',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -259,11 +259,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 4.6,
 		name: 'Ganymede',
 		orbits: 'jupiter',
-		starlight: 250,
+		starlight: 175,
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.05, label: 'click power', stat: 'click' },
+		boost: { amount: 0.03, label: 'click power', stat: 'click' },
 		color: '#e8d46a',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -272,11 +272,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 5,
 		name: 'Io',
 		orbits: 'jupiter',
-		starlight: 600,
+		starlight: 420,
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.05, label: 'XP', stat: 'xp_gain' },
+		boost: { amount: 0.03, label: 'XP', stat: 'xp_gain' },
 		color: '#d8c8b0',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -285,11 +285,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 5.3,
 		name: 'Europa',
 		orbits: 'jupiter',
-		starlight: 1500,
+		starlight: 1050,
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.05, label: 'Stability Field capacity', stat: 'stability_capacity' },
+		boost: { amount: 0.03, label: 'Stability Field capacity', stat: 'stability_capacity' },
 		color: '#6f675e',
 		discoverer: 'Galileo Galilei',
 		era: CosmosEras.REFRACTOR,
@@ -298,11 +298,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 5.7,
 		name: 'Callisto',
 		orbits: 'jupiter',
-		starlight: 4000,
+		starlight: 2800,
 		year: '1610',
 	},
 	{
-		boost: { amount: 0.05, label: 'photon value', stat: 'photon_value' },
+		boost: { amount: 0.03, label: 'photon value', stat: 'photon_value' },
 		color: '#e0a64a',
 		discoverer: 'Christiaan Huygens',
 		era: CosmosEras.REFRACTOR,
@@ -311,11 +311,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 8.3,
 		name: 'Titan',
 		orbits: 'saturn',
-		starlight: 10_000,
+		starlight: 7000,
 		year: '1655',
 	},
 	{
-		boost: { amount: 0.05, label: 'power-up strength', stat: 'power_up_multiplier' },
+		boost: { amount: 0.03, label: 'power-up strength', stat: 'power_up_multiplier' },
 		color: '#d9cfb8',
 		discoverer: 'Christiaan Huygens',
 		era: CosmosEras.REFRACTOR,
@@ -325,11 +325,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 9,
 		name: "Saturn's rings",
 		orbits: 'saturn',
-		starlight: 25_000,
+		starlight: 17_500,
 		year: '1659',
 	},
 	{
-		boost: { amount: 0.05, label: 'Green Light', stat: 'green_light_gain' },
+		boost: { amount: 0.03, label: 'Green Light', stat: 'green_light_gain' },
 		color: '#9fdde3',
 		discoverer: 'William Herschel',
 		era: CosmosEras.REFLECTOR,
@@ -337,11 +337,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'uranus',
 		magnitude: 5.7,
 		name: 'Uranus',
-		starlight: 80_000,
+		starlight: 56_000,
 		year: '1781',
 	},
 	{
-		boost: { amount: 0.02, label: 'production', stat: 'global' },
+		boost: { amount: 0.01, label: 'production', stat: 'global' },
 		color: '#a9a39b',
 		discoverer: 'Giuseppe Piazzi',
 		era: CosmosEras.REFLECTOR,
@@ -349,11 +349,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'ceres',
 		magnitude: 6.7,
 		name: 'Ceres',
-		starlight: 150_000,
+		starlight: 105_000,
 		year: '1801',
 	},
 	{
-		boost: { amount: 0.05, label: 'click power', stat: 'click' },
+		boost: { amount: 0.03, label: 'click power', stat: 'click' },
 		color: '#b8a58c',
 		discoverer: 'Karl Ludwig Hencke',
 		era: CosmosEras.REFLECTOR,
@@ -362,11 +362,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		/** Astraea's, the fifth asteroid: after its find in 1845 new ones turned up every year. */
 		magnitude: 8.7,
 		name: 'Asteroid belt',
-		starlight: 250_000,
+		starlight: 175_000,
 		year: '1845',
 	},
 	{
-		boost: { amount: 0.05, label: 'Blue Light', stat: 'blue_light_gain' },
+		boost: { amount: 0.03, label: 'Blue Light', stat: 'blue_light_gain' },
 		color: '#4f7be0',
 		discoverer: 'Urbain Le Verrier and Johann Galle',
 		era: CosmosEras.PREDICTION,
@@ -374,11 +374,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		id: 'neptune',
 		magnitude: 7.8,
 		name: 'Neptune',
-		starlight: 400_000,
+		starlight: 280_000,
 		year: '1846',
 	},
 	{
-		boost: { amount: 0.05, label: 'Stability Field strength', stat: 'stability_boost' },
+		boost: { amount: 0.03, label: 'Stability Field strength', stat: 'stability_boost' },
 		color: '#d9c2bb',
 		discoverer: 'William Lassell',
 		era: CosmosEras.PREDICTION,
@@ -387,11 +387,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 13.5,
 		name: 'Triton',
 		orbits: 'neptune',
-		starlight: 1_000_000,
+		starlight: 700_000,
 		year: '1846',
 	},
 	{
-		boost: { amount: 0.05, label: 'Protons', stat: 'proton_gain' },
+		boost: { amount: 0.03, label: 'Protons', stat: 'proton_gain' },
 		color: '#8a7b6e',
 		discoverer: 'Asaph Hall',
 		era: CosmosEras.GREAT_REFRACTOR,
@@ -400,11 +400,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 11.8,
 		name: 'Phobos',
 		orbits: 'mars',
-		starlight: 2_500_000,
+		starlight: 1_750_000,
 		year: '1877',
 	},
 	{
-		boost: { amount: 0.05, label: 'power-up duration', stat: 'power_up_duration' },
+		boost: { amount: 0.03, label: 'power-up duration', stat: 'power_up_duration' },
 		color: '#b0a394',
 		discoverer: 'Asaph Hall',
 		era: CosmosEras.GREAT_REFRACTOR,
@@ -413,11 +413,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 12.9,
 		name: 'Deimos',
 		orbits: 'mars',
-		starlight: 6_000_000,
+		starlight: 4_200_000,
 		year: '1877',
 	},
 	{
-		boost: { amount: 0.05, label: 'XP', stat: 'xp_gain' },
+		boost: { amount: 0.03, label: 'XP', stat: 'xp_gain' },
 		color: '#e0bf9a',
 		discoverer: 'Clyde Tombaugh',
 		era: CosmosEras.PHOTOGRAPHY,
@@ -426,11 +426,11 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		/** As it shone in 1930, far from its perihelion. */
 		magnitude: 15.1,
 		name: 'Pluto',
-		starlight: 15_000_000,
+		starlight: 10_500_000,
 		year: '1930',
 	},
 	{
-		boost: { amount: 0.05, label: 'Stability Field capacity', stat: 'stability_capacity' },
+		boost: { amount: 0.03, label: 'Stability Field capacity', stat: 'stability_capacity' },
 		color: '#8c949e',
 		discoverer: 'James Elliot, Edward Dunham and Jessica Mink',
 		era: CosmosEras.OCCULTATION,
@@ -440,7 +440,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		magnitude: 16,
 		name: "Uranus' rings",
 		orbits: 'uranus',
-		starlight: 40_000_000,
+		starlight: 28_000_000,
 		year: '1977',
 	},
 ];

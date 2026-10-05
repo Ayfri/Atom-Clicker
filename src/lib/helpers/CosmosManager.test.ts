@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, studyCost } from '#data/cosmos.js';
+import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, ionizeStarlightMultiplier, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -35,8 +35,8 @@ describe('unlock', () => {
 		expect(gameManager.ionize()).toBe(true);
 		expect(cosmosManager.unlocked).toBe(true);
 		expect(radiationManager.peakCpm).toBe(0);
-		/** Sun and Earth radiate 1 each, x1.25 after one Ionize. */
-		expect(starlight()).toBeCloseTo(2 * 1.25 * IONIZE_FLASH_SECONDS * (peak / IONIZE_CPM) ** 2);
+		/** Sun and Earth radiate 1 each, times the multiplier of one Ionize. */
+		expect(starlight()).toBeCloseTo(2 * ionizeStarlightMultiplier(1) * IONIZE_FLASH_SECONDS * (peak / IONIZE_CPM) ** 2);
 	});
 });
 
@@ -46,9 +46,9 @@ describe('sky', () => {
 	});
 
 	test('radiates Starlight from the given objects, times the Ionize multiplier', () => {
-		expect(cosmosManager.starlightPerSecond).toBe(2.5);
+		expect(cosmosManager.starlightPerSecond).toBe(2 * ionizeStarlightMultiplier(1));
 		gameManager.tick(4000, true);
-		expect(starlight()).toBeCloseTo(10);
+		expect(starlight()).toBeCloseTo(8 * ionizeStarlightMultiplier(1));
 	});
 
 	test('discovers objects brightest first, once the Aperture reaches them and an owned instrument sees them', () => {
@@ -111,7 +111,7 @@ describe('sky', () => {
 		expect(cosmosManager.study('earth')).toBe(false);
 		expect(cosmosManager.study('mars')).toBe(false);
 		expect(starlight()).toBeCloseTo(0);
-		expect(cosmosManager.starlightPerSecond).toBe((1 + 3) * 1.25);
+		expect(cosmosManager.starlightPerSecond).toBe((1 + 3) * ionizeStarlightMultiplier(1));
 		expect(gameManager.globalMultiplier / globalBefore).toBeCloseTo((1 + earth.boost.amount * 3) / (1 + earth.boost.amount));
 	});
 
