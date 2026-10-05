@@ -354,7 +354,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 	},
 	{
 		boost: { amount: 0.03, label: 'click power', stat: 'click' },
-		color: '#b8a58c',
+		color: '#a4a4a8',
 		discoverer: 'Karl Ludwig Hencke',
 		era: CosmosEras.REFLECTOR,
 		fact: 'Millions of rocks between Mars and Jupiter, yet all of them together weigh less than 4% of the Moon.',

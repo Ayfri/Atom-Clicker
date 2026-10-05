@@ -750,9 +750,12 @@ function asteroidBelt(reveal: Node<'float'>) {
 	const radius = orbit.x.mul(EARTH_ORBIT);
 	const angle = orbit.y.sub(simClock.div(pow(orbit.x, 1.5).mul(EARTH_YEAR)).mul(TURN));
 	const material = new PointsNodeMaterial({ blending: AdditiveBlending, depthWrite: false, sizeAttenuation: false, transparent: true });
-	material.positionNode = vec3(cos(angle).mul(radius), sin(angle.sub(orbit.w)).mul(sin(orbit.z)).mul(radius), sin(angle).mul(radius));
+	const rock = vec3(cos(angle).mul(radius), sin(angle.sub(orbit.w)).mul(sin(orbit.z)).mul(radius), sin(angle).mul(radius));
+	material.positionNode = rock;
 	material.sizeNode = float(2);
-	material.colorNode = color('#b8a58c').mul(0.5).mul(reveal);
+	/** Dots keep their pixel size at any distance, so far away they would pile up into a bright band: they dim to half instead. */
+	const distant = smoothstep(EARTH_ORBIT, EARTH_ORBIT * 6, length(rock.sub(cameraPosition)));
+	material.colorNode = color('#a4a4a8').mul(mix(0.45, 0.22, distant)).mul(reveal);
 	material.opacityNode = invert(smoothstep(0.2, 0.5, length(uv().sub(0.5))));
 	const belt = new Sprite(material);
 	belt.count = BELT_ROCKS;
