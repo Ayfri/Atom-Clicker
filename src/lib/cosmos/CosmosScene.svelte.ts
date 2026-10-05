@@ -55,6 +55,7 @@ import {
 	Mesh,
 	MeshBasicNodeMaterial,
 	NeutralToneMapping,
+	NodeUpdateType,
 	type Node,
 	NoColorSpace,
 	PerspectiveCamera,
@@ -652,6 +653,16 @@ function milkyWayDome(albedo: Node<'vec3'>) {
 	return sky;
 }
 
+/** Stands in for bloom around the Sun: a bright halo hugging the disc and a faint warm wash spreading far past it. */
+function sunGlowSprite() {
+	const fade = saturate(invert(length(uv().sub(0.5)).mul(2)));
+	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
+	material.colorNode = color('#ffe4b8').mul(pow(fade, 7).mul(0.9)).add(color('#ffc890').mul(pow(fade, 2).mul(0.07)));
+	const sprite = new Sprite(material);
+	sprite.scale.setScalar(SUN_RADIUS * 12);
+	return sprite;
+}
+
 function glowSprite(tint: string, falloff: number, strength: number) {
 	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
 	material.colorNode = color(tint).mul(pow(saturate(invert(length(uv().sub(0.5)).mul(2))), falloff)).mul(strength);
@@ -1013,12 +1024,14 @@ class Body {
 export interface CosmosTuning {
 	/** Size of the bloom buffers against the canvas, 0 turns bloom off. */
 	bloom: number;
+	/** Bloom is redrawn every that many frames and reused in between, its passes cost far more CPU time than the scene's objects. */
+	bloomEvery: number;
 	/** The overview renders at 30 fps while the player isn't touching it. */
 	idleCap: boolean;
 	pixelRatio: number;
 }
 
-const DEFAULT_TUNING: CosmosTuning = { bloom: 0.5, idleCap: true, pixelRatio: 1.5 };
+const DEFAULT_TUNING: CosmosTuning = { bloom: 0.5, bloomEvery: 2, idleCap: true, pixelRatio: 1.5 };
 
 export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'system';
 
@@ -1050,6 +1063,7 @@ export class CosmosScene {
 	readonly #atmosphere = new Mesh(new SphereGeometry(EARTH_RADIUS * 1.04, 96, 64), atmosphereMaterial());
 	readonly #bodies = new Map<string, Body>();
 	readonly #corona = coronaSprite();
+	readonly #sunGlow = sunGlowSprite();
 	readonly #camera = new PerspectiveCamera(50, 1, 0.05, 8000);
 	readonly #canvas: HTMLCanvasElement;
 	readonly #controls: OrbitControls;
@@ -1065,13 +1079,17 @@ export class CosmosScene {
 	readonly #signal = signalSprite();
 	readonly #sky: Mesh;
 	readonly #stars = starField();
+
 	readonly #withBloom: Node;
 	readonly #withoutBloom: Node;
 
 	readonly #bloom: ReturnType<typeof bloom>;
 	readonly #clouds: Mesh;
+	/** The benchmark or a freeze owns the loop, a tab coming back to the foreground must not restart it. */
+	#held = false;
 	#lastInput = 0;
 	#lastRender = 0;
+	#renders = 0;
 	#tuning: CosmosTuning = { ...DEFAULT_TUNING, pixelRatio: Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio) };
 	/** Wheel zoom eases toward these goals every frame instead of jumping a whole step per notch. */
 	#distanceGoal: number | null = null;
@@ -1120,7 +1138,7 @@ export class CosmosScene {
 		this.#earthSystem.add(tilt);
 		this.#signal.visible = false;
 
-		this.#scene.add(sun, this.#corona, orbitLine(EARTH_ORBIT, '#6f8cff', 0.12), this.#earthSystem);
+		this.#scene.add(sun, this.#corona, this.#sunGlow, orbitLine(EARTH_ORBIT, '#6f8cff', 0.12), this.#earthSystem);
 		/** In discovery order, so every parent is placed before the moons orbiting it. */
 		for (const object of COSMOS_OBJECTS) {
 			const look = BODY_LOOKS[object.id];
@@ -1261,6 +1279,7 @@ export class CosmosScene {
 		const restore = this.#snapshot();
 		this.setQuality('high');
 		this.#renderer.setAnimationLoop(null);
+		this.#held = true;
 		try {
 			return await runBench(
 				{
@@ -1275,6 +1294,7 @@ export class CosmosScene {
 				options,
 			);
 		} finally {
+			this.#held = false;
 			restore();
 			this.#start();
 		}
@@ -1282,6 +1302,7 @@ export class CosmosScene {
 
 	/** Dev only: stops on a benchmark view, so screenshots of two variants show the exact same frame. A reload resumes. */
 	freeze(scenario: BenchScenario) {
+		this.#held = true;
 		this.#renderer.setAnimationLoop(null);
 		this.#stage(scenario);
 		this.#render();
@@ -1418,6 +1439,7 @@ export class CosmosScene {
 	#applyGlare() {
 		const glare = this.quality === 'high' && this.mode !== 'observe';
 		this.#corona.visible = glare;
+		this.#sunGlow.visible = glare && !this.#tuning.bloom;
 		const output = glare && this.#tuning.bloom > 0 ? this.#withBloom : this.#withoutBloom;
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
@@ -1581,6 +1603,7 @@ export class CosmosScene {
 		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
 		this.#stars.position.copy(this.#camera.position);
 		this.#sky.position.copy(this.#camera.position);
+		this.#bloom.updateBeforeType = ++this.#renders % this.#tuning.bloomEvery ? NodeUpdateType.NONE : NodeUpdateType.FRAME;
 		this.#pipeline.render();
 	}
 
@@ -1657,6 +1680,7 @@ export class CosmosScene {
 	};
 
 	#onVisibility = () => {
+		if (this.#held) return;
 		if (document.hidden) this.#renderer.setAnimationLoop(null);
 		else this.#start();
 	};

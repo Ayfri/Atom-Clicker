@@ -34,7 +34,7 @@ export interface BenchOptions {
 }
 
 const EXPERIMENTS: readonly BenchExperiment[] = [
-	{ name: 'bloom', scenarios: ['home', 'sun', 'sky'], variants: { half: { bloom: 0.5 }, quarter: { bloom: 0.25 }, off: { bloom: 0 } } },
+	{ name: 'bloom', scenarios: ['home', 'sun', 'sky'], variants: { everyFrame: { bloomEvery: 1 }, everyOther: { bloomEvery: 2 }, quarter: { bloom: 0.25 }, sprite: { bloom: 0 } } },
 	{ name: 'pixelRatio', scenarios: ['home', 'sky', 'jupiter', 'saturn', 'system'], variants: { '1.5': { pixelRatio: 1.5 }, '1': { pixelRatio: 1 }, '0.75': { pixelRatio: 0.75 } } },
 ];
 
@@ -53,18 +53,22 @@ interface Stats {
 	sd: number;
 }
 
-interface BenchRow {
-	cpu: Stats;
-	/** Mean GPU time change against the baseline, in percent. */
+interface Comparison extends Stats {
+	/** Mean change against the baseline, in percent. */
 	delta: number;
+	/** Rounds where the variant's mean beat the baseline's: a real gain wins nearly all of them. */
+	wins: string;
+}
+
+interface BenchRow {
+	/** Time to record and submit a frame, `performance.now()` is floored to 100 µs so it compares means too. */
+	cpu: Comparison;
 	experiment: string;
-	gpu: Stats;
+	gpu: Comparison;
 	/** Mean GPU time of each render pass in the order three issues them: the output pass, the scene, then the bloom passes. */
 	passes: number[];
 	scenario: string;
 	variant: string;
-	/** Rounds where the variant's mean beat the baseline's: a real gain wins nearly all of them. */
-	wins: string;
 }
 
 const mean = (values: readonly number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -97,16 +101,22 @@ async function gpuFrames(renderer: WebGPURenderer) {
 		.map(([, passes]) => passes.sort(([a], [b]) => a - b).map(([, ms]) => ms));
 }
 
-/** Renders on the display's own pacing, so the GPU runs at the clocks players get, and returns each frame's CPU time. */
+/**
+ * Renders on the display's own pacing, so the GPU runs at the clocks players get, and returns each frame's CPU time. Chrome
+ * throttles an occluded window to ~1 fps while it still reports it visible, the GPU then idles at low clocks and inflates every time.
+ */
 function renderFrames({ render, renderer }: BenchTarget, count: number) {
 	return new Promise<number[]>(resolve => {
 		const cpu: number[] = [];
+		const begin = performance.now();
 		void renderer.setAnimationLoop(() => {
 			const start = performance.now();
 			render();
 			cpu.push(performance.now() - start);
 			if (cpu.length < count) return;
 			void renderer.setAnimationLoop(null);
+			const hz = (count * 1000) / (performance.now() - begin);
+			if (hz < 30) console.warn(`[cosmos bench] frames came at ${hz.toFixed(1)} Hz, the window is likely covered and these timings are off.`);
 			resolve(cpu);
 		});
 	});
@@ -155,7 +165,7 @@ export async function runBench(target: BenchTarget, overrides: Partial<BenchOpti
 	for (const { name: experiment, scenarios, variants } of EXPERIMENTS.filter(({ name }) => options.experiments.includes(name))) {
 		const names = Object.keys(variants);
 		for (const scenario of scenarios) {
-			const samples = new Map(names.map(name => [name, { cpu: [] as number[], gpu: [] as number[][], rounds: [] as number[] }]));
+			const samples = new Map(names.map(name => [name, { cpu: [] as number[], cpuRounds: [] as number[], gpu: [] as number[][], gpuRounds: [] as number[] }]));
 			for (let round = 0; round < options.rounds; round++) {
 				for (const name of roundOrder(names, round)) {
 					const tuning = { ...target.defaults, ...variants[name] };
@@ -167,41 +177,41 @@ export async function runBench(target: BenchTarget, overrides: Partial<BenchOpti
 					const gpu = (await gpuFrames(target.renderer)).slice(-options.frames);
 					const sample = samples.get(name)!;
 					sample.cpu.push(...cpu);
+					sample.cpuRounds.push(mean(cpu));
 					sample.gpu.push(...gpu);
-					sample.rounds.push(mean(gpu.map(total)));
+					sample.gpuRounds.push(mean(gpu.map(total)));
 				}
 				console.info(`[cosmos bench] ${experiment} · ${scenario} · round ${round + 1}/${options.rounds}`);
 			}
 			const baseline = samples.get(names[0])!;
-			const baselineMean = mean(baseline.gpu.map(total));
-			for (const [variant, { cpu, gpu, rounds }] of samples) {
-				const totals = gpu.map(total);
+			const compare = (values: readonly number[], rounds: readonly number[], baselineValues: readonly number[], baselineRounds: readonly number[]): Comparison => ({
+				...stats(values),
+				delta: (mean(values) / mean(baselineValues) - 1) * 100,
+				wins: `${rounds.filter((average, i) => average < baselineRounds[i]).length}/${rounds.length}`,
+			});
+			for (const [variant, { cpu, cpuRounds, gpu, gpuRounds }] of samples) {
 				rows.push({
-					cpu: stats(cpu),
-					delta: (mean(totals) / baselineMean - 1) * 100,
+					cpu: compare(cpu, cpuRounds, baseline.cpu, baseline.cpuRounds),
 					experiment,
-					gpu: stats(totals),
+					gpu: compare(gpu.map(total), gpuRounds, baseline.gpu.map(total), baseline.gpuRounds),
 					passes: Array.from({ length: Math.max(...gpu.map(passes => passes.length)) }, (_, i) => mean(gpu.map(passes => passes[i] ?? 0))),
 					scenario,
 					variant,
-					wins: variant === names[0] ? '' : `${rounds.filter((average, i) => average < baseline.rounds[i]).length}/${rounds.length}`,
 				});
 			}
 		}
 	}
 	const idle = options.experiments.includes('idle') ? await idleRun(target, options) : [];
 	const ms = (value: number) => Number(value.toFixed(3));
+	const summary = ({ ci, delta, mean: average, wins }: Comparison) => `${ms(average)} ± ${ms(ci)} (${delta > 0 ? '+' : ''}${delta.toFixed(1)}%, ${wins})`;
 	console.table(
-		rows.map(({ cpu, delta, experiment, gpu, passes, scenario, variant, wins }) => ({
+		rows.map(({ cpu, experiment, gpu, passes, scenario, variant }) => ({
 			experiment,
 			scenario,
 			variant,
-			'gpu mean': ms(gpu.mean),
-			'± 95%': ms(gpu.ci),
-			'Δ %': Number(delta.toFixed(1)),
-			wins,
+			gpu: summary(gpu),
 			'output · scene · bloom': `${ms(passes[0])} · ${ms(passes[1] ?? 0)} · ${ms(total(passes.slice(2)))}`,
-			'cpu median': ms(cpu.median),
+			cpu: summary(cpu),
 		})),
 	);
 	if (idle.length) console.table(idle.map(({ gpuPerSecond, rendered, variant }) => ({ variant, fps: ms(rendered.mean), 'gpu ms/s': ms(gpuPerSecond.mean), '± 95%': ms(gpuPerSecond.ci) })));
