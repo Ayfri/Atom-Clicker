@@ -39,11 +39,14 @@ class CosmosManager {
 		return next && this.ownsEra(next.era) ? next : null;
 	});
 
-	/** Faintest magnitude the best owned instrument reaches. */
-	limit = $derived(
-		Math.max(...COSMOS_INSTRUMENTS.filter(instrument => instrument.cost === 0 || this.instruments.includes(instrument.id)).map(instrument => instrument.limit)) +
-			APERTURE_STEP * this.aperture,
-	);
+	/** Latest owned instrument, the one the player looks through. */
+	instrument = $derived(COSMOS_INSTRUMENTS.findLast(instrument => instrument.cost === 0 || this.instruments.includes(instrument.id))!);
+
+	/** Faintest magnitude the instrument reaches at the current Aperture, never past its reach. */
+	limit = $derived(Math.min(this.instrument.reach, this.instrument.limit + APERTURE_STEP * this.aperture));
+
+	/** The Aperture is as wide as the instrument allows, only the next instrument sees further. */
+	apertureMaxed = $derived(this.limit >= this.instrument.reach);
 
 	/** The next object is bright enough for the instrument, its signal can be observed. */
 	canObserve = $derived(this.nextDiscovery !== null && this.nextDiscovery.magnitude <= this.limit);
@@ -98,7 +101,7 @@ class CosmosManager {
 	/** Pays for the next Aperture level, which counts once it has widened for `APERTURE_WIDEN_MS`. */
 	purchaseAperture(): boolean {
 		const cost = this.nextApertureCost;
-		if (!this.unlocked || this.wideningMs > 0 || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < cost) return false;
+		if (!this.unlocked || this.wideningMs > 0 || this.apertureMaxed || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < cost) return false;
 		currenciesManager.remove(CurrenciesTypes.STARLIGHT, cost);
 		this.wideningMs = APERTURE_WIDEN_MS;
 		return true;

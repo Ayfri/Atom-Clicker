@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, studyCost } from '#data/cosmos.js';
+import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -69,6 +69,9 @@ describe('sky', () => {
 		}
 		expect(cosmosManager.aperture).toBe(11);
 		expect(cosmosManager.nextDiscovery).toBeNull();
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextApertureCost);
+		expect(cosmosManager.apertureMaxed).toBe(true);
+		expect(cosmosManager.purchaseAperture()).toBe(false);
 
 		currenciesManager.remove(CurrenciesTypes.STARLIGHT, starlight());
 		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextInstrument!.cost);
@@ -82,7 +85,15 @@ describe('sky', () => {
 		cosmosManager.tick(1000);
 		expect(cosmosManager.research).toBeNull();
 		expect(cosmosManager.nextDiscovery?.id).toBe('ganymede');
+		expect(cosmosManager.limit).toBe(4);
 		expect(cosmosManager.canObserve).toBe(false);
+	});
+
+	test('every object sits within the reach of the instrument of its era', () => {
+		for (const object of COSMOS_OBJECTS) {
+			const instrument = COSMOS_INSTRUMENTS.find(item => item.era === object.era)!;
+			expect(object.magnitude, object.id).toBeLessThanOrEqual(instrument.reach);
+		}
 	});
 
 	test('studies add the object rate again and raise its boost, which reaches the game stats', () => {

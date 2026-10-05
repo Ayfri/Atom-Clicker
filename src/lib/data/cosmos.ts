@@ -22,6 +22,8 @@ export interface CosmosInstrument {
 	/** Faintest apparent magnitude it reaches with no Aperture level, each level adds `APERTURE_STEP`. */
 	limit: number;
 	name: string;
+	/** Faintest magnitude it can ever reach, the Aperture stops widening there and only the next instrument sees further. */
+	reach: number;
 	/** Time between paying for it and owning it, while the workshop builds it. */
 	researchMs: number;
 	year: string;
@@ -61,7 +63,11 @@ const STUDY_COST_GROWTH = 1.5;
 /** Seconds of the object's own Starlight the first study costs. */
 const STUDY_COST_SECONDS = 30;
 
-/** Limits are set against the Aperture levels the previous era needed, so each new instrument still asks for a few more. */
+/**
+ * Every instrument's reach stops at its era's faintest object, so Aperture levels bought ahead never skip an era. The eras after
+ * Galileo start from the same base: objects like Uranus are brighter than Titan, what hid them was a disc to tell from a star, a
+ * glare or an unknown place, which the instrument's research stands for.
+ */
 export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 	{
 		cost: 0,
@@ -70,6 +76,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		id: 'eye',
 		limit: -5,
 		name: 'Naked eye',
+		reach: 0.5,
 		researchMs: 0,
 		year: 'Antiquity',
 	},
@@ -80,6 +87,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		id: 'refractor',
 		limit: -1.5,
 		name: "Galileo's refractor",
+		reach: 9,
 		researchMs: 5 * 60_000,
 		year: '1609',
 	},
@@ -88,8 +96,9 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		description: 'A mirror wide enough to tell a planet from a star.',
 		era: CosmosEras.REFLECTOR,
 		id: 'reflector',
-		limit: -5.5,
+		limit: -1.5,
 		name: "Herschel's reflector",
+		reach: 10,
 		researchMs: 8 * 60_000,
 		year: '1781',
 	},
@@ -98,8 +107,9 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		description: 'Uranus strays from its path, something unseen pulls on it.',
 		era: CosmosEras.PREDICTION,
 		id: 'prediction',
-		limit: -4.5,
+		limit: -1.5,
 		name: "Le Verrier's prediction",
+		reach: 13.5,
 		researchMs: 10 * 60_000,
 		year: '1846',
 	},
@@ -108,8 +118,9 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		description: "The Naval Observatory's 26-inch lens, the largest in the world, sharp enough to pull tiny moons out of the glare of Mars.",
 		era: CosmosEras.GREAT_REFRACTOR,
 		id: 'great_refractor',
-		limit: -4.2,
+		limit: -1.5,
 		name: 'Great Equatorial refractor',
+		reach: 14,
 		researchMs: 12 * 60_000,
 		year: '1877',
 	},
@@ -118,8 +129,9 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		description: 'Two photographs of the same stars, flipped back and forth until one dot jumps.',
 		era: CosmosEras.PHOTOGRAPHY,
 		id: 'blink_comparator',
-		limit: -4.5,
+		limit: -1.5,
 		name: "Lowell's blink comparator",
+		reach: 16,
 		researchMs: 15 * 60_000,
 		year: '1930',
 	},
@@ -128,8 +140,9 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		description: 'A telescope flying above the clouds, timing a star as Uranus slides in front of it.',
 		era: CosmosEras.OCCULTATION,
 		id: 'airborne_observatory',
-		limit: -3.5,
+		limit: -1.5,
 		name: 'Kuiper Airborne Observatory',
+		reach: 17,
 		researchMs: 20 * 60_000,
 		year: '1977',
 	},
@@ -410,7 +423,8 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.PHOTOGRAPHY,
 		fact: 'A planet for 76 years. Its great heart-shaped glacier is named Tombaugh Regio, after the farm boy who found it.',
 		id: 'pluto',
-		magnitude: 14,
+		/** As it shone in 1930, far from its perihelion. */
+		magnitude: 15.1,
 		name: 'Pluto',
 		starlight: 15_000_000,
 		year: '1930',
@@ -436,7 +450,7 @@ export const COSMOS_OBJECTS_BY_ID = Object.fromEntries(COSMOS_OBJECTS.map(object
 /** Magnitudes read with their sign, `-4.4` or `+0.5`, the way astronomers write them. */
 export const formatMagnitude = (magnitude: number): string => `${magnitude > 0 ? '+' : ''}${magnitude.toFixed(1)}`;
 
-/** Share of the sky drawn for a limiting magnitude: the naked eye's start shows the brightest stars, Neptune's era the whole field. */
+/** Share of the bright sky drawn for a limiting magnitude: the naked eye's start shows the brightest stars, the refractor's end the whole field. */
 export const skySight = (limit: number): number => Math.min(1, Math.max(0, (limit + 5) / 13));
 
 export const apertureCost = (level: number): number => APERTURE_BASE_COST * APERTURE_COST_GROWTH ** level;

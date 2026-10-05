@@ -153,24 +153,37 @@
 				/>
 				<div class="min-w-0 flex-1">
 					<p class="text-sm font-semibold text-white">Aperture <span class="text-xs font-normal text-white/40">Lv {cosmosManager.aperture}</span></p>
-					<p class="text-xs text-white/50">Your sight reaches magnitude {formatMagnitude(cosmosManager.limit)}, each level {APERTURE_STEP} fainter.</p>
+					<p class="text-xs text-white/50">
+						{#if cosmosManager.apertureMaxed}
+							Your sight reaches magnitude {formatMagnitude(cosmosManager.limit)}, as far as {cosmosManager.instrument.name} goes.
+						{:else}
+							Your sight reaches magnitude {formatMagnitude(cosmosManager.limit)}, each level {APERTURE_STEP} fainter.
+						{/if}
+					</p>
 				</div>
 				{const widening = $derived(cosmosManager.wideningMs > 0)}
-				<button
-					class={[
-						'relative shrink-0 overflow-hidden whitespace-nowrap rounded-lg bg-accent-600 px-2.5 py-1.5 text-white transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed',
-						!widening && 'disabled:opacity-40',
-					]}
-					disabled={!cosmosManager.unlocked || widening || starlight < cosmosManager.nextApertureCost}
-					onclick={() => cosmosManager.purchaseAperture()}
-				>
-					{#if widening}
-						<FillLine duration={APERTURE_WIDEN_MS} />
-						<span class="text-xs">Widening…</span>
-					{:else}
-						{@render starlightAmount(cosmosManager.nextApertureCost)}
-					{/if}
-				</button>
+				{#if cosmosManager.apertureMaxed && !widening}
+					<Check
+						class="shrink-0 text-accent-300"
+						size={18}
+					/>
+				{:else}
+					<button
+						class={[
+							'relative shrink-0 overflow-hidden whitespace-nowrap rounded-lg bg-accent-600 px-2.5 py-1.5 text-white transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed',
+							!widening && 'disabled:opacity-40',
+						]}
+						disabled={!cosmosManager.unlocked || widening || starlight < cosmosManager.nextApertureCost}
+						onclick={() => cosmosManager.purchaseAperture()}
+					>
+						{#if widening}
+							<FillLine duration={APERTURE_WIDEN_MS} />
+							<span class="text-xs">Widening…</span>
+						{:else}
+							{@render starlightAmount(cosmosManager.nextApertureCost)}
+						{/if}
+					</button>
+				{/if}
 			</li>
 			{#each COSMOS_INSTRUMENTS as instrument (instrument.id)}
 				{@const owned = cosmosManager.ownsEra(instrument.era)}
