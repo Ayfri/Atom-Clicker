@@ -1,20 +1,15 @@
 import type { RequestHandler } from './$types';
-import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { auditScore } from '#lib/server/scoreAudit.server.js';
 import { leaderboardService, supabaseAdmin } from '#lib/server/supabase.server.js';
 import { readVerifiedRequest } from '#lib/server/verifiedRequest.server.js';
 import { addRankToLeaderboard } from '#lib/utils/number-parser.js';
 
-const UPDATE_INTERVAL = 25 * 1000;
-
-/** Loose on purpose: only rejects near-float-ceiling garbage, never balance-tuned values. */
-const MAX_ATOMS = 1e100;
-/** Tight since it is balance-independent, the XP curve makes anything past ~1000 unreachable. */
-const MAX_LEVEL = 1_000;
-const MAX_USERNAME_LENGTH = 50;
+/** A game state weighs ~15 KB, this only stops a client from making the Worker parse megabytes. */
+const MAX_BODY_BYTES = 256 * 1024;
 const MAX_PICTURE_LENGTH = 2048;
-
-/** Per-isolate on Workers, so this is a best-effort throttle rather than a hard limit. */
-const userLastUpdate = new Map<string, number>();
+const MAX_USERNAME_LENGTH = 50;
+/** Measured on the stored history, so it holds across Worker isolates unlike an in-memory map. */
+const MIN_SUBMIT_INTERVAL_MS = 20_000;
 
 export const GET: RequestHandler = async ({ url }) => {
 	try {
@@ -61,45 +56,40 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 };
 
+/**
+ * The score is never taken from the client: the game state it sends is audited against the current balance and the previous
+ * accepted state, and the server reads atoms and level from it. A state that fails rolls the board back, see record_score.
+ */
 export const POST: RequestHandler = async ({ request }) => {
 	try {
+		if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_BYTES) return Response.json({ error: 'Payload too large' }, { status: 413 });
+
 		const verified = await readVerifiedRequest(request);
 		if (verified instanceof Response) return verified;
 
 		const { userId } = verified;
-		const { username, atoms, level, picture } = verified.data;
+		const { picture, state, username } = verified.data;
 
 		if (typeof username !== 'string' || username.trim().length === 0 || username.length > MAX_USERNAME_LENGTH) {
 			return Response.json({ error: 'Invalid username' }, { status: 400 });
 		}
-		if (typeof atoms !== 'number' || !Number.isFinite(atoms) || atoms < 0 || atoms > MAX_ATOMS) {
-			return Response.json({ error: 'Invalid atoms value' }, { status: 400 });
-		}
-		if (typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > MAX_LEVEL) {
-			return Response.json({ error: 'Invalid level value' }, { status: 400 });
-		}
-		if (picture !== undefined && picture !== null && (typeof picture !== 'string' || picture.length > MAX_PICTURE_LENGTH)) {
+		if (picture !== undefined && picture !== null && (typeof picture !== 'string' || picture.length > MAX_PICTURE_LENGTH || !picture.startsWith('https://'))) {
 			return Response.json({ error: 'Invalid picture value' }, { status: 400 });
 		}
 
-		const timeSinceLastUpdate = Date.now() - (userLastUpdate.get(userId) || 0);
-		if (timeSinceLastUpdate < UPDATE_INTERVAL) {
-			return Response.json({
-				error: 'Update too frequent',
-				nextUpdateIn: Math.ceil((UPDATE_INTERVAL - timeSinceLastUpdate) / 1000)
-			}, { status: 429 });
+		const context = await leaderboardService.getScoreContext(userId);
+		const now = Date.now();
+		const sinceLast = now - (context.lastReceivedAt ?? 0);
+		if (sinceLast < MIN_SUBMIT_INTERVAL_MS) {
+			return Response.json({ error: 'Update too frequent', nextUpdateIn: Math.ceil((MIN_SUBMIT_INTERVAL_MS - sinceLast) / 1000) }, { status: 429 });
 		}
 
-		/** The client already skips flagged saves, this catches direct calls when the cloud save carries the evidence. */
-		const save = await leaderboardService.getSaveIntegrityFields(userId);
-		if (save && (save.integrityFlagged === true || checkStatePlausibility(save).length > 0)) {
-			return Response.json({ error: 'Save flagged by the integrity checks' }, { status: 403 });
-		}
+		const audit = auditScore(state, { colliderTotal: context.colliderTotal, now, previous: context.previous });
+		if (audit === 'outdated') return Response.json({ error: 'This game version is outdated, reload the page' }, { status: 409 });
+		if (audit === 'malformed') return Response.json({ error: 'Invalid game state' }, { status: 400 });
 
-		await leaderboardService.updateProfileStats(userId, atoms, level, username, picture ?? undefined);
-		userLastUpdate.set(userId, Date.now());
-
-		return Response.json({ success: true });
+		const status = await leaderboardService.recordScore(userId, audit, username, picture ?? undefined);
+		return Response.json({ issues: audit.issues, status });
 	} catch (error) {
 		console.error('Failed to update leaderboard:', error);
 		return Response.json({ error: 'Failed to update leaderboard' }, { status: 500 });

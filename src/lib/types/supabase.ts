@@ -214,6 +214,53 @@ export type Database = {
 					}
 				]
 			}
+			score_snapshots: {
+				Row: {
+					atoms: number
+					id: number
+					issues: string[]
+					level: number
+					opened_at: string
+					received_at: string
+					snapshot: Json
+					status: string
+					user_id: string
+					warnings: string[]
+				}
+				Insert: {
+					atoms: number
+					id?: never
+					issues?: string[]
+					level: number
+					opened_at?: string
+					received_at?: string
+					snapshot: Json
+					status: string
+					user_id: string
+					warnings?: string[]
+				}
+				Update: {
+					atoms?: number
+					id?: never
+					issues?: string[]
+					level?: number
+					opened_at?: string
+					received_at?: string
+					snapshot?: Json
+					status?: string
+					user_id?: string
+					warnings?: string[]
+				}
+				Relationships: [
+					{
+						foreignKeyName: "score_snapshots_user_id_fkey"
+						columns: ["user_id"]
+						isOneToOne: false
+						referencedRelation: "profiles"
+						referencedColumns: ["id"]
+					}
+				]
+			}
 		}
 		Views: {
 			[_ in never]: never
@@ -239,6 +286,10 @@ export type Database = {
 					updated_at: string
 					username: string
 				}[]
+			}
+			get_score_context: {
+				Args: { p_user_id: string }
+				Returns: Json
 			}
 			get_secret: {
 				Args: { name: string }
@@ -284,18 +335,22 @@ export type Database = {
 				}
 				Returns: Json
 			}
-			send_discord_daily_recap: {
-				Args: Record<PropertyKey, never>
-				Returns: undefined
-			}
-			update_profile_stats: {
+			record_score: {
 				Args: {
-					p_atoms: string
+					p_atoms: number
+					p_issues: string[]
 					p_level: number
 					p_picture?: string
+					p_snapshot: Json
 					p_user_id: string
 					p_username?: string
+					p_valid: boolean
+					p_warnings: string[]
 				}
+				Returns: Json
+			}
+			send_discord_daily_recap: {
+				Args: Record<PropertyKey, never>
 				Returns: undefined
 			}
 		}
