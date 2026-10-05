@@ -81,7 +81,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: 'Antiquity',
 	},
 	{
-		cost: 75_000,
+		cost: 650_000,
 		description: 'Moons around Jupiter, rings around Saturn.',
 		era: CosmosEras.REFRACTOR,
 		id: 'refractor',
@@ -92,7 +92,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1609',
 	},
 	{
-		cost: 7_500_000,
+		cost: 850_000_000,
 		description: 'A mirror wide enough to tell a planet from a star.',
 		era: CosmosEras.REFLECTOR,
 		id: 'reflector',
@@ -103,7 +103,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1781',
 	},
 	{
-		cost: 75_000_000,
+		cost: 20_000_000_000,
 		description: 'Uranus strays from its path, something unseen pulls on it.',
 		era: CosmosEras.PREDICTION,
 		id: 'prediction',
@@ -114,7 +114,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1846',
 	},
 	{
-		cost: 750_000_000,
+		cost: 60_000_000_000,
 		description: "The Naval Observatory's 26-inch lens, the largest in the world, sharp enough to pull tiny moons out of the glare of Mars.",
 		era: CosmosEras.GREAT_REFRACTOR,
 		id: 'great_refractor',
@@ -125,7 +125,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1877',
 	},
 	{
-		cost: 6_000_000_000,
+		cost: 500_000_000_000,
 		description: 'Two photographs of the same stars, flipped back and forth until one dot jumps.',
 		era: CosmosEras.PHOTOGRAPHY,
 		id: 'blink_comparator',
@@ -136,7 +136,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1930',
 	},
 	{
-		cost: 45_000_000_000,
+		cost: 1_400_000_000_000,
 		description: 'A telescope flying above the clouds, timing a star as Uranus slides in front of it.',
 		era: CosmosEras.OCCULTATION,
 		id: 'airborne_observatory',
