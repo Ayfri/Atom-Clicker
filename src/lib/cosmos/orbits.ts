@@ -39,13 +39,23 @@ export function orbitPoint({ distance, eccentricity = 0, inclination = 0, node =
 export const orbitNormal = ({ inclination = 0, node = 0 }: Orbit) =>
 	new Vector3(Math.sin(inclination) * Math.sin(node), Math.cos(inclination), Math.sin(inclination) * Math.cos(node));
 
-/** True anomaly at a mean longitude, Kepler's equation by Newton's method: fast near the Sun, slow far out. */
+const eccentricToTrue = (eccentricity: number, eccentric: number) =>
+	2 * Math.atan2(Math.sqrt(1 + eccentricity) * Math.sin(eccentric / 2), Math.sqrt(1 - eccentricity) * Math.cos(eccentric / 2));
+
+/**
+ * True anomaly at a mean longitude, Kepler's equation by Newton's method: fast near the Sun, slow far out. Started from the mean
+ * anomaly, Newton can stall near perihelion on Halley's 0.97 eccentricity, Danby's starting guess converges in a few steps.
+ */
 export function trueAnomaly({ eccentricity = 0, perihelion = 0 }: Orbit, meanLongitude: number) {
-	const mean = meanLongitude - perihelion;
+	const mean = MathUtils.euclideanModulo(meanLongitude - perihelion + Math.PI, TURN) - Math.PI;
 	if (!eccentricity) return mean;
-	let eccentric = mean;
-	for (let i = 0; i < 4; i++) eccentric -= (eccentric - eccentricity * Math.sin(eccentric) - mean) / (1 - eccentricity * Math.cos(eccentric));
-	return 2 * Math.atan2(Math.sqrt(1 + eccentricity) * Math.sin(eccentric / 2), Math.sqrt(1 - eccentricity) * Math.cos(eccentric / 2));
+	let eccentric = mean + 0.85 * eccentricity * Math.sign(Math.sin(mean));
+	for (let i = 0; i < 8; i++) {
+		const step = (eccentric - eccentricity * Math.sin(eccentric) - mean) / (1 - eccentricity * Math.cos(eccentric));
+		eccentric -= step;
+		if (Math.abs(step) < 1e-10) break;
+	}
+	return eccentricToTrue(eccentricity, eccentric);
 }
 
 /** Mean longitude when the scene opens: the real one of today for an orbit with its real period. */
@@ -65,21 +75,35 @@ export const EARTH_PATH = solarOrbit(1, 1, 0.0167, [100.464, 0, 0, 102.937]);
 /** Fades every orbit line in and out with the orbits switch. */
 export const orbitFade = uniform(1);
 
-/** An ellipse with its parent at a focus. Its chords stray under 0.02 from the curve, at a fixed 256 the line missed Pluto by twice its radius. */
+/**
+ * An ellipse with its parent at a focus, sampled evenly in eccentric anomaly so a stretched orbit keeps its points spread along it.
+ * The segments double until the chords stray under 0.02 from the curve, at a fixed 256 the line missed Pluto by twice its radius.
+ */
 export class OrbitLine extends Line<BufferGeometry, LineBasicNodeMaterial> {
 	readonly #anchor = new Vector3();
 	/** The vertices in double precision, around the parent. */
 	readonly #points: Float64Array;
 
 	constructor(orbit: Orbit, tint: string, opacity: number) {
-		const reach = orbit.distance * (1 + (orbit.eccentricity ?? 0));
-		const segments = Math.min(4096, Math.max(256, Math.ceil(Math.PI * Math.sqrt(reach / 0.04))));
+		const eccentricity = orbit.eccentricity ?? 0;
+		const at = (turn: number, out: Vector3) => orbitPoint(orbit, eccentricToTrue(eccentricity, turn * TURN), out);
+		const [from, to, middle] = [new Vector3(), new Vector3(), new Vector3()];
+		const stray = (segments: number) => {
+			let worst = 0;
+			for (let i = 0; i < segments; i++) {
+				at(i / segments, from);
+				at((i + 1) / segments, to);
+				worst = Math.max(worst, at((i + 0.5) / segments, middle).distanceTo(from.add(to).multiplyScalar(0.5)));
+			}
+			return worst;
+		};
+		let segments = 256;
+		while (segments < 8192 && stray(segments) > 0.02) segments *= 2;
 		const points = new Float64Array((segments + 1) * 3);
-		const point = new Vector3();
-		/** The WebGPU renderer has no LineLoop, the last point repeats the first to close the circle. */
+		/** The WebGPU renderer has no LineLoop, the last point repeats the first to close the loop. */
 		for (let i = 0; i <= segments; i++) {
-			orbitPoint(orbit, (i / segments) * TURN, point);
-			points.set([point.x, point.y, point.z], i * 3);
+			at(i / segments, from);
+			points.set([from.x, from.y, from.z], i * 3);
 		}
 		const geometry = new BufferGeometry();
 		geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
