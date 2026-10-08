@@ -6,12 +6,14 @@ import {
 	atan,
 	cameraPosition,
 	color,
+	context,
 	cos,
 	dot,
 	exp,
 	float,
 	fract,
 	fwidth,
+	highpModelViewMatrix,
 	instancedBufferAttribute,
 	length,
 	luminance,
@@ -46,6 +48,7 @@ import {
 	AdditiveBlending,
 	BackSide,
 	BufferGeometry,
+	Color,
 	DoubleSide,
 	Float32BufferAttribute,
 	Group,
@@ -57,6 +60,7 @@ import {
 	Mesh,
 	MeshBasicNodeMaterial,
 	NeutralToneMapping,
+	type NodeMaterial,
 	NodeUpdateType,
 	type Node,
 	NoColorSpace,
@@ -75,6 +79,7 @@ import {
 	SRGBColorSpace,
 	type Texture,
 	TextureLoader,
+	type TextureNode,
 	Vector3,
 	WebGPURenderer,
 } from 'three/webgpu';
@@ -126,7 +131,7 @@ interface Flight {
  */
 const EARTH_RADIUS = 1.6;
 const EARTH_ORBIT = 260;
-const SUN_RADIUS = 20;
+const SUN_RADIUS = 18.5;
 const STAR_DISTANCE = 1500;
 const SKY_DISTANCE = 1800;
 /** Seconds per turn, compressed so the system visibly moves without turning days into a blur. */
@@ -188,11 +193,15 @@ const toon = (light: Node<'float'>, night: number) =>
 		.add(smoothstep(-0.12, 0.08, light).mul(0.55 - night))
 		.add(smoothstep(0.1, 0.5, light).mul(0.45));
 
-/** Flat atmosphere band on the lit limb, plus a faint outline on the night side so the silhouette stays readable against space. */
-const outline = (lit: string, night: string) =>
+/**
+ * Flat atmosphere band on the lit limb, plus a faint outline on the night side so the silhouette stays readable against space.
+ * `shade` dims the lit band like the rest of the sunlight, the night outline isn't sunlit.
+ */
+const outline = (lit: string, night: string, shade: Node<'vec3'> = vec3(1)) =>
 	color(lit)
 		.mul(edge(0.72, fresnel))
 		.mul(smoothstep(-0.25, 0.1, sunFacing))
+		.mul(shade)
 		.add(color(night).mul(edge(0.86, fresnel)).mul(invert(smoothstep(-0.25, 0.1, sunFacing))));
 
 /** The Earth's day colors, and its masks: land, city lights and ice or snow. */
@@ -294,12 +303,36 @@ const condense = (lit: Node<'vec3'>, reveal: Node<'float'>) => mix(color('#8ff5f
 type Rim = readonly [lit: string, night: string, strength: number];
 const ICY_RIM: Rim = ['#ffffff', '#26356e', 0.25];
 
+/** 1 in high quality, 0 in low: the extra shading terms fade out instead of recompiling every body's material. */
+const detail = uniform(1);
+
+/** High quality shading on top of the cel look. */
+interface Finish {
+	/** Light that isn't the Sun's, added on the night side: earthshine on the Moon. */
+	glow?: () => Node<'vec3'>;
+	/** How much a thick atmosphere dims toward the limb, 0.3 is a Jupiter. */
+	limb?: number;
+}
+
 /** Lights a body's albedo with the soft cel shading and its limb, `shade` tints the sunlight (eclipses, Saturn's ring shadow). */
-function bodyMaterial(reveal: Node<'float'>, albedo: Node<'vec3'>, [lit, night, strength]: Rim, shade: Node<'vec3'> = vec3(1)) {
+function bodyMaterial(reveal: Node<'float'>, albedo: Node<'vec3'>, [rimLit, rimNight, strength]: Rim, shade: Node<'vec3'> = vec3(1), { glow, limb = 0 }: Finish = {}) {
+	/** Limb darkening: the slanted line of sight at the edge crosses more haze above the cloud tops. */
+	const limbDarkening = limb ? invert(pow(fresnel, 2).mul(detail.mul(limb))) : float(1);
+	/**
+	 * Shadows only dim the sunlight: on the 2% night floor and the night outline they printed the shadow's line through the planet a
+	 * second time, on its night side. On the lit limb band they leave no bright ring around a moon in shadow.
+	 */
+	const sunlit = albedo.mul(toon(sunFacing, 0).mul(shade).add(0.02)).mul(limbDarkening);
+	const lit = glow ? sunlit.add(albedo.mul(glow()).mul(detail).mul(invert(smoothstep(-0.12, 0.08, sunFacing)))) : sunlit;
 	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(albedo.mul(toon(sunFacing, 0.02)).mul(shade).add(outline(lit, night).mul(strength)), reveal);
+	material.colorNode = condense(lit.add(outline(rimLit, rimNight, shade).mul(strength)), reveal);
 	return material;
 }
+
+const GASEOUS: Finish = { limb: 0.35 };
+
+/** Sunlight the Earth reflects onto the Moon's night side, lighting the half that faces it a faint blue grey. */
+const earthshine = () => color('#7d93b8').mul(saturate(dot(normalWorld, centerOf('earth').sub(positionWorld).normalize()))).mul(0.12);
 
 /** World position of every body's center, written each frame, so the shaders can tell where their shadows fall. */
 const newCenter = () => uniform(new Vector3());
@@ -311,8 +344,6 @@ const centerOf = (id: string) => centers.get(id) ?? centers.set(id, newCenter())
  * length. The Sun is much bigger than life here, its real angular size keeps the shadows crisp enough to read.
  */
 function eclipse(occluders: readonly string[]) {
-	/** Past the terminator there is no sunlight left to block, the line through the planet would otherwise print the shadow on its night side. */
-	const dayless = invert(smoothstep(-0.2, 0.05, sunFacing));
 	return occluders.reduce<Node<'float'>>((light, id) => {
 		const radius = id === 'earth' ? EARTH_RADIUS : BODY_LOOKS[id].radius;
 		const toOccluder = centerOf(id).sub(positionWorld);
@@ -321,7 +352,7 @@ function eclipse(occluders: readonly string[]) {
 		const soft = along.mul(0.004).add(radius * 0.12);
 		const covered = invert(smoothstep(soft.negate().add(radius), soft.add(radius), miss)).mul(smoothstep(0, radius, along));
 		return light.mul(invert(covered.mul(0.94)));
-	}, float(1)).max(dayless);
+	}, float(1));
 }
 
 /** In the Earth's shadow the Moon turns copper: the only light left is sunlight bent and reddened through the Earth's atmosphere. */
@@ -670,7 +701,12 @@ function phobosSurface() {
 	const stickney = angleTo(-1, -49);
 	const floor = invert(smoothstep(0.3, 0.38, stickney));
 	const rim = invert(smoothstep(0.02, 0.07, abs(stickney.sub(0.42))));
-	const grooves = invert(smoothstep(0.05, 0.3, abs(sin(surfacePoint.y.add(surfacePoint.x.mul(0.3)).mul(40))))).mul(0.2);
+	/** Bent lines broken into short pitted segments, missing on the far side from Stickney: a plain sine read as stripes over the whole moon. */
+	const across = surfacePoint.y.add(surfacePoint.x.mul(0.3)).add(mx_noise_float(surfacePoint.mul(3).add(13)).mul(0.06));
+	const lines = invert(smoothstep(0.1, 0.35, abs(sin(across.mul(28)))));
+	const segments = smoothstep(0.05, 0.3, mx_noise_float(surfacePoint.mul(6).add(31)));
+	const pits = smoothstep(0.2, 0.5, mx_worley_noise_float(surfacePoint.mul(45).add(7)));
+	const grooves = lines.mul(segments).mul(invert(pits.mul(0.6))).mul(invert(smoothstep(1.3, 1.8, stickney))).mul(0.22);
 	return mix(rockySurface('#857669', '#5e534a', 10, 61).mul(invert(grooves)), color('#4f463e'), floor.mul(0.5)).add(rim.mul(0.08));
 }
 
@@ -944,30 +980,51 @@ const sunMasks = () =>
 	vec3(edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2), 3, 2, 0.5), 0.15), invert(edge(0.22, mx_worley_noise_float(surfacePoint.mul(5)), 0.08)), 0);
 
 /** `masks` reads the baked flow and cells, two reads drifting apart in longitude stand in for the live noise moving through the surface. */
-function sunMaterial(masks: Texture | null) {
+function sunMaterial(masks: Texture | null, gain: Node<'float'>) {
 	const [flow, blobs] = masks
 		? [texture(masks, uv().add(vec2(time.mul(0.0015), 0))).r, texture(masks, uv().add(vec2(time.mul(-0.002), 0))).g]
 		: [
 				edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2).add(vec3(0, time.mul(0.04), 0)), 3, 2, 0.5), 0.15),
 				invert(edge(0.22, mx_worley_noise_float(surfacePoint.mul(5).add(vec3(time.mul(0.05)))), 0.08)),
 			];
-	const surface = mix(mix(color('#ffedc2'), color('#fffaea'), flow), color('#ffd78c'), blobs.mul(0.4));
+	const surface = mix(mix(color('#fff4dc'), color('#fffdf6'), flow), color('#ffe4ad'), blobs.mul(0.35));
 	const material = new MeshBasicNodeMaterial();
 	/** Near white with a warm limb, past ~2x the neutral tone mapping washes the disc out, the glow comes from the corona and bloom instead. */
-	material.colorNode = mix(surface, color('#ffb470'), smoothstep(0.55, 0.98, fresnel)).mul(1.7);
+	material.colorNode = mix(surface, color('#ffc88a'), smoothstep(0.6, 0.98, fresnel)).mul(gain);
 	return material;
 }
 
-/** Cartoon corona: two flat halo rings over a soft glow, drawn on one camera-facing sprite. */
-function coronaSprite() {
-	const distance = length(uv().sub(0.5)).mul(2);
-	const inner = invert(edge(0.7, distance, 0.08)).mul(0.4);
-	const outer = invert(edge(0.86, distance, 0.08)).mul(0.1);
-	const glow = pow(saturate(invert(distance)), 4).mul(0.55);
+/** How far the corona reaches, in solar radii from the Sun's center. */
+const CORONA_REACH = 2.8;
+
+/**
+ * Cartoon corona on one camera-facing sprite: a bright inner corona hugging the limb, streamers of the solar wind fanning out of it
+ * and slowly drifting outward, and one thin halo ring.
+ */
+function coronaSprite(right: Node<'vec3'>, up: Node<'vec3'>, rays: Node<'float'>) {
+	const offset = uv().sub(0.5).mul(2);
+	const radius = length(offset).mul(CORONA_REACH);
+	const above = max(radius.sub(1), 0);
+	/** Each pixel's direction from the Sun in the world: the rays belong to the Sun and reshape as the camera moves, read on the screen they stuck to it. */
+	const direction = right.mul(offset.x).add(up.mul(offset.y)).div(max(length(offset), 1e-4));
+	/**
+	 * Rays from plane waves across the directions, bent by slower waves drifting in time so they keep reshaping, and pulses running
+	 * outward along them. Far cheaper than noise, the sprite can cover the whole screen.
+	 */
+	const along = (x: number, y: number, z: number) => dot(direction, vec3(new Vector3(x, y, z).normalize()));
+	const wave = (rays: Node<'float'>, bend: Node<'float'>, drift: number) => sin(rays.add(sin(bend.add(time.mul(drift))).mul(1.6))).mul(0.5).add(0.5);
+	const wide = smoothstep(0.3, 1, wave(along(1, 0.3, -0.5).mul(10), along(-0.2, 1, 0.4).mul(3), 0.11));
+	const thin = smoothstep(0.6, 1, wave(along(0.4, -0.8, 0.5).mul(23), along(0.9, 0.2, 0.3).mul(5), -0.13));
+	const pulses = sin(radius.mul(2.5).sub(time.mul(1.2)).add(along(0.1, 0.5, 1).mul(4))).mul(0.25).add(0.75);
+	const streamers = wide.add(thin.mul(0.5)).mul(pulses).mul(exp(above.mul(-1.6))).mul(rays);
+	const inner = exp(above.mul(-3.5));
+	/** At least a pixel and a half wide, a far Sun otherwise shimmered as the ring went thinner than a pixel. */
+	const ring = invert(smoothstep(0, max(fwidth(radius).mul(1.5), 0.05), abs(radius.sub(1.35)))).mul(0.12);
+	const fade = invert(smoothstep(CORONA_REACH * 0.7, CORONA_REACH, radius));
 	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
-	material.colorNode = color('#ffd296').mul(inner.add(outer).add(glow));
+	material.colorNode = mix(color('#ffe6bd'), color('#fff8ec'), inner).mul(inner.mul(0.55).add(streamers.mul(0.22)).add(ring)).mul(fade);
 	const sprite = new Sprite(material);
-	sprite.scale.setScalar(SUN_RADIUS * 3.6);
+	sprite.scale.setScalar(SUN_RADIUS * CORONA_REACH * 2);
 	return sprite;
 }
 
@@ -995,10 +1052,10 @@ function milkyWayDome(albedo: Node<'vec3'>, sight: Node<'float'>) {
 }
 
 /** Stands in for bloom around the Sun: a bright halo hugging the disc and a faint warm wash spreading far past it. */
-function sunGlowSprite() {
+function sunGlowSprite(strength: Node<'float'>) {
 	const fade = saturate(invert(length(uv().sub(0.5)).mul(2)));
 	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
-	material.colorNode = color('#ffe4b8').mul(pow(fade, 7).mul(0.9)).add(color('#ffc890').mul(pow(fade, 2).mul(0.07)));
+	material.colorNode = color('#ffe4b8').mul(pow(fade, 7).mul(0.9)).add(color('#ffc890').mul(pow(fade, 2).mul(0.07))).mul(strength);
 	const sprite = new Sprite(material);
 	sprite.scale.setScalar(SUN_RADIUS * 12);
 	return sprite;
@@ -1035,6 +1092,21 @@ function signalSprite() {
 	const sprite = new Sprite(material);
 	sprite.renderOrder = 10;
 	return sprite;
+}
+
+/** A dot on its orbit where each planet is, `opacity` in the 4th component of `markers`, so a planet shrunk to a pixel stays findable. */
+function orbitMarkers(tints: readonly Color[]) {
+	const markers = new InstancedBufferAttribute(new Float32Array(tints.length * 4), 4);
+	const marker = instancedBufferAttribute<'vec4'>(markers, 'vec4');
+	const material = new PointsNodeMaterial({ depthWrite: false, sizeAttenuation: false, transparent: true });
+	material.positionNode = marker.xyz;
+	material.sizeNode = float(6);
+	material.colorNode = instancedBufferAttribute<'vec3'>(new InstancedBufferAttribute(new Float32Array(tints.flatMap(tint => tint.toArray())), 3), 'vec3');
+	material.opacityNode = invert(smoothstep(0.3, 0.5, length(uv().sub(0.5)))).mul(marker.w);
+	const sprite = new Sprite(material);
+	sprite.count = tints.length;
+	sprite.frustumCulled = false;
+	return { markers, sprite };
 }
 
 /** A Milky Way band plus a uniform field, one instanced sprite draw call for every star. */
@@ -1082,18 +1154,43 @@ function starField(sight: Node<'float'>) {
 	return stars;
 }
 
-/** An ellipse with the Sun at a focus, `perihelion` the angle of its closest point. */
-function orbitLine(radius: number, tint: string, opacity: number, eccentricity = 0, perihelion = 0) {
-	const points: number[] = [];
-	/** The WebGPU renderer has no LineLoop, the last point repeats the first to close the circle. */
-	for (let i = 0; i <= 256; i++) {
-		const angle = (i / 256) * Math.PI * 2;
-		const reach = (radius * (1 - eccentricity ** 2)) / (1 + eccentricity * Math.cos(angle - perihelion));
-		points.push(Math.cos(angle) * reach, 0, Math.sin(angle) * reach);
+/**
+ * An ellipse with the Sun at a focus, `perihelion` the angle of its closest point. Its chords stray under 0.02 from the curve, at a
+ * fixed 256 the line missed Pluto by twice its radius.
+ */
+class OrbitLine extends Line<BufferGeometry, LineBasicNodeMaterial> {
+	readonly #anchor = new Vector3();
+	/** The vertices in double precision, around the Sun. */
+	readonly #points: Float64Array;
+
+	constructor(radius: number, tint: string, opacity: number, eccentricity = 0, perihelion = 0) {
+		const segments = Math.min(4096, Math.max(256, Math.ceil(Math.PI * Math.sqrt((radius * (1 + eccentricity)) / 0.04))));
+		const points = new Float64Array((segments + 1) * 3);
+		/** The WebGPU renderer has no LineLoop, the last point repeats the first to close the circle. */
+		for (let i = 0; i <= segments; i++) {
+			const angle = (i / segments) * TURN;
+			const reach = (radius * (1 - eccentricity ** 2)) / (1 + eccentricity * Math.cos(angle - perihelion));
+			points.set([Math.cos(angle) * reach, 0, Math.sin(angle) * reach], i * 3);
+		}
+		const geometry = new BufferGeometry();
+		geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
+		super(geometry, new LineBasicNodeMaterial({ color: tint, depthWrite: false, opacity, transparent: true }));
+		this.#points = points;
 	}
-	const geometry = new BufferGeometry();
-	geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
-	return new Line(geometry, new LineBasicNodeMaterial({ color: tint, depthWrite: false, opacity, transparent: true }));
+
+	/**
+	 * Moves the vertices' origin to a point of the orbit plane once the body is 50 units from the last one, and returns it. Thousands
+	 * of units out, float32 vertices are a thousandth off and the line shook beside a close-up Pluto.
+	 */
+	anchor(x: number, z: number) {
+		if (Math.hypot(x - this.#anchor.x, z - this.#anchor.z) < 50) return this.#anchor;
+		this.#anchor.set(x, 0, z);
+		const position = this.geometry.getAttribute('position');
+		for (let i = 0; i < position.count; i++) position.setXYZ(i, this.#points[i * 3] - x, 0, this.#points[i * 3 + 2] - z);
+		position.needsUpdate = true;
+		this.geometry.computeBoundingSphere();
+		return this.#anchor;
+	}
 }
 
 interface BodyLook {
@@ -1126,20 +1223,33 @@ interface BodyLook {
 
 const sphere = (radius: number, material: Material, detail = 64) => new Mesh(new SphereGeometry(radius, detail, Math.round(detail * 0.7)), material);
 const globe =
-	(radius: number, rim: Rim = ICY_RIM, detail = 64, shade?: () => Node<'vec3'>) =>
+	(radius: number, rim: Rim = ICY_RIM, segments = 64, shade?: () => Node<'vec3'>, finish?: Finish) =>
 	(reveal: Node<'float'>, albedo: Node<'vec3'>) =>
-		sphere(radius, bodyMaterial(reveal, albedo, rim, shade?.()), detail);
+		sphere(radius, bodyMaterial(reveal, albedo, rim, shade?.(), finish), segments);
 const BANDED_RIM = (pale: string): Rim => [pale, '#3e2a52', 0.4];
 
 /** Back-face shell around a body: a haze fading outward from its limb, on the lit side, hidden until the body is revealed. */
-function hazeShell(radius: number, tint: string, reveal: Node<'float'>) {
+function hazeShell(radius: number, tint: string, reveal: Node<'float'>, strength = 0.75) {
 	const facing = dot(normalWorldGeometry, toSun);
 	const shellFresnel = invert(abs(dot(normalView, positionViewDirection)));
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide, transparent: true });
 	material.colorNode = color(tint);
-	material.opacityNode = pow(remapClamp(shellFresnel, 0.7, 1, 1, 0), 2).mul(smoothstep(-0.4, 0.8, facing)).mul(reveal).mul(0.75);
+	material.opacityNode = pow(remapClamp(shellFresnel, 0.7, 1, 1, 0), 2).mul(smoothstep(-0.4, 0.8, facing)).mul(reveal).mul(strength);
 	return sphere(radius, material, 48);
 }
+
+/** A thin haze only drawn in high quality, `setQuality` finds it through its `userData`. */
+const highHaze = (radius: number, tint: string, reveal: Node<'float'>, strength: number) => {
+	const haze = hazeShell(radius, tint, reveal, strength);
+	haze.userData.highOnly = true;
+	return haze;
+};
+
+/** Globe wrapped in a thin high quality haze `thickness` radii above its surface. */
+const hazyGlobe =
+	(radius: number, rim: Rim, segments: number, finish: Finish, [tint, thickness, strength]: readonly [string, number, number]) =>
+	(reveal: Node<'float'>, albedo: Node<'vec3'>) =>
+		globe(radius, rim, segments, undefined, finish)(reveal, albedo).add(highHaze(radius * (1 + thickness), tint, reveal, strength));
 const planet = (earthRadii: number) => EARTH_RADIUS * earthRadii;
 /** Orbits in AU and years scale with the Earth's, so the planets keep their real spacing and pace. */
 const solarOrbit = (au: number, years: number, phase: number, inclinationDegrees: number) => ({
@@ -1239,7 +1349,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	jupiter: {
 		...solarOrbit(5.203, 11.86, 1.2, 1.3),
 		/** The moons' shadows cross its clouds as black dots, a sight small telescopes catch every few days. */
-		build: globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96, () => vec3(eclipse(GALILEAN_MOONS))),
+		build: globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96, () => vec3(eclipse(GALILEAN_MOONS)), GASEOUS),
 		radius: JUPITER_RADIUS,
 		spin: 16,
 		surface: jupiterSurface,
@@ -1247,7 +1357,8 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	mars: {
 		...solarOrbit(1.524, 1.88, 1.1, 1.85),
-		build: globe(MARS_RADIUS, ['#ffc2a1', '#3e2a52', 0.5], 96),
+		/** Dust hangs high in its thin air, a faint salmon haze on the lit limb. */
+		build: hazyGlobe(MARS_RADIUS, ['#ffc2a1', '#3e2a52', 0.5], 96, {}, ['#f0a983', 0.03, 0.35]),
 		radius: MARS_RADIUS,
 		spin: EARTH_DAY * 1.03,
 		surface: marsSurface,
@@ -1264,7 +1375,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	/** Its orbit is tilted 5°, so it only crosses the Earth's shadow, or casts its own, during the two eclipse seasons of the year. */
 	moon: {
 		around: 'earth',
-		build: globe(planet(0.273), ICY_RIM, 64, lunarEclipse),
+		build: globe(planet(0.273), ICY_RIM, 64, lunarEclipse, { glow: earthshine }),
 		distance: 10,
 		inclination: 5.14 * MathUtils.DEG2RAD,
 		period: 180,
@@ -1275,7 +1386,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	neptune: {
 		...solarOrbit(30.07, 164.8, 5.1, 1.8),
-		build: globe(NEPTUNE_RADIUS, BANDED_RIM('#9fbcff'), 80),
+		build: globe(NEPTUNE_RADIUS, BANDED_RIM('#9fbcff'), 80, undefined, GASEOUS),
 		radius: NEPTUNE_RADIUS,
 		spin: 11,
 		surface: neptuneSurface,
@@ -1309,7 +1420,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	saturn: {
 		...solarOrbit(9.537, 29.46, 0, 2.5),
-		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, () => vec3(ringShadow().mul(eclipse(['titan'])))),
+		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, () => vec3(ringShadow().mul(eclipse(['titan']))), GASEOUS),
 		radius: SATURN_RADIUS,
 		spin: 17,
 		surface: saturnSurface,
@@ -1360,7 +1471,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	/** Rolls on its side: its 98° tilt points one pole at the Sun for decades at a time. */
 	uranus: {
 		...solarOrbit(19.19, 84.01, 3.2, 0.8),
-		build: globe(URANUS_RADIUS, BANDED_RIM('#d6f6f8'), 80),
+		build: globe(URANUS_RADIUS, BANDED_RIM('#d6f6f8'), 80, undefined, { limb: 0.25 }),
 		radius: URANUS_RADIUS,
 		spin: -12,
 		surface: () => bandedSurface(['#a8e2e8', '#8ccfd8', '#c4eef1'], 2, 0.08),
@@ -1383,7 +1494,8 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	venus: {
 		...solarOrbit(0.723, 0.615, 4, 3.4),
-		build: globe(planet(0.949), BANDED_RIM('#f7ecc8'), 80),
+		/** Its sulfuric acid clouds sit under a thick haze that glows pale yellow past the limb. */
+		build: hazyGlobe(planet(0.949), BANDED_RIM('#f7ecc8'), 80, GASEOUS, ['#fff0c8', 0.04, 0.6]),
 		radius: planet(0.949),
 		spin: -600,
 		surface: () => bandedSurface(['#f0dca0', '#d9b877', '#f7ecc8'], 4, 0.3),
@@ -1393,6 +1505,12 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 /** Linear to sRGB, the exact piecewise curve an sRGB texture decodes. */
 const encodeSrgb = (linear: Node<'vec3'>) => mix(linear.mul(12.92), pow(linear, vec3(1 / 2.4)).mul(1.055).sub(0.055), step(0.0031308, linear));
 
+/**
+ * Suffix of a body's double width map, loaded in high quality for the followed body only: every body at that size would take ~200 MB
+ * of GPU memory, more than phones have to spare.
+ */
+const SHARP = '_hd';
+
 /** Every baked surface with its texture width (the height is half): the bodies, the Earth's day colors, masks and clouds, the Sun and the sky. */
 export const BAKED_SURFACES: Record<string, { lossless?: boolean; node: () => Node<'vec3'>; width: number }> = {
 	clouds: { node: () => vec3(cloudCover()), width: 2048 },
@@ -1401,7 +1519,16 @@ export const BAKED_SURFACES: Record<string, { lossless?: boolean; node: () => No
 	/** Lossy WebP cut the faint gradients of the Milky Way into visible square blocks. */
 	sky: { lossless: true, node: milkyWay, width: 1024 },
 	sun: { node: sunMasks, width: 1024 },
-	...Object.fromEntries(Object.entries(BODY_LOOKS).flatMap(([id, { surface }]) => (surface ? [[id, { node: surface, width: 1024 }]] : []))),
+	...Object.fromEntries(
+		Object.entries(BODY_LOOKS).flatMap(([id, { surface }]) =>
+			surface
+				? [
+						[id, { node: surface, width: 1024 }],
+						[`${id}${SHARP}`, { node: surface, width: 2048 }],
+					]
+				: [],
+		),
+	),
 };
 
 /** Masks and covers stored as raw data, the color maps are sRGB. */
@@ -1412,24 +1539,28 @@ const RAW_SURFACES = new Set(['clouds', 'earth_masks', 'sun']);
  * since the last bake) falls back to its shader too.
  */
 async function loadSurfaces(live: readonly string[]) {
-	const loader = new TextureLoader();
 	const entries = await Promise.all(
 		Object.keys(BAKED_SURFACES)
-			.filter(id => !live.includes(id))
-			.map(id =>
-				loader.loadAsync(`/cosmos/${id}.webp`).then(
-					map => {
-						map.colorSpace = RAW_SURFACES.has(id) ? NoColorSpace : SRGBColorSpace;
-						map.wrapS = RepeatWrapping;
-						map.anisotropy = 4;
-						return [id, map] as const;
-					},
-					() => null,
-				),
-			),
+			.filter(id => !live.includes(id) && !id.endsWith(SHARP))
+			.map(id => loadSurface(id).then(map => [id, map] as const, () => null)),
 	);
 	return new Map(entries.filter(entry => entry !== null));
 }
+
+async function loadSurface(id: string) {
+	const map = await new TextureLoader().loadAsync(`/cosmos/${id}.webp`);
+	map.colorSpace = RAW_SURFACES.has(id) ? NoColorSpace : SRGBColorSpace;
+	map.wrapS = RepeatWrapping;
+	map.anisotropy = 4;
+	return map;
+}
+
+/**
+ * Model-view matrices multiplied on the CPU in double precision, for the bodies and orbits past Saturn: in the shader, in float32,
+ * 10 000 units from the Sun cancel down to a thousandth and Pluto shook at full zoom. On every object it cost 0.1 ms of GPU a frame.
+ */
+const PRECISE = context({ modelViewMatrix: highpModelViewMatrix });
+const PRECISE_BEYOND = EARTH_ORBIT * 12;
 
 /** One discoverable object: hidden until discovered, then grown out of the signal's flash. */
 class Body {
@@ -1458,12 +1589,18 @@ class Body {
 		this.reveal.value = discovered ? 1 : 0;
 		if (!shown) this.mesh.scale.setScalar(0.001);
 		const line = () => {
-			const orbit = orbitLine(look.distance, object.color, look.around === 'sun' ? 0.18 : 0.12, look.eccentricity, look.perihelion);
+			const orbit = new OrbitLine(look.distance, object.color, look.around === 'sun' ? 0.13 : 0.09, look.eccentricity, look.perihelion);
 			orbit.rotation.x = look.inclination ?? 0;
 			return orbit;
 		};
 		this.orbit = look.orbit ? look.orbit(this.reveal) : look.distance > 0 ? line() : null;
 		if (this.orbit) this.orbit.visible = discovered;
+		const fromSun = look.around === 'sun' ? look.distance : (BODY_LOOKS[look.around]?.distance ?? 0);
+		if (fromSun > PRECISE_BEYOND)
+			for (const object of [this.group, this.orbit])
+				object?.traverse(child => {
+					if (child instanceof Mesh || child instanceof Line) (child.material as NodeMaterial).contextNode = PRECISE;
+				});
 	}
 
 	/** Orbits run counterclockwise seen from the north, like the real Solar System. */
@@ -1484,7 +1621,10 @@ class Body {
 		/** Turns the local +x axis, where the maps put longitude 0, toward the parent. */
 		if (spin === 'locked') this.mesh.rotation.y = Math.PI - angle;
 		else if (spin) this.mesh.rotation.y = (time / spin) * TURN;
-		this.orbit?.position.copy(parent);
+		if (this.orbit instanceof OrbitLine) {
+			const anchor = this.orbit.anchor(Math.cos(angle) * reach, along);
+			this.orbit.position.set(anchor.x, -anchor.z * Math.sin(inclination), anchor.z * Math.cos(inclination)).add(parent);
+		} else this.orbit?.position.copy(parent);
 		/** A body not in the sky yet casts no shadow. */
 		centerOf(this.object.id).value.copy(this.group.visible ? this.group.position : NOWHERE);
 	}
@@ -1552,17 +1692,30 @@ export class CosmosScene {
 	/** Object whose info panel is open, the view clears it to close the panel. */
 	selected = $state<string | null>(null);
 
+	/** Baked map reads by surface id, `#sharpen` swaps their texture. */
+	readonly #albedoMaps = new Map<string, TextureNode>();
 	readonly #beacon = beaconSprite();
 	readonly #atmosphere = new Mesh(new SphereGeometry(EARTH_RADIUS * 1.04, 96, 64), atmosphereMaterial());
 	readonly #bodies = new Map<string, Body>();
-	readonly #corona = coronaSprite();
-	readonly #sunGlow = sunGlowSprite();
+	/** The camera's right and up axes in the world, the corona's rays are laid out with them. */
+	readonly #cameraRight = uniform(new Vector3(1, 0, 0));
+	readonly #cameraUp = uniform(new Vector3(0, 1, 0));
+	/** The corona's rays, faded out on a far Sun where they are thinner than a pixel and flickered as the camera moved. */
+	readonly #coronaRays = uniform(1);
+	readonly #corona = coronaSprite(this.#cameraRight, this.#cameraUp, this.#coronaRays);
+	/** The Sun's brightness, and its glow sprite's, see `#fadeSunBloom`. */
+	readonly #sunGain = uniform(1.7);
+	readonly #sunGlowStrength = uniform(1);
+	readonly #sunGlow = sunGlowSprite(this.#sunGlowStrength);
 	readonly #camera = new PerspectiveCamera(50, 1, 0.05, 8000);
 	readonly #canvas: HTMLCanvasElement;
 	readonly #controls: OrbitControls;
 	readonly #earth: Mesh;
 	readonly #earthSystem = new Group();
 	readonly #hud: CosmosHud;
+	/** The planets with an orbit dot, in the order of `#markers`. */
+	readonly #marked: Body[];
+	readonly #markers: ReturnType<typeof orbitMarkers>;
 	readonly #onDiscover: (id: string) => void;
 	readonly #pipeline: RenderPipeline;
 	readonly #pointers = new Map<number, { x: number; y: number }>();
@@ -1608,7 +1761,11 @@ export class CosmosScene {
 	#qualityProbe = { frames: 0, time: 0 };
 	/** The discovered body condensing, plus the companions growing in with it. */
 	#revealing: Body[] = [];
+	/** The body drawn with its sharp map, `map` stays null while it loads. */
+	#sharp: { base: Texture; id: string; map: Texture | null } | null = null;
 	#simTime = 0;
+	/** The Sun's radius on screen at the last frame, in CSS pixels. */
+	#sunPixels = 0;
 	#target: Body | null = null;
 	/** Sky clock fast-forward played during a flight, it carries a target out of the Sun's glare. */
 	#warp: { from: number; to: number } | null = null;
@@ -1621,7 +1778,10 @@ export class CosmosScene {
 		/** A baked map is a single texture read, its live shader stacks dozens of noise octaves that take seconds to compile. */
 		const albedo = (id: string) => {
 			const map = maps.get(id);
-			return map ? texture(map).rgb : BAKED_SURFACES[id].node();
+			if (!map) return BAKED_SURFACES[id].node();
+			const node = texture(map);
+			this.#albedoMaps.set(id, node);
+			return node.rgb;
 		};
 		const clouds = maps.get('clouds');
 		this.#earth = new Mesh(new SphereGeometry(EARTH_RADIUS, 96, 64), earthMaterial(albedo('earth'), albedo('earth_masks')));
@@ -1636,7 +1796,7 @@ export class CosmosScene {
 		this.backend = 'isWebGPUBackend' in renderer.backend ? 'WebGPU' : 'WebGL 2';
 
 		this.#sky = milkyWayDome(albedo('sky'), this.#sight);
-		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial(maps.get('sun') ?? null));
+		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial(maps.get('sun') ?? null, this.#sunGain));
 		const tilt = new Group();
 		tilt.rotation.z = AXIAL_TILT;
 		tilt.add(this.#earth, this.#clouds, this.#atmosphere);
@@ -1644,7 +1804,7 @@ export class CosmosScene {
 		this.#earthSystem.add(tilt);
 		this.#signal.visible = false;
 
-		this.#scene.add(sun, this.#corona, this.#sunGlow, orbitLine(EARTH_ORBIT, '#6f8cff', 0.12), this.#earthSystem);
+		this.#scene.add(sun, this.#corona, this.#sunGlow, new OrbitLine(EARTH_ORBIT, '#6f8cff', 0.09), this.#earthSystem);
 		/** In discovery order, so every parent is placed before the moons orbiting it. */
 		for (const object of COSMOS_OBJECTS) {
 			const look = BODY_LOOKS[object.id];
@@ -1655,7 +1815,9 @@ export class CosmosScene {
 			this.#scene.add(body.group);
 			if (body.orbit) this.#scene.add(body.orbit);
 		}
-		this.#scene.add(this.#sky, this.#deepSkyGroup, this.#stars, this.#faintStars, this.#signal);
+		this.#marked = [...this.#bodies.values()].filter(body => body.look.around === 'sun' && body.orbit instanceof OrbitLine);
+		this.#markers = orbitMarkers(this.#marked.map(body => new Color(body.object.color)));
+		this.#scene.add(this.#sky, this.#deepSkyGroup, this.#stars, this.#faintStars, this.#markers.sprite, this.#signal);
 
 		const sceneColor = pass(this.#scene, this.#camera).getTextureNode('output');
 		this.#bloom = bloom(sceneColor, 0.65, 0.3, 1);
@@ -1741,6 +1903,7 @@ export class CosmosScene {
 			object.geometry.dispose();
 			(object.material as Material).dispose();
 		});
+		this.#sharp?.map?.dispose();
 		this.#pipeline.dispose();
 		this.#renderer.dispose();
 	}
@@ -1941,13 +2104,21 @@ export class CosmosScene {
 		this.#beacon.visible = building;
 	}
 
-	/** Low drops bloom, the Milky Way dome, the clouds, the atmosphere shell and the corona, and keeps a quarter of the stars. */
+	/**
+	 * Low drops bloom, the Milky Way dome, the clouds, the atmosphere shell, the thin hazes and the corona, the limb darkening, the earthshine
+	 * and the sharp maps, and keeps a quarter of the stars.
+	 */
 	setQuality(quality: CosmosQuality) {
 		const high = quality === 'high';
 		this.quality = quality;
+		detail.value = high ? 1 : 0;
 		this.#stars.count = high ? STAR_COUNT : STAR_COUNT / 4;
 		this.#faintStars.count = high ? FAINT_STAR_COUNT : FAINT_STAR_COUNT / 4;
 		for (const object of [this.#atmosphere, this.#clouds, this.#sky]) object.visible = high;
+		this.#scene.traverse(object => {
+			if (object.userData.highOnly) object.visible = high;
+		});
+		this.#sharpen();
 		this.tune({ pixelRatio: high ? Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio) : 1 });
 	}
 
@@ -1963,7 +2134,6 @@ export class CosmosScene {
 	#applyGlare() {
 		const glare = this.quality === 'high' && this.mode !== 'observe';
 		this.#corona.visible = glare;
-		this.#sunGlow.visible = glare && !this.#tuning.bloom;
 		const output = glare && this.#tuning.bloom > 0 ? this.#withBloom : this.#withoutBloom;
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
@@ -2030,6 +2200,31 @@ export class CosmosScene {
 		this.#controls.minDistance = this.#radiusOf(id) * 1.6;
 		this.#controls.enabled = true;
 		this.#controls.update();
+		this.#sharpen();
+	}
+
+	/** In high quality the followed body gets its sharp map, the one followed before goes back to its base map. */
+	#sharpen() {
+		const id = this.quality === 'high' && BODY_LOOKS[this.focused]?.surface ? this.focused : null;
+		const sharp = this.#sharp;
+		if (sharp?.id === id) return;
+		if (sharp) {
+			this.#albedoMaps.get(sharp.id)!.value = sharp.base;
+			sharp.map?.dispose();
+		}
+		this.#sharp = null;
+		const node = id && this.#albedoMaps.get(id);
+		if (!node) return;
+		const next = { base: node.value, id, map: null as Texture | null };
+		this.#sharp = next;
+		/** A missing file (not baked yet) keeps the base map. */
+		loadSurface(id + SHARP).then(
+			map => {
+				if (this.#sharp !== next) return map.dispose();
+				next.map = node.value = map;
+			},
+			() => {},
+		);
 	}
 
 	/** Visible object under the pointer, the smallest one wins where they overlap so a planet stays clickable over its rings. */
@@ -2150,8 +2345,47 @@ export class CosmosScene {
 	#render() {
 		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
 		for (const backdrop of [this.#stars, this.#faintStars, this.#sky, this.#deepSkyGroup]) backdrop.position.copy(this.#camera.position);
-		this.#bloom.updateBeforeType = ++this.#renders % this.#tuning.bloomEvery ? NodeUpdateType.NONE : NodeUpdateType.FRAME;
+		/** While a zoom resizes the Sun, a halo kept from the frame before pulsed around it, it is redrawn every frame until the size settles. */
+		this.#placeMarkers();
+		this.#camera.updateMatrixWorld();
+		this.#cameraRight.value.setFromMatrixColumn(this.#camera.matrixWorld, 0);
+		this.#cameraUp.value.setFromMatrixColumn(this.#camera.matrixWorld, 1);
+		const resized = this.#fadeSunBloom();
+		this.#bloom.updateBeforeType = ++this.#renders % this.#tuning.bloomEvery && !resized ? NodeUpdateType.NONE : NodeUpdateType.FRAME;
 		this.#pipeline.render();
+	}
+
+	/** Fades each planet's orbit dot in as it shrinks from 4 to 1.5 px. Hidden at the eyepiece, it would point at what the player hunts. */
+	#placeMarkers() {
+		const { markers, sprite } = this.#markers;
+		sprite.visible = this.mode !== 'observe';
+		if (!sprite.visible) return;
+		const pixelsPerUnit = this.#canvas.clientHeight / 2 / Math.tan((this.#camera.fov * MathUtils.DEG2RAD) / 2);
+		this.#marked.forEach(({ discovered, group, look }, i) => {
+			const pixels = (look.radius / group.position.distanceTo(this.#camera.position)) * pixelsPerUnit;
+			const opacity = discovered && group.visible ? 1 - MathUtils.smoothstep(pixels, 1.5, 4) : 0;
+			markers.setXYZW(i, group.position.x, group.position.y, group.position.z, opacity * 0.9);
+		});
+		markers.needsUpdate = true;
+	}
+
+	/**
+	 * A Sun a few pixels wide flickered through the half resolution bloom as it slid across pixels: under ~16 px it dims below the
+	 * bloom threshold and the glow sprite, smooth at any size, takes over. Without bloom the sprite is the whole glow. Returns whether
+	 * the Sun's size on screen changed since the last frame.
+	 */
+	#fadeSunBloom() {
+		const bloom = this.#tuning.bloom > 0 && this.#pipeline.outputNode === this.#withBloom;
+		const halfHeight = this.#camera.position.length() * Math.tan((this.#camera.fov * MathUtils.DEG2RAD) / 2);
+		const pixels = (SUN_RADIUS / halfHeight) * (this.#canvas.clientHeight / 2);
+		const resized = Math.abs(pixels - this.#sunPixels) > this.#sunPixels * 0.002;
+		this.#sunPixels = pixels;
+		this.#coronaRays.value = MathUtils.smoothstep(pixels, 8, 24);
+		const small = bloom ? 1 - MathUtils.smoothstep(pixels, 6, 16) : 1;
+		this.#sunGain.value = bloom ? MathUtils.lerp(1.7, 0.98, small) : 1.7;
+		this.#sunGlowStrength.value = small;
+		this.#sunGlow.visible = this.#corona.visible && small > 0;
+		return resized;
 	}
 
 	/** Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. */
