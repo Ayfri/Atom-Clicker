@@ -108,10 +108,10 @@ describe('reset layers', () => {
 		expect(gameManager.photonUpgrades).toEqual({ photon_efficiency: 1 });
 	});
 
-	test('the Radiation layer clears photon and radiation upgrades and keeps skills and colored light', () => {
+	test('the Radiation layer clears photons and radiation upgrades and keeps photon upgrades, skills and colored light', () => {
 		seed();
 		gameManager.resetLayer(LAYERS.RADIATION_REALM);
-		expect(gameManager.photonUpgrades).toEqual({});
+		expect(gameManager.photonUpgrades).toEqual({ photon_efficiency: 1 });
 		expect(gameManager.radiationUpgrades).toEqual({});
 		expect(currenciesManager.getAmount(PHOTONS)).toBe(0);
 		expect(currenciesManager.getAmount(EXCITED_PHOTONS)).toBe(0);
