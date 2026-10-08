@@ -598,8 +598,9 @@ export class GameManager {
 		/** XP sets the level, which multiplies production, so a cut can lower the bound again: it repeats until both fit. */
 		let trimmed = false;
 		for (let pass = 0; pass < 10; pass++) {
-			const bounds = measureRunBounds(this, now);
-			const cap = maxRunAtoms(bounds, runSeconds(this.runStartedAt, this.startDate, now), this.totalClicksRun);
+			const seconds = runSeconds(this.runStartedAt, this.startDate, now);
+			const bounds = measureRunBounds(this, now, seconds);
+			const cap = maxRunAtoms(bounds, seconds, this.totalClicksRun);
 			const xpCap = Math.min(atoms.earnedRun, cap) * bounds.xpPerAtom * RUN_BOUND_SLACK;
 			if (atoms.earnedRun <= cap && this.totalXP <= xpCap) break;
 			trimmed = true;

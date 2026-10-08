@@ -98,7 +98,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			return Response.json({ error: 'Update too frequent', nextUpdateIn: Math.ceil((MIN_SUBMIT_INTERVAL_MS - sinceLast) / 1000) }, { status: 429 });
 		}
 
-		const audit = auditScore(state, { colliderTotal: context.colliderTotal, now, previous: context.previous });
+		const audit = auditScore(state, { accountCreatedAt: context.accountCreatedAt, colliderTotal: context.colliderTotal, now, previous: context.previous });
 		if (audit === 'outdated') return Response.json({ error: 'This game version is outdated, reload the page' }, { status: 409 });
 		if (audit === 'malformed') return Response.json({ error: 'Invalid game state' }, { status: 400 });
 

@@ -12,7 +12,7 @@ const passing: ScoreAudit = {
 };
 
 let verdict: ScoreAudit | 'malformed' | 'outdated' = passing;
-let context: ScoreContext = { colliderTotal: 0, lastReceivedAt: null, previous: null };
+let context: ScoreContext = { accountCreatedAt: null, colliderTotal: 0, lastReceivedAt: null, previous: null };
 
 const service = {
 	getLeaderboard: mock(async () => []),
@@ -50,7 +50,7 @@ const payload = { picture: 'https://cdn.example/avatar.png', state: { version: 3
 
 beforeEach(() => {
 	verdict = passing;
-	context = { colliderTotal: 0, lastReceivedAt: null, previous: null };
+	context = { accountCreatedAt: null, colliderTotal: 0, lastReceivedAt: null, previous: null };
 	service.recordScore.mockClear();
 	auditScore.mockClear();
 });

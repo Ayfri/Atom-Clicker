@@ -9,10 +9,15 @@ import { MAX_BOOST_POINTS, XP_PER_ATOM } from '#lib/constants.js';
  * leaderboard refuses scores checked against an older version, so a nerf never leaves runs above what the game allows.
  */
 export const BALANCE_VERSION = 1;
+/**
+ * Manual clicks per second a run is credited with, macros included. The click counter comes from the client and Click Mastery
+ * turns it into a production multiplier, so clicks past this rate over the run's duration count for nothing.
+ */
+const MAX_CLICKS_PER_SECOND = 100;
 /** Margin over the best case, it absorbs float drift and small balance changes, never whole orders of magnitude. */
 export const RUN_BOUND_SLACK = 10;
 /** No save predates the first commit of the game. */
-const GAME_EPOCH =Date.UTC(2024, 9, 31);
+const GAME_EPOCH = Date.UTC(2024, 9, 31);
 
 /** Seconds the current run has lasted, from the save start when the run start is unknown. */
 export function runSeconds(runStartedAt: number, startDate: number, now: number): number {
@@ -34,10 +39,11 @@ export interface RunBounds {
 }
 
 /**
- * Best rates the loaded state can reach: the whole boost pool on atoms, a full Stability Field, the reactor at its CPM cap and
- * auto-click on. Generators and upgrades are never sold, so within a Protonize run these rates only grow and bound the whole run.
+ * Best rates the loaded state can reach in a run of `seconds`: the whole boost pool on atoms, a full Stability Field, the reactor
+ * at its CPM cap, auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
+ * Protonize run these rates only grow and bound the whole run.
  */
-export function measureRunBounds(manager: GameManager, now: number): RunBounds {
+export function measureRunBounds(manager: GameManager, now: number, seconds: number): RunBounds {
 	const saved = {
 		activePowerUps: manager.activePowerUps,
 		autoClick: manager.settings.automation.autoClick,
@@ -46,6 +52,7 @@ export function measureRunBounds(manager: GameManager, now: number): RunBounds {
 		lastInteractionTime: manager.lastInteractionTime,
 		mass: radiationManager.mass,
 		tickTime: manager.tickTime,
+		totalClicksRun: manager.totalClicksRun,
 	};
 
 	try {
@@ -54,6 +61,7 @@ export function measureRunBounds(manager: GameManager, now: number): RunBounds {
 		manager.lastInteractionTime = 0;
 		manager.tickTime = now;
 		manager.currencyBoosts = { ...saved.currencyBoosts, [CurrenciesTypes.ATOMS]: Math.min(MAX_BOOST_POINTS, manager.boostPointsTotal) };
+		manager.totalClicksRun = Math.min(saved.totalClicksRun, (manager.autoClicksPerSecond + MAX_CLICKS_PER_SECOND) * seconds);
 		if (radiationManager.unlocked) {
 			radiationManager.mass = 1e300;
 			radiationManager.controlRodLevel = 1;
@@ -81,14 +89,22 @@ export function measureRunBounds(manager: GameManager, now: number): RunBounds {
 		manager.lastInteractionTime = saved.lastInteractionTime;
 		manager.tickTime = saved.tickTime;
 		manager.currencyBoosts = saved.currencyBoosts;
+		manager.totalClicksRun = saved.totalClicksRun;
 		radiationManager.mass = saved.mass;
 		radiationManager.controlRodLevel = saved.controlRodLevel;
 	}
 }
 
-/** Most atoms a Protonize run can earn in `seconds` with `clicks` clicks, offline time included since it pays a tenth of the online rate. */
+/**
+ * Most atoms a Protonize run can earn in `seconds` with `clicks` clicks, offline time included since it pays a tenth of the online
+ * rate. Auto-clicks also count as clicks but their income is already in `rate`, so only the manual share the run had time for is
+ * paid on top, at the average power-up factor and at the peak for `peakSeconds`.
+ */
 export function maxRunAtoms(bounds: RunBounds, seconds: number, clicks: number): number {
 	const { clickPower, peakSeconds, powerUpAverage, powerUpPeak, rate, startAtoms } = bounds;
 	const production = rate * (powerUpAverage * seconds + (powerUpPeak - powerUpAverage) * Math.min(seconds, peakSeconds));
-	return RUN_BOUND_SLACK * (production + clicks * clickPower * powerUpPeak + startAtoms);
+	const manualClicks = Math.min(clicks, MAX_CLICKS_PER_SECOND * seconds);
+	const peakClicks = Math.min(manualClicks, MAX_CLICKS_PER_SECOND * peakSeconds);
+	const clicking = clickPower * (powerUpAverage * manualClicks + (powerUpPeak - powerUpAverage) * peakClicks);
+	return RUN_BOUND_SLACK * (production + clicking + startAtoms);
 }

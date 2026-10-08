@@ -26,7 +26,9 @@ function capture(): Capture {
 	return { now: OFFSET + clock, state: state as GameState };
 }
 
-const audit = ({ now, state }: Capture, previous: PreviousScore | null = null) => auditScore(state, { colliderTotal: 0, now, previous }) as ScoreAudit;
+/** The bot signs up as it starts playing. */
+const context = (now: number, previous: PreviousScore | null = null) => ({ accountCreatedAt: OFFSET, colliderTotal: 0, now, previous });
+const audit = ({ now, state }: Capture, previous: PreviousScore | null = null) => auditScore(state, context(now, previous)) as ScoreAudit;
 const atomsOf = (state: GameState) => state.currencies[CurrenciesTypes.ATOMS];
 const runId = ({ state }: Capture) => `${state.totalProtonisesAllTime}:${state.totalElectronizesAllTime}:${state.totalIonizesAllTime}`;
 /** A late state with a known run start, past the first Protonize. */
@@ -117,6 +119,62 @@ describe('edited states', () => {
 		expect(audit(missing).issues).toEqual(['malformed:generators']);
 	});
 
+	describe('client-set counters and dates', () => {
+		/** Atoms multiplied by `factor`, after `edit` changed what the client claims about the run. */
+		function inflated(entry: Capture, factor: number, edit: (state: GameState) => void = () => {}): Capture {
+			const copy = structuredClone(entry);
+			edit(copy.state);
+			const atoms = atomsOf(copy.state);
+			atoms.amount *= factor;
+			atoms.earnedRun *= factor;
+			atoms.earnedAllTime *= factor;
+			return copy;
+		}
+		/** Smallest power of two the audit refuses as more atoms than the run could make. */
+		function rejectedFrom(run: (factor: number) => ScoreAudit): number {
+			for (let factor = 2; factor < 1e30; factor *= 2) if (run(factor).issues.includes('production')) return factor;
+			return Infinity;
+		}
+		const inflateClicks = (times: number) => (state: GameState) => {
+			state.totalClicksAllTime += state.totalClicksRun * (times - 1);
+			state.totalClicksRun *= times;
+		};
+		const backdate = (state: GameState) => {
+			state.startDate = Date.UTC(2024, 9, 31);
+			state.runStartedAt = 0;
+		};
+
+		test('clicks past human speed raise the bound no further', () => {
+			const entry = lateRun();
+			/** Both stay safe integers, which the counter check needs, and both are past what a human clicks in the run. */
+			const humanCap = rejectedFrom(factor => audit(inflated(entry, factor, inflateClicks(1e4))));
+			expect(humanCap).toBeLessThan(Infinity);
+			expect(rejectedFrom(factor => audit(inflated(entry, factor, inflateClicks(1e8))))).toBe(humanCap);
+		});
+
+		test('a save start moved back before the account buys no run time', () => {
+			const entry = lateRun();
+			const limit = rejectedFrom(factor => audit(inflated(entry, factor)));
+			expect(rejectedFrom(factor => audit(inflated(entry, factor, backdate)))).toBeLessThanOrEqual(limit);
+		});
+
+		test('the credited run start never predates what the server saw', () => {
+			const entry = lateRun();
+			const tolerance = 10 * 60_000;
+			const firstAfterSignUp = auditScore(entry.state, { ...context(entry.now), accountCreatedAt: entry.now - 60_000 }) as ScoreAudit;
+			expect(firstAfterSignUp.snapshot.runStartedAt).toBeCloseTo(entry.now - 60_000 - tolerance, -2);
+
+			const otherSave = { receivedAt: entry.now - 120_000, snapshot: { ...audit(entry).snapshot, startDate: entry.state.startDate + 1 } };
+			expect(audit(entry, otherSave).snapshot.runStartedAt).toBeCloseTo(entry.now - 120_000 - tolerance, -2);
+
+			const credited = audit(entry).snapshot;
+			expect(credited.runStartedAt).toBeCloseTo(entry.state.runStartedAt - tolerance, -2);
+			const movedBack = structuredClone(entry);
+			movedBack.state.runStartedAt -= 24 * 3_600_000;
+			expect(audit(movedBack, { receivedAt: entry.now - 60_000, snapshot: credited }).snapshot.runStartedAt).toBe(credited.runStartedAt);
+		});
+	});
+
 	test('superhuman clicking is only a warning', () => {
 		const entry = lateRun();
 		const { snapshot } = audit(entry);
@@ -130,10 +188,9 @@ describe('edited states', () => {
 describe('payloads', () => {
 	test('an older client is told to reload, junk is refused', () => {
 		const { now, state } = lateRun();
-		const context = { colliderTotal: 0, now, previous: null };
-		expect(auditScore({ ...state, version: state.version - 1 }, context)).toBe('outdated');
-		expect(auditScore({ ...state, balanceVersion: 0 }, context)).toBe('outdated');
-		expect(auditScore('atoms', context)).toBe('malformed');
-		expect(auditScore(null, context)).toBe('malformed');
+		expect(auditScore({ ...state, version: state.version - 1 }, context(now))).toBe('outdated');
+		expect(auditScore({ ...state, balanceVersion: 0 }, context(now))).toBe('outdated');
+		expect(auditScore('atoms', context(now))).toBe('malformed');
+		expect(auditScore(null, context(now))).toBe('malformed');
 	});
 });

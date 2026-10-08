@@ -14,6 +14,7 @@ export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABAS
 })
 
 export interface ScoreContext {
+	accountCreatedAt: number | null;
 	colliderTotal: number;
 	/** Last submission of any status, the throttle reads it. */
 	lastReceivedAt: number | null;
