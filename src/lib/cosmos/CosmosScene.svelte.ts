@@ -1855,7 +1855,11 @@ export class CosmosScene {
 	/** Startup phases land in the performance timeline as `cosmos:*` measures, the startup benchmark reads them. */
 	static async create(canvas: HTMLCanvasElement, options: CosmosOptions) {
 		const start = performance.now();
-		const renderer = new WebGPURenderer({ antialias: true, canvas, trackTimestamp: options.timestamps });
+		/**
+		 * Reversed float depth keeps its precision out to the far plane, ~50 000 units with Pluto's orbit. The default one resolved
+		 * hundreds of units that far out, and the Sun's glow sprites flickered through its disc.
+		 */
+		const renderer = new WebGPURenderer({ antialias: true, canvas, reversedDepthBuffer: true, trackTimestamp: options.timestamps });
 		/** Neutral keeps the flat cartoon colors as picked, ACES shifted them toward brown and desaturated the highlights. */
 		renderer.toneMapping = NeutralToneMapping;
 		renderer.setPixelRatio(Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio));
