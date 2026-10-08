@@ -91,7 +91,7 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('discoveries', 1, 'cosmos_first', '1st discovery', 'First Cosmos discovery'),
 	at('discoveries', 6, 'cosmos_naked_eye', 'Naked eye sky', 'Every naked eye planet discovered'),
 	at('instruments', 1, 'cosmos_refractor', 'Refractor', "Bought Galileo's refractor"),
-	at('discoveries', 12, 'cosmos_refractor_sky', 'Refractor sky', 'Every refractor object discovered'),
+	at('discoveries', 15, 'cosmos_refractor_sky', 'Refractor sky', 'Every refractor object discovered'),
 
 	feature(FeatureTypes.LEVELS, 'Skill Tree & Levels'),
 	feature(FeatureTypes.PURPLE_REALM, 'Photon Realm'),

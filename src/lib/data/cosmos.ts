@@ -9,6 +9,7 @@ export const CosmosEras = {
 	PREDICTION: 'prediction',
 	REFLECTOR: 'reflector',
 	REFRACTOR: 'refractor',
+	SURVEY: 'survey',
 } as const;
 
 export type CosmosEra = (typeof CosmosEras)[keyof typeof CosmosEras];
@@ -92,7 +93,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1609',
 	},
 	{
-		cost: 850_000_000,
+		cost: 2_900_000_000,
 		description: 'A mirror wide enough to tell a planet from a star.',
 		era: CosmosEras.REFLECTOR,
 		id: 'reflector',
@@ -103,7 +104,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1781',
 	},
 	{
-		cost: 20_000_000_000,
+		cost: 24_000_000_000,
 		description: 'Uranus strays from its path, something unseen pulls on it.',
 		era: CosmosEras.PREDICTION,
 		id: 'prediction',
@@ -114,7 +115,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1846',
 	},
 	{
-		cost: 60_000_000_000,
+		cost: 64_000_000_000,
 		description: "The Naval Observatory's 26-inch lens, the largest in the world, sharp enough to pull tiny moons out of the glare of Mars.",
 		era: CosmosEras.GREAT_REFRACTOR,
 		id: 'great_refractor',
@@ -125,7 +126,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1877',
 	},
 	{
-		cost: 500_000_000_000,
+		cost: 900_000_000_000,
 		description: 'Two photographs of the same stars, flipped back and forth until one dot jumps.',
 		era: CosmosEras.PHOTOGRAPHY,
 		id: 'blink_comparator',
@@ -136,7 +137,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1930',
 	},
 	{
-		cost: 1_400_000_000_000,
+		cost: 2_500_000_000_000,
 		description: 'A telescope flying above the clouds, timing a star as Uranus slides in front of it.',
 		era: CosmosEras.OCCULTATION,
 		id: 'airborne_observatory',
@@ -145,6 +146,17 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		reach: 17,
 		researchMs: 20 * 60_000,
 		year: '1977',
+	},
+	{
+		cost: 4_200_000_000_000,
+		description: 'A wide camera sweeps the sky past Neptune night after night, hunting for anything that crawls between three photographs.',
+		era: CosmosEras.SURVEY,
+		id: 'sky_survey',
+		limit: -1.5,
+		name: "Palomar's Samuel Oschin Telescope",
+		reach: 21.5,
+		researchMs: 25 * 60_000,
+		year: '2001',
 	},
 ];
 
@@ -302,6 +314,19 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1610',
 	},
 	{
+		boost: { amount: 0.03, label: 'excited photon chance', stat: 'excited_photon_chance' },
+		color: '#ff8fa3',
+		discoverer: 'Nicolas-Claude Fabri de Peiresc',
+		era: CosmosEras.REFRACTOR,
+		fact: 'A cloud of glowing hydrogen 1,300 light years away where new stars are being born, lit by the four young stars of the Trapezium at its heart.',
+		id: 'orion_nebula',
+		/** Not its glow, which the naked eye sees at 4 as a fuzzy star: telling it was a cloud took a telescope. */
+		magnitude: 6,
+		name: 'Orion Nebula',
+		starlight: 4400,
+		year: '1610',
+	},
+	{
 		boost: { amount: 0.03, label: 'photon value', stat: 'photon_value' },
 		color: '#e0a64a',
 		discoverer: 'Christiaan Huygens',
@@ -327,6 +352,32 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		orbits: 'saturn',
 		starlight: 17_500,
 		year: '1659',
+	},
+	{
+		boost: { amount: 0.03, label: 'Stability Field speed', stat: 'stability_speed' },
+		color: '#ffad7a',
+		discoverer: 'John Bevis',
+		era: CosmosEras.REFRACTOR,
+		fact: "What is left of a star seen exploding in 1054, around a pulsar spinning 30 times a second. Messier took it for Halley's comet in 1758 and began his catalogue so nobody would again.",
+		id: 'crab_nebula',
+		/** Not its 8.4: a smudge only a long look tells apart from the stars, at the refractor's limit. */
+		magnitude: 9,
+		name: 'Crab Nebula',
+		starlight: 26_000,
+		year: '1731',
+	},
+	{
+		boost: { amount: 0.03, label: 'Protons', stat: 'proton_gain' },
+		color: '#bfe3ff',
+		discoverer: 'Johann Palitzsch, as Edmond Halley predicted',
+		era: CosmosEras.REFRACTOR,
+		fact: 'Halley saw that the comets of 1531, 1607 and 1682 were one and the same, and said it would return in 1758. It did, on Christmas night, 16 years after his death.',
+		id: 'halley',
+		/** Not its brightness: what it took was knowing when and where to look. */
+		magnitude: 9,
+		name: "Halley's Comet",
+		starlight: 38_000,
+		year: '1758',
 	},
 	{
 		boost: { amount: 0.03, label: 'Green Light', stat: 'green_light_gain' },
@@ -418,6 +469,32 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1877',
 	},
 	{
+		boost: { amount: 0.03, label: 'generator output', stat: 'generator' },
+		color: '#c9a77c',
+		discoverer: 'Gustav Witt',
+		era: CosmosEras.GREAT_REFRACTOR,
+		fact: 'The first asteroid found to come closer than Mars. Its close passes measured the size of the Solar System, and NEAR Shoemaker landed on it in 2001.',
+		id: 'eros',
+		/** Not its brightness: Witt found it as a short trail on a two-hour photographic exposure. */
+		magnitude: 14,
+		name: 'Eros',
+		starlight: 6_000_000,
+		year: '1898',
+	},
+	{
+		boost: { amount: 0.01, label: 'production', stat: 'global' },
+		color: '#c9cdf0',
+		discoverer: 'Edwin Hubble',
+		era: CosmosEras.PHOTOGRAPHY,
+		fact: 'Known for a thousand years as a small cloud. In 1924 Hubble timed pulsing stars in it and found it 2.5 million light years away: the Milky Way is one galaxy among countless others.',
+		id: 'andromeda',
+		/** Not its glow, which the naked eye sees at 3.4: proving it a galaxy took single stars in it, picked out on long photographs. */
+		magnitude: 14.6,
+		name: 'Andromeda Galaxy',
+		starlight: 8_000_000,
+		year: '1924',
+	},
+	{
 		boost: { amount: 0.03, label: 'XP', stat: 'xp_gain' },
 		color: '#e0bf9a',
 		discoverer: 'Clyde Tombaugh',
@@ -443,6 +520,31 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		orbits: 'uranus',
 		starlight: 28_000_000,
 		year: '1977',
+	},
+	{
+		boost: { amount: 0.03, label: 'Red Light', stat: 'red_light_gain' },
+		color: '#c8603f',
+		discoverer: 'Michael Brown, Chad Trujillo and David Rabinowitz',
+		era: CosmosEras.SURVEY,
+		fact: 'One of the reddest worlds known. Its year lasts over 11,000 of ours, and at its farthest it is 30 times farther out than Neptune.',
+		id: 'sedna',
+		magnitude: 21,
+		name: 'Sedna',
+		starlight: 70_000_000,
+		year: '2003',
+	},
+	{
+		boost: { amount: 0.03, label: 'Electrons', stat: 'electron_gain' },
+		color: '#e6e4e0',
+		discoverer: 'Michael Brown, Chad Trujillo and David Rabinowitz',
+		era: CosmosEras.SURVEY,
+		fact: 'Almost as wide as Pluto and heavier. Its discovery made astronomers define what a planet is, and Pluto lost its place in 2006.',
+		id: 'eris',
+		/** Brighter than Sedna at 18.7, but 97 AU out it crawled too slowly for the search software, it sat in the 2003 images until 2005. */
+		magnitude: 21.5,
+		name: 'Eris',
+		starlight: 175_000_000,
+		year: '2005',
 	},
 ];
 

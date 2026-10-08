@@ -21,7 +21,7 @@ import {
 	vec3,
 } from 'three/tsl';
 import { AdditiveBlending, BackSide, Group, InstancedBufferAttribute, MathUtils, Mesh, MeshBasicNodeMaterial, type Node, PlaneGeometry, PointsNodeMaterial, SphereGeometry, Sprite, type Vector3 } from 'three/webgpu';
-import { skySight } from '#data/cosmos.js';
+import { COSMOS_OBJECTS_BY_ID, type CosmosObject, skySight } from '#data/cosmos.js';
 import { darkSky, realism } from './shading.js';
 import { DEEP_SKY_DISTANCE, EARTH_POLE, galactic, ORIGIN, SKY_DISTANCE, STAR_DISTANCE } from './space.js';
 
@@ -109,6 +109,8 @@ interface DeepSkyObject {
 	angle: number;
 	/** Galactic longitude and latitude in degrees. */
 	at: readonly [number, number];
+	/** Cosmos object id of one the player discovers, and the tint of the smudge it shows until then. */
+	discovery?: readonly [id: string, smudge: string];
 	/** Glow from the plane's coordinates, -1 to 1 on both axes. */
 	draw: (p: Node<'vec2'>) => Node<'vec3'>;
 	/** Integrated apparent magnitude, the object fades in as the sight passes it. */
@@ -136,6 +138,7 @@ const DEEP_SKY: DeepSkyObject[] = [
 		/** Andromeda, 2.5 million light years away: a bright bulge, a tilted disc crossed by dust lanes, and its companions M32 and M110. */
 		angle: 215,
 		at: [121.17, -21.57],
+		discovery: ['andromeda', '#d6d4ea'],
 		draw: p => {
 			const disc = exp(length(p).mul(-3.2));
 			const lanes = max(
@@ -154,6 +157,7 @@ const DEEP_SKY: DeepSkyObject[] = [
 		/** The Orion Nebula: red hydrogen wings around a green-white core lit by the Trapezium, and the dark bay of the "fish's mouth". */
 		angle: 0,
 		at: [209.01, -19.38],
+		discovery: ['orion_nebula', '#d7b8d8'],
 		draw: p => {
 			const core = blob(p, [0.05, 0.1], [1, 1], 18);
 			const bay = oneMinus(smoothstep(0.05, 0.25, length(p.sub(vec2(0.35, 0.3)).mul(vec2(1, 2.2)))));
@@ -201,6 +205,7 @@ const DEEP_SKY: DeepSkyObject[] = [
 		/** The Crab Nebula, what is left of the supernova of 1054: orange filaments over the blue-white glow of its pulsar's wind. */
 		angle: 125,
 		at: [184.56, -5.78],
+		discovery: ['crab_nebula', '#c9c4d8'],
 		draw: p => {
 			const shell = oneMinus(smoothstep(0.55, 0.95, length(p).add(mx_noise_float(vec3(p.mul(3), 9)).mul(0.15))));
 			const filaments = oneMinus(smoothstep(0.02, 0.1, mx_noise_float(vec3(p.mul(7), 5)).abs()));
@@ -224,13 +229,57 @@ const DEEP_SKY: DeepSkyObject[] = [
 	},
 ];
 
-/** One flat glow per deep-sky object, facing the center of the sky, faded in by the eased limiting magnitude. */
-function deepSky(limit: Node<'float'>) {
-	const span = (degrees: number) => 2 * DEEP_SKY_DISTANCE * Math.tan(MathUtils.degToRad(degrees) / 2);
-	return DEEP_SKY.map(({ angle, at, draw, magnitude, size }) => {
+const span = (degrees: number) => 2 * DEEP_SKY_DISTANCE * Math.tan(MathUtils.degToRad(degrees) / 2);
+
+/** A deep-sky object the player discovers: a faint smudge until then, resolved into its drawing as `reveal` rises. */
+export class Nebula {
+	/** Field of view that frames it with some sky around it. */
+	readonly fov: number;
+	/** Half its drawn width, for the pointer picking. */
+	readonly radius: number;
+	readonly reveal = uniform(0);
+	/** Seconds since the discovery started, -1 when not resolving. */
+	revealTime = -1;
+
+	constructor(
+		readonly object: CosmosObject,
+		/** The same from anywhere in the scene, it is that far. */
+		readonly direction: Vector3,
+		width: number,
+		public discovered: boolean,
+	) {
+		this.fov = MathUtils.clamp(width * 2.5, 2, 50);
+		this.radius = span(width) / 2;
+		this.reveal.value = discovered ? 1 : 0;
+	}
+
+	startReveal() {
+		this.discovered = true;
+		this.revealTime = 0;
+	}
+
+	/** Same pace as a body condensing. */
+	updateReveal(dt: number) {
+		this.revealTime += dt;
+		this.reveal.value = MathUtils.clamp((this.revealTime - 0.6) / 1.4, 0, 1);
+		if (this.revealTime > 2.2) this.revealTime = -1;
+	}
+}
+
+/**
+ * One flat glow per deep-sky object, facing the center of the sky, faded in by the eased limiting magnitude. A discoverable one is a
+ * smudge until its discovery resolves it, flaring cyan halfway like Saturn's rings.
+ */
+function deepSky(limit: Node<'float'>, discovered: readonly string[]) {
+	return DEEP_SKY.map(({ angle, at, discovery, draw, magnitude, size }) => {
 		const p = uv().sub(0.5).mul(2);
+		const glow = (sharpness: number) => exp(dot(p, p).mul(-sharpness));
+		const nebula = discovery && new Nebula(COSMOS_OBJECTS_BY_ID[discovery[0]], galactic(...at), Math.max(...size), discovered.includes(discovery[0]));
+		const drawn = nebula
+			? mix(color(discovery[1]).mul(glow(5)).mul(0.18), draw(p), nebula.reveal).add(color('#8ff5ff').mul(glow(4)).mul(nebula.reveal.mul(oneMinus(nebula.reveal)).mul(8)))
+			: draw(p);
 		const material = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
-		material.colorNode = draw(p)
+		material.colorNode = drawn
 			.mul(oneMinus(smoothstep(0.75, 1, max(p.x.abs(), p.y.abs()))))
 			.mul(smoothstep(magnitude - 0.3, magnitude + 1.5, limit))
 			.mul(darkSky);
@@ -240,7 +289,7 @@ function deepSky(limit: Node<'float'>) {
 		mesh.lookAt(ORIGIN);
 		/** Seen from inside the sky with north up, +x points west, a position angle of 270°, and angles turn counterclockwise. */
 		mesh.rotateZ(MathUtils.degToRad(angle + 90));
-		return { magnitude, mesh };
+		return { magnitude, mesh, nebula };
 	});
 }
 
@@ -250,7 +299,9 @@ function deepSky(limit: Node<'float'>) {
  */
 export class Sky {
 	readonly group = new Group();
-	readonly #deepSky: { magnitude: number; mesh: Mesh }[];
+	/** The deep-sky objects to discover, by Cosmos object id. */
+	readonly nebulae: ReadonlyMap<string, Nebula>;
+	readonly #deepSky: ReturnType<typeof deepSky>;
 	readonly #dome: Mesh;
 	readonly #faint: Sprite;
 	/** Limiting magnitude, eased toward `#goal`. */
@@ -260,7 +311,7 @@ export class Sky {
 	readonly #sight = uniform(0);
 	readonly #stars: Sprite;
 
-	constructor(albedo: Node<'vec3'>, limit: number) {
+	constructor(albedo: Node<'vec3'>, limit: number, discovered: readonly string[]) {
 		this.#limit.value = this.#goal = limit;
 		this.#sight.value = skySight(limit);
 		/** The Milky Way rises out of the dark in the second half of the sight. */
@@ -268,7 +319,8 @@ export class Sky {
 		material.colorNode = albedo.mul(smoothstep(0.3, 1, this.#sight)).mul(darkSky);
 		this.#dome = new Mesh(new SphereGeometry(SKY_DISTANCE, 64, 32), material);
 		this.#dome.renderOrder = -1;
-		this.#deepSky = deepSky(this.#limit);
+		this.#deepSky = deepSky(this.#limit, discovered);
+		this.nebulae = new Map(this.#deepSky.flatMap(({ nebula }) => (nebula ? [[nebula.object.id, nebula]] : [])));
 		this.#stars = starField(this.#sight);
 		this.#faint = faintStars(this.#limit);
 		this.group.add(this.#dome, ...this.#deepSky.map(({ mesh }) => mesh), this.#stars, this.#faint);

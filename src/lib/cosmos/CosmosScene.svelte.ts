@@ -25,13 +25,15 @@ import { Earth } from './earth.js';
 import { bakeSurfaces, liveSurface, loadSurface, loadSurfaces, SHARP } from './maps.js';
 import { DAY_MS, J2000, OrbitLine, orbitFade } from './orbits.js';
 import { detail, exposure, glare, realism } from './shading.js';
-import { Sky } from './sky.js';
-import { EARTH_ORBIT, EARTH_RADIUS, EARTH_YEAR, GALAXY_CORE, ORIGIN, SKY_DISTANCE, SUN_RADIUS, UP } from './space.js';
+import { Nebula, Sky } from './sky.js';
+import { DEEP_SKY_DISTANCE, EARTH_ORBIT, EARTH_RADIUS, EARTH_YEAR, GALAXY_CORE, ORIGIN, SKY_DISTANCE, SUN_RADIUS, UP } from './space.js';
 import { PlanetMarkers, signalSprite } from './sprites.js';
 import { Sun } from './sun.js';
 
 type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
 type CosmosQuality = 'high' | 'low';
+/** Anything the signal can sit on. */
+type Target = Body | Nebula;
 
 interface CosmosHud {
 	/** Chevron at the screen edge pointing at the signal while it is outside the reticle. */
@@ -95,6 +97,8 @@ const REFRACTOR_FOV = 25;
 const MIN_ELONGATION = MathUtils.degToRad(35);
 /** Observation zoom range, wider than the default view stretched the sky like a fisheye. */
 const FOV_RANGE = [12, 55] as const;
+/** Looking at a nebula zooms further, the Crab is a third of a degree wide. */
+const GAZE_FOV_RANGE = [2, 55] as const;
 /** Screen radius under which an object still counts as clicked, so far planets stay easy to pick. */
 const PICK_RADIUS = 18;
 /** Without a clock drive the sky slides out of the eyepiece as the Earth turns, real telescopes had the same problem. */
@@ -164,6 +168,8 @@ export class CosmosScene {
 	#fovGoal = 55;
 	#fpsFrames = 0;
 	#fpsTime = 0;
+	/** Nebula looked at from beside the Earth, the camera can't orbit something that far. */
+	#gaze: Nebula | null = null;
 	/** The benchmark or a freeze owns the loop, a tab coming back to the foreground must not restart it. */
 	#held = false;
 	#lastFocus = new Vector3();
@@ -178,12 +184,12 @@ export class CosmosScene {
 	#qualityProbe = { frames: 0, time: 0 };
 	#realismGoal = 0;
 	#renders = 0;
-	/** The discovered body condensing, plus the companions growing in with it. */
-	#revealing: Body[] = [];
+	/** The discovered object condensing, plus the companions growing in with it. */
+	#revealing: Target[] = [];
 	/** The body drawn with its sharp map, `map` stays null while it loads. */
 	#sharp: { base: Texture; id: string; map: Texture | null } | null = null;
 	#simTime = 0;
-	#target: Body | null = null;
+	#target: Target | null = null;
 	#tuning: CosmosTuning = { ...DEFAULT_TUNING, pixelRatio: Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio) };
 	/** Sky clock fast-forward played during a flight, it carries a target out of the Sun's glare. */
 	#warp: { from: number; to: number } | null = null;
@@ -209,7 +215,7 @@ export class CosmosScene {
 			return node.rgb;
 		};
 		this.#earth = new Earth(albedo('earth'), albedo('earth_masks'), maps.get('clouds'), sinceJ2000);
-		this.#sky = new Sky(albedo('sky'), limit);
+		this.#sky = new Sky(albedo('sky'), limit, discovered);
 		this.#sun = new Sun(maps.get('sun') ?? null);
 		this.#scene.add(this.#sun.group, this.#earth.orbit, this.#earth.group);
 		/** In discovery order, so every parent is placed before the moons orbiting it. */
@@ -256,7 +262,12 @@ export class CosmosScene {
 		window.addEventListener('pointercancel', this.#onPointerUp);
 		document.addEventListener('visibilitychange', this.#onVisibility);
 
-		if (focus && this.#pickable().includes(focus)) {
+		const nebula = focus ? this.#sky.nebulae.get(focus) : undefined;
+		if (nebula?.discovered) {
+			this.#lookAt(nebula);
+			this.#camera.fov = nebula.fov;
+			this.mode = 'overview';
+		} else if (focus && this.#pickable().includes(focus)) {
 			this.#camera.position.copy(this.#viewpoint(focus));
 			this.#camera.lookAt(this.#positionOf(focus)!);
 			this.#orbit(focus);
@@ -354,9 +365,18 @@ export class CosmosScene {
 		this.#renderer.dispose();
 	}
 
-	/** Flies to an object and orbits it from then on, `earth` goes back to the home view. */
+	/** Flies to an object and orbits it from then on, or looks at a nebula from beside the Earth, `earth` goes back to the home view. */
 	focus(id: string) {
-		if (this.mode !== 'overview' || !this.#positionOf(id)) return;
+		if (this.mode !== 'overview') return;
+		const nebula = this.#sky.nebulae.get(id);
+		if (nebula) {
+			if (!nebula.discovered) return;
+			this.selected = id;
+			this.#gazeAt(nebula);
+			return;
+		}
+		if (!this.#positionOf(id)) return;
+		this.#gaze = null;
 		this.selected = id;
 		this.#flyTo(() => this.#viewpoint(id), () => this.#positionOf(id)!, 50, 2.2, () => this.#orbit(id));
 	}
@@ -371,14 +391,15 @@ export class CosmosScene {
 
 	/** Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. */
 	observe(id: string) {
-		const target = this.#bodies.get(id);
+		const target = this.#bodies.get(id) ?? this.#sky.nebulae.get(id);
 		if (!target || target.discovered || this.mode !== 'overview') return;
 		this.selected = null;
+		this.#gaze = null;
 		this.#target = target;
 		this.#warp = { from: this.#simTime, to: this.#clearOfSun(target) };
 		/** The starting view is aimed where the target will be once the warp ends, the flight lands looking past it. */
 		const aim = () => {
-			const toTarget = target.group.position.clone().sub(this.#observerPosition()).normalize();
+			const toTarget = this.#toward(target, this.#observerPosition());
 			return { pitch: Math.asin(toTarget.y) + 0.35, yaw: Math.atan2(toTarget.x, toTarget.z) + 1.1 };
 		};
 		const look = () => {
@@ -407,6 +428,7 @@ export class CosmosScene {
 	}
 
 	replayIntro() {
+		this.#gaze = null;
 		const away = this.#overviewPosition().sub(this.#earth.position).normalize();
 		this.#camera.position.copy(this.#earth.position).addScaledVector(away, EARTH_RADIUS * 1.35);
 		this.#camera.fov = 30;
@@ -487,7 +509,7 @@ export class CosmosScene {
 	 * outside flights, else the camera, never closer than a few solar radii.
 	 */
 	#adaptExposure(ease: number) {
-		const viewed = this.#flight || this.mode === 'intro' || this.mode === 'observe' ? this.#camera.position : this.#controls.target;
+		const viewed = this.#flight || this.#gaze || this.mode === 'intro' || this.mode === 'observe' ? this.#camera.position : this.#controls.target;
 		const goal = Math.log(Math.max(viewed.length(), SUN_RADIUS * 3) ** 2);
 		exposure.value = Math.exp(MathUtils.lerp(Math.log(exposure.value), goal, ease));
 	}
@@ -505,7 +527,7 @@ export class CosmosScene {
 		const halfDiagonal = Math.atan(halfView * Math.hypot(1, camera.aspect));
 		let sun = 1 - MathUtils.smoothstep(forward.angleTo(toSun), halfDiagonal, halfDiagonal + 0.35);
 		let body = 0;
-		if ((this.mode === 'overview' || this.mode === 'discovery') && !this.#flight && this.focused !== 'sun') {
+		if ((this.mode === 'overview' || this.mode === 'discovery') && !this.#flight && !this.#gaze && this.focused !== 'sun') {
 			const position = this.#positionOf(this.focused)!;
 			const toBody = position.clone().sub(camera.position);
 			const radius = this.#radiusOf(this.focused);
@@ -539,9 +561,9 @@ export class CosmosScene {
 	 * Earliest sky clock within a year where the target sits far enough from the Sun as seen from the Earth: MIN_ELONGATION, or 90% of
 	 * the widest angle an inner planet ever reaches, Mercury never strays past ~23°.
 	 */
-	#clearOfSun(target: Body) {
-		const { distance } = target.look;
-		const widest = target.around === 'sun' && distance < EARTH_ORBIT ? Math.asin(distance / EARTH_ORBIT) * 0.9 : Infinity;
+	#clearOfSun(target: Target) {
+		const inner = target instanceof Body && target.around === 'sun' && target.look.distance < EARTH_ORBIT;
+		const widest = inner ? Math.asin(target.look.distance / EARTH_ORBIT) * 0.9 : Infinity;
 		const needed = Math.min(MIN_ELONGATION, widest);
 		const now = this.#simTime;
 		let clear = now;
@@ -549,7 +571,7 @@ export class CosmosScene {
 			this.#simTime = time;
 			this.#placeBodies();
 			const earth = this.#earth.position;
-			if (target.group.position.clone().sub(earth).angleTo(earth.clone().negate()) >= needed) {
+			if (this.#toward(target, earth).angleTo(earth.clone().negate()) >= needed) {
 				clear = time;
 				break;
 			}
@@ -578,6 +600,7 @@ export class CosmosScene {
 	}
 
 	#enterOverview() {
+		this.#gaze = null;
 		this.#orbit('earth');
 		this.mode = 'overview';
 	}
@@ -635,6 +658,7 @@ export class CosmosScene {
 		}
 
 		if (this.#flight) this.#updateFlight(dt);
+		else if (this.#gaze) this.#updateEyepiece(dt);
 		else if (this.mode === 'overview' || this.mode === 'discovery') this.#updateOverview(dt);
 		else if (this.mode === 'observe') this.#updateObserve(dt);
 		this.#adaptExposure(1 - Math.exp(-dt * 3));
@@ -654,11 +678,29 @@ export class CosmosScene {
 		this.#measure(dt);
 	};
 
+	/** Flies to the view of a nebula from beside the Earth, see `#lookAt`. */
+	#gazeAt(nebula: Nebula) {
+		/** Set before the flight, so `#observerPosition` already stands on the side of the Earth facing it. */
+		this.#gaze = nebula;
+		const look = () => this.#observerPosition().addScaledVector(nebula.direction, 10);
+		this.#flyTo(() => this.#observerPosition(), look, nebula.fov, 2.4, () => this.#lookAt(nebula));
+	}
+
 	#hideSignal() {
 		this.#signal.visible = false;
 		this.#hud.arrow.style.opacity = '0';
 		this.#hud.progress.style.opacity = '0';
 		this.faint = false;
+	}
+
+	/** Holds the camera beside the Earth on a nebula, dragging looks around and zooming narrows the field like at the eyepiece. */
+	#lookAt(nebula: Nebula) {
+		this.#gaze = nebula;
+		this.focused = nebula.object.id;
+		this.#yaw = Math.atan2(nebula.direction.x, nebula.direction.z);
+		this.#pitch = Math.asin(nebula.direction.y);
+		this.#fovGoal = nebula.fov;
+		this.#sharpen();
 	}
 
 	/** Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. */
@@ -702,7 +744,8 @@ export class CosmosScene {
 	 */
 	#observerPosition() {
 		const earth = this.#earth.position;
-		const toward = this.#target ? this.#target.group.position.clone().sub(earth).normalize() : new Vector3().crossVectors(UP, earth).normalize();
+		const aimed = this.#target ?? this.#gaze;
+		const toward = aimed ? this.#toward(aimed, earth) : new Vector3().crossVectors(UP, earth).normalize();
 		return toward.multiplyScalar(EARTH_RADIUS * 1.7).addScaledVector(UP, 0.4).add(earth);
 	}
 
@@ -710,11 +753,8 @@ export class CosmosScene {
 		/** A touch pinch goes through OrbitControls, a pending wheel goal would fight it. */
 		this.#distanceGoal = null;
 		this.#lastInput = event.timeStamp;
-		if (this.mode !== 'observe') {
-			this.#press = { x: event.clientX, y: event.clientY };
-			return;
-		}
-		this.#pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+		if (this.mode !== 'observe') this.#press = { x: event.clientX, y: event.clientY };
+		if (this.mode === 'observe' || this.#gaze) this.#pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 	};
 
 	#onPointerMove = (event: PointerEvent) => {
@@ -724,7 +764,7 @@ export class CosmosScene {
 			if (hovered !== this.hovered) this.hovered = hovered;
 		}
 		const previous = this.#pointers.get(event.pointerId);
-		if (!previous || this.mode !== 'observe') return;
+		if (!previous || (this.mode !== 'observe' && !this.#gaze)) return;
 		if (this.#pointers.size === 1) {
 			/** One screen pixel of drag moves the sky by one pixel, whatever the zoom. */
 			const perPixel = MathUtils.degToRad(this.#camera.fov / this.#canvas.clientHeight);
@@ -763,8 +803,8 @@ export class CosmosScene {
 		event.stopImmediatePropagation();
 		this.#lastInput = event.timeStamp;
 		const factor = Math.exp(event.deltaY * 0.0008);
-		if (this.mode === 'observe') this.#zoom(factor);
-		if (this.mode !== 'overview') return;
+		if (this.mode === 'observe' || this.#gaze) this.#zoom(factor);
+		if (this.mode !== 'overview' || this.#gaze) return;
 		const current = this.#distanceGoal ?? this.#camera.position.distanceTo(this.#controls.target);
 		this.#distanceGoal = MathUtils.clamp(current * factor, this.#controls.minDistance, this.#controls.maxDistance);
 	};
@@ -791,7 +831,8 @@ export class CosmosScene {
 
 	/** Discovered objects done condensing, undiscovered rings drawn with Saturn stay out of reach. */
 	#pickable() {
-		return ['sun', 'earth', ...[...this.#bodies].filter(([, body]) => body.discovered && body.revealTime < 0).map(([id]) => id)];
+		const targets = [...this.#bodies.values(), ...this.#sky.nebulae.values()];
+		return ['sun', 'earth', ...targets.filter(target => target.discovered && target.revealTime < 0).map(target => target.object.id)];
 	}
 
 	#placeBodies() {
@@ -804,15 +845,18 @@ export class CosmosScene {
 		simClock.value = this.#simTime;
 	}
 
+	/** A nebula is where the sky draws it, centered on the camera. */
 	#positionOf(id: string): Vector3 | null {
 		if (id === 'sun') return ORIGIN;
 		if (id === 'earth') return this.#earth.position;
+		const nebula = this.#sky.nebulae.get(id);
+		if (nebula) return this.#camera.position.clone().addScaledVector(nebula.direction, DEEP_SKY_DISTANCE);
 		return this.#bodies.get(id)?.group.position ?? null;
 	}
 
 	#radiusOf(id: string) {
 		if (id === 'sun') return SUN_RADIUS;
-		return this.#bodies.get(id)?.look.radius ?? EARTH_RADIUS;
+		return (this.#bodies.get(id)?.look ?? this.#sky.nebulae.get(id))?.radius ?? EARTH_RADIUS;
 	}
 
 	#render() {
@@ -858,6 +902,7 @@ export class CosmosScene {
 	/** Puts back everything `#stage` and the benchmark's tuning change. */
 	#snapshot() {
 		const bodies = [...this.#bodies.values()].map(body => ({ body, orbit: body.orbit?.visible ?? false, reveal: body.reveal.value, scale: body.mesh.scale.x, visible: body.group.visible }));
+		const nebulae = [...this.#sky.nebulae.values()].map(nebula => [nebula, nebula.reveal.value] as const);
 		const { far, fov } = this.#camera;
 		const position = this.#camera.position.clone();
 		const quaternion = this.#camera.quaternion.clone();
@@ -869,6 +914,7 @@ export class CosmosScene {
 				body.reveal.value = reveal;
 				if (body.orbit) body.orbit.visible = orbit;
 			}
+			for (const [nebula, reveal] of nebulae) nebula.reveal.value = reveal;
 			Object.assign(this.#camera, { far, fov });
 			this.#camera.position.copy(position);
 			this.#camera.quaternion.copy(quaternion);
@@ -888,6 +934,7 @@ export class CosmosScene {
 			body.reveal.value = 1;
 			if (body.orbit) body.orbit.visible = true;
 		}
+		for (const nebula of this.#sky.nebulae.values()) nebula.reveal.value = 1;
 		this.#simTime = 100;
 		this.#placeBodies();
 		const views: Record<BenchScenario, () => [Vector3, Vector3]> = {
@@ -911,10 +958,21 @@ export class CosmosScene {
 		void this.#renderer.setAnimationLoop(this.#frame);
 	}
 
-	#startDiscovery(body: Body) {
+	#startDiscovery(target: Target) {
 		this.#hideSignal();
 		this.#target = null;
-		const { id } = body.object;
+		const { id } = target.object;
+		if (target instanceof Nebula) {
+			target.startReveal();
+			this.#revealing = [target];
+			this.revealed = id;
+			this.mode = 'discovery';
+			this.#applyGlare();
+			this.#onDiscover(id);
+			this.#gazeAt(target);
+			return;
+		}
+		const body = target;
 		const companions = [...this.#bodies.values()].filter(other => other.look.shownWith === id && !other.group.visible);
 		body.startReveal();
 		body.showOrbit(orbitFade.value > 0);
@@ -945,10 +1003,8 @@ export class CosmosScene {
 		flight.onEnd();
 	}
 
-	#updateObserve(dt: number) {
-		const target = this.#target;
-		if (!target) return;
-		this.#yaw -= SKY_DRIFT * dt;
+	/** Camera just above the Earth, turned by the drag and zoomed by the field of view, at the eyepiece or on a nebula. */
+	#updateEyepiece(dt: number) {
 		if (Math.abs(this.#fovGoal - this.#camera.fov) > 1e-3) {
 			this.#camera.fov += (this.#fovGoal - this.#camera.fov) * (1 - Math.exp(-dt * ZOOM_EASE));
 			this.#camera.updateProjectionMatrix();
@@ -956,9 +1012,17 @@ export class CosmosScene {
 		const position = this.#observerPosition();
 		this.#camera.position.copy(position);
 		this.#camera.lookAt(position.add(direction(this.#yaw, this.#pitch)));
+	}
+
+	#updateObserve(dt: number) {
+		const target = this.#target;
+		if (!target) return;
+		this.#yaw -= SKY_DRIFT * dt;
+		this.#updateEyepiece(dt);
 
 		const signal = this.#signal;
-		signal.position.copy(target.group.position);
+		if (target instanceof Nebula) signal.position.copy(this.#camera.position).addScaledVector(target.direction, DEEP_SKY_DISTANCE);
+		else signal.position.copy(target.group.position);
 		const distance = signal.position.distanceTo(this.#camera.position);
 		const viewHeight = 2 * distance * Math.tan(MathUtils.degToRad(this.#camera.fov) / 2);
 		signal.scale.setScalar((viewHeight * SIGNAL_SIZE) / this.#canvas.clientHeight);
@@ -1013,7 +1077,13 @@ export class CosmosScene {
 		return position.clone().addScaledVector(fromSun, -5.6 * size).addScaledVector(along, 2.8 * size).addScaledVector(UP, 1.4 * size);
 	}
 
+	/** Way from `from` to a target, a nebula lies the same way from anywhere. */
+	#toward(target: Target, from: Vector3) {
+		return target instanceof Nebula ? target.direction.clone() : target.group.position.clone().sub(from).normalize();
+	}
+
 	#zoom(factor: number) {
-		this.#fovGoal = MathUtils.clamp(this.#fovGoal * factor, ...FOV_RANGE);
+		const [min, max] = this.#gaze ? GAZE_FOV_RANGE : FOV_RANGE;
+		this.#fovGoal = MathUtils.clamp(this.#fovGoal * factor, min, max);
 	}
 }

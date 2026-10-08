@@ -13,9 +13,11 @@ import {
 	mix,
 	modelPosition,
 	mx_noise_float,
+	normalView,
 	normalWorld,
 	oneMinus,
 	positionLocal,
+	positionViewDirection,
 	positionWorld,
 	pow,
 	saturate,
@@ -28,6 +30,7 @@ import {
 } from 'three/tsl';
 import {
 	AdditiveBlending,
+	CylinderGeometry,
 	DoubleSide,
 	Group,
 	InstancedBufferAttribute,
@@ -207,9 +210,48 @@ function lumpyGeometry(radius: number, [x, y, z]: readonly [number, number, numb
 	return geometry;
 }
 
+/** Tail length in scene units at its fullest, about 0.1 AU like Halley's in 1986. */
+const TAIL_LENGTH = 30;
+
+/**
+ * A comet's tail, its gas and dust blown straight away from the Sun by sunlight and the solar wind: a soft cone out of the nucleus,
+ * fading along its length and toward its edges, around a coma glowing over the nucleus.
+ */
+class CometTail extends Group {
+	readonly #away = new Vector3();
+	readonly #coma: Sprite;
+	readonly #cone: Mesh;
+
+	constructor(reveal: Node<'float'>) {
+		super();
+		const material = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, side: DoubleSide, transparent: true });
+		const along = uv().y;
+		const facing = dot(normalView, positionViewDirection).abs();
+		material.colorNode = mix(color('#e6f4ff'), color('#6fa8ff'), along).mul(pow(oneMinus(along), 1.6)).mul(pow(facing, 2)).mul(reveal.mul(0.45));
+		this.#cone = new Mesh(new CylinderGeometry(1, 0.08, 1, 32, 1, true).translate(0, 0.5, 0), material);
+		this.#coma = glowSprite('#d8ecff', 2, reveal.mul(0.9));
+		this.add(this.#cone, this.#coma);
+	}
+
+	/**
+	 * Turns away from the Sun and grows as the nucleus at `position` nears it, its ice only boils off within a few AU. In truth there
+	 * is no tail past Jupiter, the cartoon lighting keeps a short one so a far comet still reads as one. `unturn` undoes the parent's rotation.
+	 */
+	update(position: Vector3, unturn: Quaternion) {
+		const activity = Math.min(1, (3 * EARTH_ORBIT) ** 2 / position.lengthSq());
+		const length = TAIL_LENGTH * MathUtils.lerp(Math.max(activity, 0.3), activity, realism.value);
+		this.visible = length > 0.05;
+		this.quaternion.setFromUnitVectors(UP, this.#away.copy(position).normalize()).premultiply(unturn);
+		this.#cone.scale.set(length * 0.1, length, length * 0.1);
+		this.#coma.scale.setScalar(Math.min(length * 0.05, 1.5));
+	}
+}
+
 interface BodyLook extends Orbit {
 	/** `albedo` is the baked texture or the live `surface`, `radius` the look's own. */
 	build: (reveal: Node<'float'>, albedo: Node<'vec3'>, radius: number) => Mesh;
+	/** Grows a tail pointing away from the Sun. */
+	comet?: boolean;
 	/** Drawn instead of the orbit line once discovered, centered on the parent. */
 	orbit?: (reveal: Node<'float'>) => Object3D;
 	/**
@@ -307,6 +349,23 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 'locked',
 		surface: () => rockySurface('#b0a394', '#8f8476', 5, 71),
 	},
+	/** Its tilted, stretched orbit swings it from 38 to 98 AU from the Sun, it is near the far end now. */
+	eris: {
+		...solarOrbit(67.934, 559.94, 0.43824, [21.578, 43.926, 36.005, 186.8]),
+		build: globe(),
+		radius: RADII.eris,
+		spin: EARTH_DAY * 1.08,
+		surface: () => rockySurface('#ecebe8', '#d2cec8', 3, 29),
+	},
+	/** A 34 km long peanut, drawn about as large as Phobos. */
+	eros: {
+		...solarOrbit(1.458244, 1.761, 0.22288, [181.469, 10.829, 304.268, 123.186]),
+		build: rock([1.5, 0.52, 0.5], 17),
+		pole: ecliptic(17.24, 11.34),
+		radius: 0.0625 * 1.5,
+		spin: EARTH_DAY * 0.22,
+		surface: () => rockySurface('#b59a76', '#8a7458', 8, 101),
+	},
 	europa: {
 		build: globe({ rim: ['#ffffff', '#26356e', 0.15], shade: shadowOf('jupiter') }),
 		distance: RADII.jupiter * 9.39 * JOVIAN_SPREAD,
@@ -324,6 +383,15 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		radius: RADII.ganymede,
 		spin: 'locked',
 		surface: () => rockySurface('#9c8f80', '#6b6157', 5, 37),
+	},
+	/** The nucleus, 15 km long and darker than coal. Its orbit is tilted 162°, it goes around the Sun backward. */
+	halley: {
+		...solarOrbit(17.929, 75.915, 0.96794, [237.231, 162.191, 59.099, 171.34]),
+		build: rock([1.2, 0.66, 0.66], 13),
+		comet: true,
+		radius: 0.04 * 1.2,
+		spin: EARTH_DAY * 2.2,
+		surface: () => rockySurface('#4f4945', '#2f2b29', 6, 97),
 	},
 	io: {
 		build: globe({ shade: shadowOf('jupiter') }),
@@ -432,6 +500,14 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		shownWith: 'saturn',
 		spin: 0,
 	},
+	/** Near its closest now, 76 AU out in 2076, then off on an orbit reaching past 900 AU. */
+	sedna: {
+		...solarOrbit(543.72, 12678.6, 0.85988, [93.45, 11.925, 144.506, 95.605]),
+		build: globe(),
+		radius: RADII.sedna,
+		spin: EARTH_DAY * 0.428,
+		surface: () => rockySurface('#b8613f', '#8c4530', 4, 23),
+	},
 	titan: {
 		/** Its upper haze scatters blue light, a pale blue glow spills past the orange disc. */
 		build: globe({ haze: ['#9fc0ff', 0.05, 0.75], rim: ['#a9c8ff', '#2c3f7a', 0.45], shade: shadowOf('saturn') }),
@@ -514,6 +590,7 @@ export class Body {
 	/** Position in the orbit's reference frame, around the parent. */
 	readonly #local = new Vector3();
 	readonly #start: number;
+	readonly #tail: CometTail | null;
 	readonly #toParent = new Vector3();
 	/** Inverse of the group's rotation, to read the way to the parent in a locked moon's own axes. */
 	readonly #unturn: Quaternion;
@@ -536,6 +613,8 @@ export class Body {
 		else if (look.pole) this.group.quaternion.setFromUnitVectors(UP, look.pole);
 		this.#unturn = this.group.quaternion.clone().invert();
 		this.group.add(this.mesh, this.flash);
+		this.#tail = look.comet ? new CometTail(this.reveal) : null;
+		if (this.#tail) this.group.add(this.#tail);
 		this.group.visible = shown;
 		this.flash.scale.setScalar(0);
 		this.reveal.value = discovered ? 1 : 0;
@@ -560,6 +639,7 @@ export class Body {
 			const toParent = this.#toParent.copy(parent).sub(this.group.position).applyQuaternion(this.#unturn);
 			this.mesh.rotation.y = Math.atan2(-toParent.z, toParent.x);
 		} else if (look.spin) this.mesh.rotation.y = (time / look.spin) * TURN;
+		this.#tail?.update(this.group.position, this.#unturn);
 		if (this.orbit instanceof OrbitLine) this.orbit.position.copy(this.orbit.anchor(this.#local)).applyQuaternion(this.#frame).add(parent);
 		else this.orbit?.position.copy(parent);
 		/** A body not in the sky yet casts no shadow. */

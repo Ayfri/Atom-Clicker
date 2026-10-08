@@ -1,6 +1,6 @@
 # Unreleased
 
-- **The Cosmos**: Your first Ionize opens a 3D sky above the realms, where you rediscover the planets and moons in the order astronomers did, from the naked eye to Pluto, while nebulae, Andromeda and ever fainter stars fill the sky as your sight sharpens. Every find radiates Starlight and boosts the rest of the game.
+- **The Cosmos**: Your first Ionize opens a 3D sky above the realms, where you rediscover planets, moons, Halley's Comet, nebulae and the dwarf planets past Neptune in the order astronomers did, from the naked eye to Eris, while ever fainter stars fill the sky as your sight sharpens. Every find radiates Starlight and boosts the rest of the game.
 - **Quark Shop**: A Cosmos banner for the leaderboard.
 - **Achievements**: New achievements for your Cosmos discoveries, instruments, studies and Starlight.
 - **Daily Quests**: Two Cosmos quests, gather Starlight and study objects.

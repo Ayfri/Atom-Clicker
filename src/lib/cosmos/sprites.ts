@@ -1,11 +1,11 @@
 import { color, float, fract, instancedBufferAttribute, length, oneMinus, pow, saturate, sin, smoothstep, time, uv } from 'three/tsl';
-import { AdditiveBlending, Color, InstancedBufferAttribute, MathUtils, type PerspectiveCamera, PointsNodeMaterial, Sprite, SpriteNodeMaterial } from 'three/webgpu';
+import { AdditiveBlending, Color, InstancedBufferAttribute, MathUtils, type Node, type PerspectiveCamera, PointsNodeMaterial, Sprite, SpriteNodeMaterial } from 'three/webgpu';
 import type { Body } from './bodies.js';
 import { realism } from './shading.js';
 
 const radial = () => length(uv().sub(0.5)).mul(2);
 
-export function glowSprite(tint: string, falloff: number, strength: number) {
+export function glowSprite(tint: string, falloff: number, strength: number | Node<'float'>) {
 	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
 	material.colorNode = color(tint).mul(pow(saturate(oneMinus(radial())), falloff)).mul(strength);
 	return new Sprite(material);
