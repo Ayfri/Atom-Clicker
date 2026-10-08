@@ -8,12 +8,13 @@
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
 	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import FillLine from '#components/ui/FillLine.svelte';
-	import { Aperture, ChevronDown, ChevronRight, List, RotateCcw, Telescope, X } from '@lucide/svelte';
+	import { Aperture, ChevronDown, ChevronRight, Contrast, List, Orbit, RotateCcw, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { cubicInOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -26,8 +27,15 @@
 		y: number;
 	}
 
+	interface CosmosView {
+		orbits: boolean;
+		realistic: boolean;
+	}
+
 	/** The followed object survives reloads of the tab, the view reopens on it. */
 	const FOCUS_KEY = 'cosmos-focus';
+	/** The orbit lines and the lighting are kept per device. */
+	const VIEW_KEY = 'cosmos-view';
 	const wide = new MediaQuery('(min-width: 768px)');
 
 	let arrow = $state<HTMLElement>();
@@ -56,6 +64,7 @@
 				limit: untrack(() => cosmosManager.limit),
 				live: tools?.liveSurfaces(focus),
 				onDiscover: id => cosmosManager.discover(id),
+				...getJSON<CosmosView>(VIEW_KEY, { orbits: true, realistic: false }),
 				timestamps: dev,
 			});
 			if (disposed) return instance.dispose();
@@ -105,6 +114,10 @@
 
 	$effect(() => {
 		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
+	});
+
+	$effect(() => {
+		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
 	});
 
 	/** Phones have room for one sheet, the object's own panel replaces the list. */
@@ -184,7 +197,24 @@
 			{/if}
 		</div>
 		{#if scene}
-			<div class="pointer-events-auto flex gap-2">
+			<!-- Wraps to a second row on narrow phones instead of pushing the Starlight counter off screen. -->
+			<div class="pointer-events-auto flex flex-wrap justify-end gap-2">
+				{#snippet viewToggle(on: boolean, label: string, toggle: () => void, Icon: typeof Orbit)}
+					<button
+						class={[
+							'grid size-9 place-items-center rounded-lg border border-accent-500/30 backdrop-blur-xs transition-colors hover:bg-accent-800',
+							on ? 'bg-accent-600 text-white' : 'bg-accent-900/80 text-accent-300',
+						]}
+						aria-label={label}
+						aria-pressed={on}
+						onclick={toggle}
+						title={label}
+					>
+						<Icon size={16} />
+					</button>
+				{/snippet}
+				{@render viewToggle(scene.orbits, 'Orbits', () => scene?.setOrbits(!scene.orbits), Orbit)}
+				{@render viewToggle(scene.realistic, 'Realistic lighting', () => scene?.setRealistic(!scene.realistic), Contrast)}
 				<button
 					class={[
 						'flex items-center gap-1.5 rounded-lg border border-accent-500/30 px-3 py-2 text-xs font-semibold backdrop-blur-xs transition-colors hover:bg-accent-800 disabled:opacity-40',

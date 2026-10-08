@@ -18,6 +18,7 @@ import {
 	length,
 	luminance,
 	max,
+	min,
 	mix,
 	modelPosition,
 	mx_fractal_noise_float,
@@ -68,6 +69,7 @@ import {
 	PerspectiveCamera,
 	PlaneGeometry,
 	PointsNodeMaterial,
+	Quaternion,
 	RenderPipeline,
 	RenderTarget,
 	RepeatWrapping,
@@ -108,6 +110,10 @@ interface CosmosOptions {
 	live?: readonly string[];
 	/** Called once the signal is fully resolved, as the object starts condensing. */
 	onDiscover: (id: string) => void;
+	/** Starts with the orbit lines drawn, see `setOrbits`. */
+	orbits: boolean;
+	/** Starts in the realistic lighting, see `setRealistic`. */
+	realistic: boolean;
 	/** Records the GPU time of every render pass, which the benchmark reads. */
 	timestamps?: boolean;
 }
@@ -137,7 +143,11 @@ const SKY_DISTANCE = 1800;
 /** Seconds per turn, compressed so the system visibly moves without turning days into a blur. */
 const EARTH_YEAR = 720;
 const EARTH_DAY = 40;
-const AXIAL_TILT = 0.41;
+/** The realistic lighting also runs the clock twenty times slower: a day takes 13 minutes, a year 4 hours. */
+const REALISTIC_PACE = 0.05;
+/** 2000-01-01 12:00, the epoch of the orbital elements: the planets start where they are in the real sky today. */
+const J2000 = Date.UTC(2000, 0, 1, 12);
+const DAY_MS = 86_400_000;
 /** Objects past the naked eye era are too faint to resolve with a wider field of view, the player has to zoom in on them. */
 const REFRACTOR_FOV = 25;
 /** Smallest angle between a target and the Sun, closer ones are waited out so the player never observes into the glare. */
@@ -157,21 +167,36 @@ const SIGNAL_SIZE = 44;
 const ZOOM_EASE = 9;
 const STAR_COUNT = 3500;
 const UP = new Vector3(0, 1, 0);
-/** The galactic plane is tilted against the solar system's, the star band and the Milky Way dome share it. */
-const GALAXY_AXIS = new Vector3(1, 0, 0.3).normalize();
-const GALAXY_TILT = 1.05;
-const GALAXY_NORMAL = UP.clone().applyAxisAngle(GALAXY_AXIS, GALAXY_TILT);
-const GALAXY_CORE = new Vector3(1, 0, 0).applyAxisAngle(GALAXY_AXIS, GALAXY_TILT);
+
+/**
+ * Scene direction of an ecliptic longitude and latitude in degrees. The orbits lie in the ecliptic, +y is its north and longitude 0,
+ * the vernal equinox, is +x, longitudes grow counterclockwise seen from the north like the planets move.
+ */
+const ecliptic = (longitude: number, latitude: number) => {
+	const [l, b] = [longitude * MathUtils.DEG2RAD, latitude * MathUtils.DEG2RAD];
+	return new Vector3(Math.cos(b) * Math.cos(l), Math.sin(b), -Math.cos(b) * Math.sin(l));
+};
+
+/** The Earth's north pole, also the sky's: deep-sky objects are turned against it, the way their position angles are measured. */
+const EARTH_POLE = ecliptic(90, 66.56);
+/** The galactic plane crosses the ecliptic at 60°, its center in Sagittarius lies just south of the ecliptic, where the Sun passes in December. */
+const GALAXY_NORMAL = ecliptic(180.02, 29.81);
+const GALAXY_CORE = ecliptic(266.84, -5.54);
+/** Galactic longitude 90°, where the Sun heads on its own orbit around the galaxy. */
+const GALAXY_HEADING = GALAXY_NORMAL.clone().cross(GALAXY_CORE);
 /** Faint stars past the naked eye's reach, one dot each, they fill in one magnitude at a time past the bright field. */
 const FAINT_STAR_COUNT = 14_000;
 const FAINT_STAR_MAGNITUDES = [8, 17] as const;
 /** Between the stars and the Milky Way dome, so the stars draw over the nebulae. */
 const DEEP_SKY_DISTANCE = 1650;
 
-/** Sky direction of a galactic longitude and latitude in degrees, the same frame the Milky Way is drawn in, right-handed like the real one. */
+/** Sky direction of a galactic longitude and latitude in degrees. */
 const galactic = (longitude: number, latitude: number) => {
 	const [l, b] = [longitude * MathUtils.DEG2RAD, latitude * MathUtils.DEG2RAD];
-	return new Vector3(Math.cos(b) * Math.cos(l), Math.sin(b), -Math.cos(b) * Math.sin(l)).applyAxisAngle(GALAXY_AXIS, GALAXY_TILT);
+	return GALAXY_CORE.clone()
+		.multiplyScalar(Math.cos(b) * Math.cos(l))
+		.addScaledVector(GALAXY_HEADING, Math.cos(b) * Math.sin(l))
+		.addScaledVector(GALAXY_NORMAL, Math.sin(b));
 };
 
 const easeInOut = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
@@ -183,6 +208,34 @@ const toSun = positionWorld.negate().normalize();
 const sunFacing = dot(normalWorld, toSun);
 const fresnel = invert(saturate(dot(normalView, positionViewDirection)));
 const surfacePoint = positionLocal.normalize();
+
+/** 0 for the cartoon lighting, 1 for the realistic one, eased in between so a switch cross-fades. */
+const realism = uniform(0);
+/**
+ * Squared distance from the Sun the view is exposed for. Sunlight falls off with the square of the distance, Neptune gets 1/900 of
+ * the Earth's, so the exposure adapts to the body in view like a camera: a far planet reads once visited, dim seen from the Earth.
+ */
+const exposure = uniform(EARTH_ORBIT ** 2);
+/** Sunlight of the realistic lighting against the exposure, capped so an inner planet seen from far out doesn't burn white. */
+const sunlight = min(exposure.div(dot(positionWorld, positionWorld)), 3);
+/** How much the Sun or a sunlit body in view dazzles, 0 to 1, see `#adaptToGlare`. */
+const glare = uniform(0);
+/**
+ * Share of the sky's light left in the realistic lighting: eyes and cameras set for the Sun or a sunlit body lose every star, why
+ * the sky is black on the Apollo photos. Only a view away from both shows the stars and the Milky Way.
+ */
+const darkSky = invert(realism.mul(glare));
+
+/**
+ * Diffuse sunlight of the realistic lighting. Airless dusty ground scatters light back toward the Sun (Lommel-Seeliger), blended
+ * in by `regolith` like the lunar-Lambert model: a full Moon is a flat disc, not a shaded ball.
+ */
+function diffuse(regolith = 0) {
+	const incidence = max(sunFacing, 0);
+	if (!regolith) return incidence;
+	const emission = max(dot(normalWorld, cameraPosition.sub(positionWorld).normalize()), 0);
+	return mix(incidence, incidence.mul(2).div(max(incidence.add(emission), 1e-3)), regolith);
+}
 
 /** A soft edge between two flat color areas, wide enough that regions blend instead of switching abruptly. */
 const edge = (at: number, value: Node<'float'>, width = 0.04) => smoothstep(at - width, at + width, value);
@@ -242,7 +295,8 @@ function earthMaterial(surface: Node<'vec3'>, masks: Node<'vec3'>) {
 	const halfwaySum = toSun.add(cameraPosition.sub(positionWorld).normalize());
 	const halfway = halfwaySum.div(max(length(halfwaySum), 1e-4));
 	const highlight = edge(0.985, dot(normalWorld, halfway), 0.01).mul(invert(land)).mul(0.35);
-	const day = surface.mul(smoothstep(-0.1, 0.55, sunFacing).mul(0.7).add(0.3)).add(highlight);
+	const cartoon = surface.mul(smoothstep(-0.1, 0.55, sunFacing).mul(0.7).add(0.3)).add(highlight);
+	const day = mix(cartoon, surface.mul(diffuse()).add(highlight).mul(sunlight), realism);
 	/**
 	 * Day and night are two palettes cross-faded on the Sun angle, like three.js' `webgpu_tsl_earth` example: scaling the day
 	 * colors down instead turned green coasts black and sand yellow on the night side.
@@ -254,7 +308,7 @@ function earthMaterial(surface: Node<'vec3'>, masks: Node<'vec3'>) {
 	const lit = mix(night, dusk.mul(eclipse(['moon'])), smoothstep(-0.2, 0.4, sunFacing));
 	const atmosphereMix = saturate(smoothstep(-0.5, 1, sunFacing).mul(pow(fresnel, 2)).mul(sunsetDimming(sunFacing)).mul(0.7));
 	const material = new MeshBasicNodeMaterial();
-	material.colorNode = mix(lit, atmosphereTint(sunFacing), atmosphereMix).add(outline('#8fd3ff', '#26356e').mul(0.5));
+	material.colorNode = mix(lit, atmosphereTint(sunFacing).mul(mix(1, sunlight, realism)), atmosphereMix).add(outline('#8fd3ff', '#26356e').mul(invert(realism).mul(0.5)));
 	return material;
 }
 
@@ -270,7 +324,7 @@ function atmosphereMaterial() {
 	const facing = dot(normalWorldGeometry, toSun);
 	const shellFresnel = invert(abs(dot(normalView, positionViewDirection)));
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide, transparent: true });
-	material.colorNode = atmosphereTint(facing);
+	material.colorNode = atmosphereTint(facing).mul(mix(1, sunlight, realism));
 	material.opacityNode = pow(remapClamp(shellFresnel, 0.73, 1, 1, 0), 3).mul(smoothstep(-0.5, 1, facing)).mul(sunsetDimming(facing));
 	return material;
 }
@@ -290,7 +344,9 @@ function cloudMaterial(cover: (offset: Node<'vec2'>) => Node<'float'>) {
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, transparent: true });
 	/** A faint moonlit blue on the night side, at the ground's 2-3% floor the clouds vanished there and only showed against the Sun's glow. */
 	const night = invert(smoothstep(-0.12, 0.08, sunFacing));
-	material.colorNode = color('#ffffff').mul(toon(sunFacing, 0)).add(color('#7d8fb8').mul(night).mul(0.09));
+	material.colorNode = color('#ffffff')
+		.mul(mix(toon(sunFacing, 0), diffuse().mul(sunlight), realism))
+		.add(color('#7d8fb8').mul(night).mul(invert(realism).mul(0.09)));
 	/** Thinner on the night side, so city lights show through. */
 	material.opacityNode = density.mul(smoothstep(-0.3, 0.1, sunFacing).mul(0.45).add(0.4));
 	return material;
@@ -322,10 +378,15 @@ function bodyMaterial(reveal: Node<'float'>, albedo: Node<'vec3'>, [rimLit, rimN
 	 * Shadows only dim the sunlight: on the 2% night floor and the night outline they printed the shadow's line through the planet a
 	 * second time, on its night side. On the lit limb band they leave no bright ring around a moon in shadow.
 	 */
-	const sunlit = albedo.mul(toon(sunFacing, 0).mul(shade).add(0.02)).mul(limbDarkening);
-	const lit = glow ? sunlit.add(albedo.mul(glow()).mul(detail).mul(invert(smoothstep(-0.12, 0.08, sunFacing)))) : sunlit;
+	const cartoon = toon(sunFacing, 0).mul(shade).add(0.02);
+	/** Black at night, airless bodies get the lunar-Lambert backscatter and thick atmospheres keep their limb darkening alone. */
+	const realistic = diffuse(limb ? 0 : 0.7).mul(shade).mul(sunlight);
+	const sunlit = albedo.mul(mix(cartoon, realistic, realism)).mul(limbDarkening);
+	const night = invert(smoothstep(-0.12, 0.08, sunFacing));
+	const lit = glow ? sunlit.add(albedo.mul(glow()).mul(detail).mul(night).mul(mix(1, sunlight, realism))) : sunlit;
 	const material = new MeshBasicNodeMaterial();
-	material.colorNode = condense(lit.add(outline(rimLit, rimNight, shade).mul(strength)), reveal);
+	/** The limb bands are drawn outlines, the realistic lighting drops them. */
+	material.colorNode = condense(lit.add(outline(rimLit, rimNight, shade).mul(invert(realism).mul(strength))), reveal);
 	return material;
 }
 
@@ -618,8 +679,9 @@ function uranusRingMaterial(reveal: Node<'float'>) {
 		return max(cover, invert(smoothstep(width.mul(0.5), width, abs(radius.sub(at)))).mul(float(half).div(width)));
 	}, float(0));
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: DoubleSide, transparent: true });
-	/** Darker than coal in truth, lifted to a dim grey so they read against space at all. */
-	material.colorNode = condense(color('#a3a9b2').mul(invert(planetShadow(URANUS_RADIUS).mul(0.85))), reveal);
+	/** Darker than coal in truth, lifted to a dim grey so they read against space at all, a darker one in the realistic lighting. */
+	const light = invert(planetShadow(URANUS_RADIUS).mul(0.85)).mul(mix(1, sunlight.mul(0.35), realism));
+	material.colorNode = condense(color('#a3a9b2').mul(light), reveal);
 	material.opacityNode = rings.mul(0.85);
 	return material;
 }
@@ -634,7 +696,10 @@ function ringMaterial(reveal: Node<'float'>) {
 	const ringlets = mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.5).add(0.5);
 	/** Water ice, a light grey with a faint warm cast, the dusty C ring darker than the bright B ring. */
 	const ice = mix(color('#a9a59d'), color('#e2dfd8'), mix(0.5, ringlets, reveal)).mul(mix(0.7, 1, smoothstep(1.45, 1.6, radius)));
-	const lit = ice.mul(0.92).mul(invert(shadow.mul(0.85)));
+	/** Seen from the side away from the Sun, the rings only pass the light filtering through them and turn dark. */
+	const normal = vec3(SATURN_POLE.x, SATURN_POLE.y, SATURN_POLE.z);
+	const sunSide = step(0, dot(toSun, normal).mul(dot(cameraPosition.sub(positionWorld), normal)));
+	const lit = ice.mul(0.92).mul(invert(shadow.mul(0.85))).mul(mix(1, sunlight.mul(mix(0.25, 1, sunSide)), realism));
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: DoubleSide, transparent: true });
 	/** Peaks halfway through the reveal, the rings already exist so they flare cyan instead of condensing from it. */
 	material.colorNode = mix(lit, color('#8ff5ff').mul(3), reveal.mul(invert(reveal)).mul(4));
@@ -671,8 +736,7 @@ function saturnSurface() {
 
 /** Where the rings shade Saturn: the way to the Sun crosses the ring plane inside the rings. */
 function ringShadow() {
-	const normal = UP.clone().applyAxisAngle(new Vector3(0, 0, 1), SATURN_TILT);
-	const ringNormal = vec3(normal.x, normal.y, normal.z);
+	const ringNormal = vec3(SATURN_POLE.x, SATURN_POLE.y, SATURN_POLE.z);
 	const toCenter = modelPosition.sub(positionWorld);
 	const distance = dot(toCenter, ringNormal).div(dot(toSun, ringNormal).add(1e-5));
 	const crossing = positionWorld.add(toSun.mul(distance)).sub(modelPosition);
@@ -791,7 +855,8 @@ function asteroidBelt(reveal: Node<'float'>) {
 	material.sizeNode = float(2);
 	/** Dots keep their pixel size at any distance, so far away they would pile up into a bright band: they dim to half instead. */
 	const distant = smoothstep(EARTH_ORBIT, EARTH_ORBIT * 6, length(rock.sub(cameraPosition)));
-	material.colorNode = color('#a4a4a8').mul(mix(0.45, 0.22, distant)).mul(reveal);
+	/** Single rocks are far too small to see in truth, the realistic lighting keeps them as a faint dust. */
+	material.colorNode = color('#a4a4a8').mul(mix(0.45, 0.22, distant)).mul(mix(1, 0.5, realism)).mul(darkSky).mul(reveal);
 	material.opacityNode = invert(smoothstep(0.2, 0.5, length(uv().sub(0.5))));
 	const belt = new Sprite(material);
 	belt.count = BELT_ROCKS;
@@ -814,7 +879,7 @@ function lumpyGeometry(radius: number, [x, y, z]: readonly [number, number, numb
 }
 
 interface DeepSkyObject {
-	/** Position angle of the long axis, in degrees. */
+	/** Position angle of the drawing's +x axis, its long axis, in degrees from the sky's north through east. */
 	angle: number;
 	/** Glow from the plane's coordinates, -1 to 1 on both axes. */
 	draw: (p: Node<'vec2'>) => Node<'vec3'>;
@@ -843,7 +908,7 @@ const blob = (p: Node<'vec2'>, [x, y]: readonly [number, number], stretch: reado
 const DEEP_SKY: DeepSkyObject[] = [
 	{
 		/** Andromeda, 2.5 million light years away: a bright bulge, a tilted disc crossed by dust lanes, and its companions M32 and M110. */
-		angle: 35,
+		angle: 215,
 		at: [121.17, -21.57],
 		draw: p => {
 			const disc = exp(length(p).mul(-3.2));
@@ -883,8 +948,11 @@ const DEEP_SKY: DeepSkyObject[] = [
 		size: [1.6, 0.8],
 	},
 	{
-		/** The Eagle Nebula, with the Pillars of Creation: three columns of dust rising into the glow, the left one the tallest. */
-		angle: 0,
+		/**
+		 * The Eagle Nebula, with the Pillars of Creation: three columns of dust rising into the glow, the left one the tallest, their
+		 * heads toward the stars of NGC 6611 to the northwest that carve them.
+		 */
+		angle: 225,
 		at: [16.95, 0.79],
 		draw: p => {
 			const pillars = (
@@ -938,11 +1006,14 @@ function deepSky(limit: Node<'float'>) {
 		const material = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
 		material.colorNode = draw(p)
 			.mul(invert(smoothstep(0.75, 1, max(abs(p.x), abs(p.y)))))
-			.mul(smoothstep(magnitude - 0.3, magnitude + 1.5, limit));
+			.mul(smoothstep(magnitude - 0.3, magnitude + 1.5, limit))
+			.mul(darkSky);
 		const mesh = new Mesh(new PlaneGeometry(span(size[0]), span(size[1])), material);
 		mesh.position.copy(galactic(...at)).multiplyScalar(DEEP_SKY_DISTANCE);
+		mesh.up.copy(EARTH_POLE);
 		mesh.lookAt(ORIGIN);
-		mesh.rotateZ(angle * MathUtils.DEG2RAD);
+		/** Seen from inside the sky with north up, +x points west, a position angle of 270°, and angles turn counterclockwise. */
+		mesh.rotateZ((angle + 90) * MathUtils.DEG2RAD);
 		return { magnitude, mesh };
 	});
 }
@@ -967,7 +1038,7 @@ function faintStars(limit: Node<'float'>) {
 	material.sizeNode = float(2);
 	/** Dimmer the fainter, the brightest of them stay under the faintest of the bright field. */
 	const glow = mix(0.45, 0.18, star.w.sub(brightest).div(faintest - brightest));
-	material.colorNode = color('#dfe6ff').mul(glow).mul(smoothstep(star.w.sub(0.3), star.w.add(0.7), limit));
+	material.colorNode = color('#dfe6ff').mul(glow).mul(smoothstep(star.w.sub(0.3), star.w.add(0.7), limit)).mul(darkSky);
 	material.opacityNode = invert(smoothstep(0.15, 0.5, length(uv().sub(0.5))));
 	const stars = new Sprite(material);
 	stars.count = FAINT_STAR_COUNT;
@@ -1022,7 +1093,11 @@ function coronaSprite(right: Node<'vec3'>, up: Node<'vec3'>, rays: Node<'float'>
 	const ring = invert(smoothstep(0, max(fwidth(radius).mul(1.5), 0.05), abs(radius.sub(1.35)))).mul(0.12);
 	const fade = invert(smoothstep(CORONA_REACH * 0.7, CORONA_REACH, radius));
 	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
-	material.colorNode = mix(color('#ffe6bd'), color('#fff8ec'), inner).mul(inner.mul(0.55).add(streamers.mul(0.22)).add(ring)).mul(fade);
+	/** The corona only shows during a total eclipse in truth, the realistic lighting fades it out. */
+	material.colorNode = mix(color('#ffe6bd'), color('#fff8ec'), inner)
+		.mul(inner.mul(0.55).add(streamers.mul(0.22)).add(ring))
+		.mul(fade)
+		.mul(invert(realism));
 	const sprite = new Sprite(material);
 	sprite.scale.setScalar(SUN_RADIUS * CORONA_REACH * 2);
 	return sprite;
@@ -1031,11 +1106,14 @@ function coronaSprite(right: Node<'vec3'>, up: Node<'vec3'>, rays: Node<'float'>
 /** Faint Milky Way: a noisy band with dust lanes and a dim warm core, kept well below the stars so space stays dark. */
 function milkyWay() {
 	const latitude = dot(surfacePoint, vec3(GALAXY_NORMAL.x, GALAXY_NORMAL.y, GALAXY_NORMAL.z));
-	const band = exp(latitude.mul(latitude).mul(-48));
+	const toward = dot(surfacePoint, vec3(GALAXY_CORE.x, GALAXY_CORE.y, GALAXY_CORE.z));
+	/** Seen edge-on from inside the disc: brightest and thickest toward the center in Sagittarius, faint toward the anticenter in Taurus. */
+	const band = exp(latitude.mul(latitude).mul(mix(-48, -22, pow(saturate(toward), 4))));
+	const depth = mix(0.45, 1, pow(toward.mul(0.5).add(0.5), 1.5));
 	const clouds = mx_fractal_noise_float(surfacePoint.mul(4), 3, 2, 0.5).mul(0.5).add(0.6);
 	const dust = smoothstep(0, 0.3, mx_fractal_noise_float(surfacePoint.mul(8).add(4), 3, 2, 0.5)).mul(exp(latitude.mul(latitude).mul(-250)));
-	const density = saturate(band.mul(clouds).mul(invert(dust.mul(0.7))));
-	const coreGlow = pow(saturate(dot(surfacePoint, vec3(GALAXY_CORE.x, GALAXY_CORE.y, GALAXY_CORE.z))), 10).mul(band);
+	const density = saturate(band.mul(clouds).mul(depth).mul(invert(dust.mul(0.7))));
+	const coreGlow = pow(saturate(toward), 10).mul(band);
 	return mix(color('#17151f'), color('#3a3447'), density)
 		.mul(density)
 		.mul(0.36)
@@ -1045,7 +1123,7 @@ function milkyWay() {
 /** The Milky Way rises out of the dark in the second half of the sight. */
 function milkyWayDome(albedo: Node<'vec3'>, sight: Node<'float'>) {
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide });
-	material.colorNode = albedo.mul(smoothstep(0.3, 1, sight));
+	material.colorNode = albedo.mul(smoothstep(0.3, 1, sight)).mul(darkSky);
 	const sky = new Mesh(new SphereGeometry(SKY_DISTANCE, 64, 32), material);
 	sky.renderOrder = -1;
 	return sky;
@@ -1120,33 +1198,34 @@ function starField(sight: Node<'float'>) {
 		[1, 0.94, 0.8],
 		[1, 0.8, 0.6],
 	];
-	const point = new Vector3();
 	for (let i = 0; i < STAR_COUNT; i++) {
 		const inBand = Math.random() < 0.5;
-		const longitude = Math.random() * Math.PI * 2;
-		const latitude = inBand
-			? (Math.random() + Math.random() + Math.random() - 1.5) * 0.2
-			: Math.asin(Math.random() * 2 - 1);
-		point.set(Math.cos(latitude) * Math.cos(longitude), Math.sin(latitude), Math.cos(latitude) * Math.sin(longitude));
-		point.applyAxisAngle(GALAXY_AXIS, GALAXY_TILT).multiplyScalar(STAR_DISTANCE);
+		const latitude = inBand ? (Math.random() + Math.random() + Math.random() - 1.5) * 11.5 : Math.asin(Math.random() * 2 - 1) * MathUtils.RAD2DEG;
+		const point = galactic(Math.random() * 360, latitude).multiplyScalar(STAR_DISTANCE);
 		data.set([point.x, point.y, point.z, 1 + Math.random() ** 6 * 2.6], i * 4);
 		tints.set(palette[Math.floor(Math.random() * palette.length)], i * 3);
 	}
 	const star = instancedBufferAttribute<'vec4'>(new InstancedBufferAttribute(data, 4), 'vec4');
 	const tint = instancedBufferAttribute<'vec3'>(new InstancedBufferAttribute(tints, 3), 'vec3');
-	const twinkle = sin(time.mul(star.w.mul(1.3).add(0.5)).add(star.x.mul(0.37))).mul(0.2).add(0.85);
-	/** The ~2% brightest stars get a bigger sprite with a faint four-point sparkle, the rest stay round dots. */
-	const sparkle = smoothstep(3.2, 3.4, star.w);
+	/** Twinkling is the Earth's air bending starlight, out in space the realistic lighting holds them steady. */
+	const twinkle = mix(sin(time.mul(star.w.mul(1.3).add(0.5)).add(star.x.mul(0.37))).mul(0.2).add(0.85), 0.85, realism);
+	/**
+	 * The ~2% brightest stars get a bigger sprite with a faint four-point sparkle, the rest stay round dots. In the realistic lighting
+	 * every star is a pinpoint without spikes, they only differ by brightness.
+	 */
+	const sparkle = smoothstep(3.2, 3.4, star.w).mul(invert(realism));
 	const offset = uv().sub(0.5);
 	const disc = invert(smoothstep(0.08, 0.18, length(offset).mul(mix(1, 3, sparkle))));
 	const ray = (along: Node<'float'>, across: Node<'float'>) =>
 		invert(smoothstep(0, 0.025, abs(across))).mul(invert(smoothstep(0.03, 0.45, abs(along)))).mul(0.6);
 	const material = new PointsNodeMaterial({ blending: AdditiveBlending, depthWrite: false, sizeAttenuation: false, transparent: true });
 	material.positionNode = star.xyz;
-	material.sizeNode = star.w.mul(mix(1.8, 6, sparkle));
+	material.sizeNode = star.w.mul(mix(mix(1.8, 6, sparkle), 1.3, realism));
 	/** A star shows once the sight reaches its brightness: the brightest ~8% from the start, the faint majority last. */
 	const seen = smoothstep(mix(2.5, 0.7, sight), mix(2.8, 1, sight), star.w);
-	material.colorNode = tint.mul(twinkle).mul(star.w.mul(0.3).add(0.35)).mul(seen);
+	/** Real brightness spreads far wider than the cartoon's: a handful stand out, most are barely there. */
+	const brightness = mix(star.w.mul(0.3).add(0.35), pow(star.w.div(3.6), 3).mul(1.6), realism);
+	material.colorNode = tint.mul(twinkle).mul(brightness).mul(seen).mul(darkSky);
 	material.opacityNode = max(disc,ray(offset.x, offset.y).add(ray(offset.y, offset.x)).mul(sparkle));
 	const stars = new Sprite(material);
 	stars.count = STAR_COUNT;
@@ -1155,70 +1234,112 @@ function starField(sight: Node<'float'>) {
 }
 
 /**
- * An ellipse with the Sun at a focus, `perihelion` the angle of its closest point. Its chords stray under 0.02 from the curve, at a
- * fixed 256 the line missed Pluto by twice its radius.
+ * Keplerian elements, angles in radians, against the ecliptic around the Sun and the Earth and against the planet's equator around
+ * the other planets.
  */
+interface Orbit {
+	/** Real sidereal period in days, which carries `phase` from J2000 to today. Without it the scene starts on `phase`. */
+	days?: number;
+	/** Semi-major axis. */
+	distance: number;
+	eccentricity?: number;
+	inclination?: number;
+	/** Longitude of the ascending node, where the orbit climbs through its reference plane. */
+	node?: number;
+	/** Seconds per orbit. */
+	period: number;
+	/** Longitude of the closest point, counted along the reference plane to the node, then along the orbit. */
+	perihelion?: number;
+	/** Mean longitude at J2000. */
+	phase: number;
+}
+
+/** Point of an orbit at a true anomaly, in its reference frame. */
+function orbitPoint({ distance, eccentricity = 0, inclination = 0, node = 0, perihelion = 0 }: Orbit, anomaly: number, out: Vector3) {
+	const reach = (distance * (1 - eccentricity ** 2)) / (1 + eccentricity * Math.cos(anomaly));
+	/** Angle from the ascending node along the orbit. */
+	const fromNode = anomaly + perihelion - node;
+	const [x, y] = [Math.cos(fromNode) * reach, Math.sin(fromNode) * reach * Math.cos(inclination)];
+	return out.set(Math.cos(node) * x - Math.sin(node) * y, Math.sin(fromNode) * reach * Math.sin(inclination), -(Math.sin(node) * x + Math.cos(node) * y));
+}
+
+/** Axis of an orbit, in its reference frame. */
+const orbitNormal = ({ inclination = 0, node = 0 }: Orbit) =>
+	new Vector3(Math.sin(inclination) * Math.sin(node), Math.cos(inclination), Math.sin(inclination) * Math.cos(node));
+
+/** True anomaly at a mean longitude, Kepler's equation by Newton's method: fast near the Sun, slow far out. */
+function trueAnomaly({ eccentricity = 0, perihelion = 0 }: Orbit, meanLongitude: number) {
+	const mean = meanLongitude - perihelion;
+	if (!eccentricity) return mean;
+	let eccentric = mean;
+	for (let i = 0; i < 4; i++) eccentric -= (eccentric - eccentricity * Math.sin(eccentric) - mean) / (1 - eccentricity * Math.cos(eccentric));
+	return 2 * Math.atan2(Math.sqrt(1 + eccentricity) * Math.sin(eccentric / 2), Math.sqrt(1 - eccentricity) * Math.cos(eccentric / 2));
+}
+
+/** Mean longitude when the scene opens: the real one of today for an orbit with its real period. */
+const startLongitude = ({ days, phase }: Orbit, sinceJ2000: number) => phase + (days ? (TURN * sinceJ2000) / days : 0);
+
+/** Fades every orbit line in and out with the orbits switch. */
+const orbitFade = uniform(1);
+
+/** An ellipse with its parent at a focus. Its chords stray under 0.02 from the curve, at a fixed 256 the line missed Pluto by twice its radius. */
 class OrbitLine extends Line<BufferGeometry, LineBasicNodeMaterial> {
 	readonly #anchor = new Vector3();
-	/** The vertices in double precision, around the Sun. */
+	/** The vertices in double precision, around the parent. */
 	readonly #points: Float64Array;
 
-	constructor(radius: number, tint: string, opacity: number, eccentricity = 0, perihelion = 0) {
-		const segments = Math.min(4096, Math.max(256, Math.ceil(Math.PI * Math.sqrt((radius * (1 + eccentricity)) / 0.04))));
+	constructor(orbit: Orbit, tint: string, opacity: number) {
+		const reach = orbit.distance * (1 + (orbit.eccentricity ?? 0));
+		const segments = Math.min(4096, Math.max(256, Math.ceil(Math.PI * Math.sqrt(reach / 0.04))));
 		const points = new Float64Array((segments + 1) * 3);
+		const point = new Vector3();
 		/** The WebGPU renderer has no LineLoop, the last point repeats the first to close the circle. */
 		for (let i = 0; i <= segments; i++) {
-			const angle = (i / segments) * TURN;
-			const reach = (radius * (1 - eccentricity ** 2)) / (1 + eccentricity * Math.cos(angle - perihelion));
-			points.set([Math.cos(angle) * reach, 0, Math.sin(angle) * reach], i * 3);
+			orbitPoint(orbit, (i / segments) * TURN, point);
+			points.set([point.x, point.y, point.z], i * 3);
 		}
 		const geometry = new BufferGeometry();
 		geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
-		super(geometry, new LineBasicNodeMaterial({ color: tint, depthWrite: false, opacity, transparent: true }));
+		super(geometry, new LineBasicNodeMaterial({ color: tint, depthWrite: false, transparent: true }));
+		this.material.opacityNode = orbitFade.mul(opacity);
 		this.#points = points;
 	}
 
 	/**
-	 * Moves the vertices' origin to a point of the orbit plane once the body is 50 units from the last one, and returns it. Thousands
-	 * of units out, float32 vertices are a thousandth off and the line shook beside a close-up Pluto.
+	 * Moves the vertices' origin to a point of the orbit once the body is 50 units from the last one, and returns it. Thousands of
+	 * units out, float32 vertices are a thousandth off and the line shook beside a close-up Pluto.
 	 */
-	anchor(x: number, z: number) {
-		if (Math.hypot(x - this.#anchor.x, z - this.#anchor.z) < 50) return this.#anchor;
-		this.#anchor.set(x, 0, z);
+	anchor(point: Vector3) {
+		if (point.distanceTo(this.#anchor) < 50) return this.#anchor;
+		const { x, y, z } = this.#anchor.copy(point);
 		const position = this.geometry.getAttribute('position');
-		for (let i = 0; i < position.count; i++) position.setXYZ(i, this.#points[i * 3] - x, 0, this.#points[i * 3 + 2] - z);
+		for (let i = 0; i < position.count; i++) position.setXYZ(i, this.#points[i * 3] - x, this.#points[i * 3 + 1] - y, this.#points[i * 3 + 2] - z);
 		position.needsUpdate = true;
 		this.geometry.computeBoundingSphere();
 		return this.#anchor;
 	}
 }
 
-interface BodyLook {
+interface BodyLook extends Orbit {
 	/** `sun`, `earth` or the id of the body it orbits. */
 	around: string;
 	/** `albedo` is the baked texture or the live `surface`. */
 	build: (reveal: Node<'float'>, albedo: Node<'vec3'>) => Mesh;
-	distance: number;
-	eccentricity?: number;
-	/** Orbit tilt in radians, its orbit line is tilted the same way. */
-	inclination?: number;
 	/** Drawn instead of the orbit line once discovered, centered on the parent. */
 	orbit?: (reveal: Node<'float'>) => Object3D;
-	/** Seconds per orbit. */
-	period: number;
-	/** Angle of the closest point of an eccentric orbit. */
-	perihelion?: number;
-	phase: number;
+	/**
+	 * The pole the body spins counterclockwise around, which is also the plane its moons orbit in. Venus', Uranus' and Pluto's point
+	 * below their orbits, they spin backward.
+	 */
+	pole?: Vector3;
 	/** Frames the discovery close-up, the outer edge for the rings. */
 	radius: number;
 	/** Drawn as soon as that body is in the sky, before its own discovery: Saturn never shows up without its rings. */
 	shownWith?: string;
-	/** Seconds per turn on itself, negative for a retrograde spin, 0 for none, `locked` to always show the same face to its parent. */
+	/** Seconds per turn on itself, 0 for none, `locked` to always show the same face to its parent. */
 	spin: number | 'locked';
 	/** Albedo from `surfacePoint`, baked into `static/cosmos/<id>.webp`. */
 	surface?: () => Node<'vec3'>;
-	/** Axial tilt in radians. */
-	tilt?: number;
 }
 
 const sphere = (radius: number, material: Material, detail = 64) => new Mesh(new SphereGeometry(radius, detail, Math.round(detail * 0.7)), material);
@@ -1233,7 +1354,7 @@ function hazeShell(radius: number, tint: string, reveal: Node<'float'>, strength
 	const facing = dot(normalWorldGeometry, toSun);
 	const shellFresnel = invert(abs(dot(normalView, positionViewDirection)));
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide, transparent: true });
-	material.colorNode = color(tint);
+	material.colorNode = color(tint).mul(mix(1, sunlight, realism));
 	material.opacityNode = pow(remapClamp(shellFresnel, 0.7, 1, 1, 0), 2).mul(smoothstep(-0.4, 0.8, facing)).mul(reveal).mul(strength);
 	return sphere(radius, material, 48);
 }
@@ -1250,23 +1371,46 @@ const hazyGlobe =
 	(radius: number, rim: Rim, segments: number, finish: Finish, [tint, thickness, strength]: readonly [string, number, number]) =>
 	(reveal: Node<'float'>, albedo: Node<'vec3'>) =>
 		globe(radius, rim, segments, undefined, finish)(reveal, albedo).add(highHaze(radius * (1 + thickness), tint, reveal, strength));
+/** Fast spinning giants bulge at the equator, Saturn's poles sit 10% closer to its center than its equator. */
+const oblate =
+	(flattening: number, build: BodyLook['build']): BodyLook['build'] =>
+	(reveal, albedo) => {
+		const body = build(reveal, albedo);
+		body.geometry.scale(1, 1 - flattening, 1);
+		return body;
+	};
 const planet = (earthRadii: number) => EARTH_RADIUS * earthRadii;
-/** Orbits in AU and years scale with the Earth's, so the planets keep their real spacing and pace. */
-const solarOrbit = (au: number, years: number, phase: number, inclinationDegrees: number) => ({
+const degrees = (value: number) => value * MathUtils.DEG2RAD;
+/**
+ * Orbits in AU and years scale with the Earth's, so the planets keep their real spacing and pace. Then JPL's J2000 elements in
+ * degrees: mean longitude, inclination, ascending node and perihelion longitude.
+ */
+const solarOrbit = (au: number, years: number, eccentricity: number, [phase, inclination, node, perihelion]: readonly [number, number, number, number]) => ({
 	around: 'sun',
+	days: years * 365.25,
 	distance: EARTH_ORBIT * au,
-	inclination: inclinationDegrees * MathUtils.DEG2RAD,
+	eccentricity,
+	inclination: degrees(inclination),
+	node: degrees(node),
 	period: EARTH_YEAR * years,
-	phase,
+	perihelion: degrees(perihelion),
+	phase: degrees(phase),
 });
+const EARTH_PATH: Orbit = solarOrbit(1, 1, 0.0167, [100.464, 0, 0, 102.937]);
+/** Ecliptic longitude and latitude of each pole, from the IAU's rotation elements. */
+const MARS_POLE = ecliptic(352.91, 63.28);
 const MARS_RADIUS = planet(0.532);
+const JUPITER_POLE = ecliptic(247.82, 87.78);
 const JUPITER_RADIUS = planet(11.21);
+/** The Galilean moons at their real spacing, 0.41 times their real distance in Jupiter radii. */
+const JOVIAN_SPREAD = 0.41;
+const SATURN_POLE = ecliptic(79.53, 61.95);
 const SATURN_RADIUS = planet(9.45);
-const SATURN_TILT = 0.47;
 const RING_INNER = SATURN_RADIUS * 1.24;
 const RING_OUTER = SATURN_RADIUS * 2.27;
+const URANUS_POLE = ecliptic(77.65, -7.72);
 const URANUS_RADIUS = planet(4.01);
-const URANUS_TILT = 97.8 * MathUtils.DEG2RAD;
+const NEPTUNE_POLE = ecliptic(319.24, 61.97);
 const NEPTUNE_RADIUS = planet(3.88);
 
 /**
@@ -1281,13 +1425,13 @@ const PHOBOS_RADIUS = 0.06;
 const DEIMOS_RADIUS = 0.04;
 
 /**
- * Scene side of the objects in `#data/cosmos.js`. Moon distances are in planet radii and compressed, the Galilean moons keep their
- * 1:2:4 resonance so they visibly race around Jupiter and have to be tracked.
+ * Scene side of the objects in `#data/cosmos.js`. Moon distances are compressed apart from Mars' moons, each system keeps its real
+ * spacing, and the Galilean moons their 1:2:4 resonance so they visibly race around Jupiter and have to be tracked.
  */
 const BODY_LOOKS: Record<string, BodyLook> = {
 	/** The signal and the close-up are Astraea, the rock whose find in 1845 opened the flood, its belt fills the gap around it. */
 	asteroid_belt: {
-		...solarOrbit(2.574, 4.13, 0.7, 5.37),
+		...solarOrbit(2.577, 4.137, 0.1876, [181.62, 5.36, 141.447, 140.823]),
 		build: rock(ASTRAEA_RADIUS, [1.15, 0.9, 0.95], 4),
 		orbit: asteroidBelt,
 		radius: ASTRAEA_RADIUS * 1.15,
@@ -1297,7 +1441,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	callisto: {
 		around: 'jupiter',
 		build: globe(planet(0.378), ICY_RIM, 64, jupiterShadow),
-		distance: JUPITER_RADIUS * 6.4,
+		distance: JUPITER_RADIUS * 26.33 * JOVIAN_SPREAD,
 		period: 226,
 		phase: 4.9,
 		radius: planet(0.378),
@@ -1306,18 +1450,18 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	/** Its real size, a fifth of the Moon, sharing the belt with the rocks found after it. */
 	ceres: {
-		...solarOrbit(2.767, 4.6, 2.6, 10.6),
+		...solarOrbit(2.766, 4.599, 0.0797, [158.74, 10.588, 80.249, 153.543]),
 		build: globe(planet(0.0737), ICY_RIM, 48),
+		pole: ecliptic(11.21, 81.55),
 		radius: planet(0.0737),
 		spin: EARTH_DAY * 0.378,
 		surface: ceresSurface,
-		tilt: 0.07,
 	},
 	deimos: {
 		around: 'mars',
 		build: rock(DEIMOS_RADIUS, [1.17, 0.95, 0.86], 9, marsShadow),
-		distance: MARS_RADIUS * 5,
-		inclination: 1.8 * MathUtils.DEG2RAD,
+		distance: MARS_RADIUS * 6.92,
+		inclination: degrees(1.79),
 		/** 1.23 Mars days, slower than the planet turns, unlike Phobos. */
 		period: 51,
 		phase: 3,
@@ -1328,7 +1472,7 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	europa: {
 		around: 'jupiter',
 		build: globe(planet(0.245), ['#ffffff', '#26356e', 0.15], 64, jupiterShadow),
-		distance: JUPITER_RADIUS * 3.6,
+		distance: JUPITER_RADIUS * 9.39 * JOVIAN_SPREAD,
 		period: 48,
 		phase: 1.6,
 		radius: planet(0.245),
@@ -1338,93 +1482,105 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	ganymede: {
 		around: 'jupiter',
 		build: globe(planet(0.413), ICY_RIM, 64, jupiterShadow),
-		distance: JUPITER_RADIUS * 4.8,
+		distance: JUPITER_RADIUS * 14.97 * JOVIAN_SPREAD,
 		period: 97,
 		phase: 3.3,
 		radius: planet(0.413),
 		spin: 'locked',
 		surface: () => rockySurface('#9c8f80', '#6b6157', 5, 37),
 	},
-	io: { around: 'jupiter', build: globe(planet(0.286), ICY_RIM, 64, jupiterShadow), distance: JUPITER_RADIUS * 2.6, period: 24, phase: 0, radius: planet(0.286), spin: 'locked', surface: ioSurface },
+	io: {
+		around: 'jupiter',
+		build: globe(planet(0.286), ICY_RIM, 64, jupiterShadow),
+		distance: JUPITER_RADIUS * 5.9 * JOVIAN_SPREAD,
+		period: 24,
+		phase: 0,
+		radius: planet(0.286),
+		spin: 'locked',
+		surface: ioSurface,
+	},
 	jupiter: {
-		...solarOrbit(5.203, 11.86, 1.2, 1.3),
+		...solarOrbit(5.203, 11.862, 0.0484, [34.396, 1.304, 100.474, 14.728]),
 		/** The moons' shadows cross its clouds as black dots, a sight small telescopes catch every few days. */
-		build: globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96, () => vec3(eclipse(GALILEAN_MOONS)), GASEOUS),
+		build: oblate(0.0649, globe(JUPITER_RADIUS, ['#f3e6d0', '#3e2a52', 0.25], 96, () => vec3(eclipse(GALILEAN_MOONS)), GASEOUS)),
+		pole: JUPITER_POLE,
 		radius: JUPITER_RADIUS,
-		spin: 16,
+		spin: EARTH_DAY * 0.4135,
 		surface: jupiterSurface,
-		tilt: 0.05,
 	},
 	mars: {
-		...solarOrbit(1.524, 1.88, 1.1, 1.85),
+		...solarOrbit(1.524, 1.881, 0.0934, [355.447, 1.85, 49.56, 336.056]),
 		/** Dust hangs high in its thin air, a faint salmon haze on the lit limb. */
 		build: hazyGlobe(MARS_RADIUS, ['#ffc2a1', '#3e2a52', 0.5], 96, {}, ['#f0a983', 0.03, 0.35]),
+		pole: MARS_POLE,
 		radius: MARS_RADIUS,
-		spin: EARTH_DAY * 1.03,
+		spin: EARTH_DAY * 1.026,
 		surface: marsSurface,
-		tilt: 0.44,
 	},
 	/** Spins three times for every two orbits, the reason one of its solar days lasts two of its years. */
 	mercury: {
-		...solarOrbit(0.387, 0.241, 2.1, 7),
+		...solarOrbit(0.387, 0.2408, 0.2056, [252.251, 7.005, 48.331, 77.456]),
 		build: globe(planet(0.383)),
 		radius: planet(0.383),
-		spin: (EARTH_YEAR * 0.241 * 2) / 3,
+		spin: (EARTH_YEAR * 0.2408 * 2) / 3,
 		surface: () => rockySurface('#a39a90', '#7b736b', 7, 13),
 	},
-	/** Its orbit is tilted 5°, so it only crosses the Earth's shadow, or casts its own, during the two eclipse seasons of the year. */
+	/**
+	 * Starts where it really is, so it shows tonight's phase. Its orbit is tilted 5°, so it only crosses the Earth's shadow, or casts its
+	 * own, during the two eclipse seasons of the year.
+	 */
 	moon: {
 		around: 'earth',
 		build: globe(planet(0.273), ICY_RIM, 64, lunarEclipse, { glow: earthshine }),
+		days: 27.3217,
 		distance: 10,
-		inclination: 5.14 * MathUtils.DEG2RAD,
+		eccentricity: 0.0549,
+		inclination: degrees(5.145),
+		node: degrees(125.045),
 		period: 180,
-		phase: 0,
+		perihelion: degrees(83.353),
+		phase: degrees(218.316),
 		radius: planet(0.273),
 		spin: 'locked',
 		surface: moonSurface,
 	},
 	neptune: {
-		...solarOrbit(30.07, 164.8, 5.1, 1.8),
-		build: globe(NEPTUNE_RADIUS, BANDED_RIM('#9fbcff'), 80, undefined, GASEOUS),
+		...solarOrbit(30.07, 164.8, 0.0086, [304.88, 1.77, 131.784, 44.965]),
+		build: oblate(0.0171, globe(NEPTUNE_RADIUS, BANDED_RIM('#9fbcff'), 80, undefined, GASEOUS)),
+		pole: NEPTUNE_POLE,
 		radius: NEPTUNE_RADIUS,
-		spin: 11,
+		spin: EARTH_DAY * 0.671,
 		surface: neptuneSurface,
-		tilt: 28.3 * MathUtils.DEG2RAD,
 	},
 	/** Its real distance, at 2.76 Mars radii, and its real pace against the planet's day: it laps Mars three times a day. */
 	phobos: {
 		around: 'mars',
 		build: rock(PHOBOS_RADIUS, [1.2, 0.98, 0.82], 2, marsShadow),
 		distance: MARS_RADIUS * 2.76,
-		inclination: 1.1 * MathUtils.DEG2RAD,
+		eccentricity: 0.0151,
+		inclination: degrees(1.08),
 		period: 13,
 		phase: 0.5,
 		radius: PHOBOS_RADIUS * 1.2,
 		spin: 'locked',
 		surface: phobosSurface,
 	},
-	/**
-	 * Its stretched orbit dips inside Neptune's. Like in 1989 it starts at perihelion, a quarter turn from Neptune: the 3:2 resonance
-	 * of their years keeps them from ever meeting.
-	 */
+	/** Its stretched orbit dips inside Neptune's, the 3:2 resonance of their years keeps them from ever meeting. */
 	pluto: {
-		...solarOrbit(39.48, 247.9, 0.39, 17.1),
+		...solarOrbit(39.48, 247.9, 0.2488, [238.929, 17.14, 110.304, 224.069]),
 		build: globe(planet(0.186), ['#ffe9d2', '#3e2a52', 0.3], 64),
-		eccentricity: 0.249,
-		perihelion: 0.39,
+		pole: ecliptic(137.35, -22.82),
 		radius: planet(0.186),
-		spin: EARTH_DAY * 6.39,
+		spin: EARTH_DAY * 6.387,
 		surface: plutoSurface,
-		tilt: 122.5 * MathUtils.DEG2RAD,
 	},
 	saturn: {
-		...solarOrbit(9.537, 29.46, 0, 2.5),
-		build: globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, () => vec3(ringShadow().mul(eclipse(['titan']))), GASEOUS),
+		...solarOrbit(9.537, 29.457, 0.0539, [49.954, 2.486, 113.662, 92.599]),
+		build: oblate(0.098, globe(SATURN_RADIUS, ['#f0e4c4', '#3e2a52', 0.25], 96, () => vec3(ringShadow().mul(eclipse(['titan']))), GASEOUS)),
+		pole: SATURN_POLE,
 		radius: SATURN_RADIUS,
-		spin: 17,
+		spin: EARTH_DAY * 0.44,
 		surface: saturnSurface,
-		tilt: SATURN_TILT,
 	},
 	saturn_rings: {
 		around: 'saturn',
@@ -1436,10 +1592,10 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		distance: 0,
 		period: 1,
 		phase: 0,
+		pole: SATURN_POLE,
 		radius: RING_OUTER,
 		shownWith: 'saturn',
 		spin: 0,
-		tilt: SATURN_TILT,
 	},
 	titan: {
 		around: 'saturn',
@@ -1450,18 +1606,19 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 			return titan;
 		},
 		distance: SATURN_RADIUS * 4.5,
+		eccentricity: 0.0288,
 		period: 120,
 		phase: 2,
 		radius: planet(0.404),
 		spin: 'locked',
 		surface: () => bandedSurface(['#e0a64a', '#c27f2e', '#ebbd6a'], 3, 0.2),
 	},
-	/** The only large moon on a backward orbit, tilted 130° to Neptune's path. */
+	/** The only large moon on a backward orbit, tilted 157° to Neptune's equator. */
 	triton: {
 		around: 'neptune',
 		build: globe(planet(0.212), ICY_RIM, 64, () => vec3(eclipse(['neptune']))),
 		distance: NEPTUNE_RADIUS * 4,
-		inclination: 130 * MathUtils.DEG2RAD,
+		inclination: degrees(156.9),
 		period: 80,
 		phase: 1,
 		radius: planet(0.212),
@@ -1470,12 +1627,12 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	/** Rolls on its side: its 98° tilt points one pole at the Sun for decades at a time. */
 	uranus: {
-		...solarOrbit(19.19, 84.01, 3.2, 0.8),
-		build: globe(URANUS_RADIUS, BANDED_RIM('#d6f6f8'), 80, undefined, { limb: 0.25 }),
+		...solarOrbit(19.19, 84.01, 0.0473, [313.238, 0.773, 74.017, 170.954]),
+		build: oblate(0.0229, globe(URANUS_RADIUS, BANDED_RIM('#d6f6f8'), 80, undefined, { limb: 0.25 })),
+		pole: URANUS_POLE,
 		radius: URANUS_RADIUS,
-		spin: -12,
+		spin: EARTH_DAY * 0.718,
 		surface: () => bandedSurface(['#a8e2e8', '#8ccfd8', '#c4eef1'], 2, 0.08),
-		tilt: URANUS_TILT,
 	},
 	/** In the planet's equator like Saturn's, so they stand on edge along with it. */
 	uranus_rings: {
@@ -1488,16 +1645,18 @@ const BODY_LOOKS: Record<string, BodyLook> = {
 		distance: 0,
 		period: 1,
 		phase: 0,
+		pole: URANUS_POLE,
 		radius: URANUS_RADIUS * 2.03,
 		spin: 0,
-		tilt: URANUS_TILT,
 	},
+	/** Turns backward so slowly that one of its days outlasts its year. */
 	venus: {
-		...solarOrbit(0.723, 0.615, 4, 3.4),
+		...solarOrbit(0.723, 0.6152, 0.0068, [181.979, 3.395, 76.68, 131.602]),
 		/** Its sulfuric acid clouds sit under a thick haze that glows pale yellow past the limb. */
 		build: hazyGlobe(planet(0.949), BANDED_RIM('#f7ecc8'), 80, GASEOUS, ['#fff0c8', 0.04, 0.6]),
+		pole: ecliptic(210.19, -88.76),
 		radius: planet(0.949),
-		spin: -600,
+		spin: EARTH_YEAR * 0.6152 * 1.0815,
 		surface: () => bandedSurface(['#f0dca0', '#d9b877', '#f7ecc8'], 4, 0.3),
 	},
 };
@@ -1572,7 +1731,15 @@ class Body {
 	/** Seconds since the discovery started, -1 when not condensing. */
 	revealTime = -1;
 	#discovering = false;
+	/** Rotation from the orbit's reference plane, the ecliptic or the parent's equator, to the scene. */
+	readonly #frame = new Quaternion();
 	#grows = false;
+	/** Position in the orbit's reference frame, around the parent. */
+	readonly #local = new Vector3();
+	readonly #start: number;
+	readonly #toParent = new Vector3();
+	/** Inverse of the group's rotation, to read the way to the parent in a locked moon's own axes. */
+	readonly #unturn: Quaternion;
 
 	constructor(
 		readonly object: CosmosObject,
@@ -1580,19 +1747,22 @@ class Body {
 		public discovered: boolean,
 		shown: boolean,
 		albedo: Node<'vec3'>,
+		sinceJ2000: number,
 	) {
 		this.mesh = look.build(this.reveal, albedo);
-		this.group.rotation.z = look.tilt ?? 0;
+		const parentPole = BODY_LOOKS[look.around]?.pole;
+		if (parentPole) this.#frame.setFromUnitVectors(UP, parentPole);
+		this.#start = startLongitude(look, sinceJ2000);
+		/** A locked moon spins around its orbit's axis, anything else around its pole. */
+		if (look.spin === 'locked') this.group.quaternion.setFromUnitVectors(UP, orbitNormal(look)).premultiply(this.#frame);
+		else if (look.pole) this.group.quaternion.setFromUnitVectors(UP, look.pole);
+		this.#unturn = this.group.quaternion.clone().invert();
 		this.group.add(this.mesh, this.flash);
 		this.group.visible = shown;
 		this.flash.scale.setScalar(0);
 		this.reveal.value = discovered ? 1 : 0;
 		if (!shown) this.mesh.scale.setScalar(0.001);
-		const line = () => {
-			const orbit = new OrbitLine(look.distance, object.color, look.around === 'sun' ? 0.13 : 0.09, look.eccentricity, look.perihelion);
-			orbit.rotation.x = look.inclination ?? 0;
-			return orbit;
-		};
+		const line = () => new OrbitLine(look, object.color, look.around === 'sun' ? 0.13 : 0.09).applyQuaternion(this.#frame);
 		this.orbit = look.orbit ? look.orbit(this.reveal) : look.distance > 0 ? line() : null;
 		if (this.orbit) this.orbit.visible = discovered;
 		const fromSun = look.around === 'sun' ? look.distance : (BODY_LOOKS[look.around]?.distance ?? 0);
@@ -1605,28 +1775,23 @@ class Body {
 
 	/** Orbits run counterclockwise seen from the north, like the real Solar System. */
 	place(parent: Vector3, time: number) {
-		const { distance, eccentricity = 0, inclination = 0, perihelion = 0, period, phase, spin } = this.look;
-		let angle = phase - (time / period) * TURN;
-		let reach = distance;
-		if (eccentricity) {
-			/** Kepler's equation by Newton's method, from the mean anomaly counted along the motion: fast near the Sun, slow far out. */
-			const mean = perihelion - angle;
-			let eccentric = mean;
-			for (let i = 0; i < 4; i++) eccentric -= (eccentric - eccentricity * Math.sin(eccentric) - mean) / (1 - eccentricity * Math.cos(eccentric));
-			angle = perihelion - 2 * Math.atan2(Math.sqrt(1 + eccentricity) * Math.sin(eccentric / 2), Math.sqrt(1 - eccentricity) * Math.cos(eccentric / 2));
-			reach = distance * (1 - eccentricity * Math.cos(eccentric));
-		}
-		const along = Math.sin(angle) * reach;
-		this.group.position.set(Math.cos(angle) * reach, -along * Math.sin(inclination), along * Math.cos(inclination)).add(parent);
-		/** Turns the local +x axis, where the maps put longitude 0, toward the parent. */
-		if (spin === 'locked') this.mesh.rotation.y = Math.PI - angle;
-		else if (spin) this.mesh.rotation.y = (time / spin) * TURN;
-		if (this.orbit instanceof OrbitLine) {
-			const anchor = this.orbit.anchor(Math.cos(angle) * reach, along);
-			this.orbit.position.set(anchor.x, -anchor.z * Math.sin(inclination), anchor.z * Math.cos(inclination)).add(parent);
-		} else this.orbit?.position.copy(parent);
+		const { look } = this;
+		orbitPoint(look, trueAnomaly(look, this.#start + (time / look.period) * TURN), this.#local);
+		this.group.position.copy(this.#local).applyQuaternion(this.#frame).add(parent);
+		if (look.spin === 'locked') {
+			/** Turns the local +x axis, where the maps put longitude 0, toward the parent. */
+			const toParent = this.#toParent.copy(parent).sub(this.group.position).applyQuaternion(this.#unturn);
+			this.mesh.rotation.y = Math.atan2(-toParent.z, toParent.x);
+		} else if (look.spin) this.mesh.rotation.y = (time / look.spin) * TURN;
+		if (this.orbit instanceof OrbitLine) this.orbit.position.copy(this.orbit.anchor(this.#local)).applyQuaternion(this.#frame).add(parent);
+		else this.orbit?.position.copy(parent);
 		/** A body not in the sky yet casts no shadow. */
 		centerOf(this.object.id).value.copy(this.group.visible ? this.group.position : NOWHERE);
+	}
+
+	/** Shows what was discovered of the orbit, its line only with `lines` on: the asteroid belt stays, it is made of the bodies themselves. */
+	showOrbit(lines: boolean) {
+		if (this.orbit) this.orbit.visible = this.discovered && (lines || !(this.orbit instanceof OrbitLine));
 	}
 
 	/** `discovering` false only grows a `shownWith` companion in alongside its parent, it stays undiscovered. */
@@ -1635,7 +1800,6 @@ class Body {
 		this.#discovering = discovering;
 		this.discovered ||= discovering;
 		this.group.visible = true;
-		if (this.orbit && discovering) this.orbit.visible = true;
 		this.revealTime = 0;
 	}
 
@@ -1669,6 +1833,8 @@ export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'sys
 
 /** OrbitControls' damping keeps the view moving for about this long after the last input. */
 const INPUT_SETTLE = 1500;
+/** Seconds the orbit lines take to fade in or out. */
+const ORBIT_FADE = 0.2;
 const IDLE_FRAME = 1000 / 30;
 
 /**
@@ -1686,7 +1852,11 @@ export class CosmosScene {
 	/** Object under the mouse in the overview, for its tooltip. */
 	hovered = $state<string | null>(null);
 	mode = $state<CosmosMode>('intro');
+	/** The orbit lines are drawn. */
+	orbits = $state(true);
 	quality = $state<CosmosQuality>('high');
+	/** Real sunlight instead of the cartoon lighting, see `setRealistic`. */
+	realistic = $state(false);
 	/** Id of the object of the last discovery, shown by the discovery card. */
 	revealed = $state<string | null>(null);
 	/** Object whose info panel is open, the view clears it to close the panel. */
@@ -1711,6 +1881,9 @@ export class CosmosScene {
 	readonly #canvas: HTMLCanvasElement;
 	readonly #controls: OrbitControls;
 	readonly #earth: Mesh;
+	readonly #earthOrbit = new OrbitLine(EARTH_PATH, '#6f8cff', 0.09);
+	/** The Earth's mean longitude when the scene opened. */
+	readonly #earthStart: number;
 	readonly #earthSystem = new Group();
 	readonly #hud: CosmosHud;
 	/** The planets with an orbit dot, in the order of `#markers`. */
@@ -1759,6 +1932,7 @@ export class CosmosScene {
 	#press: { x: number; y: number } | null = null;
 	#progress = 0;
 	#qualityProbe = { frames: 0, time: 0 };
+	#realismGoal = 0;
 	/** The discovered body condensing, plus the companions growing in with it. */
 	#revealing: Body[] = [];
 	/** The body drawn with its sharp map, `map` stays null while it loads. */
@@ -1771,7 +1945,14 @@ export class CosmosScene {
 	#warp: { from: number; to: number } | null = null;
 	#yaw = 0;
 
-	private constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer, { discovered, focus, hud, limit, onDiscover }: CosmosOptions, maps: Map<string, Texture>) {
+	private constructor(
+		canvas: HTMLCanvasElement,
+		renderer: WebGPURenderer,
+		{ discovered, focus, hud, limit, onDiscover, orbits, realistic }: CosmosOptions,
+		maps: Map<string, Texture>,
+	) {
+		const sinceJ2000 = (Date.now() - J2000) / DAY_MS;
+		this.#earthStart = startLongitude(EARTH_PATH, sinceJ2000);
 		this.#limit.value = this.#limitGoal = limit;
 		this.#sight.value = skySight(limit);
 		this.#showSkyDepth();
@@ -1797,24 +1978,30 @@ export class CosmosScene {
 
 		this.#sky = milkyWayDome(albedo('sky'), this.#sight);
 		const sun = new Mesh(new SphereGeometry(SUN_RADIUS, 96, 64), sunMaterial(maps.get('sun') ?? null, this.#sunGain));
+		/** The real tilt toward the real direction: the Earth's seasons match the date. */
 		const tilt = new Group();
-		tilt.rotation.z = AXIAL_TILT;
+		tilt.quaternion.setFromUnitVectors(UP, EARTH_POLE);
 		tilt.add(this.#earth, this.#clouds, this.#atmosphere);
 		this.#earth.add(this.#beacon);
 		this.#earthSystem.add(tilt);
 		this.#signal.visible = false;
 
-		this.#scene.add(sun, this.#corona, this.#sunGlow, new OrbitLine(EARTH_ORBIT, '#6f8cff', 0.09), this.#earthSystem);
+		this.#scene.add(sun, this.#corona, this.#sunGlow, this.#earthOrbit, this.#earthSystem);
 		/** In discovery order, so every parent is placed before the moons orbiting it. */
 		for (const object of COSMOS_OBJECTS) {
 			const look = BODY_LOOKS[object.id];
 			if (!look) continue;
 			const shown = discovered.includes(object.id) || (look.shownWith !== undefined && discovered.includes(look.shownWith));
-			const body = new Body(object, look, discovered.includes(object.id), shown, look.surface ? albedo(object.id) : vec3(0));
+			const body = new Body(object, look, discovered.includes(object.id), shown, look.surface ? albedo(object.id) : vec3(0), sinceJ2000);
 			this.#bodies.set(object.id, body);
 			this.#scene.add(body.group);
 			if (body.orbit) this.#scene.add(body.orbit);
 		}
+		this.orbits = orbits;
+		orbitFade.value = orbits ? 1 : 0;
+		this.#showOrbitLines(orbits);
+		this.realistic = realistic;
+		realism.value = this.#realismGoal = realistic ? 1 : 0;
 		this.#marked = [...this.#bodies.values()].filter(body => body.look.around === 'sun' && body.orbit instanceof OrbitLine);
 		this.#markers = orbitMarkers(this.#marked.map(body => new Color(body.object.color)));
 		this.#scene.add(this.#sky, this.#deepSkyGroup, this.#stars, this.#faintStars, this.#markers.sprite, this.#signal);
@@ -1850,6 +2037,8 @@ export class CosmosScene {
 			this.#orbit(focus);
 			this.mode = 'overview';
 		} else this.replayIntro();
+		this.#adaptExposure(1);
+		this.#adaptToGlare(1);
 	}
 
 	/** Startup phases land in the performance timeline as `cosmos:*` measures, the startup benchmark reads them. */
@@ -1862,6 +2051,8 @@ export class CosmosScene {
 		const renderer = new WebGPURenderer({ antialias: true, canvas, reversedDepthBuffer: true, trackTimestamp: options.timestamps });
 		/** Neutral keeps the flat cartoon colors as picked, ACES shifted them toward brown and desaturated the highlights. */
 		renderer.toneMapping = NeutralToneMapping;
+		/** Opaque black space, cleared transparent the page's blue-black showed through wherever the Milky Way dome is off. */
+		renderer.setClearColor(0x000000, 1);
 		renderer.setPixelRatio(Math.min(devicePixelRatio, DEFAULT_TUNING.pixelRatio));
 		const [maps] = await Promise.all([
 			loadSurfaces(options.live ?? []).finally(() => performance.measure('cosmos:textures', { start })),
@@ -2103,6 +2294,28 @@ export class CosmosScene {
 		this.#faintStars.visible = limit > FAINT_STAR_MAGNITUDES[0] - 0.3;
 	}
 
+	/** Fades the orbit lines in or out over `ORBIT_FADE`, the asteroid belt and the planet dots stay. */
+	setOrbits(orbits: boolean) {
+		this.orbits = orbits;
+		if (orbits) this.#showOrbitLines(true);
+	}
+
+	/** Lines faded out are hidden too, so they cost no draw call. */
+	#showOrbitLines(lines: boolean) {
+		this.#earthOrbit.visible = lines;
+		for (const body of this.#bodies.values()) body.showOrbit(lines);
+	}
+
+	/**
+	 * Cross-fades to sunlight as it is: plain diffuse light dimming with the square of the distance from the Sun under an exposure
+	 * that adapts to the viewed body, black night sides, no drawn limbs, no corona outside an eclipse and steady stars. The clock slows
+	 * down to `REALISTIC_PACE`.
+	 */
+	setRealistic(realistic: boolean) {
+		this.realistic = realistic;
+		this.#realismGoal = realistic ? 1 : 0;
+	}
+
 	/** Lights the beacon on the Earth while an instrument is being built. */
 	setBuilding(building: boolean) {
 		this.#beacon.visible = building;
@@ -2137,7 +2350,7 @@ export class CosmosScene {
 	/** Bloom and the corona, off in low quality and at the eyepiece, where the Sun would dazzle the player hunting a faint signal. */
 	#applyGlare() {
 		const glare = this.quality === 'high' && this.mode !== 'observe';
-		this.#corona.visible = glare;
+		this.#corona.visible = glare && realism.value < 1;
 		const output = glare && this.#tuning.bloom > 0 ? this.#withBloom : this.#withoutBloom;
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
@@ -2319,7 +2532,7 @@ export class CosmosScene {
 	#frame = (now: number) => {
 		const dt = this.#lastTime ? Math.min((now - this.#lastTime) / 1000, 0.1) : 0;
 		this.#lastTime = now;
-		this.#simTime += dt;
+		this.#simTime += dt * REALISTIC_PACE ** realism.value;
 		this.#placeBodies();
 		if (this.#limit.value !== this.#limitGoal) {
 			const gap = this.#limitGoal - this.#limit.value;
@@ -2328,9 +2541,21 @@ export class CosmosScene {
 			this.#showSkyDepth();
 		}
 
+		const fadeGoal = this.orbits ? 1 : 0;
+		if (orbitFade.value !== fadeGoal) {
+			orbitFade.value = MathUtils.clamp(orbitFade.value + Math.sign(fadeGoal - orbitFade.value) * (dt / ORBIT_FADE), 0, 1);
+			if (orbitFade.value === 0) this.#showOrbitLines(false);
+		}
+		if (realism.value !== this.#realismGoal) {
+			realism.value = MathUtils.clamp(realism.value + Math.sign(this.#realismGoal - realism.value) * dt * 2, 0, 1);
+			this.#applyGlare();
+		}
+
 		if (this.#flight) this.#updateFlight(dt);
 		else if (this.mode === 'overview' || this.mode === 'discovery') this.#updateOverview(dt);
 		else if (this.mode === 'observe') this.#updateObserve(dt);
+		this.#adaptExposure(1 - Math.exp(-dt * 3));
+		this.#adaptToGlare(1 - Math.exp(-dt * 3));
 		if (this.#revealing.length) {
 			for (const body of this.#revealing) body.updateReveal(dt);
 			this.#revealing = this.#revealing.filter(body => body.revealTime >= 0);
@@ -2346,6 +2571,44 @@ export class CosmosScene {
 		this.#measure(dt);
 	};
 
+	/**
+	 * Eases the exposure toward the viewed body's distance from the Sun, like eyes adapting, `ease` 1 jumps there. The followed body
+	 * outside flights, else the camera, never closer than a few solar radii.
+	 */
+	#adaptExposure(ease: number) {
+		const viewed = this.#flight || this.mode === 'intro' || this.mode === 'observe' ? this.#camera.position : this.#controls.target;
+		const goal = Math.log(Math.max(viewed.length(), SUN_RADIUS * 3) ** 2);
+		exposure.value = Math.exp(MathUtils.lerp(Math.log(exposure.value), goal, ease));
+	}
+
+	/**
+	 * Eases `glare` toward how much the view is dazzled, like eyes adapting, `ease` 1 jumps there: the Sun from just outside the frame
+	 * unless the followed body hides it, and the followed body once it fills a good part of the frame. Its night side only dims the
+	 * sky partly, from the shadow of a planet the stars come back, like astronauts see them.
+	 */
+	#adaptToGlare(ease: number) {
+		const camera = this.#camera;
+		const forward = camera.getWorldDirection(new Vector3());
+		const toSun = camera.position.clone().negate();
+		const halfView = Math.tan((camera.fov * MathUtils.DEG2RAD) / 2);
+		const halfDiagonal = Math.atan(halfView * Math.hypot(1, camera.aspect));
+		let sun = 1 - MathUtils.smoothstep(forward.angleTo(toSun), halfDiagonal, halfDiagonal + 0.35);
+		let body = 0;
+		if ((this.mode === 'overview' || this.mode === 'discovery') && !this.#flight && this.focused !== 'sun') {
+			const position = this.#positionOf(this.focused)!;
+			const toBody = position.clone().sub(camera.position);
+			const radius = this.#radiusOf(this.focused);
+			if (toBody.length() < toSun.length()) {
+				const size = Math.asin(Math.min(1, radius / toBody.length()));
+				sun *= MathUtils.smoothstep(toBody.angleTo(toSun), size * 0.9, size * 1.1);
+			}
+			const coverage = radius / (toBody.length() * halfView);
+			const litSide = (1 + Math.cos(toBody.negate().angleTo(position.clone().negate()))) / 2;
+			body = MathUtils.smoothstep(coverage, 0.03, 0.3) * MathUtils.lerp(0.55, 1, MathUtils.smoothstep(litSide, 0.1, 0.5));
+		}
+		glare.value = MathUtils.lerp(glare.value, Math.max(sun, body), ease);
+	}
+
 	#render() {
 		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
 		for (const backdrop of [this.#stars, this.#faintStars, this.#sky, this.#deepSkyGroup]) backdrop.position.copy(this.#camera.position);
@@ -2359,16 +2622,20 @@ export class CosmosScene {
 		this.#pipeline.render();
 	}
 
-	/** Fades each planet's orbit dot in as it shrinks from 4 to 1.5 px. Hidden at the eyepiece, it would point at what the player hunts. */
+	/**
+	 * Fades each planet's orbit dot in as it shrinks from 4 to 1.5 px. Hidden at the eyepiece, it would point at what the player hunts,
+	 * and in the realistic lighting, where a far planet is a faint speck or nothing.
+	 */
 	#placeMarkers() {
 		const { markers, sprite } = this.#markers;
-		sprite.visible = this.mode !== 'observe';
+		const shown = 1 - realism.value;
+		sprite.visible = this.mode !== 'observe' && shown > 0;
 		if (!sprite.visible) return;
 		const pixelsPerUnit = this.#canvas.clientHeight / 2 / Math.tan((this.#camera.fov * MathUtils.DEG2RAD) / 2);
 		this.#marked.forEach(({ discovered, group, look }, i) => {
 			const pixels = (look.radius / group.position.distanceTo(this.#camera.position)) * pixelsPerUnit;
 			const opacity = discovered && group.visible ? 1 - MathUtils.smoothstep(pixels, 1.5, 4) : 0;
-			markers.setXYZW(i, group.position.x, group.position.y, group.position.z, opacity * 0.9);
+			markers.setXYZW(i, group.position.x, group.position.y, group.position.z, opacity * shown * 0.9);
 		});
 		markers.needsUpdate = true;
 	}
@@ -2498,8 +2765,7 @@ export class CosmosScene {
 	}
 
 	#placeBodies() {
-		const earthAngle = 0.6 - (this.#simTime / EARTH_YEAR) * TURN;
-		this.#earthSystem.position.set(Math.cos(earthAngle) * EARTH_ORBIT, 0, Math.sin(earthAngle) * EARTH_ORBIT);
+		orbitPoint(EARTH_PATH, trueAnomaly(EARTH_PATH, this.#earthStart + (this.#simTime / EARTH_YEAR) * TURN), this.#earthSystem.position);
 		this.#earth.rotation.y = (this.#simTime / EARTH_DAY) * TURN;
 		this.#clouds.rotation.y = this.#earth.rotation.y * 1.04;
 		for (const body of this.#bodies.values()) {
@@ -2525,6 +2791,7 @@ export class CosmosScene {
 		const { id } = body.object;
 		const companions = [...this.#bodies.values()].filter(other => other.look.shownWith === id && !other.group.visible);
 		body.startReveal();
+		body.showOrbit(orbitFade.value > 0);
 		for (const companion of companions) companion.startReveal(false);
 		this.#revealing = [body, ...companions];
 		this.#fitZoomRange();
