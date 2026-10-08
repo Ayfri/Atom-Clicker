@@ -95,6 +95,17 @@ describe('sky', () => {
 		expect(gameManager.lightGain).toEqual({ blue: 1, green: 1, red: 1 + mars.boost.amount });
 	});
 
+	test('objects come era by era in instrument order, the brightest first within an era', () => {
+		const eras = COSMOS_INSTRUMENTS.map(instrument => instrument.era);
+		const sky = COSMOS_OBJECTS.filter(object => !object.given);
+		for (let i = 1; i < sky.length; i++) {
+			const [previous, object] = [sky[i - 1], sky[i]];
+			expect(eras.indexOf(object.era), object.id).toBeGreaterThanOrEqual(eras.indexOf(previous.era));
+			if (object.era === previous.era) expect(object.magnitude, object.id).toBeGreaterThanOrEqual(previous.magnitude);
+			expect(object.starlight, object.id).toBeGreaterThan(previous.starlight);
+		}
+	});
+
 	test('every object sits within the reach of the instrument of its era', () => {
 		for (const object of COSMOS_OBJECTS) {
 			const instrument = COSMOS_INSTRUMENTS.find(item => item.era === object.era)!;
