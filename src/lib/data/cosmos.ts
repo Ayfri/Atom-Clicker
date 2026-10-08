@@ -1,7 +1,7 @@
 import { mul } from '#helpers/effects.js';
 import type { Effect, EffectStat } from '#lib/types.js';
 
-const CosmosEras = {
+export const CosmosEras = {
 	GREAT_REFRACTOR: 'great_refractor',
 	NAKED_EYE: 'naked_eye',
 	OCCULTATION: 'occultation',
