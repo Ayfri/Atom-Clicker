@@ -77,6 +77,26 @@ test('older clients reload, junk and bad profile fields are refused before anyth
 	expect(service.recordScore).not.toHaveBeenCalled();
 });
 
+test('an oversized body is refused before it is parsed, chunked or not, and a broken one is a bad request', async () => {
+	const huge = JSON.stringify(obfuscateClientData({ ...payload, padding: 'x'.repeat(300_000) }));
+	const send = async (body: BodyInit) => {
+		const request = new Request('http://localhost/api/leaderboard', { body, duplex: 'half', headers: { Authorization: 'Bearer token' }, method: 'POST' } as RequestInit);
+		return (await POST({ request } as never)).status;
+	};
+	const bytes = new TextEncoder().encode(huge);
+	const chunked = new ReadableStream<Uint8Array>({
+		start(controller) {
+			for (let i = 0; i < bytes.length; i += 16_384) controller.enqueue(bytes.slice(i, i + 16_384));
+			controller.close();
+		},
+	});
+
+	expect(await send(huge)).toBe(413);
+	expect(await send(chunked)).toBe(413);
+	expect(await send('{"data":')).toBe(400);
+	expect(auditScore).not.toHaveBeenCalled();
+});
+
 test('the throttle reads the stored history, so it holds across Worker isolates', async () => {
 	context = { ...context, lastReceivedAt: Date.now() - 5000 };
 	const { body, status } = await submit(payload);
