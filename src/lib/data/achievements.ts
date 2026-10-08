@@ -9,6 +9,7 @@ import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
 import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/icons.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
 
 const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{
@@ -123,23 +124,21 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{
 		id: 'higgs_no_atoms',
 		name: 'Pure Luck',
-		description: 'Click a Higgs Boson without ever earning an atom',
+		description: 'Click a Higgs Boson before earning an atom in a run',
 		iconStack: { count: 1, icon: 'higgsBoson' },
-		condition: (manager: GameManager) => {
-			const higgsEarned = manager.currencies[CurrenciesTypes.HIGGS_BOSON]?.earnedAllTime || 0;
-			const atomsEarned = manager.currencies[CurrenciesTypes.ATOMS]?.earnedAllTime || 0;
-			return higgsEarned > 0 && atomsEarned === 0;
-		},
+		/** Unlocked by `incrementBonusHiggsBosonClicks()`, Higgs Bosons never reset so a tick check can't tell when one was caught. */
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('higgs_no_atoms'),
 	},
 	{
 		id: 'atoms_1000_no_upgrades',
 		name: 'Minimalist',
-		description: 'Reach 1,000 atoms without ever buying an upgrade',
+		description: 'Earn 1,000 atoms in a run without buying an atom upgrade, starting atoms excluded',
 		iconStack: { count: 3, icon: 'atom', label: '1K' },
+		/** Only a Protonize hands out starting atoms, any other reset clears `totalProtonisesRun`. */
 		condition: (manager: GameManager) => {
-			const atoms = manager.currencies[CurrenciesTypes.ATOMS]?.amount || 0;
-			const hasUpgrades = manager.upgrades.length > 0 || manager.skillUpgrades.length > 0;
-			return atoms >= 1000 && !hasUpgrades;
+			const startAtoms = manager.totalProtonisesRun > 0 ? manager.effects.value('start_atoms', 0, manager) : 0;
+			const earned = manager.currencies[CurrenciesTypes.ATOMS].earnedRun - startAtoms;
+			return earned >= 1000 && !manager.upgrades.some(id => UPGRADES[id]?.cost.currency === CurrenciesTypes.ATOMS);
 		},
 	},
 ];

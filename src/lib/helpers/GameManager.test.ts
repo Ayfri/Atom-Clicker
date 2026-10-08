@@ -200,3 +200,43 @@ describe('protonise', () => {
 		expect(gameManager.dailyStats.protonises).toBe(1);
 	});
 });
+
+describe('run achievements', () => {
+	test('Pure Luck unlocks on a Higgs Boson caught before the first atom of a later run', () => {
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		gameManager.incrementBonusHiggsBosonClicks();
+		expect(gameManager.unlockedAchievementIds.has('higgs_no_atoms')).toBe(false);
+		gameManager.resetLayer(LAYERS.ELECTRONIZE);
+		gameManager.tick(1000, false, true);
+		expect(gameManager.unlockedAchievementIds.has('higgs_no_atoms')).toBe(false);
+		gameManager.incrementBonusHiggsBosonClicks();
+		expect(gameManager.unlockedAchievementIds.has('higgs_no_atoms')).toBe(true);
+	});
+
+	test('Minimalist ignores skills and the upgrades kept through prestige', () => {
+		gameManager.skillUpgrades = ['unlockLevels'];
+		gameManager.upgrades = ['proton_boost_1'];
+		currenciesManager.add(ATOMS, 1000);
+		gameManager.tick(1000, false, true);
+		expect(gameManager.unlockedAchievementIds.has('atoms_1000_no_upgrades')).toBe(true);
+	});
+
+	test('Minimalist leaves out the atoms Quick Start hands out', () => {
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		gameManager.upgrades = ['protonise_start_1'];
+		expect(gameManager.protonise()).toBe(true);
+		expect(gameManager.atoms).toBeGreaterThanOrEqual(1000);
+		gameManager.tick(1000, false, true);
+		expect(gameManager.unlockedAchievementIds.has('atoms_1000_no_upgrades')).toBe(false);
+		currenciesManager.add(ATOMS, 1000);
+		gameManager.tick(1000, false, true);
+		expect(gameManager.unlockedAchievementIds.has('atoms_1000_no_upgrades')).toBe(true);
+	});
+
+	test('Minimalist refuses a run with an atom upgrade', () => {
+		gameManager.upgrades = ['molecular_boost'];
+		currenciesManager.add(ATOMS, 1000);
+		gameManager.tick(1000, false, true);
+		expect(gameManager.unlockedAchievementIds.has('atoms_1000_no_upgrades')).toBe(false);
+	});
+});

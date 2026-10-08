@@ -530,6 +530,7 @@ export class GameManager {
 
 	incrementBonusHiggsBosonClicks() {
 		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 1);
+		if (this.currencies[CurrenciesTypes.ATOMS].earnedRun === 0) this.unlockAchievement('higgs_no_atoms');
 		this.dailyStats.higgsBosonsCollected = (this.dailyStats.higgsBosonsCollected ?? 0) + 1;
 		if (!this.features[FeatureTypes.STABLE_BONUS_CLICK]) this.lastInteractionTime = this.clock();
 	}
