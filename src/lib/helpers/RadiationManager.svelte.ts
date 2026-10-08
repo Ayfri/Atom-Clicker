@@ -79,12 +79,20 @@ class RadiationManager {
 		return Math.min(0.5, level * 0.1);
 	});
 
+	/** Mass the core drifts to at the current power, where regen matches the expected burn. With regen it never empties. */
+	settledMass = $derived(
+		this.regenRate > 0 && this.decayRatePercent > 0 ? this.regenRate / (this.decayRatePercent * (1 - 0.5 * this.preservationChance)) : 0,
+	);
+
 	criticalChance = $derived.by(() => {
 		const level = this.upgradeLevels['cherenkov_glow'] || 0;
 		return level * 0.05;
 	});
 
 	currentCpm = $derived(this.cpmFor(this.mass, this.controlRodLevel));
+
+	/** Lowest power that reaches the output cap, any more only burns fuel faster. Above 1 when the fuel can't reach the cap. */
+	capControlLevel = $derived(this.mass > 0 ? this.maxCpm / (this.mass * 10 * this.enrichmentBonus) : Infinity);
 
 	/** Same formula as currentCpm for arbitrary inputs, used by the UI to preview a fuel purchase before spending. */
 	cpmFor(mass: number, controlLevel: number): number {

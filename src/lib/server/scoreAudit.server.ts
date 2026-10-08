@@ -54,6 +54,7 @@ export interface ScoreSnapshot {
 	inGameTime: number;
 	ionizes: number;
 	protonises: number;
+	/** Run start the server credited, never earlier than the client's own claim allowed. */
 	runStartedAt: number;
 	startDate: number;
 }
@@ -64,6 +65,8 @@ export interface PreviousScore {
 }
 
 export interface AuditContext {
+	/** Creation time of the player's account, null when unknown. */
+	accountCreatedAt: number | null;
 	colliderTotal: number;
 	now: number;
 	previous: PreviousScore | null;
@@ -145,7 +148,7 @@ function runSpending(state: GameState): number {
  * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
  * Server-compiled `$state` fields hold the objects they are given, so without the copy the wipe would zero the audited state too.
  */
-function measure(state: GameState, colliderTotal: number, now: number): RunBounds {
+function measure(state: GameState, colliderTotal: number, now: number, seconds: number): RunBounds {
 	gameManager.resetAll();
 	gameManager.loadSaveData(structuredClone({ ...state, activePowerUps: [] }));
 	gameManager.colliderBonus = colliderBonus(colliderTotal);
@@ -157,7 +160,7 @@ function measure(state: GameState, colliderTotal: number, now: number): RunBound
 	const uncached = gameManager.effects !== gameManager.effects;
 	if (uncached) Object.defineProperty(gameManager, 'effects', { configurable: true, value: new EffectTable(gameManager.allEffectSources) });
 	try {
-		return measureRunBounds(gameManager, now);
+		return measureRunBounds(gameManager, now, seconds);
 	} finally {
 		if (uncached) Reflect.deleteProperty(gameManager, 'effects');
 		gameManager.colliderBonus = 0;
@@ -170,7 +173,7 @@ function measure(state: GameState, colliderTotal: number, now: number): RunBound
  * Checks a submitted game state against what the current balance allows, alone and against the previous accepted submission.
  * Returns 'outdated' for a client older than the server and 'malformed' for something that is not a game state at all.
  */
-export function auditScore(raw: unknown, { colliderTotal, now, previous }: AuditContext): ScoreAudit | 'malformed' | 'outdated' {
+export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now, previous }: AuditContext): ScoreAudit | 'malformed' | 'outdated' {
 	if (!isObject(raw)) return 'malformed';
 	if (raw.version !== SAVE_VERSION || raw.balanceVersion !== BALANCE_VERSION) return 'outdated';
 
@@ -187,7 +190,6 @@ export function auditScore(raw: unknown, { colliderTotal, now, previous }: Audit
 
 	const warnings: string[] = [];
 	const atoms = state.currencies[CurrenciesTypes.ATOMS];
-	const bounds = measure(state, colliderTotal, now);
 	const previousSnapshot = previous?.snapshot;
 	const sameLineage =
 		previousSnapshot !== undefined &&
@@ -203,10 +205,16 @@ export function auditScore(raw: unknown, { colliderTotal, now, previous }: Audit
 		state.totalProtonisesAllTime === previousSnapshot.protonises;
 	const sinceLast = previous ? (now - previous.receivedAt) / 1000 : 0;
 
-	const runStart = state.runStartedAt > 0 ? Math.min(state.runStartedAt, now) - CLOCK_TOLERANCE_MS : 0;
+	/**
+	 * The client sets its own run start and save start, so a run is only as old as the server can tell: one the last accepted
+	 * submission covered keeps the start credited then, one that began since, or from a save the server never saw, began after
+	 * that submission, and a first submission's run began after the account.
+	 */
+	const runStart = sameRun ? previousSnapshot.runStartedAt : state.runStartedAt > 0 ? Math.min(state.runStartedAt, now) - CLOCK_TOLERANCE_MS : 0;
+	const knownSince = sameRun ? null : (previous?.receivedAt ?? accountCreatedAt);
 	let seconds = runSeconds(runStart, state.startDate, now);
-	/** A run that began since the last accepted submission began after the server received it, whatever the client clock says. */
-	if (sameLineage && !sameRun) seconds = Math.min(seconds, sinceLast + CLOCK_TOLERANCE_MS / 1000);
+	if (knownSince !== null) seconds = Math.min(seconds, Math.max(0, now - knownSince + CLOCK_TOLERANCE_MS) / 1000);
+	const bounds = measure(state, colliderTotal, now, seconds);
 	if (atoms.earnedRun > maxRunAtoms(bounds, seconds, state.totalClicksRun)) issues.push('production');
 	if (atoms.amount > atoms.earnedRun * (1 + 1e-9) + 1) issues.push('atoms');
 	if (state.totalXP > atoms.earnedRun * bounds.xpPerAtom * RUN_BOUND_SLACK + 1) issues.push('xp');
@@ -223,7 +231,8 @@ export function auditScore(raw: unknown, { colliderTotal, now, previous }: Audit
 		if (state.inGameTime - previousSnapshot.inGameTime > sinceLast * 1000 + CLOCK_TOLERANCE_MS) warnings.push('play_time');
 	}
 
-	return { ...emptyAudit(state), issues, warnings };
+	const audit = emptyAudit(state);
+	return { ...audit, issues, snapshot: { ...audit.snapshot, runStartedAt: now - seconds * 1000 }, warnings };
 }
 
 function emptyAudit(state: GameState): ScoreAudit {

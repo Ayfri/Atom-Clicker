@@ -195,18 +195,28 @@
 
 		setGlobals();
 
-		const saveLoop = setInterval(() => {
+		const saveGame = () => {
 			try {
 				commitPendingAtoms();
 				gameManager.save();
 			} catch (e) {
 				console.error('Failed to save game:', e);
 			}
-		}, SAVE_INTERVAL);
+		};
+		const saveLoop = setInterval(saveGame, SAVE_INTERVAL);
+
+		/** The last event a closing tab reliably fires, phones included, where beforeunload and pagehide are often skipped. */
+		const saveOnHide = () => {
+			if (!document.hidden) return;
+			saveGame();
+			autoSave.flush();
+		};
+		document.addEventListener('visibilitychange', saveOnHide);
 
 		bootstrapAccount();
 
 		return () => {
+			document.removeEventListener('visibilitychange', saveOnHide);
 			clearInterval(saveLoop);
 			clearInterval(commitLoop);
 			commitPendingAtoms();

@@ -198,6 +198,15 @@ export const HINTS: Hint[] = [
 		title: 'Core Fuel',
 	},
 	{
+		id: 'radiation:stability',
+		placement: 'top',
+		realm: RealmTypes.RADIATION,
+		show: () => radiationManager.stableControlLevel > 0,
+		targets: ['[data-hint="radiation-lever"]'],
+		text: 'The ∞ mark is the power your regen keeps up with. The core burns a share of its fuel, so more fuel lowers the mark. Above it, the core shrinks until burn and regen meet.',
+		title: 'Steady Power',
+	},
+	{
 		done: () => Object.keys(radiationManager.upgradeLevels).length > 0,
 		id: 'radiation:upgrades',
 		placement: 'top',

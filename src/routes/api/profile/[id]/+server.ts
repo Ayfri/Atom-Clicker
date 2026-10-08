@@ -49,6 +49,7 @@ function readStats(value: unknown): PublicProfileStats | null {
 		electronizes: num(save.totalElectronizesAllTime),
 		generators: counts,
 		highestAPS: num(save.highestAPS),
+		ionizes: num(save.totalIonizesAllTime),
 		lifetime,
 		playTime: num(save.inGameTime),
 		protonizes: num(save.totalProtonisesAllTime),

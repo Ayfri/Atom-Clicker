@@ -530,6 +530,7 @@ export class GameManager {
 
 	incrementBonusHiggsBosonClicks() {
 		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 1);
+		if (this.currencies[CurrenciesTypes.ATOMS].earnedRun === 0) this.unlockAchievement('higgs_no_atoms');
 		this.dailyStats.higgsBosonsCollected = (this.dailyStats.higgsBosonsCollected ?? 0) + 1;
 		if (!this.features[FeatureTypes.STABLE_BONUS_CLICK]) this.lastInteractionTime = this.clock();
 	}
@@ -597,8 +598,9 @@ export class GameManager {
 		/** XP sets the level, which multiplies production, so a cut can lower the bound again: it repeats until both fit. */
 		let trimmed = false;
 		for (let pass = 0; pass < 10; pass++) {
-			const bounds = measureRunBounds(this, now);
-			const cap = maxRunAtoms(bounds, runSeconds(this.runStartedAt, this.startDate, now), this.totalClicksRun);
+			const seconds = runSeconds(this.runStartedAt, this.startDate, now);
+			const bounds = measureRunBounds(this, now, seconds);
+			const cap = maxRunAtoms(bounds, seconds, this.totalClicksRun);
 			const xpCap = Math.min(atoms.earnedRun, cap) * bounds.xpPerAtom * RUN_BOUND_SLACK;
 			if (atoms.earnedRun <= cap && this.totalXP <= xpCap) break;
 			trimmed = true;
@@ -630,6 +632,10 @@ export class GameManager {
 		for (const key of Object.keys(statsConfig)) {
 			if (!(key in data)) continue;
 			switch (key) {
+				/** Retired tiers drop out here, the achievement multiplier counts this list. */
+				case 'achievements':
+					this.achievements = (data.achievements ?? []).filter(id => id in ACHIEVEMENTS);
+					break;
 				case 'currencyBoosts':
 					this.currencyBoosts = data.currencyBoosts ?? {};
 					break;
@@ -671,17 +677,15 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
-	/** Upgrades paid in protons or electrons survive every prestige and photon upgrades survive Ionize, skills never reset. */
+	/** Upgrades paid in protons or electrons survive every prestige, like photon upgrades and skills which never reset. */
 	private prestige(layer: LayerType, gain?: Price) {
 		const upgrades = this.upgrades.filter(id => {
 			const currency = UPGRADES[id]?.cost.currency;
 			return currency === CurrenciesTypes.PROTONS || currency === CurrenciesTypes.ELECTRONS;
 		});
-		const photonUpgrades = this.photonUpgrades;
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
-		this.photonUpgrades = photonUpgrades;
 		if (gain) currenciesManager.add(gain.currency, gain.amount);
 		this.lastInteractionTime = this.runStartedAt = this.clock();
 	}

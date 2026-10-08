@@ -30,13 +30,22 @@ class AutoSaveStore {
 		}
 	}
 
+	performAutoSave() {
+		return this.upload(() => supabaseAuth.saveGameToCloud(gameManager.getCurrentState(), true));
+	}
+
+	/** Called as the tab hides, which on phones is often the last moment the page runs before it is closed or discarded. */
+	flush() {
+		if (this.shouldAutoSave) this.upload(() => supabaseAuth.flushSaveToCloud(gameManager.getCurrentState()));
+	}
+
 	/** Never overwrites a cloud save another device wrote in the meantime, the player picks which progress to keep. */
-	async performAutoSave() {
+	private async upload(send: () => Promise<CloudSaveInfo | null>) {
 		if (this.isSaving || supabaseAuth.cloudConflict) return;
 		this.isSaving = true;
 
 		try {
-			const saved = await supabaseAuth.saveGameToCloud(gameManager.getCurrentState(), true);
+			const saved = await send();
 			if (!saved) {
 				toastStore.warning({
 					action: () => ui.openSettings('cloud'),

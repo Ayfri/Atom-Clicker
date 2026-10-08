@@ -2,8 +2,8 @@ import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase
 import { browser } from '$app/env';
 import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
 import type { GameState } from '#lib/types.js';
-import type { Database, Json, Profile } from '#lib/types/supabase.js';
-import { getItem, isLocalStorageAvailable, setItem } from '#lib/utils/safeLocalStorage.js';
+import type { Database, Profile } from '#lib/types/supabase.js';
+import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
 import { multiTabDetector } from '#stores/multiTab.svelte.js';
 import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/saves.js';
 
@@ -356,12 +356,17 @@ export class SupabaseAuth {
 
 	private markSynced(lastSaveDate: number | null) {
 		setItem(`cloudSaveSyncedAt:${this.user?.id}`, String(lastSaveDate ?? 0));
+		removeItem(`cloudSavePendingAt:${this.user?.id}`);
 		this.cloudConflict = false;
 	}
 
-	/** A device that never synced adopts the cloud copy as its own unless the cloud has more play time, so the first auto-save goes through. */
+	/**
+	 * A device that never synced adopts the cloud copy as its own unless the cloud has more play time, so the first auto-save goes through.
+	 * A cloud copy matching the last upload sent also counts as synced, a tab closing mid-upload never gets the answer that confirms it.
+	 */
 	adoptCloudSave(lastSaveDate: number | null, cloudAhead: boolean) {
-		if (this.syncedSaveDate === null && !cloudAhead) this.markSynced(lastSaveDate);
+		const pending = Number(getItem(`cloudSavePendingAt:${this.user?.id}`));
+		if ((this.syncedSaveDate === null && !cloudAhead) || (pending > 0 && lastSaveDate === pending)) this.markSynced(lastSaveDate);
 	}
 
 	/**
@@ -370,21 +375,40 @@ export class SupabaseAuth {
 	 */
 	async saveGameToCloud(currentState: GameState, onlyIfSynced = false): Promise<CloudSaveInfo | null> {
 		if (!browser || !this.supabase) return null;
-		if (!this.user) throw new Error('No authenticated user');
+		return this.uploadSave(currentState, onlyIfSynced, await this.getAccessToken());
+	}
+
+	/** `saveGameToCloud` sent synchronously with the cached token, for the tab hiding or closing, where an await may never resume. */
+	flushSaveToCloud(currentState: GameState): Promise<CloudSaveInfo | null> {
+		return this.uploadSave(currentState, true, this.currentSession?.access_token ?? null);
+	}
+
+	/** A raw PostgREST call, supabase-js can't set `keepalive` (which lets the request outlive the tab) and awaits a session lock first. */
+	private async uploadSave(currentState: GameState, onlyIfSynced: boolean, accessToken: string | null): Promise<CloudSaveInfo | null> {
+		const userId = this.user?.id;
+		if (!userId || !accessToken) throw new Error('No authenticated user');
 
 		const saveData: CloudSaveInfo = $state.snapshot({ ...currentState, lastSaveDate: Date.now(), version: SAVE_VERSION });
-		let query = this.supabase
-			.from('profiles')
-			.update({ save: saveData as unknown as Json, updated_at: new Date().toISOString() })
-			.eq('id', this.user.id);
+		const query = new URLSearchParams({ id: `eq.${userId}`, select: 'id' });
 		if (onlyIfSynced) {
 			const synced = this.syncedSaveDate;
-			query = synced === null ? query.is('save->>lastSaveDate', null) : query.eq('save->>lastSaveDate', String(synced));
+			query.set('save->>lastSaveDate', synced === null ? 'is.null' : `eq.${synced}`);
 		}
+		setItem(`cloudSavePendingAt:${userId}`, String(saveData.lastSaveDate));
 
-		const { data, error } = await query.select('id');
-		if (error) throw error;
-		if (data.length === 0) {
+		const response = await fetch(`${PUBLIC_SUPABASE_URL}/rest/v1/profiles?${query}`, {
+			body: JSON.stringify({ save: saveData, updated_at: new Date().toISOString() }),
+			headers: {
+				'apikey': PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+				'Authorization': `Bearer ${accessToken}`,
+				'Content-Type': 'application/json',
+				'Prefer': 'return=representation',
+			},
+			keepalive: true,
+			method: 'PATCH',
+		});
+		if (!response.ok) throw new Error(`Cloud save failed: ${response.status} ${await response.text()}`);
+		if ((await response.json() as unknown[]).length === 0) {
 			this.cloudConflict = true;
 			return null;
 		}

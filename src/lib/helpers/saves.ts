@@ -38,7 +38,7 @@ export function loadSavedState(): LoadSaveResult {
 		const { payload, tampered: integrityTampered } = unwrapStoredSave(rawData);
 
 		// Step 1: Try to parse JSON
-		let parsedData: any;
+		let parsedData: unknown;
 		try {
 			parsedData = JSON.parse(payload);
 		} catch (parseError) {
@@ -59,11 +59,12 @@ export function loadSavedState(): LoadSaveResult {
 		} catch (migrateError) {
 			console.error('Failed to migrate save:', migrateError);
 			// Try to recover without migration if it's already current version
-			if (parsedData.version === SAVE_VERSION) {
-				migratedState = parsedData;
+			const version = isObject(parsedData) ? parsedData.version : undefined;
+			if (version === SAVE_VERSION) {
+				migratedState = parsedData as GameState;
 			} else {
 				return {
-					errorDetails: `Migration from v${parsedData.version || 'unknown'} failed: ${migrateError instanceof Error ? migrateError.message : 'Unknown error'}`,
+					errorDetails: `Migration from v${version || 'unknown'} failed: ${migrateError instanceof Error ? migrateError.message : 'Unknown error'}`,
 					errorType: 'migration_failed',
 					rawData,
 					state: null,
@@ -85,7 +86,6 @@ export function loadSavedState(): LoadSaveResult {
 		// Step 3: Repair, every broken field falls back to its default
 		const { repairs, state } = validateAndRepairGameState(migratedState);
 		if (repairs.length > 0) console.log('Game state repaired:', repairs);
-		console.log('Valid game state:', state);
 		return { integrityTampered, integrityWarnings: checkStatePlausibility(state!), state, success: true };
 	} catch (e) {
 		console.error('Failed to load saved game:', e);
@@ -144,12 +144,41 @@ export function validateAndRepairGameState(state: unknown): { repairs: string[];
 	return { repairs, state: state as unknown as GameState };
 }
 
+interface LegacyGenerator {
+	[key: string]: unknown;
+	count?: number;
+	level?: number;
+}
+
+/** A save from any past version, typed only as far as the migration steps read or rewrite it. */
+interface LegacySave {
+	[key: string]: unknown;
+	achievements?: string[];
+	atoms?: number;
+	buildings?: Record<string, LegacyGenerator>;
+	dailyStats?: { [key: string]: unknown; buildingsPurchased?: number; generatorsPurchased?: number };
+	electrons?: number;
+	excitedPhotons?: number;
+	generators?: Record<string, LegacyGenerator>;
+	photonRealmUnlocked?: boolean;
+	photons?: number;
+	photonUpgrades?: Record<string, number>;
+	protons?: number;
+	purpleRealmUnlocked?: boolean;
+	settings?: { [key: string]: unknown; automation?: { [key: string]: unknown; buildings?: string[]; generators?: string[] } };
+	skillUpgrades?: string[];
+	totalBonusPhotonsClicked?: number;
+	tutorial?: { active?: boolean; completed?: boolean; enabled?: boolean; seen?: string[]; seenRealmSteps?: string[]; step?: number };
+	upgrades?: string[];
+	version?: number;
+}
+
 export function migrateSavedState(savedState: unknown): GameState | undefined {
-	if (!savedState || typeof savedState !== 'object') return undefined;
-	const state = savedState as any;
+	if (!isObject(savedState)) return undefined;
+	const state = savedState as LegacySave;
 
 	// Generators were stored under `buildings` until v26.
-	if (!('buildings' in state) && !('generators' in state)) return state;
+	if (!('buildings' in state) && !('generators' in state)) return state as unknown as GameState;
 
 	if (state.version === 1) {
 		// Hard reset due to balancing
@@ -159,13 +188,13 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 	/** Each step only renames or reshapes data, stats added since the save's version are filled by validateAndRepairGameState. */
 	while (state.version && state.version < SAVE_VERSION) {
 		if (state.version === 2) {
-			for (const building of Object.values<Partial<Generator>>(state.buildings ?? {})) {
+			for (const building of Object.values(state.buildings ?? {})) {
 				building.level = Math.floor((building.count ?? 0) / GENERATOR_LEVEL_UP_COST);
 			}
 		}
 
 		if (state.version === 8) {
-			if (state.electrons > 0) {
+			if ((state.electrons ?? 0) > 0) {
 				state.totalElectronizes = 1;
 			}
 		}
@@ -175,10 +204,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 			state.totalAtomsEarned = state.atoms || 0;
 			state.totalAtomsEarnedAllTime = state.atoms || 0;
 			// Count total buildings currently owned as baseline
-			const buildingsOwned = Object.values(state.buildings || {}).reduce(
-				(acc: number, b: unknown) => acc + ((b as any)?.count || 0),
-				0,
-			);
+			const buildingsOwned = Object.values(state.buildings || {}).reduce((acc, b) => acc + (b?.count || 0), 0);
 			state.totalBuildingsPurchased = buildingsOwned;
 			// Initialize clicks all time from current run
 			state.totalClicksAllTime = state.totalClicks || 0;
@@ -362,7 +388,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 			// Convert photon upgrade feature to skill
 			const photonUpgrades = state.photonUpgrades ?? {};
-			if (photonUpgrades.feature_hover_collection > 0) {
+			if ((photonUpgrades.feature_hover_collection ?? 0) > 0) {
 				skillUpgrades.add('hoverCollection');
 			}
 
@@ -405,7 +431,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 		if (state.version === 26) {
 			// Generators stored a copy of their base rate and cost, which kept rebalances from reaching existing saves
-			for (const generator of Object.values<Record<string, unknown>>(state.generators ?? {})) {
+			for (const generator of Object.values(state.generators ?? {})) {
 				delete generator.cost;
 				delete generator.rate;
 			}
@@ -452,10 +478,10 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 			const skills: string[] = state.skillUpgrades ?? [];
 			const upgrades: string[] = state.upgrades ?? [];
-			state.photonUpgrades ??= {};
+			const photonUpgrades = (state.photonUpgrades ??= {});
 			for (const id of skills) {
 				const photonId = skillToPhotonUpgrade[id];
-				if (photonId) state.photonUpgrades[photonId] = Math.max(state.photonUpgrades[photonId] ?? 0, 1);
+				if (photonId) photonUpgrades[photonId] = Math.max(photonUpgrades[photonId] ?? 0, 1);
 			}
 			state.upgrades = [...upgrades.filter(id => !upgradeToSkill[id]), ...skills.flatMap(id => skillToUpgrade[id] ?? [])];
 			state.skillUpgrades = [...skills.filter(id => !skillToUpgrade[id] && !skillToPhotonUpgrade[id]), ...upgrades.flatMap(id => upgradeToSkill[id] ?? [])];
@@ -466,12 +492,13 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 
 	if (Array.isArray(state.activePowerUps)) {
 		const seenIds = new Set<string>();
-		state.activePowerUps = state.activePowerUps.filter((p: any) => {
-			if (!p?.id || seenIds.has(p.id)) return false;
-			seenIds.add(p.id);
+		state.activePowerUps = state.activePowerUps.filter((p: unknown) => {
+			const id = isObject(p) ? p.id : undefined;
+			if (typeof id !== 'string' || !id || seenIds.has(id)) return false;
+			seenIds.add(id);
 			return true;
 		});
 	}
 
-	return state;
+	return state as unknown as GameState;
 }

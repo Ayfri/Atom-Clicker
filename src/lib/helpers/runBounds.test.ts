@@ -31,11 +31,12 @@ describe('honest play stays under the bound', () => {
 
 		playHonestRun(profile, hours, () => {
 			const now = gameManager.clock();
-			const bounds = measureRunBounds(gameManager, now);
+			const seconds = (now - gameManager.runStartedAt) / 1000;
+			const bounds = measureRunBounds(gameManager, now, seconds);
 			const earned = gameManager.currencies[ATOMS].earnedRun;
 			const clicks = gameManager.totalClicksRun;
 			const prestiges = gameManager.totalProtonisesAllTime + gameManager.totalElectronizesAllTime + gameManager.totalIonizesAllTime;
-			worstRun = Math.max(worstRun, earned / maxRunAtoms(bounds, (now - gameManager.runStartedAt) / 1000, clicks) || 0);
+			worstRun = Math.max(worstRun, earned / maxRunAtoms(bounds, seconds, clicks) || 0);
 			if (previous?.prestiges === prestiges) {
 				worstStep = Math.max(worstStep, (earned - previous.earned) / maxRunAtoms(bounds, (now - previous.time) / 1000, clicks - previous.clicks) || 0);
 			}
@@ -50,14 +51,26 @@ describe('honest play stays under the bound', () => {
 describe('bounds', () => {
 	test('measuring leaves the live game as it was', () => {
 		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		gameManager.totalClicksRun = 1e9;
 		const before = JSON.stringify(gameManager.getCurrentState());
-		measureRunBounds(gameManager, Date.now());
+		measureRunBounds(gameManager, Date.now(), 60);
 		expect(JSON.stringify(gameManager.getCurrentState())).toBe(before);
 	});
 
 	test('ten molecules and a hundred clicks cannot reach the first Protonize in a minute', () => {
 		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
-		expect(maxRunAtoms(measureRunBounds(gameManager, Date.now()), 60, 100)).toBeLessThan(PROTONS_ATOMS_REQUIRED);
+		expect(maxRunAtoms(measureRunBounds(gameManager, Date.now(), 60), 60, 100)).toBeLessThan(PROTONS_ATOMS_REQUIRED);
+	});
+
+	test('clicks past what the run had time for raise neither Click Mastery nor click income', () => {
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		gameManager.upgrades = ['click_mastery'];
+		const atMost = (clicks: number) => {
+			gameManager.totalClicksRun = clicks;
+			return maxRunAtoms(measureRunBounds(gameManager, Date.now(), 60), 60, clicks);
+		};
+		expect(atMost(1e3)).toBeLessThan(atMost(1e5));
+		expect(atMost(1e9)).toBe(atMost(1e5));
 	});
 
 	test('an unknown run start falls back to the save start, never before the game existed', () => {

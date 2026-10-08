@@ -18,7 +18,7 @@ export type CurrencyName = typeof CurrenciesTypes[keyof typeof CurrenciesTypes];
 
 export const CURRENCIES = {
 	[CurrenciesTypes.ATOMS]: {
-		achievementTiers: [100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000],
+		achievementTiers: [100, 10_000, 1_000_000, 1_000_000_000, 1e12, 1e18, 1e25, 1e35, 1e50, 1e65, 1e80, 1e100],
 		color: '#4a90e2',
 		id: 'atom',
 		layer: LAYERS.PROTONIZER,
@@ -26,6 +26,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.ATOMS,
 	},
 	[CurrenciesTypes.BLUE_LIGHT]: {
+		achievementTiers: [100, 10_000, 1_000_000, 50_000_000],
 		color: '#4d8dff',
 		id: 'blue-light',
 		layer: LAYERS.NEVER,
@@ -40,7 +41,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.ELECTRONS,
 	},
 	[CurrenciesTypes.EXCITED_PHOTONS]: {
-		achievementTiers: [1, 20, 1000, 400_000],
+		achievementTiers: [1, 20, 1000, 400_000, 10_000_000],
 		color: '#FFD700',
 		id: 'excited-photon',
 		layer: LAYERS.PHOTON_REALM,
@@ -48,6 +49,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.EXCITED_PHOTONS,
 	},
 	[CurrenciesTypes.GREEN_LIGHT]: {
+		achievementTiers: [100, 10_000, 1_000_000, 50_000_000],
 		color: '#2ee6a0',
 		id: 'green-light',
 		layer: LAYERS.NEVER,
@@ -62,7 +64,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.HIGGS_BOSON,
 	},
 	[CurrenciesTypes.PHOTONS]: {
-		achievementTiers: [1, 100, 1000, 10_000, 100_000, 1_000_000],
+		achievementTiers: [1, 1000, 100_000, 1_000_000, 100_000_000, 1_000_000_000],
 		color: '#9966cc',
 		id: 'photon',
 		layer: LAYERS.PHOTON_REALM,
@@ -77,6 +79,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.PROTONS,
 	},
 	[CurrenciesTypes.RED_LIGHT]: {
+		achievementTiers: [100, 10_000, 1_000_000, 50_000_000],
 		color: '#ff4d5e',
 		id: 'red-light',
 		layer: LAYERS.NEVER,
@@ -84,6 +87,7 @@ export const CURRENCIES = {
 		stat: CurrenciesTypes.RED_LIGHT,
 	},
 	[CurrenciesTypes.WHITE_LIGHT]: {
+		achievementTiers: [1, 100, 10_000, 100_000],
 		color: '#f5f7ff',
 		id: 'white-light',
 		layer: LAYERS.NEVER,

@@ -53,7 +53,7 @@ export const statsConfig = {
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER },
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
-	photonUpgrades: { defaultValue: {}, layer: LAYERS.PHOTON_REALM },
+	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
 	radiation: { defaultValue: { controlRodLevel: 0.5, lastTick: Date.now(), mass: 0, unlocked: false }, layer: LAYERS.NEVER },
 	radiationUpgrades: { defaultValue: {}, layer: LAYERS.RADIATION_REALM },

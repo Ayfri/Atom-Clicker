@@ -6,7 +6,7 @@ import type { PowerUp } from '#lib/types.js';
 
 const HOUR = 3_600_000;
 
-const powerUp = (startTime: number): PowerUp => ({ description: '', duration: 60_000, id: `p${startTime}`, multiplier: 25, name: 'Boost', startTime });
+const powerUp = (startTime: number, duration: number): PowerUp => ({ description: '', duration, id: `p${startTime}`, multiplier: 25, name: 'Boost', startTime });
 
 /** Atoms a catch-up of `awayMs` pays, from an empty bank. */
 function catchUp(awayMs: number): number {
@@ -47,11 +47,12 @@ test('caps the time at 6 hours, raised by the cap upgrades', () => {
 
 test('an expired power-up never multiplies the catch-up, a live one ran through it all', () => {
 	const base = catchUp(HOUR);
-	gameManager.activePowerUps = [powerUp(Date.now() - HOUR)];
+	/** Collected a minute before the tab froze, both power-ups saw the whole hour start, only the longer one is still live after it. */
+	gameManager.activePowerUps = [powerUp(Date.now() - HOUR - 60_000, 2 * 60_000)];
 	expect(catchUp(HOUR)).toBeCloseTo(base);
 	expect(gameManager.activePowerUps).toEqual([]);
 
-	gameManager.activePowerUps = [powerUp(Date.now())];
+	gameManager.activePowerUps = [powerUp(Date.now() - HOUR - 60_000, 2 * HOUR)];
 	expect(catchUp(HOUR)).toBeCloseTo(base * 25);
 });
 

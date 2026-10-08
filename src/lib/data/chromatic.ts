@@ -73,13 +73,13 @@ export const BOOST_SPECTRUM = 5;
 /** A boost a color gives the rest of the game once its spectrum reaches BOOST_SPECTRUM, paid in that color. */
 const colorBoost = (
 	color: ChromaticColor,
-	upgrade: Pick<ChromaticUpgrade, 'baseCost' | 'description' | 'effects' | 'id' | 'name'>,
+	upgrade: Pick<ChromaticUpgrade, 'baseCost' | 'description' | 'effects' | 'id' | 'name'> & Partial<Pick<ChromaticUpgrade, 'maxLevel'>>,
 ): ChromaticUpgrade => ({
-	...upgrade,
 	costMultiplier: 1.6,
 	currencies: [CHROMATIC[color].currency],
 	maxLevel: 20,
 	unlock: { color, spectrum: BOOST_SPECTRUM },
+	...upgrade,
 });
 
 const colorUpgrades = (color: ChromaticColor): ChromaticUpgrade[] => {
@@ -195,7 +195,10 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'green_charge',
 			name: 'Green Charge',
 		}),
-		/** The reactor reads these two levels itself, its formulas don't go through the effect system. */
+		/**
+	 * The reactor reads these two levels itself, its formulas don't go through the effect system. Blue Coolant goes past 20 levels:
+	 * each one adds about one Ionize step of cap, and the ionization line keeps rising past what Pumps and Fusion Ignition reach.
+	 */
 		colorBoost(ChromaticColors.BLUE, {
 			baseCost: 100,
 			description: level => `+${level * 10}% reactor output`,
@@ -206,6 +209,7 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			baseCost: 150,
 			description: level => `Raises the reactor output cap by ${level * 10}%`,
 			id: 'blue_coolant',
+			maxLevel: 50,
 			name: 'Blue Coolant',
 		}),
 		{

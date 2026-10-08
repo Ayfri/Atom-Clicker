@@ -259,12 +259,14 @@
 				<div class="flex flex-col gap-3">
 					{@render bar('Reactor output', radiationManager.currentCpm, radiationManager.maxCpm, REALMS.radiation.color, `${formatNumber(radiationManager.currentCpm)} / ${formatNumber(radiationManager.maxCpm)} CPM`)}
 					{@render bar('Power', radiationManager.controlRodLevel * 100, 100, REALMS.radiation.color, `${(radiationManager.controlRodLevel * 100).toFixed(0)}%`)}
+					{@render bar('Ionization line', radiationManager.currentCpm, radiationManager.ionizeCpm, REALMS.radiation.color, `${formatNumber(radiationManager.currentCpm)} / ${formatNumber(radiationManager.ionizeCpm)} CPM`)}
 				</div>
 				<div>
 					{@render row('Fuel', `${formatNumber(radiationManager.mass)} u`, formatNumberFull(radiationManager.mass))}
 					{@render row('Fuel / s', `${radiationManager.netMassChange > 0 ? '+' : ''}${formatNumber(radiationManager.netMassChange)} u`)}
 					{@render row('Empty in', Number.isFinite(radiationManager.timeToEmpty) ? formatDuration(radiationManager.timeToEmpty * 1000) : 'Never')}
 					{@render row('Production multiplier',`×${formatNumber(radiationManager.radiationMultiplier)}`)}
+					{@render row('Ionized all time', formatNumber(gameManager.totalIonizesAllTime, 0))}
 				</div>
 			</div>
 		</section>

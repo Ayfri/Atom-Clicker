@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { CHROMATIC, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
+	import { CHROMATIC, CHROMATIC_UPGRADES, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
+	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -62,6 +63,16 @@
 		const previous = MILESTONES[reached]?.count ?? 0;
 		return Math.max(reached + (ionizes - previous) / (next.count - previous), 0) / (MILESTONES.length - 1);
 	});
+	/** Upgrades that can still lift the output cap, shown when the cap sits under the line and no fuel can reach it. */
+	const capSources = $derived(
+		[
+			...[RADIATION_UPGRADES.coolant_pumps, RADIATION_UPGRADES.fusion_ignition].filter(
+				({ id, ionizes: needed = 0, maxLevel }) => ionizes >= needed && radiationManager.getUpgradeEffect(id) < maxLevel,
+			),
+			...(ionizes > 0 && chromaticManager.level('blue_coolant') < CHROMATIC_UPGRADES.blue_coolant.maxLevel ? [CHROMATIC_UPGRADES.blue_coolant] : []),
+		].map(({ name }) => name),
+	);
+	const capTooLow = $derived(radiationManager.maxCpm < radiationManager.ionizeCpm);
 	const lightBonus = $derived(ionizeMilestoneBonus(ionizes));
 	const keeps: ListItem[] = $derived([
 		{ currencies: [], label: 'Photon upgrades' },
@@ -156,6 +167,12 @@
 						restarts the count.
 					{/if}
 				</p>
+				{#if capTooLow && !radiationManager.ionizeReady}
+					<p class="text-xs text-yellow-300/80">
+						The core caps at {formatNumber(radiationManager.maxCpm, 1)} CPM, under the line.
+						{capSources.length ? `Raise the cap with ${new Intl.ListFormat('en', { type: 'disjunction' }).format(capSources)}.` : 'Every cap upgrade is maxed.'}
+					</p>
+				{/if}
 			</div>
 		</div>
 

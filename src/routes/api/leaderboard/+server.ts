@@ -5,8 +5,6 @@ import { readVerifiedRequest } from '#lib/server/verifiedRequest.server.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 import { addRankToLeaderboard } from '#lib/utils/number-parser.js';
 
-/** A game state weighs ~15 KB, this only stops a client from making the Worker parse megabytes. */
-const MAX_BODY_BYTES = 256 * 1024;
 const MAX_PICTURE_LENGTH = 2048;
 const MAX_USERNAME_LENGTH = 50;
 /** Measured on the stored history, so it holds across Worker isolates unlike an in-memory map. */
@@ -80,8 +78,6 @@ async function fetchLeaderboard(): Promise<LeaderboardResponse> {
  */
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_BYTES) return Response.json({ error: 'Payload too large' }, { status: 413 });
-
 		const verified = await readVerifiedRequest(request);
 		if (verified instanceof Response) return verified;
 
@@ -102,7 +98,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			return Response.json({ error: 'Update too frequent', nextUpdateIn: Math.ceil((MIN_SUBMIT_INTERVAL_MS - sinceLast) / 1000) }, { status: 429 });
 		}
 
-		const audit = auditScore(state, { colliderTotal: context.colliderTotal, now, previous: context.previous });
+		const audit = auditScore(state, { accountCreatedAt: context.accountCreatedAt, colliderTotal: context.colliderTotal, now, previous: context.previous });
 		if (audit === 'outdated') return Response.json({ error: 'This game version is outdated, reload the page' }, { status: 409 });
 		if (audit === 'malformed') return Response.json({ error: 'Invalid game state' }, { status: 400 });
 

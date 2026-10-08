@@ -16,6 +16,7 @@ import RockIcon from '#components/icons/generators/Rock.svelte';
 import StarIcon from '#components/icons/generators/Star.svelte';
 import GitHubIcon from '#components/icons/GitHub.svelte';
 import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
+import IonizeIcon from '#components/icons/Ionize.svelte';
 import PhotonIcon from '#components/icons/Photon.svelte';
 import ProtonIcon from '#components/icons/Proton.svelte';
 import QuarkIcon from '#components/icons/Quark.svelte';
@@ -82,6 +83,7 @@ export const ICONS = {
 	globe: Globe,
 	greenLight: Diamond,
 	higgsBoson: HiggsBosonIcon,
+	ionize: IonizeIcon,
 	level: ArrowBigUp,
 	magnet: Magnet,
 	microorganism: MicroorganismIcon,

@@ -227,6 +227,7 @@
 
 	<Journey
 		electronizes={gameManager.totalElectronizesAllTime}
+		ionizes={gameManager.totalIonizesAllTime}
 		photonRealm={REALMS.photons.condition(gameManager.features)}
 		protonizes={gameManager.totalProtonisesAllTime}
 		radiationRealm={REALMS.radiation.condition(gameManager.features)}

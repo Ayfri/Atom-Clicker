@@ -1,12 +1,15 @@
 import type { Achievement, AchievementGroup } from '#lib/types.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { tierIconStack } from '#helpers/iconStacks.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { formatNumber } from '#lib/utils.js';
+import { CHROMATIC_COLORS } from '#data/chromatic.js';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
 import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/icons.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
+import { UPGRADES } from '#data/upgrades.js';
 
 const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{
@@ -121,23 +124,21 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 	{
 		id: 'higgs_no_atoms',
 		name: 'Pure Luck',
-		description: 'Click a Higgs Boson without ever earning an atom',
+		description: 'Click a Higgs Boson before earning an atom in a run',
 		iconStack: { count: 1, icon: 'higgsBoson' },
-		condition: (manager: GameManager) => {
-			const higgsEarned = manager.currencies[CurrenciesTypes.HIGGS_BOSON]?.earnedAllTime || 0;
-			const atomsEarned = manager.currencies[CurrenciesTypes.ATOMS]?.earnedAllTime || 0;
-			return higgsEarned > 0 && atomsEarned === 0;
-		},
+		/** Unlocked by `incrementBonusHiggsBosonClicks()`, Higgs Bosons never reset so a tick check can't tell when one was caught. */
+		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('higgs_no_atoms'),
 	},
 	{
 		id: 'atoms_1000_no_upgrades',
 		name: 'Minimalist',
-		description: 'Reach 1,000 atoms without ever buying an upgrade',
+		description: 'Earn 1,000 atoms in a run without buying an atom upgrade, starting atoms excluded',
 		iconStack: { count: 3, icon: 'atom', label: '1K' },
+		/** Only a Protonize hands out starting atoms, any other reset clears `totalProtonisesRun`. */
 		condition: (manager: GameManager) => {
-			const atoms = manager.currencies[CurrenciesTypes.ATOMS]?.amount || 0;
-			const hasUpgrades = manager.upgrades.length > 0 || manager.skillUpgrades.length > 0;
-			return atoms >= 1000 && !hasUpgrades;
+			const startAtoms = manager.totalProtonisesRun > 0 ? manager.effects.value('start_atoms', 0, manager) : 0;
+			const earned = manager.currencies[CurrenciesTypes.ATOMS].earnedRun - startAtoms;
+			return earned >= 1000 && !manager.upgrades.some(id => UPGRADES[id]?.cost.currency === CurrenciesTypes.ATOMS);
 		},
 	},
 ];
@@ -166,11 +167,11 @@ function createGeneratorAchievements(generatorId: GeneratorType): Achievement[] 
 		{ count: 10, name: 'Ten' },
 		{ count: 50, name: 'Fifty' },
 		{ count: 100, name: 'Hundred' },
-		{ count: 200, name: 'Two hundred' },
-		{ count: 300, name: 'Three hundred' },
+		{ count: 250, name: 'Two hundred fifty' },
 		{ count: 500, name: 'Five hundred' },
+		{ count: 750, name: 'Seven hundred fifty' },
 		{ count: 1000, name: 'One thousand' },
-		{ count: 2000, name: 'Two thousand' },
+		{ count: 1500, name: 'Fifteen hundred' },
 	];
 
 	return tiers.map((tier, index) => createGeneratorCountAchievement(tier.name, tier.count, index, tier.description));
@@ -188,7 +189,7 @@ function createGeneratorTotalAchievements(): Achievement[] {
 		};
 	}
 
-	return [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1500, 2000, 2500, 3000].map(createGeneratorTotalAchievement);
+	return [50, 100, 250, 500, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10_000].map(createGeneratorTotalAchievement);
 }
 
 function createGeneratorLevelsAchievements(): Achievement[] {
@@ -204,7 +205,7 @@ function createGeneratorLevelsAchievements(): Achievement[] {
 		};
 	}
 
-	return [1, 2, 3, 5, 7, 10, 15, 20, 30, 50].map(createGeneratorLevelAchievement);
+	return [1, 5, 10, 20, 30, 50, 75, 100, 150].map(createGeneratorLevelAchievement);
 }
 
 function createAtomsPerSecondAchievements(): Achievement[] {
@@ -222,11 +223,7 @@ function createAtomsPerSecondAchievements(): Achievement[] {
 			condition: (manager: GameManager) => manager.atomsPerSecond >= count,
 		};
 	}
-	const numbers = Array(10)
-		.fill(0)
-		.map((_, i) => 10 ** (i * 2) * 10);
-
-	return numbers.map(createAtomsPerSecondAchievement);
+	return [10, 1e3, 1e7, 1e11, 1e15, 1e19, 1e25, 1e30, 1e40, 1e50, 1e60, 1e75, 1e90].map(createAtomsPerSecondAchievement);
 }
 
 function createTotalClicksAchievements(): Achievement[] {
@@ -265,7 +262,7 @@ function createTotalLevelsAchievements(): Achievement[] {
 		};
 	}
 
-	return [1, 10, 25, 50, 100, 250, 500, 727, 1000, 2500, 5000, 10_000].map(createTotalLevelsAchievement);
+	return [1, 10, 25, 50, 100, 150, 200, 250, 300, 400, 500, 727, 1000].map(createTotalLevelsAchievement);
 }
 
 function createProtoniseAchievements(): Achievement[] {
@@ -292,8 +289,33 @@ function createElectronizeAchievements(): Achievement[] {
 	}));
 }
 
-function createCurrencyAchievements(): AchievementGroup[] {
-	return Object.values(CURRENCIES)
+function createIonizeAchievements(): Achievement[] {
+	return [1, 5, 10, 20, 30, 50].map((tier, index) => ({
+		id: `ionizes_${tier}`,
+		name: `${tier} Ionize${tier === 1 ? '' : 's'}`,
+		description: `Ionize ${tier} time${tier === 1 ? '' : 's'}`,
+		iconStack: tierIconStack('ionize', index, tier),
+		condition: (manager: GameManager) => manager.totalIonizesAllTime >= tier,
+		hiddenCondition: (manager: GameManager) => manager.totalIonizesAllTime === 0,
+	}));
+}
+
+/** Counts the weakest color, so farming one color alone never completes a tier. */
+function createSpectrumAchievements(): Achievement[] {
+	const lowestSpectrum = () => Math.min(...CHROMATIC_COLORS.map(color => chromaticManager.spectrumLevel(color)));
+	return [5, 10, 25, 50].map((tier, index) => ({
+		id: `spectrum_${tier}`,
+		name: `Spectrum ${tier}`,
+		description: `Reach Spectrum ${tier} in all three colors`,
+		iconStack: tierIconStack('whiteLight', index, tier),
+		condition: () => lowestSpectrum() >= tier,
+		hiddenCondition: () => CHROMATIC_COLORS.every(color => chromaticManager.kills[color] === 0),
+	}));
+}
+
+function createCurrencyAchievements(types: CurrencyName[]): AchievementGroup[] {
+	return types
+		.map(type => CURRENCIES[type])
 		.filter(c => c.achievementTiers && c.stat)
 		.map(currency => ({
 			name: currency.name,
@@ -313,19 +335,12 @@ function createCurrencyAchievements(): AchievementGroup[] {
 					name = () => `${countNames[tier] || tier} Bonus Higgs Boson`;
 					description = () => `Click ${formatNumber(tier, 0)} bonus higgs boson${tier === 1 ? '' : 's'}`;
 				} else if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) {
-					name = () => `Excited ${
-						tier >= 1000 ?
-							tier >= 400000 ?
-								'4'
-							:	'3'
-						: tier >= 20 ? '2'
-						: ''
-					}`;
+					name = () => `Excited${index ? ` ${index + 1}` : ''}`;
 					description = () => `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
 				}
 
 				// Quark claims store these ids server-side, so the prefixes never change.
-				let prefix = currency.id;
+				let prefix = currency.id.replaceAll('-', '_');
 				if (currency.name === CurrenciesTypes.ATOMS) prefix = 'atoms';
 				if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) prefix = 'excited_photons';
 				if (currency.name === CurrenciesTypes.HIGGS_BOSON) prefix = 'bonus_higgs_boson_clicked';
@@ -450,11 +465,14 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
 	{ achievements: createTotalLevelsAchievements(), name: 'Player Level', tiered: true },
 	{ achievements: createProtoniseAchievements(), name: 'Protonizes', tiered: true },
 	{ achievements: createElectronizeAchievements(), name: 'Electronizes', tiered: true },
-	...createCurrencyAchievements(),
+	{ achievements: createIonizeAchievements(), name: 'Ionizes', tiered: true },
+	...createCurrencyAchievements([CurrenciesTypes.ATOMS, CurrenciesTypes.EXCITED_PHOTONS, CurrenciesTypes.HIGGS_BOSON, CurrenciesTypes.PHOTONS]),
 	{ achievements: createCurrencyBoostAchievements(), name: 'Currency Boosts', tiered: false },
 	{ achievements: createPhotonUpgradeAchievements(), name: 'Photon Upgrades', tiered: false },
 	{ achievements: createRadiationAchievements(), name: 'Reactor', tiered: false },
 	{ achievements: SPECIAL_ACHIEVEMENTS, name: 'Special', tiered: false },
+	{ achievements: createSpectrumAchievements(), name: 'Spectrum', tiered: true },
+	...createCurrencyAchievements([CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT, CurrenciesTypes.WHITE_LIGHT]),
 ];
 
 export const ACHIEVEMENTS = Object.fromEntries(ACHIEVEMENT_GROUPS.flatMap(group => group.achievements).map(achievement => [achievement.id, achievement]));

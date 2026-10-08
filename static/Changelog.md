@@ -1,3 +1,9 @@
+# What's new 08-10-2026
+
+- **Achievements**: New achievements for Ionize, the Prism's Spectrum and every colored Light, and the other tiers now spread further into the late game.
+- **Reactor**: The power lever shows where your output caps with a max output button, and Ionize tells you which upgrades lift the cap when it sits under the line.
+- **Saving**: Your progress saves the moment you hide or close the tab, locally and to the cloud.
+
 # What's new 05-10-2026
 
 - **Fair Leaderboard**: Every score is now verified, and a run carried over from an older balance is brought down once to what today's game allows.

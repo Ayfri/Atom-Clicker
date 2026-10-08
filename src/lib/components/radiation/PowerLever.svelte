@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { formatNumber } from '#lib/utils.js';
+	import { Gauge } from '@lucide/svelte';
 
 	interface Props {
 		/** Phones get a horizontal throttle under the reactor, the narrow column has no room beside it for the vertical one. */
@@ -13,11 +15,20 @@
 
 	const level = $derived(radiationManager.controlRodLevel);
 	const stableLevel = $derived(radiationManager.stableControlLevel);
+	const capLevel = $derived(radiationManager.capControlLevel);
+	/** The cap power rounded up to the lever's 1% step, held under the ∞ mark rounded down so the setting never drains the core. */
+	const capTarget = $derived(Math.ceil(capLevel * 100 - 1e-9) / 100);
+	const stableTarget = $derived(Math.floor(stableLevel * 100 + 1e-9) / 100);
+	const capped = $derived(stableTarget <= 0 || capTarget <= stableTarget);
+	const maxTarget = $derived(capped ? capTarget : stableTarget);
 	const draining = $derived(radiationManager.mass > 0 && level > 0 && radiationManager.netMassChange < 0);
 	const travel = (value: number) => `calc(${THUMB_PX / 2}px + (100% - ${THUMB_PX}px) * ${value})`;
 </script>
 
-<div class="flex items-center gap-2 {vertical ? 'h-full w-14 flex-col py-2' : 'w-full'}">
+<div
+	class="flex items-center gap-2 {vertical ? 'h-full w-14 flex-col py-2' : 'w-full'}"
+	data-hint="radiation-lever"
+>
 	<span class="text-[10px] font-bold uppercase tracking-[0.2em] {vertical ? 'text-red-400/70' : 'text-sky-400/70'}">
 		{vertical ? 'Max' : 'Off'}
 	</span>
@@ -36,10 +47,27 @@
 				class="pointer-events-none absolute flex items-center justify-center {vertical ? 'inset-x-1 translate-y-1/2' : 'inset-y-2 -translate-x-1/2'}"
 				style:bottom={vertical ? travel(stableLevel) : undefined}
 				style:left={vertical ? undefined : travel(stableLevel)}
-				title="Sustainable up to {(stableLevel * 100).toFixed(0)}%"
+				title="Sustainable up to {(stableLevel * 100).toFixed(0)}% with {formatNumber(radiationManager.mass, 1)} u of fuel, more fuel lowers it"
 			>
 				<span class="rounded-full bg-white/90 {vertical ? 'h-0.5 w-full' : 'h-full w-0.5'}"></span>
 				<span class="absolute text-xs font-bold leading-none text-white/90 {vertical ? '-left-3' : '-top-2'}">∞</span>
+			</div>
+		{/if}
+		{#if capLevel < stableLevel}
+			<div
+				class="pointer-events-none absolute flex items-center justify-center {vertical ? 'inset-x-2 translate-y-1/2' : 'inset-y-3 -translate-x-1/2'}"
+				style:bottom={vertical ? travel(capLevel) : undefined}
+				style:left={vertical ? undefined : travel(capLevel)}
+				title="Output caps at {(capLevel * 100).toFixed(0)}%, more power only burns fuel faster"
+			>
+				<span class="rounded-full bg-white/35 {vertical ? 'h-px w-full' : 'h-full w-px'}"></span>
+				<!-- Only past a 3% gap, closer it would sit on the ∞ glyph. -->
+				{#if stableLevel - capLevel >= 0.03}
+					<Gauge
+						class="absolute text-white/45 {vertical ? '-left-4' : '-top-3'}"
+						size={10}
+					/>
+				{/if}
 			</div>
 		{/if}
 		<input
@@ -58,6 +86,18 @@
 	<span class="flex items-center leading-none {vertical ? 'flex-col gap-1.5' : 'order-first w-14 flex-col gap-1'}">
 		<span class="font-mono text-lg font-bold tabular-nums {draining ? 'text-yellow-300' : 'text-white'}">{(level * 100).toFixed(0)}%</span>
 		<span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Power</span>
+		<!-- Hidden rather than removed so the lever track keeps its length while the fuel moves the target. -->
+		<button
+			class={[
+				'mt-1 flex size-8 cursor-pointer items-center justify-center rounded-lg bg-accent-900 text-radiation/80 transition-colors hover:bg-accent-800 hover:text-radiation',
+				{ invisible: maxTarget <= 0 || maxTarget > 1 || maxTarget === level },
+			]}
+			aria-label="Max output"
+			onclick={() => radiationManager.setControlRodLevel(maxTarget)}
+			title="Max output: set the power to {(maxTarget * 100).toFixed(0)}%, {capped ? 'the lowest that reaches the cap' : 'the highest your regen keeps up with'}"
+		>
+			<Gauge size={16} />
+		</button>
 	</span>
 </div>
 

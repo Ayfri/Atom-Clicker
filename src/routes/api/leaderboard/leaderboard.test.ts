@@ -12,7 +12,7 @@ const passing: ScoreAudit = {
 };
 
 let verdict: ScoreAudit | 'malformed' | 'outdated' = passing;
-let context: ScoreContext = { colliderTotal: 0, lastReceivedAt: null, previous: null };
+let context: ScoreContext = { accountCreatedAt: null, colliderTotal: 0, lastReceivedAt: null, previous: null };
 
 const service = {
 	getLeaderboard: mock(async () => []),
@@ -50,7 +50,7 @@ const payload = { picture: 'https://cdn.example/avatar.png', state: { version: 3
 
 beforeEach(() => {
 	verdict = passing;
-	context = { colliderTotal: 0, lastReceivedAt: null, previous: null };
+	context = { accountCreatedAt: null, colliderTotal: 0, lastReceivedAt: null, previous: null };
 	service.recordScore.mockClear();
 	auditScore.mockClear();
 });
@@ -75,6 +75,26 @@ test('older clients reload, junk and bad profile fields are refused before anyth
 	expect((await submit({ ...payload, picture: 'javascript:alert(1)' })).status).toBe(400);
 	expect((await submit(payload, false)).status).toBe(401);
 	expect(service.recordScore).not.toHaveBeenCalled();
+});
+
+test('an oversized body is refused before it is parsed, chunked or not, and a broken one is a bad request', async () => {
+	const huge = JSON.stringify(obfuscateClientData({ ...payload, padding: 'x'.repeat(300_000) }));
+	const send = async (body: BodyInit) => {
+		const request = new Request('http://localhost/api/leaderboard', { body, duplex: 'half', headers: { Authorization: 'Bearer token' }, method: 'POST' } as RequestInit);
+		return (await POST({ request } as never)).status;
+	};
+	const bytes = new TextEncoder().encode(huge);
+	const chunked = new ReadableStream<Uint8Array>({
+		start(controller) {
+			for (let i = 0; i < bytes.length; i += 16_384) controller.enqueue(bytes.slice(i, i + 16_384));
+			controller.close();
+		},
+	});
+
+	expect(await send(huge)).toBe(413);
+	expect(await send(chunked)).toBe(413);
+	expect(await send('{"data":')).toBe(400);
+	expect(auditScore).not.toHaveBeenCalled();
 });
 
 test('the throttle reads the stored history, so it holds across Worker isolates', async () => {
