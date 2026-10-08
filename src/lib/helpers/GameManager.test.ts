@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, GeneratorTypes } from '#data/generators.js';
+import { getPhotonUpgradeCost, PHOTON_UPGRADES } from '#data/photonUpgrades.js';
+import { RealmTypes } from '#data/realms.js';
+import { UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { LAYERS } from '#helpers/statConstants.js';
-import { PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import type { GameState } from '#lib/types.js';
 
 const { ATOMS, ELECTRONS, EXCITED_PHOTONS, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
 
@@ -64,6 +69,94 @@ describe('generator purchases', () => {
 		expect(gameManager.purchaseGenerator(GeneratorTypes.MOLECULE, 2)).toBe(false);
 		expect(gameManager.atoms).toBe(before);
 		expect(gameManager.generators.molecule).toBeUndefined();
+	});
+});
+
+describe('upgrade purchases', () => {
+	test('auto-upgrade buys every affordable upgrade, cheapest first, and leaves nothing affordable behind', () => {
+		currenciesManager.add(ATOMS, 300_000);
+		const bought = gameManager.purchaseAffordableUpgrades();
+		expect(bought.length).toBeGreaterThan(1);
+		expect(gameManager.upgrades).toEqual(bought);
+
+		const costs = bought.map(id => UPGRADES[id].cost.amount);
+		expect(costs).toEqual(costs.toSorted((a, b) => a - b));
+		const affordable = Object.values(UPGRADES).filter(
+			upgrade => !gameManager.upgrades.includes(upgrade.id) && (upgrade.condition?.(gameManager) ?? true) && gameManager.canAfford(upgrade.cost),
+		);
+		expect(affordable.map(upgrade => upgrade.id)).toEqual([]);
+	});
+
+	test('photon upgrades spend photons level by level up to their max', () => {
+		const upgrade = PHOTON_UPGRADES.auto_clicker;
+		let total = 0;
+		for (let level = 0; level < upgrade.maxLevel; level++) total += getPhotonUpgradeCost(upgrade, level);
+		currenciesManager.add(PHOTONS, total + 1);
+
+		for (let level = 0; level < upgrade.maxLevel; level++) expect(gameManager.purchasePhotonUpgrade(upgrade.id)).toBe(true);
+		expect(gameManager.purchasePhotonUpgrade(upgrade.id)).toBe(false);
+		expect(gameManager.photonUpgrades[upgrade.id]).toBe(upgrade.maxLevel);
+		expect(gameManager.photons).toBe(1);
+	});
+});
+
+describe('skills', () => {
+	test('a skill needs its prerequisites, is bought once and opens its realm at once', () => {
+		currenciesManager.add(ATOMS, 2e10);
+		expect(gameManager.purchaseSkill('purpleRealm')).toBe(false);
+
+		gameManager.skillUpgrades = ['unlockLevels'];
+		expect(gameManager.purchaseSkill('purpleRealm')).toBe(true);
+		expect(gameManager.realms[RealmTypes.PHOTONS].unlocked).toBe(true);
+		expect(gameManager.atoms).toBe(1e10);
+		expect(gameManager.purchaseSkill('purpleRealm')).toBe(false);
+		expect(gameManager.atoms).toBe(1e10);
+	});
+
+	test('the Radiation Realm skill also unlocks the reactor', () => {
+		gameManager.skillUpgrades = ['unlockLevels', 'purpleRealm'];
+		currenciesManager.add(ELECTRONS, 100);
+		expect(gameManager.purchaseSkill('radiationRealm')).toBe(true);
+		expect(gameManager.realms[RealmTypes.RADIATION].unlocked).toBe(true);
+		expect(radiationManager.unlocked).toBe(true);
+	});
+
+	test('an automated generator is bought every 30 seconds, only while its toggle is on', () => {
+		gameManager.skillUpgrades = ['autoClicker', 'moleculeAutoBuy'];
+		expect(gameManager.autoBuyIntervals).toEqual({});
+		gameManager.toggleAutomation(GeneratorTypes.MOLECULE);
+		expect(gameManager.autoBuyIntervals).toEqual({ [GeneratorTypes.MOLECULE]: 30_000 });
+		gameManager.toggleAutomation(GeneratorTypes.MOLECULE);
+		expect(gameManager.autoBuyIntervals).toEqual({});
+	});
+});
+
+describe('currency boosts', () => {
+	test('split evenly gives every currency its share of the points, one apart at most and capped', () => {
+		gameManager.generators = { molecule: { count: 500, level: 5, unlocked: true } };
+		gameManager.splitCurrencyBoostsEvenly([ATOMS, PROTONS]);
+		expect(gameManager.currencyBoosts).toEqual({ [ATOMS]: 3, [PROTONS]: 2 });
+
+		gameManager.generators = { molecule: { count: 10_000, level: 100, unlocked: true } };
+		gameManager.splitCurrencyBoostsEvenly([ATOMS, PROTONS]);
+		expect(gameManager.currencyBoosts).toEqual({ [ATOMS]: MAX_BOOST_POINTS, [PROTONS]: MAX_BOOST_POINTS });
+		expect(gameManager.boostPointsAvailable).toBe(100 - 2 * MAX_BOOST_POINTS);
+	});
+});
+
+describe('cloud saves', () => {
+	test('a cloud save replaces the game, opens the realms its skills grant and keeps a local integrity flag', () => {
+		gameManager.skillUpgrades = ['unlockLevels', 'purpleRealm'];
+		currenciesManager.add(ATOMS, 123);
+		const cloud = JSON.parse(JSON.stringify(gameManager.getCurrentState())) as GameState;
+
+		gameManager.resetAll();
+		gameManager.integrityFlagged = true;
+		gameManager.loadCloudSave(cloud);
+		expect(gameManager.atoms).toBe(123);
+		expect(gameManager.skillUpgrades).toEqual(['unlockLevels', 'purpleRealm']);
+		expect(gameManager.realms[RealmTypes.PHOTONS].unlocked).toBe(true);
+		expect(gameManager.integrityFlagged).toBe(true);
 	});
 });
 
@@ -165,18 +258,21 @@ describe('stability field', () => {
 	test('fills with idle ticks, and a click after the tick gives back exactly ×1', () => {
 		let now = 1_000_000;
 		gameManager.clock = () => now;
-		gameManager.skillUpgrades = ['stabilityField'];
-		gameManager.lastInteractionTime = now;
-		now += gameManager.stabilityTimeRequired / 2;
-		gameManager.tick(1000, true, true);
-		expect(gameManager.stabilityProgress).toBeCloseTo(0.5);
-		expect(gameManager.stabilityMultiplier).toBeGreaterThan(1);
+		try {
+			gameManager.skillUpgrades = ['stabilityField'];
+			gameManager.lastInteractionTime = now;
+			now += gameManager.stabilityTimeRequired / 2;
+			gameManager.tick(1000, true, true);
+			expect(gameManager.stabilityProgress).toBeCloseTo(0.5);
+			expect(gameManager.stabilityMultiplier).toBeGreaterThan(1);
 
-		for (const delay of [1, 7, 300]) {
-			gameManager.lastInteractionTime = now + delay;
-			expect(gameManager.stabilityMultiplier).toBe(1);
+			for (const delay of [1, 7, 300]) {
+				gameManager.lastInteractionTime = now + delay;
+				expect(gameManager.stabilityMultiplier).toBe(1);
+			}
+		} finally {
+			gameManager.clock = () => Date.now();
 		}
-		gameManager.clock = () => Date.now();
 	});
 });
 
