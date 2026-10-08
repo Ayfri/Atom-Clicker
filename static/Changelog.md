@@ -1,4 +1,4 @@
-# Unreleased
+# What's new 08-10-2026
 
 - **Achievements**: New achievements for Ionize, the Prism's Spectrum and every colored Light, and the other tiers now spread further into the late game.
 - **Reactor**: The power lever shows where your output caps with a max output button, and Ionize tells you which upgrades lift the cap when it sits under the line.
