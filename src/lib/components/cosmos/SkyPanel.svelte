@@ -189,8 +189,8 @@
 				{/if}
 			</li>
 			{#each COSMOS_INSTRUMENTS as instrument (instrument.id)}
-				{@const owned = cosmosManager.ownsEra(instrument.era)}
-				{@const next = cosmosManager.nextInstrument?.id === instrument.id}
+				{const owned = $derived(cosmosManager.owns(instrument))}
+				{const next = $derived(cosmosManager.nextInstrument?.id === instrument.id)}
 				<li class={['flex items-center gap-3 rounded-lg px-2 py-2', !owned && !next && 'opacity-50']}>
 					<div class="min-w-0 flex-1">
 						{#if owned || next}

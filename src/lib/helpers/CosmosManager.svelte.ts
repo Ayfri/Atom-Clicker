@@ -5,6 +5,7 @@ import {
 	COSMOS_INSTRUMENTS,
 	COSMOS_OBJECTS,
 	COSMOS_OBJECTS_BY_ID,
+	type CosmosInstrument,
 	type CosmosObject,
 	cosmosEffects,
 	IONIZE_FLASH_SECONDS,
@@ -36,11 +37,11 @@ class CosmosManager {
 	/** First undiscovered object in history order, null once the owned instruments see nothing new. */
 	nextDiscovery = $derived.by((): CosmosObject | null => {
 		const next = COSMOS_OBJECTS.find(object => !object.given && !this.discovered.includes(object.id));
-		return next && this.ownsEra(next.era) ? next : null;
+		return next && COSMOS_INSTRUMENTS.some(instrument => instrument.era === next.era && this.owns(instrument)) ? next : null;
 	});
 
 	/** Latest owned instrument, the one the player looks through. */
-	instrument = $derived(COSMOS_INSTRUMENTS.findLast(instrument => instrument.cost === 0 || this.instruments.includes(instrument.id))!);
+	instrument = $derived(COSMOS_INSTRUMENTS.findLast(instrument => this.owns(instrument))!);
 
 	/** Faintest magnitude the instrument reaches at the current Aperture, never past its reach. */
 	limit = $derived(Math.min(this.instrument.reach, this.instrument.limit + APERTURE_STEP * this.aperture));
@@ -80,8 +81,9 @@ class CosmosManager {
 		return object.starlight * (1 + this.level(objectId)) * this.starlightMultiplier;
 	}
 
-	ownsEra(era: string): boolean {
-		return COSMOS_INSTRUMENTS.some(instrument => instrument.era === era && (instrument.cost === 0 || this.instruments.includes(instrument.id)));
+	/** The naked eye is free, every other instrument has to be built. */
+	owns(instrument: CosmosInstrument): boolean {
+		return instrument.cost === 0 || this.instruments.includes(instrument.id);
 	}
 
 	discover(objectId: string): boolean {
