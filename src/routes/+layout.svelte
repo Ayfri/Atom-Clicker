@@ -21,8 +21,8 @@
 
 	let { children }: Props = $props();
 
-	// The benchmark route is a standalone dev tool, none of the in-game overlays belong there.
-	const isStandalone = $derived(page.url.pathname.startsWith('/benchmark'));
+	// The error page and the benchmark dev tool stand alone, none of the in-game overlays belong there.
+	const isStandalone = $derived(!!page.error || page.url.pathname.startsWith('/benchmark'));
 
 	let mounted = $state(false);
 	let updatePromptShown = false;

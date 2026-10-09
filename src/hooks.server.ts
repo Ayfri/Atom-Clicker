@@ -1,3 +1,4 @@
+import { dev } from '$app/env';
 import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { logError } from '#lib/server/errorHandler.server.js';
 
@@ -22,6 +23,8 @@ export const handleError: HandleServerError = async ({ error, event, kind }) => 
 
 	console.error('[Server Error]', error);
 
+	const errorMessage = error instanceof Error ? error.message : kind === 'unknown' ? 'Unknown server error' : error.message;
+	const stackTrace = error instanceof Error ? error.stack : undefined;
 	try {
 		await logError({
 			browserInfo: {
@@ -29,13 +32,13 @@ export const handleError: HandleServerError = async ({ error, event, kind }) => 
 				platform: 'server',
 				userAgent: event.request.headers.get('user-agent')
 			},
-			errorMessage: error instanceof Error ? error.message : kind === 'unknown' ? 'Unknown server error' : error.message,
-			stackTrace: error instanceof Error ? error.stack : null,
+			errorMessage,
+			stackTrace: stackTrace ?? null,
 			url: event.url.href
 		});
 	} catch (logErr) {
 		console.error('[Server Error] Failed to log error:', logErr);
 	}
 
-	return { message: 'An unexpected error occurred on the server.' };
+	return dev ? { message: errorMessage, stack: stackTrace } : { message: 'An unexpected error occurred on the server.' };
 };
