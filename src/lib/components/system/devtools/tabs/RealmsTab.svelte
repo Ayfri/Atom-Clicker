@@ -31,6 +31,8 @@
 		{/each}
 		<span>Cosmos</span>
 		<button class={btn} onclick={() => tutorial.forget('cosmos:')}>Replay {HINTS.filter(hint => hint.realm === 'cosmos').length} hints</button>
+		<span>Periodic Table</span>
+		<button class={btn} onclick={() => tutorial.forget('table:')}>Replay {HINTS.filter(hint => hint.realm === 'table').length} hints</button>
 		<label class="flex items-center gap-2">
 			<input checked={tutorial.state.enabled} class={checkbox} onchange={e => tutorial.setEnabled(e.currentTarget.checked)} type="checkbox" />
 			Tips enabled <span class="text-white/45">({tutorial.state.seen.length} seen)</span>

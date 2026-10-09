@@ -1,0 +1,159 @@
+import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { rgba, TAU } from '#helpers/nucleus.js';
+import { MINI_NUCLEONS, nucleonsOf, paintAtom, paintNucleus } from './atoms.js';
+
+export type CellLook =
+	| { color: string; kind: 'identified' | 'ready' | 'reading' }
+	| { color: string; kind: 'forging'; progress: number }
+	| { kind: 'waiting' };
+
+interface Slot {
+	size: number;
+	x: number;
+	y: number;
+}
+
+const BARE_COLOR = '#c3cad6';
+/** The atom leaves the bottom of its cell to the symbol. */
+const ATOM_SHARE = 0.86;
+const POP_SECONDS = 0.5;
+
+/**
+ * Draws every element of the table as a mini atom on one canvas laid under the cells: identified elements as baked Bohr atoms,
+ * ready ones as a bare wobbling nucleus, forged ones as a nucleus gaining nucleons. The loop only runs while a ready nucleus wobbles or a cell pops.
+ */
+export class TableAtoms extends CanvasLoop {
+	/** When each cell last changed state, on the loop's clock. */
+	private readonly changed = new Map<number, number>();
+	private readonly ctx: CanvasRenderingContext2D;
+	private full = true;
+	private looks = new Map<number, CellLook>();
+	private ratio = 1;
+	private slots = new Map<number, Slot>();
+	private time = 0;
+
+	/** The canvas sits in the grid next to its `[data-cell]` slots, `zoom` sharpens a table that gets pinch-zoomed. */
+	constructor(
+		canvas: HTMLCanvasElement,
+		private readonly zoom = 1,
+	) {
+		super(canvas);
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('Canvas2D is not available');
+		this.ctx = ctx;
+		this.observe();
+	}
+
+	set(looks: Map<number, CellLook>) {
+		for (const [z, look] of looks) if (this.looks.get(z)?.kind !== look.kind) this.changed.set(z, this.time);
+		this.looks = looks;
+		this.full = true;
+		this.update();
+		this.redraw();
+	}
+
+	/**
+	 * A state change, a resize or a pop repaints the whole table. Otherwise only the wobbling ready cells are cleared and painted again,
+	 * their glow stays inside the gap around their cell.
+	 */
+	protected draw(dt: number): boolean {
+		const { ctx, ratio } = this;
+		this.time += dt;
+		const popping = this.changed.size > 0;
+		const full = this.full || popping;
+		if (full) {
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		}
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+		let moving = popping;
+		for (const [z, look] of this.looks) {
+			const slot = this.slots.get(z);
+			if (!slot || (!full && look.kind !== 'ready')) continue;
+			if (!full) ctx.clearRect(slot.x - 2, slot.y - 2, slot.size + 4, slot.size + 4);
+			this.drawCell(z, look, slot);
+			moving ||= look.kind === 'ready';
+		}
+		/** The frame after the last pop repaints in full too, to wipe what it drew past its cell. */
+		this.full = popping;
+		return moving;
+	}
+
+	private drawCell(z: number, look: CellLook, slot: Slot) {
+		const { ctx, ratio } = this;
+		const size = slot.size * ATOM_SHARE;
+		const x = slot.x + (slot.size - size) / 2;
+		const y = slot.y;
+		const cx = x + size / 2;
+		const cy = y + size / 2;
+		const pixels = Math.max(8, Math.round(size * ratio));
+		const nucleons = Math.min(MINI_NUCLEONS, nucleonsOf(z));
+
+		/** A cell that changes state pops: it swells past its size and settles back. */
+		const age = (this.time - (this.changed.get(z) ?? -POP_SECONDS)) / POP_SECONDS;
+		if (age >= 1) this.changed.delete(z);
+		const pop = age < 1 ? 1 + 0.35 * Math.sin(age * Math.PI) * (1 - age) : 1;
+		ctx.save();
+		ctx.translate(cx, cy);
+		ctx.scale(pop, pop);
+		ctx.translate(-cx, -cy);
+
+		if (look.kind === 'identified') {
+			ctx.drawImage(this.sprite(`atom:${z}`, ctx => paintAtom(ctx, pixels, z, look.color), pixels), x, y, size, size);
+		} else if (look.kind === 'waiting') {
+			ctx.strokeStyle = 'rgb(252 211 77 / 0.35)';
+			ctx.lineWidth = 1;
+			ctx.setLineDash([2, 3]);
+			ctx.beginPath();
+			ctx.arc(cx, cy, size * 0.28, 0, TAU);
+			ctx.stroke();
+		} else {
+			const forging = look.kind === 'forging';
+			const shown = forging ? Math.floor(look.progress * nucleons) : nucleons;
+			const color = forging ? look.color : BARE_COLOR;
+			const pulse = look.kind === 'ready' ? Math.sin(this.time * 4 + z) : 0;
+			const glowSize = size * (look.kind === 'ready' ? 1.15 + 0.08 * pulse : 0.95);
+			ctx.globalAlpha = look.kind === 'ready' ? 0.55 + 0.25 * pulse : look.kind === 'reading' ? 0.45 : 0.25;
+			ctx.drawImage(this.glow(look.color), cx - glowSize / 2, cy - glowSize / 2, glowSize, glowSize);
+			if (shown > 0) {
+				/** Without its electrons around it, the nucleus takes their room. */
+				const radius = pixels * (0.14 + 0.1 * Math.cbrt(nucleons / MINI_NUCLEONS));
+				const sprite = this.sprite(`bare:${z}:${shown}:${color}`, ctx => paintNucleus(ctx, pixels / 2, pixels / 2, radius, shown, color), pixels);
+				const scale = 1 + 0.06 * pulse;
+				ctx.translate(cx, cy);
+				ctx.rotate(look.kind === 'ready' ? Math.sin(this.time * 9 + z * 2) * 0.06 : 0);
+				ctx.scale(scale, scale);
+				ctx.globalAlpha = forging ? 0.85 : 1;
+				ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
+			}
+		}
+		ctx.restore();
+	}
+
+	protected resize() {
+		this.full = true;
+		this.ratio = pixelRatio() * this.zoom;
+		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
+		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
+		const cells = this.canvas.parentElement?.querySelectorAll<HTMLElement>('[data-cell]') ?? [];
+		this.slots = new Map([...cells].map(cell => [Number(cell.dataset.cell), { size: cell.offsetWidth, x: cell.offsetLeft, y: cell.offsetTop }]));
+		this.clearSprites();
+		this.redraw();
+	}
+
+	private glow(color: string): HTMLCanvasElement {
+		return this.sprite(
+			`glow:${color}`,
+			(ctx, half) => {
+				const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+				gradient.addColorStop(0, rgba(color, 1));
+				gradient.addColorStop(0.4, rgba(color, 0.35));
+				gradient.addColorStop(1, rgba(color, 0));
+				ctx.fillStyle = gradient;
+				ctx.fillRect(0, 0, half * 2, half * 2);
+			},
+			64,
+		);
+	}
+}

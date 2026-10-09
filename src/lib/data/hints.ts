@@ -8,6 +8,7 @@ import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager, SPECTROSCOPE_ID } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
@@ -16,7 +17,7 @@ import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 import { ui } from '#stores/ui.svelte.js';
 
-type HintScope = RealmType | 'cosmos';
+type HintScope = RealmType | 'cosmos' | 'table';
 
 export interface Hint {
 	/** The action that teaches the hint, it is marked seen as soon as this holds, even if it was never displayed. Without it the hint shows a "Got it" button. */
@@ -268,5 +269,46 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
 		text: 'A better instrument reveals a new batch of the sky, and a new way to observe it.',
 		title: 'Instruments',
+	},
+	{
+		done: () => periodicManager.unlocked,
+		id: 'cosmos:spectroscope',
+		placement: 'top',
+		realm: 'cosmos',
+		show: () => cosmosManager.nextInstrument?.id === SPECTROSCOPE_ID && currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
+		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
+		text: 'Starlight carries the fingerprint of what made it. A spectroscope can read it.',
+		title: 'Spectroscope',
+	},
+	{
+		done: () => realmManager.tableOpen || periodicManager.identified.length > 0,
+		id: 'cosmos:table',
+		placement: 'bottom',
+		realm: 'cosmos',
+		show: () => periodicManager.unlocked,
+		targets: ['[data-hint="cosmos-table"]'],
+		text: 'Every element was forged somewhere in the sky. Open the Periodic Table to read them.',
+		title: 'The Periodic Table',
+	},
+	{
+		done: () => periodicManager.identified.length > 0,
+		id: 'table:identify',
+		placement: 'left',
+		realm: 'table',
+		round: true,
+		show: () => periodicManager.ready.length > 0,
+		targets: ['[data-hint="table-stage"]'],
+		text: "Helium was read in the Sun's light before anyone found it on Earth. Hold a forged atom to pour Light in and read it.",
+		title: 'Read the light',
+	},
+	{
+		done: () => Object.values(periodicManager.sites).some(forge => forge && forge.level > 0),
+		id: 'table:forge',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.identified.length > 0,
+		targets: ['[data-hint="table-forges"]'],
+		text: 'Each source in the sky makes its elements on its own, one after the other. Study a source with Starlight to make them faster.',
+		title: 'Synthesis',
 	},
 ];

@@ -5,20 +5,22 @@
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
+	import PeriodicTable from '#components/cosmos/periodic/PeriodicTable.svelte';
 	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import FillLine from '#components/ui/FillLine.svelte';
-	import { Aperture, ChevronDown, ChevronRight, Contrast, List, Orbit, RotateCcw, Telescope, X } from '@lucide/svelte';
+	import { Aperture, ChevronDown, ChevronRight, Contrast, Grid3x3, List, Orbit, RotateCcw, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { cubicInOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { fly } from 'svelte/transition';
+	import { fly, scale } from 'svelte/transition';
 
 	interface Popup {
 		key: number;
@@ -109,8 +111,9 @@
 
 	let skyOpen = $state(false);
 
-	/** The sky stops under a modal. */
-	$effect(() => scene?.setPaused(ui.activeModal !== null));
+	/** The sky stops under a modal and under the Periodic Table, which both cover it. */
+	$effect(() => scene?.setPaused(ui.activeModal !== null || realmManager.tableOpen));
+	$effect(() => () => (realmManager.tableOpen = false));
 	$effect(() => scene?.setBuilding(research !== null));
 	$effect(() => scene?.setLimit(cosmosManager.limit));
 
@@ -229,6 +232,22 @@
 					<List size={14} />
 					Sky
 				</button>
+				{#if periodicManager.unlocked}
+					<button
+						class="relative flex items-center gap-1.5 rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-2 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800"
+						data-hint="cosmos-table"
+						onclick={() => (realmManager.tableOpen = true)}
+						in:scale
+					>
+						<Grid3x3 size={14} />
+						Table
+						{#if periodicManager.ready.length}
+							<span class="absolute -top-1.5 -right-1.5 grid min-w-4 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-[#05070f]">
+								{periodicManager.ready.length}
+							</span>
+						{/if}
+					</button>
+				{/if}
 				<button
 					class="rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-2 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800"
 					onclick={() => scene?.setQuality(scene.quality === 'high' ? 'low' : 'high')}
@@ -427,7 +446,7 @@
 					{instrument.name}
 					{@render starlightCost(instrument.cost)}
 				</button>
-				<p class="text-center text-xs text-white/50">Your instruments have found everything they can. {instrument.description}</p>
+				<p class="text-center text-xs text-white/50">{instrument.tool ? '' : 'Your instruments have found everything they can. '}{instrument.description}</p>
 			{:else}
 				<p class="text-center text-sm text-white/70">Every object your instruments can see is in your sky.</p>
 			{/if}
@@ -465,6 +484,15 @@
 					Continue
 				</button>
 			</article>
+		</div>
+	{/if}
+
+	{#if realmManager.tableOpen && periodicManager.unlocked}
+		<div
+			class="absolute inset-0 z-30"
+			transition:fly={{ duration: 400, easing: cubicInOut, y: '100%' }}
+		>
+			<PeriodicTable onClose={() => (realmManager.tableOpen = false)} />
 		</div>
 	{/if}
 </div>

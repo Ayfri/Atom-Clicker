@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS, formatMagnitude, studyCost } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { SITES } from '#data/sites.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
@@ -17,6 +19,7 @@
 
 	/** Studies have no cap in the game, the list needs one for its max button. */
 	const STUDY_MAX = 100;
+	const LIGHTS = [CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT];
 
 	const instruments = COSMOS_INSTRUMENTS.slice(1);
 	const discoverable = COSMOS_OBJECTS.filter(object => !object.given).map(object => ({
@@ -137,6 +140,29 @@
 		levels={cosmosManager.studies}
 		onChange={levels => (cosmosManager.studies = Object.fromEntries(Object.entries(levels).filter(([, level]) => level > 0)))}
 	/>
+</Section>
+
+<Section title="Periodic Table">
+	{#snippet actions()}
+		<button class={btnAccent} disabled={!periodicManager.unlocked} onclick={() => (realmManager.cosmosOpen = realmManager.tableOpen = true)}>Open</button>
+	{/snippet}
+	<div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-xs text-white/70">
+		<span class="text-white/45">Identified</span>
+		<span class="font-mono">{periodicManager.identified.length} / {periodicManager.forged.size} forged, {periodicManager.ready.length} ready</span>
+		{#each [...periodicManager.open] as id (id)}
+			<span class="text-white/45">{SITES[id].short}</span>
+			<span class="truncate font-mono">level {periodicManager.forge(id).level} · {periodicManager.statuses[id].kind} · {formatDuration(Math.min(periodicManager.etaOf(id), 1e9) * 1000)}</span>
+		{/each}
+	</div>
+	<div class="mt-3 flex flex-wrap gap-1.5">
+		{#each [1, 24] as hours (hours)}
+			<button class={btn} disabled={!periodicManager.unlocked} onclick={() => periodicManager.tick(hours * 3_600_000)}>Forge {hours}h</button>
+		{/each}
+		<button class={btn} onclick={() => LIGHTS.forEach(light => currenciesManager.add(light, 1e7))}>+10M Light</button>
+	</div>
+	{#if !periodicManager.unlocked}
+		<p class="mt-2 text-[12px] text-white/35">Opens with the Spectroscope instrument.</p>
+	{/if}
 </Section>
 
 {#snippet sceneTools(scene: CosmosScene)}

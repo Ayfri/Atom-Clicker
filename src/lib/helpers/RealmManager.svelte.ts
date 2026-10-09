@@ -20,6 +20,8 @@ export interface RealmConfig {
 class RealmManager {
 	/** The Cosmos is a view above the realms, opened from any of them, the selected realm stays underneath. */
 	cosmosOpen = $state(false);
+	/** The Periodic Table, opened over the Cosmos. */
+	tableOpen = $state(false);
 	selectedRealmId = $state<RealmType>(RealmTypes.ATOMS);
 
 	realms: RealmConfig[] = [
@@ -60,9 +62,14 @@ class RealmManager {
 		return this.availableRealms.findIndex(r => r.id === this.selectedRealmId);
 	}
 
-	/** What fills the screen, which scopes the hints. */
+	/** What fills the screen. */
 	get view(): RealmType | 'cosmos' {
 		return this.cosmosOpen && cosmosManager.unlocked ? 'cosmos' : this.selectedRealmId;
+	}
+
+	/** What the hints may point at: the Periodic Table covers the Cosmos, whose controls stay underneath it. */
+	get hintScope(): RealmType | 'cosmos' | 'table' {
+		return this.view === 'cosmos' && this.tableOpen ? 'table' : this.view;
 	}
 
 	get selectedRealm() {
