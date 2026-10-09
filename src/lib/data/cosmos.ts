@@ -59,7 +59,10 @@ export const APERTURE_STEP = 0.5;
 /** Time a paid Aperture level takes to widen, so each one is felt instead of clicked through. */
 export const APERTURE_WIDEN_MS = 5000;
 const APERTURE_BASE_COST = 90;
-const APERTURE_COST_GROWTH = 1.62;
+/** Growth past the last instrument's first level, low because no later discovery raises the income that pays for them. */
+const APERTURE_LAST_GROWTH = 1.25;
+/** Share of an instrument's price its first Aperture level costs, so widening a new instrument keeps up with what it cost. */
+const APERTURE_INSTRUMENT_SHARE = 1 / 30;
 const STUDY_COST_GROWTH = 2.5;
 /** Seconds of the object's own Starlight the first study costs. */
 const STUDY_COST_SECONDS = 30;
@@ -582,7 +585,24 @@ export const formatMagnitude = (magnitude: number): string => `${magnitude > 0 ?
 /** Share of the bright sky drawn for a limiting magnitude: the naked eye's start shows the brightest stars, the refractor's end the whole field. */
 export const skySight = (limit: number): number => Math.min(1, Math.max(0, (limit + 5) / 13));
 
-export const apertureCost = (level: number): number => APERTURE_BASE_COST * APERTURE_COST_GROWTH ** level;
+/** Each instrument takes over the Aperture at the level where the previous one hits its reach, that level costs a share of the instrument. */
+const APERTURE_ANCHORS = COSMOS_INSTRUMENTS.map((instrument, i) => {
+	const previous = COSMOS_INSTRUMENTS[i - 1];
+	return previous
+		? { cost: instrument.cost * APERTURE_INSTRUMENT_SHARE, level: (previous.reach - previous.limit) / APERTURE_STEP }
+		: { cost: APERTURE_BASE_COST, level: 0 };
+});
+
+/** Levels between two anchors climb geometrically from one to the next, past the last one by `APERTURE_LAST_GROWTH`. */
+const APERTURE_CURVES = APERTURE_ANCHORS.map((anchor, i) => {
+	const next = APERTURE_ANCHORS[i + 1];
+	return { ...anchor, growth: next ? (next.cost / anchor.cost) ** (1 / (next.level - anchor.level)) : APERTURE_LAST_GROWTH };
+});
+
+export const apertureCost = (level: number): number => {
+	const { cost, growth, level: from } = APERTURE_CURVES.findLast(curve => curve.level <= level)!;
+	return cost * growth ** (level - from);
+};
 
 export const ionizeStarlightMultiplier = (ionizes: number): number => 1 + IONIZE_STARLIGHT_STEP * ionizes;
 
