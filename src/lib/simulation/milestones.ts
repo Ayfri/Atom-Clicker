@@ -1,3 +1,4 @@
+import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
@@ -89,9 +90,13 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('electrons', 100, 'electrons_100', '100 Electrons', 'Earned 100 Electrons'),
 	at('ionizes', 1, 'first_ionize', '1st Ionize', 'First Ionize', true),
 	at('discoveries', 1, 'cosmos_first', '1st discovery', 'First Cosmos discovery'),
-	at('discoveries', 6, 'cosmos_naked_eye', 'Naked eye sky', 'Every naked eye planet discovered'),
-	at('instruments', 1, 'cosmos_refractor', 'Refractor', "Bought Galileo's refractor"),
-	at('discoveries', 15, 'cosmos_refractor_sky', 'Refractor sky', 'Every refractor object discovered'),
+	...COSMOS_INSTRUMENTS.flatMap((instrument, index) => {
+		const sky = COSMOS_OBJECTS.filter(object => !object.given && COSMOS_INSTRUMENTS.findIndex(({ era }) => era === object.era) <= index).length;
+		return [
+			...(index > 0 ? [at('instruments', index, `cosmos_${instrument.id}`, instrument.name, `Built ${instrument.name}`)] : []),
+			at('discoveries', sky, `cosmos_${instrument.id}_sky`, `${instrument.name} sky`, `Every object up to the ${instrument.name} discovered`),
+		];
+	}),
 
 	feature(FeatureTypes.LEVELS, 'Skill Tree & Levels'),
 	feature(FeatureTypes.PURPLE_REALM, 'Photon Realm'),

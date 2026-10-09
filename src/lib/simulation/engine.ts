@@ -12,6 +12,7 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { connectDeriveds } from '#helpers/reactiveRoot.svelte.js';
+import { CosmosTracker } from './cosmos';
 import { MilestoneTracker } from './milestones';
 import { PurchasePlanner } from './purchases';
 import { DEFAULT_SEED, createRandom } from './random';
@@ -76,6 +77,7 @@ export class SimulationEngine {
 	private autoUpgradeInterval = 0;
 	private autoUpgradeNext = 0;
 	private readonly config: BenchmarkConfig;
+	private readonly cosmos = new CosmosTracker();
 	/** Last time each reset gain grew past PLATEAU_GROWTH, and the gain it grew to. */
 	private readonly gainPlateaus = { electronize: { gain: 0, since: 0 }, protonise: { gain: 0, since: 0 } };
 	private readonly idleGaps: IdleGap[] = [];
@@ -198,7 +200,7 @@ export class SimulationEngine {
 			cancelled: false,
 			config: this.config,
 			durationMs: performance.now() - started,
-			insights: { activeMs: this.activeMs, idleGaps: this.idleGaps, prestiges: this.prestiges },
+			insights: { activeMs: this.activeMs, cosmos: this.cosmos.insights, idleGaps: this.idleGaps, prestiges: this.prestiges },
 			milestones: this.milestones,
 			snapshots: this.snapshots,
 			spikes: this.spikes,
@@ -228,6 +230,7 @@ export class SimulationEngine {
 			this.trackIdle(this.executeBotBehavior() > 0);
 			this.quests.steerDedicated();
 		}
+		this.cosmos.tick(this.config.tickRate);
 
 		this.flushSpikeWindowIfNeeded();
 		if (checkAchievements) this.checkAchievements();
@@ -362,7 +365,9 @@ export class SimulationEngine {
 		if (radiationManager.unlocked && !radiationManager.ionizeReady && radiationManager.cpmFor(radiationManager.mass, 1) >= line) {
 			radiationManager.setControlRodLevel((line * 1.01) / (radiationManager.mass * 10 * radiationManager.enrichmentBonus));
 		}
+		const starlightBefore = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
 		if (canPrestige() && radiationManager.ionizeReady && gameManager.ionize()) {
+			this.cosmos.log('ionize', `${currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) - starlightBefore}`);
 			this.lastElectronizeGain = 0;
 			this.lastProtoniseGain = 0;
 			this.restartPlateaus('protonise', 'electronize');
@@ -420,16 +425,20 @@ export class SimulationEngine {
 		if (canAct() && cosmosManager.unlocked) {
 			const next = cosmosManager.canObserve ? cosmosManager.nextDiscovery : null;
 			const study = this.bestStudy();
+			const instrument = cosmosManager.nextInstrument;
 			this.observedMs = next ? this.observedMs + this.config.tickRate : 0;
 			if (next && this.observedMs >= COSMOS_OBSERVE_MS && cosmosManager.discover(next.id)) {
 				this.observedMs = 0;
+				this.cosmos.log('discover', next.id);
 				this.record('cosmos', `discover ${next.id}`);
 				actionsThisTick++;
 			} else if (cosmosManager.nextDiscovery && !next && cosmosManager.purchaseAperture()) {
-				this.record('cosmos', `aperture ${cosmosManager.aperture}`);
+				this.cosmos.log('aperture', `${cosmosManager.aperture + 1}`);
+				this.record('cosmos', `aperture ${cosmosManager.aperture + 1}`);
 				actionsThisTick++;
-			} else if (!cosmosManager.research && cosmosManager.nextInstrument && cosmosManager.purchaseInstrument(cosmosManager.nextInstrument.id)) {
-				this.record('cosmos', `instrument ${cosmosManager.instruments.at(-1)}`);
+			} else if (!cosmosManager.research && instrument && cosmosManager.purchaseInstrument(instrument.id)) {
+				this.cosmos.log('instrument', instrument.id);
+				this.record('cosmos', `instrument ${instrument.id}`);
 				actionsThisTick++;
 			} else if (study && gameManager.studyCosmosObject(study)) {
 				this.record('cosmos', `study ${study}`);
