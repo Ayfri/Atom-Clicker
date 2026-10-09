@@ -30,10 +30,10 @@ import {
 } from 'three/tsl';
 import {
 	AdditiveBlending,
-	CylinderGeometry,
 	DoubleSide,
 	Group,
 	InstancedBufferAttribute,
+	LatheGeometry,
 	Line,
 	MathUtils,
 	Mesh,
@@ -46,6 +46,7 @@ import {
 	RingGeometry,
 	SphereGeometry,
 	Sprite,
+	Vector2,
 	Vector3,
 } from 'three/webgpu';
 import type { CosmosObject } from '#data/cosmos.js';
@@ -214,23 +215,29 @@ function lumpyGeometry(radius: number, [x, y, z]: readonly [number, number, numb
 const TAIL_LENGTH = 30;
 
 /**
- * A comet's tail, its gas and dust blown straight away from the Sun by sunlight and the solar wind: a soft cone out of the nucleus,
- * fading along its length and toward its edges, around a coma glowing over the nucleus.
+ * Unit tail profile, a paraboloid with its apex on the nucleus so the tail springs from the rock and rounds off around it like a
+ * coma. Points crowd near the head where the curve bends most.
+ */
+const TAIL_PROFILE = Array.from({ length: 24 }, (_, i) => new Vector2(0.1 * (i / 23), (i / 23) ** 2));
+
+/**
+ * A comet's tail, its gas and dust blown straight away from the Sun by sunlight and the solar wind: a soft paraboloid out of the
+ * nucleus, fading along its length and toward its edges, around a coma glowing over the nucleus.
  */
 class CometTail extends Group {
 	readonly #away = new Vector3();
 	readonly #coma: Sprite;
-	readonly #cone: Mesh;
+	readonly #plume: Mesh;
 
 	constructor(reveal: Node<'float'>) {
 		super();
 		const material = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, side: DoubleSide, transparent: true });
-		const along = uv().y;
+		const along = positionLocal.y;
 		const facing = dot(normalView, positionViewDirection).abs();
 		material.colorNode = mix(color('#e6f4ff'), color('#6fa8ff'), along).mul(pow(oneMinus(along), 1.6)).mul(pow(facing, 2)).mul(reveal.mul(0.45));
-		this.#cone = new Mesh(new CylinderGeometry(1, 0.08, 1, 32, 1, true).translate(0, 0.5, 0), material);
+		this.#plume = new Mesh(new LatheGeometry(TAIL_PROFILE, 32), material);
 		this.#coma = glowSprite('#d8ecff', 2, reveal.mul(0.9));
-		this.add(this.#cone, this.#coma);
+		this.add(this.#plume, this.#coma);
 	}
 
 	/**
@@ -242,7 +249,7 @@ class CometTail extends Group {
 		const length = TAIL_LENGTH * MathUtils.lerp(Math.max(activity, 0.3), activity, realism.value);
 		this.visible = length > 0.05;
 		this.quaternion.setFromUnitVectors(UP, this.#away.copy(position).normalize()).premultiply(unturn);
-		this.#cone.scale.set(length * 0.1, length, length * 0.1);
+		this.#plume.scale.setScalar(length);
 		this.#coma.scale.setScalar(Math.min(length * 0.05, 1.5));
 	}
 }
