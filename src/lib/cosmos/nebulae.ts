@@ -240,4 +240,84 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		magnitude: 8.8,
 		size: [0.25, 0.2],
 	},
+	{
+		/**
+		 * Tycho's Supernova remnant as X-rays show it: a round shell of hot ejecta, red and gold knots inside a thin blue rim where the
+		 * blast wave runs into the gas around it. Shown from the start, the supernova outshone Venus.
+		 */
+		angle: 0,
+		at: [120.09, 1.42],
+		discovery: ['tycho', '#e6e8f6'],
+		draw: p => {
+			const radius = length(p).add(noise(p, 3, 14, 3).mul(0.05));
+			const rim = exp(radius.sub(0.8).mul(radius.sub(0.8)).mul(-260));
+			const ejecta = smoothstep(0.85, 0.3, radius).mul(gas(p, 4, 27));
+			const knots = smoothstep(0.55, 0.8, gas(p, 7, 33)).mul(smoothstep(0.85, 0.45, radius));
+			return mix(color('#ff6a4a'), color('#ffd36b'), smoothstep(-0.3, 0.3, noise(p, 2, 61, 2)))
+				.mul(ejecta.mul(0.3).add(knots.mul(0.4)))
+				.add(color('#7fb2ff').mul(rim.mul(0.7)));
+		},
+		id: 'sn1572',
+		magnitude: -4,
+		size: [0.4, 0.4],
+	},
+	{
+		/** Mira, a red giant racing through space and shedding a 13 light year tail of gas behind it, as ultraviolet images found it in 2007. */
+		angle: 0,
+		at: [167.76, -57.97],
+		discovery: ['mira', '#ffb08a'],
+		draw: p => {
+			const core = blob(p, [0.72, 0], [3, 1], 700);
+			const halo = blob(p, [0.72, 0], [3, 1], 30);
+			const spread = p.x.mul(-0.5).add(0.6);
+			const tail = exp(p.y.div(spread).mul(p.y.div(spread)).mul(-6))
+				.mul(smoothstep(-0.95, 0.4, p.x))
+				.mul(oneMinus(smoothstep(0.6, 0.75, p.x)))
+				.mul(gas(p.mul(vec2(3, 1)), 3, 71).mul(0.6).add(0.4));
+			return color('#ffe1b8').mul(core).add(color('#ff6a3a').mul(halo.mul(0.45))).add(color('#8fb6ff').mul(tail.mul(0.18)));
+		},
+		id: 'mira',
+		magnitude: 0.5,
+		size: [0.9, 0.3],
+	},
+	{
+		/** Cosmic rays falling out of the Milky Way toward Cygnus: streaks of particles crossing the sky in the same slant, like rain. */
+		angle: 0,
+		at: [80, 1],
+		discovery: ['cosmic_rays', '#a8f2da'],
+		draw: p => {
+			const across = p.x.mul(0.6).sub(p.y.mul(0.8));
+			const along = p.x.mul(0.8).add(p.y.mul(0.6));
+			const streaks = pow(saturate(noise(vec2(across.mul(16), along.mul(0.9)), 1, 5, 2).mul(1.6).add(0.2)), 8);
+			return color('#6ff0c4').mul(streaks.mul(exp(dot(p, p).mul(-1.6))).mul(0.6));
+		},
+		id: 'cosmic_rays',
+		magnitude: 14.3,
+		size: [5, 5],
+	},
+	{
+		/** The cosmic microwave background as Planck mapped it: the Big Bang's afterglow, warmer and cooler by a few parts in 100,000, in its false colors. */
+		angle: 0,
+		at: [264, 48],
+		discovery: ['cmb', '#ffcf9a'],
+		draw: p => mix(color('#2b4cff'), color('#ff6a3a'), saturate(noise(p, 7, 3, 5).mul(1.4).add(0.5))).mul(0.14),
+		id: 'cmb',
+		magnitude: 16.5,
+		size: [36, 24],
+	},
+	{
+		/** NGC 4993, the elliptical galaxy around the GW170817 kilonova, with the kilonova's violet flash off its core as it was in August 2017. */
+		angle: 0,
+		at: [308.37, 39.3],
+		discovery: ['kilonova', '#d9c4ff'],
+		draw: p => {
+			const galaxy = exp(pow(length(p.mul(vec2(1, 1.25))).div(0.3), 0.8).mul(-2.4));
+			const flash = blob(p, [0.32, -0.2], [1, 1.25], 900);
+			const glow = blob(p, [0.32, -0.2], [1, 1.25], 50);
+			return color('#f0dcc0').mul(galaxy.mul(0.5)).add(color('#ffffff').mul(flash)).add(color('#b98aff').mul(glow.mul(0.35)));
+		},
+		id: 'ngc4993',
+		magnitude: 17.5,
+		size: [0.25, 0.2],
+	},
 ];

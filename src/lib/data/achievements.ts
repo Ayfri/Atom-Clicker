@@ -320,7 +320,7 @@ const cosmosLocked = () => !cosmosManager.unlocked;
 /** The tiers land on the end of an era: every naked eye planet, every refractor object, Neptune's system, then the whole sky. */
 function createDiscoveryAchievements(): Achievement[] {
 	const total = COSMOS_OBJECTS.filter(object => !object.given).length;
-	return [1, 6, 15, 20, total].map((tier, index) => ({
+	return [1, 8, 17, 22, total].map((tier, index) => ({
 		id: `cosmos_discoveries_${tier}`,
 		name: tier === total ? 'Whole Sky' : `${tier} Discover${tier === 1 ? 'y' : 'ies'}`,
 		description: tier === total ? 'Discover every object in the Cosmos' : `Discover ${tier} object${tier === 1 ? '' : 's'} in the Cosmos`,

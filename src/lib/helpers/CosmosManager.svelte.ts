@@ -40,8 +40,8 @@ class CosmosManager {
 		return next && COSMOS_INSTRUMENTS.some(instrument => instrument.era === next.era && this.owns(instrument)) ? next : null;
 	});
 
-	/** Latest owned instrument, the one the player looks through. */
-	instrument = $derived(COSMOS_INSTRUMENTS.findLast(instrument => this.owns(instrument))!);
+	/** Latest owned instrument that sees further, the one the player looks through. */
+	instrument = $derived(COSMOS_INSTRUMENTS.findLast(instrument => !instrument.tool && this.owns(instrument))!);
 
 	/** Faintest magnitude the instrument reaches at the current Aperture, never past its reach. */
 	limit = $derived(Math.min(this.instrument.reach, this.instrument.limit + APERTURE_STEP * this.aperture));

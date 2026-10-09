@@ -2,13 +2,17 @@ import { mul } from '#helpers/effects.js';
 import type { Effect, EffectStat } from '#lib/types.js';
 
 export const CosmosEras = {
+	BALLOON: 'balloon',
+	GRAVITATIONAL: 'gravitational',
 	GREAT_REFRACTOR: 'great_refractor',
 	NAKED_EYE: 'naked_eye',
 	OCCULTATION: 'occultation',
 	PHOTOGRAPHY: 'photography',
 	PREDICTION: 'prediction',
+	RADIO: 'radio',
 	REFLECTOR: 'reflector',
 	REFRACTOR: 'refractor',
+	SPECTROSCOPY: 'spectroscopy',
 	SURVEY: 'survey',
 } as const;
 
@@ -27,6 +31,8 @@ export interface CosmosInstrument {
 	reach: number;
 	/** Time between paying for it and owning it, while the workshop builds it. */
 	researchMs: number;
+	/** Reads the light of what is already found instead of seeing further: it stays out of the Aperture and the sight limit. */
+	tool?: boolean;
 	year: string;
 }
 
@@ -118,6 +124,18 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1846',
 	},
 	{
+		cost: 36_000_000_000,
+		description: "Kirchhoff and Bunsen's prism splits starlight into a rainbow crossed by dark lines, the fingerprints of the elements that made it.",
+		era: CosmosEras.SPECTROSCOPY,
+		id: 'spectroscope',
+		limit: -1.5,
+		name: 'Spectroscope',
+		reach: 13.5,
+		researchMs: 11 * 60_000,
+		tool: true,
+		year: '1859',
+	},
+	{
 		cost: 64_000_000_000,
 		description: "The Naval Observatory's 26-inch lens, the largest in the world, sharp enough to pull tiny moons out of the glare of Mars.",
 		era: CosmosEras.GREAT_REFRACTOR,
@@ -129,6 +147,17 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1877',
 	},
 	{
+		cost: 200_000_000_000,
+		description: 'Electroscopes carried 5 km up in a hydrogen balloon, losing their charge faster the higher they fly.',
+		era: CosmosEras.BALLOON,
+		id: 'balloon',
+		limit: -1.5,
+		name: "Hess's balloon",
+		reach: 14.3,
+		researchMs: 13 * 60_000,
+		year: '1912',
+	},
+	{
 		cost: 900_000_000_000,
 		description: 'Two photographs of the same stars, flipped back and forth until one dot jumps.',
 		era: CosmosEras.PHOTOGRAPHY,
@@ -138,6 +167,17 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		reach: 16,
 		researchMs: 15 * 60_000,
 		year: '1930',
+	},
+	{
+		cost: 1_600_000_000_000,
+		description: 'A 15 m horn built to talk to satellites, so quiet that any hiss left in it had to come from the sky.',
+		era: CosmosEras.RADIO,
+		id: 'horn_antenna',
+		limit: -1.5,
+		name: 'Holmdel Horn Antenna',
+		reach: 16.5,
+		researchMs: 17 * 60_000,
+		year: '1965',
 	},
 	{
 		cost: 2_500_000_000_000,
@@ -161,7 +201,21 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		researchMs: 25 * 60_000,
 		year: '2001',
 	},
+	{
+		cost: 7_000_000_000_000,
+		description: 'Two 4 km laser arms in Louisiana and Washington and a third in Italy, feeling space itself stretch by a thousandth of a proton.',
+		era: CosmosEras.GRAVITATIONAL,
+		id: 'ligo',
+		limit: -1.5,
+		name: 'LIGO and Virgo',
+		reach: 21.5,
+		researchMs: 30 * 60_000,
+		year: '2017',
+	},
 ];
+
+/** The instruments that see further, each one taking over the Aperture from the last. */
+const TELESCOPES = COSMOS_INSTRUMENTS.filter(instrument => !instrument.tool);
 
 /** By era, the brightest first within an era, so each Aperture level brings the next one within reach. */
 export const COSMOS_OBJECTS: CosmosObject[] = [
@@ -217,6 +271,19 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: 'Antiquity',
 	},
 	{
+		boost: { amount: 0.03, label: 'power-up strength', stat: 'power_up_multiplier' },
+		color: '#f2f0ff',
+		discoverer: 'Tycho Brahe',
+		era: CosmosEras.NAKED_EYE,
+		fact: 'A new star outshone Venus for weeks, and Tycho showed it lay far beyond the Moon: the heavens could change. It was a white dwarf blowing itself apart.',
+		id: 'tycho',
+		/** As it shone in November 1572, bright enough to see in daylight. */
+		magnitude: -4,
+		name: "Tycho's Supernova",
+		starlight: 4,
+		year: '1572',
+	},
+	{
 		boost: { amount: 0.01, label: 'production', stat: 'global' },
 		color: '#d9a877',
 		discoverer: 'Babylonian astronomers',
@@ -263,6 +330,19 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		name: 'Saturn',
 		starlight: 70,
 		year: 'Antiquity',
+	},
+	{
+		boost: { amount: 0.03, label: 'excited photon chance', stat: 'excited_photon_chance' },
+		color: '#ff7a4d',
+		discoverer: 'David Fabricius',
+		era: CosmosEras.NAKED_EYE,
+		fact: 'The first star seen to change on a cycle: a red giant swelling and shrinking every 332 days, trailing a tail of gas 13 light years long.',
+		id: 'mira',
+		/** Not its brightness, which swings from 2 to 10: telling it came back took months of watching the same spot. */
+		magnitude: 0.5,
+		name: 'Mira',
+		starlight: 110,
+		year: '1596',
 	},
 	{
 		boost: { amount: 0.03, label: 'generator output', stat: 'generator' },
@@ -485,6 +565,19 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		year: '1898',
 	},
 	{
+		boost: { amount: 0.03, label: 'click power', stat: 'click' },
+		color: '#6ff0c4',
+		discoverer: 'Victor Hess',
+		era: CosmosEras.BALLOON,
+		fact: 'The air grew more charged the higher Hess flew, by day and during an eclipse alike: particles were raining from space, not from the Sun.',
+		id: 'cosmic_rays',
+		/** Not a brightness, they shine at none: what it took was flying above most of the air. */
+		magnitude: 14.3,
+		name: 'Cosmic rays',
+		starlight: 7_000_000,
+		year: '1912',
+	},
+	{
 		boost: { amount: 0.01, label: 'production', stat: 'global' },
 		color: '#c9cdf0',
 		discoverer: 'Edwin Hubble',
@@ -509,6 +602,19 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		name: 'Pluto',
 		starlight: 10_500_000,
 		year: '1930',
+	},
+	{
+		boost: { amount: 0.01, label: 'production', stat: 'global' },
+		color: '#ffb36b',
+		discoverer: 'Arno Penzias and Robert Wilson',
+		era: CosmosEras.RADIO,
+		fact: 'A hiss from every direction that stayed after the pigeons nesting in the antenna were moved out: the light of the Big Bang, cooled to 2.7 degrees above absolute zero.',
+		id: 'cmb',
+		/** Not a brightness, it is invisible: what it took was an antenna quiet enough to hear it. */
+		magnitude: 16.5,
+		name: 'Cosmic microwave background',
+		starlight: 17_000_000,
+		year: '1965',
 	},
 	{
 		boost: { amount: 0.03, label: 'Stability Field capacity', stat: 'stability_capacity' },
@@ -549,6 +655,19 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		starlight: 175_000_000,
 		year: '2005',
 	},
+	{
+		boost: { amount: 0.03, label: 'Protons', stat: 'proton_gain' },
+		color: '#b98aff',
+		discoverer: 'LIGO, Virgo and some 70 observatories',
+		era: CosmosEras.GRAVITATIONAL,
+		fact: 'Two neutron stars merged 130 million light years away. Their ripples in space arrived first, then a glow full of freshly made gold and platinum.',
+		id: 'kilonova',
+		/** Its real peak: what it took was the ripples telling every telescope where to look. */
+		magnitude: 17.5,
+		name: 'GW170817 kilonova',
+		starlight: 280_000_000,
+		year: '2017',
+	},
 ];
 
 export const COSMOS_OBJECTS_BY_ID = Object.fromEntries(COSMOS_OBJECTS.map(object => [object.id, object]));
@@ -576,7 +695,7 @@ export const SKY_SECTIONS: string[][] = [
 		'pluto',
 	],
 	['eris', 'sedna'],
-	['orion_nebula', 'crab_nebula', 'andromeda'],
+	['cosmic_rays', 'mira', 'orion_nebula', 'crab_nebula', 'tycho', 'andromeda', 'kilonova', 'cmb'],
 ];
 
 /** Magnitudes read with their sign, `-4.4` or `+0.5`, the way astronomers write them. */
@@ -586,8 +705,8 @@ export const formatMagnitude = (magnitude: number): string => `${magnitude > 0 ?
 export const skySight = (limit: number): number => Math.min(1, Math.max(0, (limit + 5) / 13));
 
 /** Each instrument takes over the Aperture at the level where the previous one hits its reach, that level costs a share of the instrument. */
-const APERTURE_ANCHORS = COSMOS_INSTRUMENTS.map((instrument, i) => {
-	const previous = COSMOS_INSTRUMENTS[i - 1];
+const APERTURE_ANCHORS = TELESCOPES.map((instrument, i) => {
+	const previous = TELESCOPES[i - 1];
 	return previous
 		? { cost: instrument.cost * APERTURE_INSTRUMENT_SHARE, level: (previous.reach - previous.limit) / APERTURE_STEP }
 		: { cost: APERTURE_BASE_COST, level: 0 };

@@ -58,7 +58,7 @@ describe('sky', () => {
 		expect(cosmosManager.canObserve).toBe(false);
 		expect(cosmosManager.discover('venus')).toBe(false);
 
-		for (const id of ['venus', 'jupiter', 'mars', 'mercury', 'saturn']) {
+		for (const id of ['venus', 'tycho', 'jupiter', 'mars', 'mercury', 'saturn', 'mira']) {
 			while (!cosmosManager.canObserve) {
 				currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextApertureCost);
 				expect(cosmosManager.purchaseAperture()).toBe(true);
