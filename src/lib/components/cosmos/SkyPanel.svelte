@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { APERTURE_STEP, APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, type CosmosObject, formatMagnitude, studyCost } from '#data/cosmos.js';
+	import {
+		APERTURE_STEP,
+		APERTURE_WIDEN_MS,
+		COSMOS_INSTRUMENTS,
+		COSMOS_OBJECTS_BY_ID,
+		type CosmosObject,
+		formatMagnitude,
+		SKY_SECTIONS,
+		studyCost,
+	} from '#data/cosmos.js';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -48,9 +57,18 @@
 		xp_gain: ChevronsUp,
 	};
 
-	/** Planets in discovery order, each followed by its discovered moons and rings. */
-	const groups = $derived(
-		cosmosManager.objects.filter(object => !object.orbits).map(object => ({ children: cosmosManager.objects.filter(child => child.orbits === object.id), object })),
+	const shown = $derived(new Set(cosmosManager.objects.map(object => object.id)));
+
+	/** Discovered objects by section, each planet followed by its discovered moons and rings. */
+	const sections = $derived(
+		SKY_SECTIONS.map(ids =>
+			ids
+				.filter(id => shown.has(id) && !COSMOS_OBJECTS_BY_ID[id].orbits)
+				.map(id => ({
+					children: ids.filter(child => shown.has(child) && COSMOS_OBJECTS_BY_ID[child].orbits === id).map(child => COSMOS_OBJECTS_BY_ID[child]),
+					object: COSMOS_OBJECTS_BY_ID[id],
+				})),
+		).filter(section => section.length),
 	);
 </script>
 
@@ -135,18 +153,26 @@
 
 	<ul class="custom-scrollbar flex min-h-0 flex-col overflow-y-auto overscroll-contain px-2 pb-2">
 		{#if tab === 'objects'}
-			{#each groups as { children, object } (object.id)}
-				<li>
-					{@render row(object)}
-					{#if children.length}
-						<!-- Moons and rings hang under their planet, a neutral guide line ties them to it. -->
-						<ul class="ml-3.5 border-l border-white/10 pl-1.5">
-							{#each children as child (child.id)}
-								<li>{@render row(child)}</li>
-							{/each}
-						</ul>
-					{/if}
-				</li>
+			{#each sections as groups, i (i)}
+				{#if i}
+					<li
+						class="mx-2 my-1.5 border-t border-white/10"
+						role="separator"
+					></li>
+				{/if}
+				{#each groups as { children, object } (object.id)}
+					<li>
+						{@render row(object)}
+						{#if children.length}
+							<!-- Moons and rings hang under their planet, a neutral guide line ties them to it. -->
+							<ul class="ml-3.5 border-l border-white/10 pl-1.5">
+								{#each children as child (child.id)}
+									<li>{@render row(child)}</li>
+								{/each}
+							</ul>
+						{/if}
+					</li>
+				{/each}
 			{/each}
 		{:else}
 			<li class="flex items-center gap-3 rounded-lg px-2 py-2">

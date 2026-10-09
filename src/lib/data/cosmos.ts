@@ -550,6 +550,32 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 
 export const COSMOS_OBJECTS_BY_ID = Object.fromEntries(COSMOS_OBJECTS.map(object => [object.id, object]));
 
+/**
+ * Sky list sections, each in order of distance: the Sun out to the asteroid belt, Jupiter out to the Kuiper belt, the bodies beyond it, then deep sky. Moons and
+ * rings follow their planet, nearest first, and Halley sits by its semi-major axis, between Saturn and Uranus.
+ */
+export const SKY_SECTIONS: string[][] = [
+	['sun', 'mercury', 'venus', 'earth', 'moon', 'eros', 'mars', 'phobos', 'deimos', 'asteroid_belt', 'ceres'],
+	[
+		'jupiter',
+		'io',
+		'europa',
+		'ganymede',
+		'callisto',
+		'saturn',
+		'saturn_rings',
+		'titan',
+		'halley',
+		'uranus',
+		'uranus_rings',
+		'neptune',
+		'triton',
+		'pluto',
+	],
+	['eris', 'sedna'],
+	['orion_nebula', 'crab_nebula', 'andromeda'],
+];
+
 /** Magnitudes read with their sign, `-4.4` or `+0.5`, the way astronomers write them. */
 export const formatMagnitude = (magnitude: number): string => `${magnitude > 0 ? '+' : ''}${magnitude.toFixed(1)}`;
 

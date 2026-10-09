@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, ionizeStarlightMultiplier, studyCost } from '#data/cosmos.js';
+import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, ionizeStarlightMultiplier, SKY_SECTIONS, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -104,6 +104,11 @@ describe('sky', () => {
 			if (object.era === previous.era) expect(object.magnitude, object.id).toBeGreaterThanOrEqual(previous.magnitude);
 			expect(object.starlight, object.id).toBeGreaterThan(previous.starlight);
 		}
+	});
+
+	test('the Sky list sections hold every object once, moons in their planet section', () => {
+		expect(SKY_SECTIONS.flat().toSorted()).toEqual(COSMOS_OBJECTS.map(object => object.id).toSorted());
+		for (const ids of SKY_SECTIONS) for (const id of ids) if (COSMOS_OBJECTS_BY_ID[id].orbits) expect(ids, id).toContain(COSMOS_OBJECTS_BY_ID[id].orbits!);
 	});
 
 	test('every object sits within the reach of the instrument of its era', () => {
