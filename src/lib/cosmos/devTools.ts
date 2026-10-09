@@ -51,7 +51,9 @@ export function installDevTools(scene: CosmosScene) {
 	}
 	Object.assign(window, {
 		cosmosBake: async () => {
-			for (const { blob, id } of await scene.bakeSurfaces()) await fetch(`/__cosmos-bake?id=${id}`, { body: blob, method: 'POST' });
+			const form = new FormData();
+			for (const { blob, id } of await scene.bakeSurfaces()) form.append(id, blob);
+			await fetch('/__cosmos-bake', { body: form, method: 'POST' });
 			location.reload();
 		},
 		cosmosScene: scene,
