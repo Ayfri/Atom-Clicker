@@ -15,6 +15,7 @@ import {
 	type WebGPURenderer,
 } from 'three/webgpu';
 import { BODY_LOOKS } from './bodies.js';
+import { DEEP_SKY } from './nebulae.js';
 import { cloudCover, earthSurface, milkyWay, sunMasks } from './surfaces.js';
 
 /**
@@ -23,8 +24,11 @@ import { cloudCover, earthSurface, milkyWay, sunMasks } from './surfaces.js';
  */
 export const SHARP = '_hd';
 
-/** Every baked surface with its texture width (the height is half): the bodies, the Earth's day colors, masks and clouds, the Sun and the sky. */
-const BAKED_SURFACES: Record<string, { lossless?: boolean; node: () => Node<'vec3'>; width: number }> = {
+/**
+ * Every baked surface with its texture size, the height half the width unless set: the bodies, the Earth's day colors, masks and
+ * clouds, the Sun, the sky and the deep-sky objects, the ones to discover sharper since the player zooms in on them.
+ */
+const BAKED_SURFACES: Record<string, { height?: number; lossless?: boolean; node: () => Node<'vec3'>; width: number }> = {
 	clouds: { node: () => vec3(cloudCover()), width: 2048 },
 	earth: { node: () => earthSurface().day, width: 2048 },
 	earth_masks: { node: () => earthSurface().masks, width: 2048 },
@@ -40,6 +44,12 @@ const BAKED_SURFACES: Record<string, { lossless?: boolean; node: () => Node<'vec
 					]
 				: [],
 		),
+	),
+	...Object.fromEntries(
+		DEEP_SKY.map(({ discovery, draw, id, size: [width, height] }) => {
+			const pixels = discovery ? 1024 : 512;
+			return [id, { height: Math.round((pixels * height) / width), node: () => draw(uv().sub(0.5).mul(2)), width: pixels }];
+		}),
 	),
 };
 
@@ -81,8 +91,7 @@ export async function bakeSurfaces(renderer: WebGPURenderer) {
 	const camera = new PerspectiveCamera();
 	const sphereGeometry = new SphereGeometry(1, 512, 256);
 	const baked: { blob: Blob; id: string }[] = [];
-	for (const [id, { lossless, node, width }] of Object.entries(BAKED_SURFACES)) {
-		const height = width / 2;
+	for (const [id, { lossless, node, width, height = width / 2 }] of Object.entries(BAKED_SURFACES)) {
 		const target = new RenderTarget(width, height);
 		const material = new MeshBasicNodeMaterial({ depthTest: false, depthWrite: false, side: DoubleSide });
 		material.vertexNode = vec4(uv().mul(2).sub(1), 0, 1);

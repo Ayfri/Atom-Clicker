@@ -215,7 +215,7 @@ export class CosmosScene {
 			return node.rgb;
 		};
 		this.#earth = new Earth(albedo('earth'), albedo('earth_masks'), maps.get('clouds'), sinceJ2000);
-		this.#sky = new Sky(albedo('sky'), limit, discovered);
+		this.#sky = new Sky(albedo, limit, discovered);
 		this.#sun = new Sun(maps.get('sun') ?? null);
 		this.#scene.add(this.#sun.group, this.#earth.orbit, this.#earth.group);
 		/** In discovery order, so every parent is placed before the moons orbiting it. */
@@ -861,7 +861,7 @@ export class CosmosScene {
 
 	#render() {
 		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
-		this.#sky.follow(this.#camera.position);
+		this.#sky.follow(this.#camera, this.#canvas.clientHeight);
 		this.#markers.update(this.#camera, this.#canvas.clientHeight, this.mode === 'observe');
 		this.#camera.updateMatrixWorld();
 		const resized = this.#sun.fit(this.#camera, this.#canvas.clientHeight, this.#tuning.bloom > 0 && this.#pipeline.outputNode === this.#withBloom);

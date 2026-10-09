@@ -7,7 +7,7 @@ import { trueAnomaly } from './orbits.js';
 import { Sky } from './sky.js';
 
 test('every object to discover is drawn in the scene, as a body or a nebula', () => {
-	const { nebulae } = new Sky(vec3(0), 0, []);
+	const { nebulae } = new Sky(() => vec3(0), 0, []);
 	for (const object of COSMOS_OBJECTS.filter(object => !object.given)) expect(object.id in BODY_LOOKS || nebulae.has(object.id), object.id).toBe(true);
 });
 

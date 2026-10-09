@@ -5,23 +5,39 @@ import {
 	float,
 	instancedBufferAttribute,
 	length,
+	luminance,
 	max,
 	mix,
-	mx_fractal_noise_float,
-	mx_noise_float,
+	mx_cell_noise_float,
 	oneMinus,
+	positionLocal,
 	pow,
-	saturate,
 	sin,
 	smoothstep,
+	step,
 	time,
 	uniform,
 	uv,
-	vec2,
 	vec3,
 } from 'three/tsl';
-import { AdditiveBlending, BackSide, Group, InstancedBufferAttribute, MathUtils, Mesh, MeshBasicNodeMaterial, type Node, PlaneGeometry, PointsNodeMaterial, SphereGeometry, Sprite, type Vector3 } from 'three/webgpu';
+import {
+	AdditiveBlending,
+	BackSide,
+	Group,
+	InstancedBufferAttribute,
+	MathUtils,
+	Mesh,
+	MeshBasicNodeMaterial,
+	type Node,
+	type PerspectiveCamera,
+	PlaneGeometry,
+	PointsNodeMaterial,
+	SphereGeometry,
+	Sprite,
+	type Vector3,
+} from 'three/webgpu';
 import { COSMOS_OBJECTS_BY_ID, type CosmosObject, skySight } from '#data/cosmos.js';
+import { DEEP_SKY } from './nebulae.js';
 import { darkSky, realism } from './shading.js';
 import { DEEP_SKY_DISTANCE, EARTH_POLE, galactic, ORIGIN, SKY_DISTANCE, STAR_DISTANCE } from './space.js';
 
@@ -104,131 +120,6 @@ function faintStars(limit: Node<'float'>) {
 	return instancedSprite(material, FAINT_STAR_COUNT);
 }
 
-interface DeepSkyObject {
-	/** Position angle of the drawing's +x axis, its long axis, in degrees from the sky's north through east. */
-	angle: number;
-	/** Galactic longitude and latitude in degrees. */
-	at: readonly [number, number];
-	/** Cosmos object id of one the player discovers, and the tint of the smudge it shows until then. */
-	discovery?: readonly [id: string, smudge: string];
-	/** Glow from the plane's coordinates, -1 to 1 on both axes. */
-	draw: (p: Node<'vec2'>) => Node<'vec3'>;
-	/** Integrated apparent magnitude, the object fades in as the sight passes it. */
-	magnitude: number;
-	/** Width and height in degrees. */
-	size: readonly [number, number];
-}
-
-/** Soft glow with a noisy edge, the base of every nebula. */
-const cloud = (p: Node<'vec2'>, falloff: number, seed: number) =>
-	exp(length(p).mul(-falloff)).mul(mx_fractal_noise_float(vec3(p.mul(2.5), seed), 3, 2, 0.5).mul(0.8).add(0.7));
-
-/** Gaussian blob, `stretch` undoes the plane's aspect so it stays round on the sky. */
-const blob = (p: Node<'vec2'>, [x, y]: readonly [number, number], stretch: readonly [number, number], sharpness: number) => {
-	const offset = p.sub(vec2(x, y)).mul(vec2(...stretch));
-	return exp(dot(offset, offset).mul(-sharpness));
-};
-
-/**
- * The brightest galaxy and nebulae, at their real places in the galactic frame of the Milky Way dome. The small ones are drawn a few
- * times larger than life, at true size the Crab and the Ring would be a few pixels even at the narrowest zoom.
- */
-const DEEP_SKY: DeepSkyObject[] = [
-	{
-		/** Andromeda, 2.5 million light years away: a bright bulge, a tilted disc crossed by dust lanes, and its companions M32 and M110. */
-		angle: 215,
-		at: [121.17, -21.57],
-		discovery: ['andromeda', '#d6d4ea'],
-		draw: p => {
-			const disc = exp(length(p).mul(-3.2));
-			const lanes = max(
-				oneMinus(smoothstep(0, 0.05, p.y.sub(0.24).add(p.x.mul(p.x).mul(0.15)).abs())),
-				oneMinus(smoothstep(0, 0.04, p.y.sub(0.42).add(p.x.mul(p.x).mul(0.2)).abs())).mul(0.6),
-			).mul(oneMinus(smoothstep(0.5, 0.9, p.x.abs())));
-			const companions = blob(p, [0.03, -0.55], [3, 1], 30).add(blob(p, [-0.2, 0.8], [3, 1.6], 18).mul(0.7));
-			return color('#c9cdf0')
-				.mul(disc.mul(0.22).mul(oneMinus(lanes.mul(0.6))))
-				.add(color('#ffe0b0').mul(blob(p, [0, 0], [3, 1], 40).mul(0.5).add(companions.mul(0.25))));
-		},
-		magnitude: 3.4,
-		size: [4.2, 1.4],
-	},
-	{
-		/** The Orion Nebula: red hydrogen wings around a green-white core lit by the Trapezium, and the dark bay of the "fish's mouth". */
-		angle: 0,
-		at: [209.01, -19.38],
-		discovery: ['orion_nebula', '#d7b8d8'],
-		draw: p => {
-			const core = blob(p, [0.05, 0.1], [1, 1], 18);
-			const bay = oneMinus(smoothstep(0.05, 0.25, length(p.sub(vec2(0.35, 0.3)).mul(vec2(1, 2.2)))));
-			return mix(color('#ff6f86'), color('#9ff0dc'), core).mul(cloud(p.mul(vec2(1, 1.2)), 3, 3).add(core).mul(0.32)).mul(oneMinus(bay.mul(0.85)));
-		},
-		magnitude: 4,
-		size: [1.4, 1.4],
-	},
-	{
-		/** The Lagoon Nebula, named after the dark lane of dust that crosses its glow, with the bright Hourglass near its heart. */
-		angle: 90,
-		at: [6.05, -1.2],
-		draw: p => {
-			const lane = oneMinus(smoothstep(0.02, 0.12, p.y.add(p.x.mul(0.35)).sub(0.05).abs())).mul(smoothstep(-0.6, -0.1, p.x)).mul(oneMinus(smoothstep(0.3, 0.7, p.x)));
-			return color('#ff7a8c').mul(cloud(p, 2.6, 7).mul(0.3).add(blob(p, [-0.3, 0.05], [2, 1], 14).mul(0.35))).mul(oneMinus(lane.mul(0.8)));
-		},
-		magnitude: 6,
-		size: [1.6, 0.8],
-	},
-	{
-		/**
-		 * The Eagle Nebula, with the Pillars of Creation: three columns of dust rising into the glow, the left one the tallest, their
-		 * heads toward the stars of NGC 6611 to the northwest that carve them.
-		 */
-		angle: 225,
-		at: [16.95, 0.79],
-		draw: p => {
-			const pillars = (
-				[
-					[-0.18, 0.06, 0.45],
-					[0.05, 0.05, 0.2],
-					[0.22, 0.04, 0.1],
-				] as const
-			).reduce<Node<'float'>>(
-				(cover, [x, half, top]) =>
-					max(cover, oneMinus(smoothstep(half * 0.6, half, p.x.sub(x).add(p.y.mul(0.15)).abs())).mul(oneMinus(smoothstep(top - 0.08, top, p.y))).mul(smoothstep(-0.7, -0.4, p.y))),
-				float(0),
-			);
-			return mix(color('#ffb36b'), color('#ff7a5c'), saturate(length(p))).mul(cloud(p, 2.4, 11).mul(0.32)).mul(oneMinus(pillars.mul(0.85)));
-		},
-		magnitude: 6,
-		size: [1, 1],
-	},
-	{
-		/** The Crab Nebula, what is left of the supernova of 1054: orange filaments over the blue-white glow of its pulsar's wind. */
-		angle: 125,
-		at: [184.56, -5.78],
-		discovery: ['crab_nebula', '#c9c4d8'],
-		draw: p => {
-			const shell = oneMinus(smoothstep(0.55, 0.95, length(p).add(mx_noise_float(vec3(p.mul(3), 9)).mul(0.15))));
-			const filaments = oneMinus(smoothstep(0.02, 0.1, mx_noise_float(vec3(p.mul(7), 5)).abs()));
-			return color('#a9c4ff').mul(exp(length(p).mul(-4)).mul(0.3)).add(color('#ff8d5a').mul(filaments.mul(0.4))).mul(shell);
-		},
-		magnitude: 8.4,
-		size: [0.42, 0.3],
-	},
-	{
-		/** The Ring Nebula, a dying star's shell of gas: blue-green inside, red at the rim, the white dwarf a faint dot at its center. */
-		angle: 60,
-		at: [63.17, 13.98],
-		draw: p => {
-			const radius = length(p);
-			const ring = exp(radius.sub(0.55).mul(radius.sub(0.55)).mul(-60));
-			const inner = oneMinus(smoothstep(0.2, 0.55, radius)).mul(0.08).add(blob(p, [0, 0], [1, 1], 900).mul(0.3));
-			return mix(color('#7fe0d0'), color('#ff7062'), smoothstep(0.45, 0.75, radius)).mul(ring.mul(0.5)).add(color('#cfe6ff').mul(inner));
-		},
-		magnitude: 8.8,
-		size: [0.25, 0.2],
-	},
-];
-
 const span = (degrees: number) => 2 * DEEP_SKY_DISTANCE * Math.tan(MathUtils.degToRad(degrees) / 2);
 
 /** A deep-sky object the player discovers: a faint smudge until then, resolved into its drawing as `reveal` rises. */
@@ -267,20 +158,20 @@ export class Nebula {
 }
 
 /**
- * One flat glow per deep-sky object, facing the center of the sky, faded in by the eased limiting magnitude. A discoverable one is a
- * smudge until its discovery resolves it, flaring cyan halfway like Saturn's rings.
+ * One flat glow per deep-sky object, facing the center of the sky, faded in by the eased limiting magnitude and out toward a round
+ * edge. A discoverable one is a smudge until its discovery resolves it, flaring cyan halfway like Saturn's rings.
  */
-function deepSky(limit: Node<'float'>, discovered: readonly string[]) {
-	return DEEP_SKY.map(({ angle, at, discovery, draw, magnitude, size }) => {
+function deepSky(limit: Node<'float'>, discovered: readonly string[], albedo: (id: string) => Node<'vec3'>) {
+	return DEEP_SKY.map(({ angle, at, discovery, id, magnitude, size }) => {
 		const p = uv().sub(0.5).mul(2);
 		const glow = (sharpness: number) => exp(dot(p, p).mul(-sharpness));
 		const nebula = discovery && new Nebula(COSMOS_OBJECTS_BY_ID[discovery[0]], galactic(...at), Math.max(...size), discovered.includes(discovery[0]));
 		const drawn = nebula
-			? mix(color(discovery[1]).mul(glow(5)).mul(0.18), draw(p), nebula.reveal).add(color('#8ff5ff').mul(glow(4)).mul(nebula.reveal.mul(oneMinus(nebula.reveal)).mul(8)))
-			: draw(p);
+			? mix(color(discovery[1]).mul(glow(5)).mul(0.18), albedo(id), nebula.reveal).add(color('#8ff5ff').mul(glow(4)).mul(nebula.reveal.mul(oneMinus(nebula.reveal)).mul(8)))
+			: albedo(id);
 		const material = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
 		material.colorNode = drawn
-			.mul(oneMinus(smoothstep(0.75, 1, max(p.x.abs(), p.y.abs()))))
+			.mul(oneMinus(smoothstep(0.7, 1, length(p))))
 			.mul(smoothstep(magnitude - 0.3, magnitude + 1.5, limit))
 			.mul(darkSky);
 		const mesh = new Mesh(new PlaneGeometry(span(size[0]), span(size[1])), material);
@@ -293,9 +184,35 @@ function deepSky(limit: Node<'float'>, discovered: readonly string[]) {
 	});
 }
 
+/** Cells per radian of each zoom star layer, every one three times finer than the last. */
+const ZOOM_STAR_LAYERS = [400, 1200, 3600, 10_800] as const;
+/** A layer shows once its cells span this many CSS pixels, fully at the second. */
+const ZOOM_STAR_CELL = [5, 14] as const;
+
 /**
- * Everything past the Solar System, centered on the camera: the Milky Way dome, the deep-sky objects and the two star fields. A
- * wider sight eases in so a new Aperture level visibly fills the sky.
+ * Stars far too many to store, drawn from the view direction alone: one candidate per cell of a 3D grid, a few of them lit, in layers
+ * whose cells shrink threefold. A layer fades in once its cells span a few pixels, so zooming in keeps turning up fainter stars,
+ * crowded along the Milky Way's `band`. `pixel` is the angle a CSS pixel covers.
+ */
+function zoomStars(pixel: Node<'float'>, band: Node<'float'>) {
+	const direction = positionLocal.normalize();
+	return ZOOM_STAR_LAYERS.reduce<Node<'vec3'>>((sum, scale) => {
+		const cell = direction.mul(scale).floor();
+		const random = (offset: number) => mx_cell_noise_float(cell.add(offset));
+		const star = cell.add(vec3(random(0), random(31), random(73)).mul(0.6).add(0.2)).normalize();
+		/** Only stars that land in their own cell, the fragments of a neighbor would cut the dot off. */
+		const own = oneMinus(step(0.5, length(star.mul(scale).floor().sub(cell))));
+		const lit = step(random(97), mix(0.06, 0.18, band));
+		const dot = oneMinus(smoothstep(0.35, 1.1, length(direction.sub(star)).div(pixel)));
+		const shown = smoothstep(ZOOM_STAR_CELL[0], ZOOM_STAR_CELL[1], float(1 / scale).div(pixel));
+		const brightness = pow(random(11), 2).mul(0.7).add(0.2);
+		return sum.add(mix(color('#bcd0ff'), color('#ffe0bc'), random(53)).mul(dot.mul(own).mul(lit).mul(shown).mul(brightness)));
+	}, vec3(0));
+}
+
+/**
+ * Everything past the Solar System, centered on the camera: the Milky Way dome, the deep-sky objects, the two star fields and the
+ * zoom stars. A wider sight eases in so a new Aperture level visibly fills the sky.
  */
 export class Sky {
 	readonly group = new Group();
@@ -304,26 +221,37 @@ export class Sky {
 	readonly #deepSky: ReturnType<typeof deepSky>;
 	readonly #dome: Mesh;
 	readonly #faint: Sprite;
+	#high = true;
 	/** Limiting magnitude, eased toward `#goal`. */
 	readonly #limit = uniform(0);
 	#goal: number;
+	/** Angle one CSS pixel covers, the zoom stars size their layers with it. */
+	readonly #pixel = uniform(1);
 	/** Share of the bright field and Milky Way shown at the eased limit, see `skySight`. */
 	readonly #sight = uniform(0);
 	readonly #stars: Sprite;
+	/** Off while even the widest layer's cells are too small to show, so the overview never pays for them. */
+	readonly #zoomStars: Mesh;
 
-	constructor(albedo: Node<'vec3'>, limit: number, discovered: readonly string[]) {
+	/** `albedo` reads a baked map, or the live surface when it isn't baked. */
+	constructor(albedo: (id: string) => Node<'vec3'>, limit: number, discovered: readonly string[]) {
 		this.#limit.value = this.#goal = limit;
 		this.#sight.value = skySight(limit);
+		const milkyWay = albedo('sky');
 		/** The Milky Way rises out of the dark in the second half of the sight. */
 		const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide });
-		material.colorNode = albedo.mul(smoothstep(0.3, 1, this.#sight)).mul(darkSky);
+		material.colorNode = milkyWay.mul(smoothstep(0.3, 1, this.#sight)).mul(darkSky);
 		this.#dome = new Mesh(new SphereGeometry(SKY_DISTANCE, 64, 32), material);
 		this.#dome.renderOrder = -1;
-		this.#deepSky = deepSky(this.#limit, discovered);
+		/** Past the naked eye only, they are the faint stars a telescope adds. */
+		const zoom = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, side: BackSide, transparent: true });
+		zoom.colorNode = zoomStars(this.#pixel, smoothstep(0.005, 0.06, luminance(milkyWay))).mul(smoothstep(3, 7, this.#limit)).mul(darkSky);
+		this.#zoomStars = new Mesh(new SphereGeometry(SKY_DISTANCE * 0.98, 64, 32), zoom);
+		this.#deepSky = deepSky(this.#limit, discovered, albedo);
 		this.nebulae = new Map(this.#deepSky.flatMap(({ nebula }) => (nebula ? [[nebula.object.id, nebula]] : [])));
 		this.#stars = starField(this.#sight);
 		this.#faint = faintStars(this.#limit);
-		this.group.add(this.#dome, ...this.#deepSky.map(({ mesh }) => mesh), this.#stars, this.#faint);
+		this.group.add(this.#dome, this.#zoomStars, ...this.#deepSky.map(({ mesh }) => mesh), this.#stars, this.#faint);
 		this.showDepth();
 	}
 
@@ -331,12 +259,15 @@ export class Sky {
 		this.#goal = limit;
 	}
 
-	follow(camera: Vector3) {
-		this.group.position.copy(camera);
+	follow(camera: PerspectiveCamera, height: number) {
+		this.group.position.copy(camera.position);
+		this.#pixel.value = MathUtils.degToRad(camera.fov) / height;
+		this.#zoomStars.visible = this.#high && this.#pixel.value * ZOOM_STAR_LAYERS[0] * ZOOM_STAR_CELL[0] < 1;
 	}
 
-	/** Low quality drops the Milky Way and keeps a quarter of the stars. */
+	/** Low quality drops the Milky Way and the zoom stars, and keeps a quarter of the stars. */
 	setQuality(high: boolean) {
+		this.#high = high;
 		this.#dome.visible = high;
 		this.#stars.count = high ? STAR_COUNT : STAR_COUNT / 4;
 		this.#faint.count = high ? FAINT_STAR_COUNT : FAINT_STAR_COUNT / 4;
@@ -347,6 +278,7 @@ export class Sky {
 		const limit = this.#limit.value;
 		for (const { magnitude, mesh } of this.#deepSky) mesh.visible = all || limit > magnitude - 0.3;
 		this.#faint.visible = all || limit > FAINT_STAR_MAGNITUDES[0] - 0.3;
+		if (all) this.#zoomStars.visible = true;
 	}
 
 	update(dt: number) {
