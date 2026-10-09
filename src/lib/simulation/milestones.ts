@@ -2,9 +2,11 @@ import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { ELEMENT_COUNT } from '#data/elements.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import type { RunState } from './snapshots';
 import type { MilestoneDefinition, MilestoneHit } from './types';
 
@@ -31,6 +33,8 @@ const READERS = {
 	electronizes: () => gameManager.totalElectronizesAllTime,
 	electrons: () => currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
 	excitedPhotons: () => currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
+	forged: () => periodicManager.forged.size,
+	identified: () => periodicManager.identified.length,
 	instruments: () => cosmosManager.instruments.length,
 	ionizes: () => gameManager.totalIonizesAllTime,
 	photonUpgradeLevels: () => gameManager.photonUpgradeLevels,
@@ -97,6 +101,10 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 			at('discoveries', sky, `cosmos_${instrument.id}_sky`, `${instrument.name} sky`, `Every object up to the ${instrument.name} discovered`),
 		];
 	}),
+	at('forged', 1, 'periodic_forged_1', '1st element forged', 'A site forged its first element'),
+	...[1, 10, 20, 30, 45, 60, 75, 90, 100, 110, ELEMENT_COUNT].map(count =>
+		at('identified', count, `periodic_${count}`, `${count} element${count === 1 ? '' : 's'}`, `Identified ${count} element${count === 1 ? '' : 's'}`),
+	),
 
 	feature(FeatureTypes.LEVELS, 'Skill Tree & Levels'),
 	feature(FeatureTypes.PURPLE_REALM, 'Photon Realm'),

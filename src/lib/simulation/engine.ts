@@ -2,14 +2,17 @@ import { ACHIEVEMENTS } from '#data/achievements.js';
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '#data/chromatic.js';
 import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { ELEMENTS } from '#data/elements.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { RealmTypes } from '#data/realms.js';
+import { siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { connectDeriveds } from '#helpers/reactiveRoot.svelte.js';
 import { CosmosTracker } from './cosmos';
@@ -135,7 +138,7 @@ export class SimulationEngine {
 	/** Mutates the global game managers for the duration of the run, then restores the state they started with. */
 	run(onProgress?: (progress: SimulationProgress) => void): SimulationResult {
 		const started = performance.now();
-		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager, cosmosManager]);
+		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager, cosmosManager, periodicManager]);
 		const savedState = JSON.stringify(gameManager.getCurrentState());
 		gameManager.resetAll();
 		currenciesManager.hardReset();
@@ -415,6 +418,14 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
+		// Identifying goes before the Prism upgrades, both spend Light and an element's bonus is permanent.
+		if (canAct() && periodicManager.unlocked) {
+			const z = periodicManager.ready.filter(other => periodicManager.canAfford(other)).sort((a, b) => ELEMENTS[a - 1].need - ELEMENTS[b - 1].need)[0];
+			if (z && periodicManager.identify(z)) {
+				this.record('periodic', `identify ${ELEMENTS[z - 1].symbol}`);
+				actionsThisTick++;
+			}
+		}
 		if (canAct() && gameManager.totalIonizesAllTime > 0) {
 			const id = this.cheapestChromaticUpgrade();
 			if (id && chromaticManager.purchaseUpgrade(id)) {
@@ -425,6 +436,7 @@ export class SimulationEngine {
 		if (canAct() && cosmosManager.unlocked) {
 			const next = cosmosManager.canObserve ? cosmosManager.nextDiscovery : null;
 			const study = this.bestStudy();
+			const site = this.bestSiteStudy();
 			const instrument = cosmosManager.nextInstrument;
 			this.observedMs = next ? this.observedMs + this.config.tickRate : 0;
 			if (next && this.observedMs >= COSMOS_OBSERVE_MS && cosmosManager.discover(next.id)) {
@@ -439,6 +451,9 @@ export class SimulationEngine {
 			} else if (!cosmosManager.research && instrument && cosmosManager.purchaseInstrument(instrument.id)) {
 				this.cosmos.log('instrument', instrument.id);
 				this.record('cosmos', `instrument ${instrument.id}`);
+				actionsThisTick++;
+			} else if (site && periodicManager.study(site)) {
+				this.record('periodic', `study ${site}`);
 				actionsThisTick++;
 			} else if (study && gameManager.studyCosmosObject(study)) {
 				this.record('cosmos', `study ${study}`);
@@ -524,6 +539,24 @@ export class SimulationEngine {
 			const payback = (cost * (1 + level)) / cosmosManager.starlightOf(object.id);
 			if (left < reserve && payback > (reserve - left) / cosmosManager.starlightPerSecond) continue;
 			if (!best || level < best.level || (level === best.level && cost < best.cost)) best = { cost, id: object.id, level };
+		}
+		return best?.id ?? null;
+	}
+
+	/**
+	 * The forging site with the longest wait left, when studying it saves more than an hour and leaves the Starlight saved for the next
+	 * discovery. A study level divides the wait by `(level + 2) / (level + 1)`.
+	 */
+	private bestSiteStudy(): SiteId | null {
+		const next = cosmosManager.nextDiscovery;
+		const reserve = next && !cosmosManager.canObserve ? cosmosManager.nextApertureCost : !next && !cosmosManager.research ? (cosmosManager.nextInstrument?.cost ?? 0) : 0;
+		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
+		let best: { eta: number; id: SiteId } | null = null;
+		for (const id of periodicManager.open) {
+			const eta = periodicManager.etaOf(id);
+			const level = periodicManager.forge(id).level;
+			if (!Number.isFinite(eta) || eta / (level + 2) < 3600 || starlight - siteStudyCost(level) < reserve) continue;
+			if (!best || eta > best.eta) best = { eta, id };
 		}
 		return best?.id ?? null;
 	}

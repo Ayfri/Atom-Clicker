@@ -146,6 +146,7 @@ export type SimulationActionType =
 	| 'generator'
 	| 'electronize'
 	| 'ionize'
+	| 'periodic'
 	| 'photon_upgrade'
 	| 'power_up'
 	| 'protonise'
