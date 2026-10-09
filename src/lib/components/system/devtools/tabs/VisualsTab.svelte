@@ -59,7 +59,7 @@
 			{const stack = $derived(tierIconStack(icon, index, tier, color))}
 			<div class="flex flex-col items-center gap-0.5">
 				<IconStack color={stack.color} count={stack.count} icon={stack.icon} label={stack.label} {size} />
-				<span class="font-mono text-[9px] text-white/30">{tier}</span>
+				<span class="font-mono text-[10px] text-white/45">{tier}</span>
 			</div>
 		{/each}
 	</div>
@@ -67,7 +67,7 @@
 
 <Section collapsed title="Achievement stacks ({Math.min(shown, achievementStacks.length)}/{achievementStacks.length})">
 	{#snippet actions()}
-		<label class="flex items-center gap-1 text-[11px] text-white/50">
+		<label class="flex items-center gap-1 text-[12px] text-white/50">
 			<input bind:checked={overrideColor} class="accent-accent-500" type="checkbox" />
 			Use picked color
 		</label>
@@ -76,7 +76,7 @@
 		{#each achievementStacks.slice(0, shown) as { name, stack } (name)}
 			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={name}>
 				<IconStack color={overrideColor ? color : stack.color} count={stack.count} icon={stack.icon} label={stack.label} {size} />
-				<span class="w-full truncate text-center text-[9px] text-white/40">{name}</span>
+				<span class="w-full truncate text-center text-[10px] text-white/40">{name}</span>
 			</div>
 		{/each}
 	</div>
@@ -91,7 +91,7 @@
 			{const Icon = $derived(ICONS[name])}
 			<button class="flex cursor-pointer flex-col items-center gap-1 rounded bg-white/5 p-1.5 hover:bg-white/10" onclick={() => (icon = name)} title="Use in icon stacks">
 				<Icon {color} size={size * 0.6} />
-				<span class="w-full truncate text-center font-mono text-[9px] text-white/40">{name}</span>
+				<span class="w-full truncate text-center font-mono text-[10px] text-white/40">{name}</span>
 			</button>
 		{/each}
 	</div>

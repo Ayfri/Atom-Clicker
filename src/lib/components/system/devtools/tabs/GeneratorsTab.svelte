@@ -30,11 +30,11 @@
 		<button class={btn} onclick={() => (gameManager.generators = {})}>Clear</button>
 	{/snippet}
 	<div class="grid grid-cols-[1fr_5.5rem_2.5rem_4.5rem_auto] items-center gap-x-2 gap-y-1.5 text-xs">
-		<span class="text-[10px] text-white/30">Name</span>
-		<span class="text-[10px] text-white/30">Count</span>
-		<span class="text-[10px] text-white/30">Lvl</span>
-		<span class="text-right text-[10px] text-white/30">Atoms/s</span>
-		<span class="text-[10px] text-white/30" title="Auto-buy">Auto</span>
+		<span class="text-[11px] text-white/45">Name</span>
+		<span class="text-[11px] text-white/45">Count</span>
+		<span class="text-[11px] text-white/45">Lvl</span>
+		<span class="text-right text-[11px] text-white/45">Atoms/s</span>
+		<span class="text-[11px] text-white/45" title="Auto-buy">Auto</span>
 		{#each GENERATOR_TYPES as type (type)}
 			{const generator = $derived(gameManager.generators[type])}
 			{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
@@ -53,7 +53,7 @@
 					onchange={() => gameManager.toggleAutomation(type)}
 					type="checkbox"
 				/>
-				<span class="font-mono text-[10px] {autoBuyManager.recentlyAutoPurchasedGenerators.has(type) ? 'text-accent-300' : 'text-white/25'}">
+				<span class="font-mono text-[11px] {autoBuyManager.recentlyAutoPurchasedGenerators.has(type) ? 'text-accent-300' : 'text-white/40'}">
 					{autoBuyUnlocked.has(type) ? (interval ? `${(interval / 1000).toFixed(1)}s` : 'off') : 'lock'}
 				</span>
 			</label>
