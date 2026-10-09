@@ -53,8 +53,9 @@
 		const focus = sessionStorage.getItem(FOCUS_KEY) ?? undefined;
 		let created: CosmosScene | null = null;
 		let disposed = false;
+		let uninstall: (() => void) | undefined;
 		(async () => {
-			const tools = dev ? await import('#lib/cosmos/devTools.js') : null;
+			const tools = dev ? await import('#lib/cosmos/devTools.svelte.js') : null;
 			/** Three.js is a ~280 KB gzip chunk, only fetched once the Cosmos opens. */
 			const { CosmosScene } = await import('#lib/cosmos/CosmosScene.svelte.js');
 			const instance = await CosmosScene.create(target, {
@@ -70,10 +71,11 @@
 			if (disposed) return instance.dispose();
 			created = instance;
 			scene = instance;
-			tools?.installDevTools(instance);
+			uninstall = tools?.installDevTools(instance);
 		})().catch((error: unknown) => (failure = error instanceof Error ? error.message : String(error)));
 		return () => {
 			disposed = true;
+			uninstall?.();
 			created?.dispose();
 			scene = null;
 		};

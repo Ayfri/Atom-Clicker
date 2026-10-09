@@ -1,9 +1,10 @@
 <script lang="ts">
 	import QuarkIcon from '#components/icons/Quark.svelte';
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
-	import { ChartLine, Factory, Gamepad2, Globe, HardDrive, Maximize2, Minimize2, Palette, TrendingUp, Trophy, Wrench, X } from '@lucide/svelte';
+	import { ChartLine, Factory, Gamepad2, Globe, HardDrive, Maximize2, Minimize2, Palette, Telescope, TrendingUp, Trophy, Wrench, X } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import AchievementsTab from './tabs/AchievementsTab.svelte';
+	import CosmosTab from './tabs/CosmosTab.svelte';
 	import GeneratorsTab from './tabs/GeneratorsTab.svelte';
 	import PlayTab from './tabs/PlayTab.svelte';
 	import QuarksTab from './tabs/QuarksTab.svelte';
@@ -18,6 +19,7 @@
 		{ component: UpgradesTab, icon: TrendingUp, id: 'upgrades', label: 'Upgrades' },
 		{ component: AchievementsTab, icon: Trophy, id: 'achievements', label: 'Achievements' },
 		{ component: RealmsTab, icon: Globe, id: 'realms', label: 'Realms' },
+		{ component: CosmosTab, icon: Telescope, id: 'cosmos', label: 'Cosmos' },
 		{ component: QuarksTab, icon: QuarkIcon, id: 'quarks', label: 'Quarks' },
 		{ component: SaveTab, icon: HardDrive, id: 'save', label: 'Save' },
 		{ component: VisualsTab, icon: Palette, id: 'visuals', label: 'Visuals' },
