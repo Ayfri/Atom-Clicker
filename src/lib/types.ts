@@ -5,6 +5,7 @@ import type { FeatureType } from '#data/features.js';
 import type { GeneratorType } from '#data/generators.js';
 import type { IconName } from '#data/icons.js';
 import type { RealmType } from '#data/realms.js';
+import type { SiteId } from '#data/sites.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import type { IconStackSpec } from '#helpers/iconStacks.js';
 import type { LayerType } from '#helpers/statConstants.js';
@@ -144,6 +145,19 @@ export interface PhotonUpgrade {
 
 export type CurrencyBoosts = Partial<Record<CurrencyName, number>>;
 
+export interface PeriodicState {
+	/** Atomic numbers, ascending. */
+	identified: number[];
+	sites: Partial<Record<SiteId, SiteForge>>;
+}
+
+/** A nucleosynthesis site's place in its chain: elements before `index` are forged, `progress` nuclei count toward the next one. */
+export interface SiteForge {
+	index: number;
+	level: number;
+	progress: number;
+}
+
 export interface RadiationState {
 	controlRodLevel: number;
 	lastTick: number;
@@ -177,6 +191,7 @@ export interface GameState {
 	integrityFlagged: boolean;
 	lastInteractionTime: number;
 	lastSave: number;
+	periodic: PeriodicState;
 	photonUpgrades: Record<string, number>;
 	powerUpsCollected: number;
 	radiation: RadiationState;

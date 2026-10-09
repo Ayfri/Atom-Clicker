@@ -6,6 +6,7 @@ import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { XP_PER_ATOM } from '#lib/constants.js';
 import type { GeneratorCountMap, CurrencyAmountMap, OfflineProgressSummary } from '#lib/types.js';
@@ -177,6 +178,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * (appliedMs / 1000));
 	cosmosManager.advance(appliedMs);
+	periodicManager.tick(appliedMs);
 
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;

@@ -19,6 +19,7 @@ import type {
 	GameState,
 	Generator,
 	OfflineProgressSummary,
+	PeriodicState,
 	PowerUp,
 	Price,
 	RealmState,
@@ -32,6 +33,7 @@ import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
 import { applyOfflineProgress } from '#helpers/offlineProgress.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -132,6 +134,14 @@ export class GameManager {
 		cosmosManager.loadState(state);
 	}
 
+	/** PeriodicManager owns the Table, this accessor only exposes it to the save and reset loops. */
+	get periodic(): PeriodicState {
+		return periodicManager.getState();
+	}
+	set periodic(state: PeriodicState) {
+		periodicManager.loadState(state);
+	}
+
 	get currencies() {
 		return currenciesManager.currencies;
 	}
@@ -182,7 +192,14 @@ export class GameManager {
 			const upgrade = CHROMATIC_UPGRADES[id];
 			return level > 0 && upgrade?.effects ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
 		});
-		return [...this.currentUpgradesBought, ...photonUpgrades, ...chromaticUpgrades, ...cosmosManager.effectSources, ...this.quarkBoostSources];
+		return [
+			...this.currentUpgradesBought,
+			...photonUpgrades,
+			...chromaticUpgrades,
+			...cosmosManager.effectSources,
+			...periodicManager.effectSources,
+			...this.quarkBoostSources,
+		];
 	});
 
 	/** Rebuilt only on a purchase, every stat below reads its value from here. */
@@ -514,6 +531,7 @@ export class GameManager {
 			integrityFlagged: this.integrityFlagged,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
+			periodic: this.periodic,
 			photonUpgrades: this.photonUpgrades,
 			powerUpsCollected: this.powerUpsCollected,
 			radiation: radiationManager.getState(),
@@ -906,6 +924,7 @@ export class GameManager {
 		radiationManager.tick(deltaTime);
 		if (cosmosManager.starlightPerSecond > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + cosmosManager.starlightPerSecond * seconds;
 		cosmosManager.tick(deltaTime);
+		periodicManager.tick(deltaTime);
 
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;

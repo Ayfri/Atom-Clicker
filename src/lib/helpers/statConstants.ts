@@ -1,6 +1,6 @@
 import type { DailyStats } from '#data/dailyQuests.js';
 import { RealmTypes } from '#data/realms.js';
-import type { ChromaticState, CosmosState, RealmState, Settings } from '#lib/types.js';
+import type { ChromaticState, CosmosState, PeriodicState, RealmState, Settings } from '#lib/types.js';
 
 /** `resetLayer(n)` resets every stat whose layer is 1 to n, NEVER stats always stay and SPECIAL ones are handled by their own code. */
 export const LAYERS = {
@@ -56,6 +56,7 @@ export const statsConfig = {
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER },
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
+	periodic: { defaultValue: { identified: [], sites: {} } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
 	radiation: { defaultValue: { controlRodLevel: 0.5, lastTick: Date.now(), mass: 0, unlocked: false }, layer: LAYERS.NEVER },
