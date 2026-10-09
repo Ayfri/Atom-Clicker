@@ -25,6 +25,8 @@
 	interface ChartGroup {
 		charts: ChartDef[];
 		description: string;
+		/** The group only shows once a snapshot passes it. */
+		requires?: (s: SimulationSnapshot) => boolean;
 		title: string;
 	}
 
@@ -57,6 +59,7 @@
 	const ACHIEVEMENT_COLORS = ['#e9d5ff', '#d8b4fe', '#c084fc', '#a855f7', '#9333ea', '#7c3aed', '#6d28d9', '#5b21b6', '#4c1d95', '#8b5cf6', '#f0abfc'];
 	const PROTON_COLORS = ['#fecaca', '#fca5a5', '#f87171', '#ef4444', '#dc2626', '#b91c1c', '#991b1b', '#7f1d1d', '#fda4af', '#fb7185'];
 	const PROTONISE_COLORS = ['#fed7aa', '#fdba74', '#fb923c', '#f97316', '#ea580c'];
+	const BOOST_COLORS = ['#facc15', '#4ade80', '#38bdf8', '#f472b6', '#a78bfa', '#fb923c', '#22d3ee', '#f87171', '#a3e635', '#e879f9', '#cfe8ff', '#fde68a'];
 
 	const CHART_GROUPS: ChartGroup[] = [
 		{
@@ -231,8 +234,9 @@
 					series: [
 						{ color: '#f59e0b', fillOpacity: 0.2, getValue: s => s.protonises, label: 'Protonises' },
 						{ color: '#06b6d4', fillOpacity: 0.2, getValue: s => s.electronizes, label: 'Electronizes' },
+						{ color: '#e879f9', fillOpacity: 0.2, getValue: s => s.cosmos?.ionizes ?? 0, label: 'Ionizes' },
 					],
-					title: 'Protonises & Electronizes',
+					title: 'Resets',
 				},
 				{
 					description: 'Quark income split by source: daily quests versus the flat drip from achievements.',
@@ -257,6 +261,53 @@
 					],
 					title: 'Daily Quest Completion',
 					yAxisSuffix: '%',
+				},
+			],
+		},
+		{
+			description: 'The Cosmos from the first Ionize: Starlight income, how far the sky is discovered, and what the objects boost.',
+			requires: s => (s.cosmos?.ionizes ?? 0) > 0,
+			title: 'Cosmos',
+			charts: [
+				{
+					height: 360,
+					series: [
+						{ color: '#cfe8ff', fillOpacity: 0.1, getValue: s => s.cosmos?.starlightEarned ?? 0, label: 'Earned' },
+						{ color: '#38bdf8', fillOpacity: 0.1, getValue: s => s.cosmos?.starlight ?? 0, label: 'Held' },
+						{ color: '#facc15', fillOpacity: 0.2, getValue: s => s.cosmos?.starlightPerSecond ?? 0, label: 'Per second' },
+					],
+					title: 'Starlight (Log Scale)',
+					useLog: true,
+				},
+				{
+					description: 'A flat discovery line with the instrument line flat too is a wait on the next instrument.',
+					half: true,
+					height: 300,
+					series: [
+						{ color: '#22d3ee', fillOpacity: 0.15, getValue: s => s.cosmos?.discovered ?? 0, label: 'Discovered' },
+						{ color: '#f59e0b', fillOpacity: 0, getValue: s => s.cosmos?.instruments ?? 0, label: 'Instruments' },
+						{ color: '#a78bfa', fillOpacity: 0, getValue: s => s.cosmos?.aperture ?? 0, label: 'Aperture' },
+					],
+					title: 'Sky',
+				},
+				{
+					half: true,
+					height: 300,
+					series: [{ color: '#f472b6', fillOpacity: 0.15, getValue: s => s.cosmos?.studyLevels ?? 0, label: 'Study levels' }],
+					title: 'Studies',
+				},
+				{
+					buildCustomSeries: snapshots =>
+						Object.keys(snapshots.at(-1)?.cosmos?.boosts ?? {}).map((stat, i) => ({
+							color: BOOST_COLORS[i % BOOST_COLORS.length],
+							data: snapshots.map(s => s.cosmos?.boosts[stat] ?? 1),
+							fillOpacity: 0,
+							label: `${stat} ×`,
+						})),
+					description: 'Every stat the discovered objects and their studies multiply.',
+					height: 360,
+					series: [],
+					title: 'Cosmos Boosts ×',
 				},
 			],
 		},
@@ -311,7 +362,7 @@
 	}
 
 	const allGroups = $derived.by(() =>
-		CHART_GROUPS.map(group => ({
+		CHART_GROUPS.filter(({ requires }) => !requires || currentSnapshots.some(requires) || comparisonSnapshots.some(requires)).map(group => ({
 			description: group.description,
 			rows: toRows(
 				group.charts.map(def => ({

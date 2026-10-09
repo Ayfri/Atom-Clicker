@@ -1,5 +1,5 @@
 /** IndexedDB store for benchmark report history. */
-import type { MilestoneHit, SimulationResult, SpikeEvent } from '#lib/simulation/types.js';
+import type { MilestoneHit, RunInsights, SimulationResult, SpikeEvent } from '#lib/simulation/types.js';
 
 const DB_NAME = 'atom-clicker-benchmarks';
 const DB_VERSION = 2;
@@ -11,6 +11,8 @@ export interface BenchmarkReport {
 	durationMs: number;
 	finalSnapshot: SimulationResult['snapshots'][number] | null;
 	id: string;
+	/** Absent on reports saved before it was kept. */
+	insights?: RunInsights;
 	milestoneCount: number;
 	milestones: MilestoneHit[];
 	name: string;
@@ -74,6 +76,7 @@ export async function saveReport(result: SimulationResult, customName?: string):
 		durationMs: result.durationMs,
 		finalSnapshot,
 		id,
+		insights: result.insights,
 		milestoneCount: result.milestones.length,
 		milestones: result.milestones,
 		name: customName || `${result.config.name} - ${new Date().toLocaleString()}`,
