@@ -17,6 +17,8 @@ const BARE_COLOR = '#c3cad6';
 /** The atom leaves the bottom of its cell to the symbol. */
 const ATOM_SHARE = 0.86;
 const POP_SECONDS = 0.5;
+/** The widest a ready nucleus's pulsing glow gets, relative to its atom, it reaches past the top of the cell. */
+const READY_GLOW = 1.23;
 
 /**
  * Draws every element of the table as a mini atom on one canvas laid under the cells: identified elements as baked Bohr atoms,
@@ -32,7 +34,10 @@ export class TableAtoms extends CanvasLoop {
 	private slots = new Map<number, Slot>();
 	private time = 0;
 
-	/** The canvas sits in the grid next to its `[data-cell]` slots, `zoom` sharpens a table that gets pinch-zoomed. */
+	/**
+	 * The canvas sits in the grid next to its `[data-cell]` slots and overflows it, so the first row's glows and pops aren't cut.
+	 * `zoom` sharpens a table that gets pinch-zoomed.
+	 */
 	constructor(
 		canvas: HTMLCanvasElement,
 		private readonly zoom = 1,
@@ -67,11 +72,20 @@ export class TableAtoms extends CanvasLoop {
 		}
 		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
+		/** All the ready glows are wiped before any is painted, a glow reaching past its cell would otherwise erase its ready neighbor's. */
+		if (!full)
+			for (const [z, look] of this.looks) {
+				const slot = this.slots.get(z);
+				if (look.kind !== 'ready' || !slot) continue;
+				const size = slot.size * ATOM_SHARE;
+				const reach = (size * READY_GLOW) / 2 + 1;
+				ctx.clearRect(slot.x + slot.size / 2 - reach, slot.y + size / 2 - reach, reach * 2, reach * 2);
+			}
+
 		let moving = popping;
 		for (const [z, look] of this.looks) {
 			const slot = this.slots.get(z);
 			if (!slot || (!full && look.kind !== 'ready')) continue;
-			if (!full) ctx.clearRect(slot.x - 2, slot.y - 2, slot.size + 4, slot.size + 4);
 			this.drawCell(z, look, slot);
 			moving ||= look.kind === 'ready';
 		}
@@ -136,8 +150,9 @@ export class TableAtoms extends CanvasLoop {
 		this.ratio = pixelRatio() * this.zoom;
 		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
 		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
+		const { offsetLeft, offsetTop } = this.canvas;
 		const cells = this.canvas.parentElement?.querySelectorAll<HTMLElement>('[data-cell]') ?? [];
-		this.slots = new Map([...cells].map(cell => [Number(cell.dataset.cell), { size: cell.offsetWidth, x: cell.offsetLeft, y: cell.offsetTop }]));
+		this.slots = new Map([...cells].map(cell => [Number(cell.dataset.cell), { size: cell.offsetWidth, x: cell.offsetLeft - offsetLeft, y: cell.offsetTop - offsetTop }]));
 		this.clearSprites();
 		this.redraw();
 	}

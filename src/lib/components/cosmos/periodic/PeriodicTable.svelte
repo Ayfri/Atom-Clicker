@@ -513,7 +513,7 @@
 		style:grid-template-rows="repeat(8, auto) 12px auto auto"
 	>
 		<canvas
-			class="z-0 size-full"
+			class="-top-4 -left-4 z-0 size-[calc(100%+2rem)]"
 			{@attach mountAtoms}
 		></canvas>
 		{#each ELEMENTS as cell (cell.z)}
