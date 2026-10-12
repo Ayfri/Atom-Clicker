@@ -23,6 +23,7 @@
 	import Ambient from '#components/game/Ambient.svelte';
 	import PhotonCounter from '#components/prestige/PhotonCounter.svelte';
 	import PhotonUpgrades from '#components/prestige/PhotonUpgrades.svelte';
+	import Glow from '#components/ui/Glow.svelte';
 	import { onMount } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 
@@ -605,9 +606,9 @@
 	<!-- Same glows the Atom Realm gets from its prestiges: the first Ionize splits the light into Red, Green and Blue. -->
 	{#if visible && prismUnlocked}
 		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden" data-perf-layer="glow">
-			<div class="absolute bg-[#ff4d5e]/12 blur-[160px] h-64 left-[12%] rounded-full top-[12%] w-64"></div>
-			<div class="absolute bg-[#2ee6a0]/10 blur-[160px] h-64 right-[15%] rounded-full top-[35%] w-64"></div>
-			<div class="absolute bg-[#4d8dff]/12 blur-[180px] bottom-[8%] h-80 left-[35%] rounded-full w-80"></div>
+			<Glow blur={160} class="left-[12%] top-[12%]" color="#ff4d5e" diameter={256} opacity={0.12} />
+			<Glow blur={160} class="right-[15%] top-[35%]" color="#2ee6a0" diameter={256} opacity={0.1} />
+			<Glow blur={180} class="bottom-[8%] left-[35%]" color="#4d8dff" diameter={320} opacity={0.12} />
 		</div>
 	{/if}
 	{#if visible}

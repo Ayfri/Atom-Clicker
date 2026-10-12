@@ -7,6 +7,7 @@
 	import Counter from '#components/game/Counter.svelte';
 	import Generators from '#components/game/Generators.svelte';
 	import Upgrades from '#components/game/Upgrades.svelte';
+	import Glow from '#components/ui/Glow.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
@@ -62,10 +63,10 @@
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
 		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden" data-perf-layer="glow">
 			{#if gameManager.totalProtonisesAllTime > 0}
-				<div class="absolute bg-yellow-400/15 blur-[160px] h-64 right-[20%] rounded-full top-[10%] w-64"></div>
+				<Glow blur={160} class="right-[20%] top-[10%]" color="oklch(85.2% 0.199 91.936)" diameter={256} opacity={0.15} />
 			{/if}
 			{#if gameManager.totalElectronizesAllTime > 0}
-				<div class="absolute bg-green-500/15 blur-[180px] bottom-[10%] h-80 left-[10%] rounded-full w-80"></div>
+				<Glow blur={180} class="bottom-[10%] left-[10%]" color="oklch(72.3% 0.219 149.579)" diameter={320} opacity={0.15} />
 			{/if}
 		</div>
 		<Ambient accent={themeAccent ?? CURRENCIES[CurrenciesTypes.ATOMS].color} {ambience} realm={RealmTypes.ATOMS} />
