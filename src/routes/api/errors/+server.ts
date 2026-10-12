@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
 import { logError } from '#lib/server/errorHandler.server.js';
+import { RateLimiter } from '#lib/server/rateLimit.server.js';
 import { resolveUserFromRequest } from '#lib/server/supabase.server.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -8,23 +9,7 @@ const MAX_STACK_LENGTH = 16_000;
 const MAX_URL_LENGTH = 2_048;
 const MAX_JSON_FIELD_BYTES = 8_000;
 
-const RATE_LIMIT_WINDOW = 60 * 1000;
-const MAX_ERRORS_PER_WINDOW = 10;
-const MAX_TRACKED_IPS = 10_000;
-
-/** Per-isolate on Workers, so this is a best-effort throttle rather than a hard limit. */
-const errorRateLimit = new Map<string, number[]>();
-
-function isRateLimited(clientIp: string): boolean {
-	const now = Date.now();
-	const timestamps = (errorRateLimit.get(clientIp) || []).filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
-	if (timestamps.length >= MAX_ERRORS_PER_WINDOW) return true;
-
-	if (errorRateLimit.size >= MAX_TRACKED_IPS) errorRateLimit.clear();
-	timestamps.push(now);
-	errorRateLimit.set(clientIp, timestamps);
-	return false;
-}
+const errorRateLimit = new RateLimiter(60 * 1000, 10);
 
 function clampString(value: unknown, maxLength: number): string | null {
 	return typeof value === 'string' ? value.slice(0, maxLength) : null;
@@ -37,7 +22,7 @@ function clampJson(value: unknown): Record<string, unknown> | null {
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	try {
-		if (isRateLimited(getClientAddress())) {
+		if (errorRateLimit.limited(getClientAddress())) {
 			return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });
 		}
 
