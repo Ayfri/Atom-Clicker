@@ -102,7 +102,7 @@
 	let hadCircles = false;
 	let hovering = $state(false);
 	let lastHoveredId: number | null = null;
-	let lastUpdateTime = Date.now();
+	let lastUpdateTime = 0;
 	let pointerDown = false;
 
 	const BASE_CIRCLE_LIFETIME = 5000;
@@ -285,8 +285,9 @@
 	}
 
 	function updateCircles() {
-		const currentTime = Date.now();
-		const deltaTime = currentTime - lastUpdateTime;
+		const currentTime = performance.now();
+		/** Never negative: the pop-in scale of a negative age is a negative `arc` radius, which throws and stops the loop. */
+		const deltaTime = Math.max(0, currentTime - lastUpdateTime);
 		lastUpdateTime = currentTime;
 
 		// In-place compaction, this runs ~60 times per second on up to 100 circles.
@@ -518,7 +519,7 @@
 	function wake() {
 		if (frame || !canvas || !drawn) return;
 		// Nothing aged while stopped, the first delta must not count the idle time.
-		lastUpdateTime = Date.now();
+		lastUpdateTime = performance.now();
 		frame = requestAnimationFrame(loop);
 	}
 
@@ -597,7 +598,7 @@
 	});
 
 	onMount(() => {
-		lastUpdateTime = Date.now();
+		lastUpdateTime = performance.now();
 		return clearLabels;
 	});
 </script>
