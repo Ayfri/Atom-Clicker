@@ -41,7 +41,7 @@ export class ColliderRenderer extends CanvasLoop {
 	private travel = 0;
 
 	constructor(canvas: HTMLCanvasElement) {
-		super(canvas);
+		super(canvas, 'canvas:collider');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;

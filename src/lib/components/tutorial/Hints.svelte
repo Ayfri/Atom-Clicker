@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { HINTS, type Hint } from '#data/hints.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { highlightCurrencies } from '#lib/utils/highlightCurrencies.js';
 	import type { TooltipPosition } from '#stores/tooltip.svelte.js';
@@ -62,7 +63,11 @@
 		}
 		untrack(pick);
 		if (ui.activeModal) return;
-		const interval = setInterval(pick, POLL_MS);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			pick();
+			perfTracker.track('hints:poll', start);
+		}, POLL_MS);
 		window.addEventListener('scroll', pick, { capture: true, passive: true });
 		return () => {
 			clearInterval(interval);

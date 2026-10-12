@@ -14,6 +14,77 @@ export type Database = {
 	}
 	public: {
 		Tables: {
+			client_sessions: {
+				Row: {
+					app_version: string
+					degraded: boolean
+					degraded_at: string | null
+					device: Json
+					device_key: string
+					game: Json
+					id: string
+					in_app_browser: string | null
+					last_seen_at: string
+					notified_at: string | null
+					notify_skipped: string | null
+					perf: Json | null
+					started_at: string
+					top_source: string | null
+					updates: number
+					user_agent: string
+					user_id: string | null
+					write_key: string
+				}
+				Insert: {
+					app_version: string
+					degraded?: boolean
+					degraded_at?: string | null
+					device?: Json
+					device_key: string
+					game?: Json
+					id: string
+					in_app_browser?: string | null
+					last_seen_at?: string
+					notified_at?: string | null
+					notify_skipped?: string | null
+					perf?: Json | null
+					started_at?: string
+					top_source?: string | null
+					updates?: number
+					user_agent: string
+					user_id?: string | null
+					write_key?: string
+				}
+				Update: {
+					app_version?: string
+					degraded?: boolean
+					degraded_at?: string | null
+					device?: Json
+					device_key?: string
+					game?: Json
+					id?: string
+					in_app_browser?: string | null
+					last_seen_at?: string
+					notified_at?: string | null
+					notify_skipped?: string | null
+					perf?: Json | null
+					started_at?: string
+					top_source?: string | null
+					updates?: number
+					user_agent?: string
+					user_id?: string | null
+					write_key?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "client_sessions_user_id_fkey"
+						columns: ["user_id"]
+						isOneToOne: false
+						referencedRelation: "profiles"
+						referencedColumns: ["id"]
+					}
+				]
+			}
 			error_logs: {
 				Row: {
 					browser_info: Json | null
@@ -352,6 +423,17 @@ export type Database = {
 			send_discord_daily_recap: {
 				Args: Record<PropertyKey, never>
 				Returns: undefined
+			}
+			update_client_session: {
+				Args: {
+					p_degraded: boolean
+					p_game: Json
+					p_id: string
+					p_perf: Json
+					p_top_source: string
+					p_write_key: string
+				}
+				Returns: boolean
 			}
 		}
 		Enums: {

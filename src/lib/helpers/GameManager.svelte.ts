@@ -30,6 +30,7 @@ import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
 import { applyOfflineProgress } from '#helpers/offlineProgress.js';
+import { perfTracker } from '#helpers/perfTracker.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -821,7 +822,11 @@ export class GameManager {
 
 	setupInterval() {
 		this.cleanup();
-		this.gameInterval = setInterval(() => this.tick(1000, false, true), 1000);
+		this.gameInterval = setInterval(() => {
+			const start = performance.now();
+			this.tick(1000, false, true);
+			perfTracker.track('game:tick', start);
+		}, 1000);
 	}
 
 	spendCurrency(price: Price): boolean {

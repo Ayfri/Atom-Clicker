@@ -88,7 +88,7 @@ export class ReactorRenderer extends CanvasLoop {
 		canvas: HTMLCanvasElement,
 		scene: ReactorScene,
 	) {
-		super(canvas);
+		super(canvas, 'canvas:reactor');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;

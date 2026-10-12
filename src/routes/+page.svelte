@@ -5,6 +5,8 @@
 	import type { RealmConfig } from '#helpers/RealmManager.svelte.js';
 	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { perfMonitor } from '#helpers/PerfMonitor.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
@@ -80,10 +82,13 @@
 	function update() {
 		const now = performance.now();
 		const elapsed = now - lastUpdateTime;
+		perfTracker.commit(elapsed - COMMIT_INTERVAL_MS);
 		const paidMs = Math.min(elapsed, MAX_ONLINE_GAP_MS);
 		pendingAtoms += ((gameManager.atomsPerSecond + gameManager.clickPower * gameManager.autoClicksPerSecond) * paidMs) / 1000;
 		lastUpdateTime = now;
 		commitPendingAtoms();
+		perfTracker.track('loop:commit', now);
+		perfTracker.flushAfter();
 
 		awayMs += elapsed - paidMs;
 		if (document.hidden) return;
@@ -127,6 +132,7 @@
 	/** Account bootstrap is network-bound, so it runs beside the game loop instead of delaying it. */
 	async function bootstrapAccount() {
 		await supabaseAuth.init();
+		void perfMonitor.open();
 
 		quarkUserId = supabaseAuth.user?.id ?? null;
 		await Promise.all([quarkUserId ? quarksManager.sync() : Promise.resolve(), checkCloudSaveOnLoad()]);
@@ -196,12 +202,14 @@
 		setGlobals();
 
 		const saveGame = () => {
+			const start = performance.now();
 			try {
 				commitPendingAtoms();
 				gameManager.save();
 			} catch (e) {
 				console.error('Failed to save game:', e);
 			}
+			perfTracker.track('loop:save', start);
 		};
 		const saveLoop = setInterval(saveGame, SAVE_INTERVAL);
 
@@ -213,6 +221,7 @@
 		};
 		document.addEventListener('visibilitychange', saveOnHide);
 
+		perfMonitor.start();
 		bootstrapAccount();
 
 		return () => {
@@ -221,6 +230,7 @@
 			clearInterval(commitLoop);
 			commitPendingAtoms();
 			gameManager.cleanup();
+			perfMonitor.stop();
 		};
 	});
 </script>
@@ -253,6 +263,7 @@
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
 			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
 			<div
+				data-offscreen={side !== 0 || undefined}
 				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
 					side
 				) ?

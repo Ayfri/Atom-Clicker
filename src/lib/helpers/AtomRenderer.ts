@@ -125,7 +125,7 @@ export class AtomRenderer extends CanvasLoop {
 	private time = 0;
 
 	constructor(canvas: HTMLCanvasElement, scene: AtomScene, shellSlots: number) {
-		super(canvas);
+		super(canvas, 'canvas:atom');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;

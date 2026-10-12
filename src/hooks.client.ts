@@ -1,3 +1,4 @@
+import { dev } from '$app/env';
 import type { HandleClientError } from '@sveltejs/kit/hooks';
 import { initGlobalErrorHandlers, reportError } from '#lib/helpers/errorReporting.js';
 import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
@@ -42,7 +43,5 @@ export const handleError: HandleClientError = async ({ error, kind }) => {
 	console.error('[Client Error]', error);
 	await reportError(reported);
 
-	return {
-		message: 'An unexpected error occurred. The error has been reported.'
-	};
+	return dev ? { message: reported.message, stack: reported.stack } : { message: 'An unexpected error occurred. The error has been reported.' };
 };

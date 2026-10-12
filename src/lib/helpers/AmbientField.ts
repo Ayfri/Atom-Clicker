@@ -182,7 +182,7 @@ export class AmbientField extends CanvasLoop {
 		accent: string,
 		ambience: Ambience,
 	) {
-		super(canvas);
+		super(canvas, `canvas:ambient-${realm}`);
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;
