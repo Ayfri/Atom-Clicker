@@ -1,20 +1,9 @@
-import { browser, dev, version } from '$app/env';
+import { browser, dev } from '$app/env';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { getBrowserInfo, isCrawler, type BrowserInfo } from '#helpers/clientInfo.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { isNoiseError } from '#lib/utils/errorNoise.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
-
-/** Client context, stored as `browser_info`, everything here identifies the runtime rather than the player. */
-export interface BrowserInfo {
-	/** SvelteKit build id, so a report can be tied back to the deploy that produced it. */
-	appVersion: string;
-	language: string;
-	screenHeight: number;
-	screenWidth: number;
-	/** Groups every report coming from the same page load. */
-	sessionId: string;
-	userAgent: string;
-}
 
 interface ErrorReport {
 	browserInfo: BrowserInfo | null;
@@ -27,29 +16,10 @@ interface ErrorReport {
 const recentErrorHashes = new Set<string>();
 const DEDUP_WINDOW = 5 * 60 * 1000;
 
-const SESSION_ID = createSessionId();
-
-function createSessionId(): string {
-	if (!browser) return '';
-
-	try {
-		return crypto.randomUUID();
-	} catch {
-		return `fallback-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-	}
-}
-
-const CRAWLER_UA_PATTERN = /bot|crawler|spider|crawling|bingpreview|slurp|headlesschrome/i;
-
 /** Zaraz frames carry a `?z=<base64>` payload that encodes the player's referrer and inflates the field. */
 function sanitizeStackTrace(stackTrace: string | null): string | null {
 	if (!stackTrace) return null;
 	return stackTrace.replace(/\?z=[^\s):]*/g, '');
-}
-
-/** A bot hitting a dead chunk or a broken page is not actionable. */
-function isCrawler(): boolean {
-	return browser && CRAWLER_UA_PATTERN.test(navigator.userAgent);
 }
 
 function isDuplicateError(errorMessage: string, stackTrace: string | null): boolean {
@@ -59,19 +29,6 @@ function isDuplicateError(errorMessage: string, stackTrace: string | null): bool
 	recentErrorHashes.add(hash);
 	setTimeout(() => recentErrorHashes.delete(hash), DEDUP_WINDOW);
 	return false;
-}
-
-function getBrowserInfo(): BrowserInfo | null {
-	if (!browser) return null;
-
-	return {
-		appVersion: version,
-		language: navigator.language,
-		screenHeight: window.screen.height,
-		screenWidth: window.screen.width,
-		sessionId: SESSION_ID,
-		userAgent: navigator.userAgent
-	};
 }
 
 /** An allow-list rather than the whole state, so the payload stays small and a newly saved field never leaks in by accident. */

@@ -19,11 +19,12 @@
 			id: 'privacy',
 			title: 'Privacy',
 			items: [
-				['Without an account', 'Your progress stays in your browser. Nothing personal leaves your device apart from the analytics and crash reports below.'],
+				['Without an account', 'Your progress stays in your browser. Nothing personal leaves your device apart from the analytics, performance and crash reports below.'],
 				['With an account', 'Signing in with Google, Discord or X stores your account id, email, username, profile picture, cloud save, leaderboard stats, Quarks balance and history.'],
 				['Emails', 'Your email may occasionally receive game news, sent through Resend (resend.com). Every email has a one-click unsubscribe link.'],
 				['Leaderboard', 'Your username, picture, level, atoms and equipped cosmetics are public on the leaderboard. Your public profile also shows the game stats of your cloud save: play time, clicks, prestiges, realms, achievements, skills, generators and currencies earned.'],
 				['Crash reports', 'When the game crashes, the error, page URL, browser info and a snapshot of your game state are sent to help fix the bug, linked to your account if you are signed in.'],
+				['Performance reports', 'Each visit sends device and browser details, a summary of your game progress and how smoothly the game runs, linked to your account if you are signed in and kept for 90 days. They stop when usage analytics are turned off.'],
 				['Feedback', 'The feedback form is hosted by Tally (tally.so), your email is prefilled if you are signed in.'],
 				['Analytics', 'Cloudflare Web Analytics counts visits without cookies. Google Analytics measures usage with cookies and can be turned off above.'],
 				['Your rights', 'Under the GDPR you can access, fix or delete your data. Ask on Discord or GitHub to delete your account. Clearing your browser data deletes your local save. You can also contact the CNIL (cnil.fr).'],
@@ -59,7 +60,7 @@
 </script>
 
 <div class="mx-auto flex max-w-3xl flex-col gap-4">
-	<SettingRow description="Share anonymous usage data through Google Analytics to help improve the game." icon={ShieldCheck} title="Usage analytics">
+	<SettingRow description="Share usage data through Google Analytics and performance reports to help improve the game." icon={ShieldCheck} title="Usage analytics">
 		<Switch bind:checked={privacy.analytics} label="Usage analytics" />
 	</SettingRow>
 
@@ -78,7 +79,7 @@
 		</details>
 	{/each}
 
-	<p class="text-center text-xs text-white/40">Last updated 25-09-2026</p>
+	<p class="text-center text-xs text-white/40">Last updated 12-10-2026</p>
 </div>
 
 <style>
