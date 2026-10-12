@@ -1,3 +1,4 @@
+import { perfTracker } from '#helpers/perfTracker.js';
 import { prefersReducedMotion } from 'svelte/motion';
 
 const MAX_FRAME_S = 0.1;
@@ -19,12 +20,19 @@ export abstract class CanvasLoop {
 	private frame = 0;
 	private lastTime = 0;
 	private observers: (IntersectionObserver | ResizeObserver)[] = [];
+	/** Timestamp of the previous frame of this loop, 0 after a stop so the idle gap is not counted as a hitch. */
+	private previousFrame = 0;
 	private visible = false;
 
-	protected constructor(protected readonly canvas: HTMLCanvasElement) {}
+	/** `source` names the loop in the performance reports, e.g. `canvas:atom`. */
+	protected constructor(
+		protected readonly canvas: HTMLCanvasElement,
+		private readonly source: string,
+	) {}
 
 	destroy() {
 		cancelAnimationFrame(this.frame);
+		this.previousFrame = 0;
 		for (const observer of this.observers) observer.disconnect();
 	}
 
@@ -74,6 +82,7 @@ export abstract class CanvasLoop {
 		} else if (!running && this.frame) {
 			cancelAnimationFrame(this.frame);
 			this.frame = 0;
+			this.previousFrame = 0;
 			this.paused();
 		}
 	}
@@ -98,6 +107,11 @@ export abstract class CanvasLoop {
 	private readonly loop = (now: number) => {
 		const dt = this.lastTime ? Math.min(Math.max(0, (now - this.lastTime) / 1000), MAX_FRAME_S) : 0;
 		this.lastTime = now;
-		this.frame = this.draw(dt) && this.active && this.visible ? requestAnimationFrame(this.loop) : 0;
+		perfTracker.frame(now, this.previousFrame);
+		const start = performance.now();
+		const more = this.draw(dt) && this.active && this.visible;
+		perfTracker.track(this.source, start);
+		this.frame = more ? requestAnimationFrame(this.loop) : 0;
+		this.previousFrame = more ? now : 0;
 	};
 }

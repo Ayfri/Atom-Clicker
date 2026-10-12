@@ -1,4 +1,5 @@
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { perfTracker } from '#helpers/perfTracker.js';
 import type { GeneratorType } from '#data/generators.js';
 import { browser } from '$app/env';
 import { untrack } from 'svelte';
@@ -53,7 +54,11 @@ class AutoBuyManager {
 				return;
 			}
 			untrack(() => this.check());
-			const timer = setInterval(() => this.check(), CHECK_INTERVAL_MS);
+			const timer = setInterval(() => {
+				const start = performance.now();
+				this.check();
+				perfTracker.track('auto:buy', start);
+			}, CHECK_INTERVAL_MS);
 			return () => clearInterval(timer);
 		});
 	}

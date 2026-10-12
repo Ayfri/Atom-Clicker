@@ -96,7 +96,7 @@ export class ClickParticles extends CanvasLoop {
 	private top = Infinity;
 
 	constructor(canvas: HTMLCanvasElement) {
-		super(canvas);
+		super(canvas, 'canvas:particles');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;

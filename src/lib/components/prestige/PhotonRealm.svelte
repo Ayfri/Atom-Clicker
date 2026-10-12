@@ -14,6 +14,7 @@
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { ClickParticles } from '#helpers/particles.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { drawPhotonIcon, pulseOpacity } from '#helpers/photonCanvas.js';
 	import type { NumberNotation } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -63,8 +64,10 @@
 	$effect(() => {
 		if (!prismUnlocked) return;
 		const interval = setInterval(() => {
+			const start = performance.now();
 			chromatic.spawn(canvasWidth, canvasHeight);
 			wake();
+			perfTracker.track('photon:spawn', start);
 		}, chromaticManager.spawnInterval);
 		return () => clearInterval(interval);
 	});
@@ -475,7 +478,11 @@
 
 	$effect(() => {
 		if (drawn) return;
-		const interval = setInterval(updateCircles, HIDDEN_UPDATE_INTERVAL_MS);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			updateCircles();
+			perfTracker.track('photon:field', start);
+		}, HIDDEN_UPDATE_INTERVAL_MS);
 		return () => clearInterval(interval);
 	});
 
@@ -492,11 +499,18 @@
 	});
 
 	let frame = 0;
+	/** Timestamp of the previous drawn frame, 0 while the loop is stopped so idle time is not counted as a hitch. */
+	let previousFrame = 0;
 
-	function loop() {
+	function loop(now: number) {
+		perfTracker.frame(now, previousFrame);
+		const start = performance.now();
 		updateCircles();
 		if (!document.hidden) render();
-		frame = circles.length > 0 || !chromatic.empty ? requestAnimationFrame(loop) : 0;
+		perfTracker.track('photon:field', start);
+		const more = circles.length > 0 || !chromatic.empty;
+		frame = more ? requestAnimationFrame(loop) : 0;
+		previousFrame = more ? now : 0;
 	}
 
 	/** The loop stops once the field is empty, an idle pending rAF still costs a main frame per vsync. Spawns wake it back up. */
@@ -514,6 +528,7 @@
 		return () => {
 			cancelAnimationFrame(frame);
 			frame = 0;
+			previousFrame = 0;
 		};
 	});
 
@@ -562,13 +577,21 @@
 	$effect(() => {
 		const clicksPer5Seconds = photonAutoClicksPer5Seconds;
 		if (clicksPer5Seconds > 0) {
-			const interval = setInterval(() => simulateClick(), 5000 / clicksPer5Seconds);
+			const interval = setInterval(() => {
+				const start = performance.now();
+				simulateClick();
+				perfTracker.track('photon:auto-click', start);
+			}, 5000 / clicksPer5Seconds);
 			return () => clearInterval(interval);
 		}
 	});
 
 	$effect(() => {
-		const interval = setInterval(spawnCircle, currentSpawnRate);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			spawnCircle();
+			perfTracker.track('photon:spawn', start);
+		}, currentSpawnRate);
 		return () => clearInterval(interval);
 	});
 
@@ -581,7 +604,7 @@
 <div class="relative lg:pt-4 transition-all duration-1000 ease-in-out" style={themePalette}>
 	<!-- Same glows the Atom Realm gets from its prestiges: the first Ionize splits the light into Red, Green and Blue. -->
 	{#if visible && prismUnlocked}
-		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
+		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden" data-perf-layer="glow">
 			<div class="absolute bg-[#ff4d5e]/12 blur-[160px] h-64 left-[12%] rounded-full top-[12%] w-64"></div>
 			<div class="absolute bg-[#2ee6a0]/10 blur-[160px] h-64 right-[15%] rounded-full top-[35%] w-64"></div>
 			<div class="absolute bg-[#4d8dff]/12 blur-[180px] bottom-[8%] h-80 left-[35%] rounded-full w-80"></div>

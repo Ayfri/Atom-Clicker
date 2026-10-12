@@ -40,7 +40,7 @@ export class BoostSparks extends CanvasLoop {
 		canvas: HTMLCanvasElement,
 		private readonly color: string,
 	) {
-		super(canvas);
+		super(canvas, 'canvas:boost-sparks');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;

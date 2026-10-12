@@ -1,4 +1,5 @@
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { perfTracker } from '#helpers/perfTracker.js';
 import { browser } from '$app/env';
 import { SvelteSet } from 'svelte/reactivity';
 
@@ -27,8 +28,10 @@ class AutoUpgradeManager {
 
 			this.nextFireTime = Date.now() + interval;
 			const timer = setInterval(() => {
+				const start = performance.now();
 				this.purchaseAvailableUpgrades();
 				this.nextFireTime = Date.now() + interval;
+				perfTracker.track('auto:upgrade', start);
 			}, interval);
 			return () => clearInterval(timer);
 		});

@@ -60,7 +60,7 @@
 
 <div class={['relative transition-all duration-1000 ease-in-out lg:pt-8', mobile.current && 'pb-8']}>
 	{#if realmManager.selectedRealmId === RealmTypes.ATOMS}
-		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
+		<div class="fixed inset-0 -z-50 pointer-events-none overflow-hidden" data-perf-layer="glow">
 			{#if gameManager.totalProtonisesAllTime > 0}
 				<div class="absolute bg-yellow-400/15 blur-[160px] h-64 right-[20%] rounded-full top-[10%] w-64"></div>
 			{/if}
