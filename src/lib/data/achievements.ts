@@ -7,7 +7,7 @@ import { formatNumber } from '#lib/utils.js';
 import { CHROMATIC_COLORS } from '#data/chromatic.js';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
-import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/icons.js';
+import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 

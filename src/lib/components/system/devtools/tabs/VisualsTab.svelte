@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ACHIEVEMENTS } from '#data/achievements.js';
-	import { ICONS, type IconName } from '#data/icons.js';
+	import type { IconName } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import { tierIconStack } from '#helpers/iconStacks.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';

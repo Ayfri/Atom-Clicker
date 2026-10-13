@@ -1,5 +1,5 @@
 import type { CurrencyName } from '#data/currencies.js';
-import type { IconName } from '#data/icons.js';
+import type { IconName } from '#data/iconNames.js';
 import { UPGRADE_CATEGORIES, UPGRADES, type UpgradeCategory } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';

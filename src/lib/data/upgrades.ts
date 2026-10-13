@@ -1,7 +1,7 @@
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
-import { GENERATOR_ICON_NAMES, type IconName } from '#data/icons.js';
+import { GENERATOR_ICON_NAMES, type IconName } from '#data/iconNames.js';
 import { add, mul, sum } from '#helpers/effects.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import type { Effect, Upgrade } from '#lib/types.js';

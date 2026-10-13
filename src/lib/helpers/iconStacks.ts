@@ -1,4 +1,4 @@
-import type { IconName } from '#data/icons.js';
+import type { IconName } from '#data/iconNames.js';
 import { formatNumber } from '#lib/utils.js';
 
 /** Beyond this many copies a stack stops reading as "several" and just looks noisy, so the count moves into the label. */

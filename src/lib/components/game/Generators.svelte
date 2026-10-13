@@ -7,7 +7,8 @@
 		getGeneratorColor,
 		type GeneratorType,
 	} from '#data/generators.js';
-	import { GENERATOR_ICON_NAMES, ICONS } from '#data/icons.js';
+	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { GENERATOR_COST_MULTIPLIER } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';

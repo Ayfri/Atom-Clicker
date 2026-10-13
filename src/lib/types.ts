@@ -3,7 +3,7 @@ import type { CurrencyName } from '#data/currencies.js';
 import type { DailyStats } from '#data/dailyQuests.js';
 import type { FeatureType } from '#data/features.js';
 import type { GeneratorType } from '#data/generators.js';
-import type { IconName } from '#data/icons.js';
+import type { IconName } from '#data/iconNames.js';
 import type { RealmType } from '#data/realms.js';
 import type { UpgradeCategory } from '#data/upgrades.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
