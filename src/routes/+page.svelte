@@ -261,12 +261,14 @@
 
 			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
-			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
+			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade.
+			     A leaving panel catches clicks with its `::after` layer: `pointer-events` is inherited, toggling it restyles
+			     every element of the realm, half a second for the Atom realm on a slow laptop. -->
 			<div
 				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
 					side
 				) ?
-					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
+					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 after:absolute after:inset-0 after:z-1000'
 				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
 				style="top: {mobile.current ? 'var(--banner-height)' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
 					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`
