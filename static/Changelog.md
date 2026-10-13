@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Install the Game**: Settings now has an Install tab when your browser can add Atom Clicker as an app.
+
 # What's new 13-10-2026
 
 - **Upgrades**: Each upgrade is now a single row that levels up along a bar, and tells you what opens its next levels.

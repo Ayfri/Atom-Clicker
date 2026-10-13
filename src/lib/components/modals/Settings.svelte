@@ -4,14 +4,16 @@
 	import Credits from '#components/settings/Credits.svelte';
 	import FeedbackForm from '#components/settings/Feedback.svelte';
 	import Gameplay from '#components/settings/Gameplay.svelte';
+	import Install from '#components/settings/Install.svelte';
 	import Legal from '#components/settings/Legal.svelte';
 	import Profile from '#components/settings/Profile.svelte';
 	import GlobalStats from '#components/settings/Stats.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import NotificationDot from '#components/ui/NotificationDot.svelte';
 	import { changelog } from '#stores/changelog.svelte.js';
+	import { installStore } from '#stores/install.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, SlidersHorizontal, User } from '@lucide/svelte';
+	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, MonitorDown, SlidersHorizontal, User } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 
@@ -26,11 +28,16 @@
 		id: string;
 		label: string;
 		notification?: () => boolean;
+		/** Tabs hidden while this returns false, like the install tab on a browser that can't install. */
+		visible?: () => boolean;
 	}
 
 	let { onClose }: Props = $props();
 
-	const groups: { label: string; tabs: SettingsTab[] }[] = [
+	/** Read once, so the Install tab stays after the browser's dialog used up the prompt. */
+	const canInstall = installStore.canInstall;
+
+	const allGroups: { label: string; tabs: SettingsTab[] }[] = [
 		{
 			label: 'Account',
 			tabs: [
@@ -44,6 +51,7 @@
 				{ component: Gameplay, description: 'Offline progress, numbers and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
 				{ component: GlobalStats, description: 'Your progress in numbers', icon: ChartLine, id: 'stats', label: 'Stats' },
 				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog', notification: () => changelog.unread },
+				{ component: Install, description: 'Add the game to your device as an app', icon: MonitorDown, id: 'install', label: 'Install', visible: () => canInstall },
 			],
 		},
 		{
@@ -55,13 +63,16 @@
 			],
 		},
 	];
-	const tabs = groups.flatMap(group => group.tabs);
+	const groups = $derived(allGroups.map(group => ({ ...group, tabs: group.tabs.filter(tab => tab.visible?.() ?? true) })));
+	const tabs = $derived(groups.flatMap(group => group.tabs));
 
 	/** The `home` tab is the phone-only tab list, desktop always shows the sidebar next to a tab. */
 	const narrow = new MediaQuery('(width < 48rem)', true);
 
-	/** Lives in `ui` so anything, like the Profile's stats link, can switch tabs through `ui.openSettings`. */
-	const shownTab = $derived(!ui.activeTab || (!narrow.current && ui.activeTab === 'home') ? (narrow.current ? 'home' : 'profile') : ui.activeTab);
+	/** Lives in `ui` so anything, like the Profile's stats link, can switch tabs through `ui.openSettings`. A tab that just got hidden falls back to the first visible one. */
+	const shownTab = $derived(
+		ui.activeTab === 'home' && narrow.current ? 'home' : tabs.some(tab => tab.id === ui.activeTab) ? ui.activeTab : narrow.current ? 'home' : tabs[0].id,
+	);
 	const current = $derived(tabs.find(tab => tab.id === shownTab));
 </script>
 
