@@ -1,8 +1,24 @@
 import { FeatureTypes } from '#data/features.js';
 import { getDeviceInfo, isCrawler, isUuid, SESSION_ID } from '#helpers/clientInfo.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { INCIDENT_MIN_MS, INCIDENTS_SENT, stripUrlDetails } from '#helpers/perfIncidents.js';
-import { EVENT_DURATION_THRESHOLD, isDegraded, rankSources, RESUME_WARMUP_MS, SLOW_INPUT_MS, WARMUP_MS } from '#helpers/perfStats.js';
+import { INCIDENT_MIN_MS, stripUrlDetails } from '#helpers/perfIncidents.js';
+import {
+	EVENT_DURATION_THRESHOLD,
+	isDegraded,
+	MAX_EVIDENCE,
+	MAX_FILE_LENGTH,
+	MAX_FN_LENGTH,
+	MAX_FREEZE_MS,
+	MAX_INCIDENTS,
+	MAX_INVOKER_LENGTH,
+	MAX_SCRIPTS,
+	MAX_SOURCES,
+	MAX_TARGET_LENGTH,
+	rankSources,
+	RESUME_WARMUP_MS,
+	SLOW_INPUT_MS,
+	WARMUP_MS,
+} from '#helpers/perfStats.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 import type { LoafScript, PerfWindow, SessionGame, SessionPerf, SessionStartPayload, SessionStartResponse, SessionUpdatePayload } from '#lib/types/session.js';
@@ -34,18 +50,11 @@ interface LoafTiming extends PerformanceEntry {
 const DAY_MS = 86_400_000;
 const FINAL_BEACON_GAP_MS = 30_000;
 const INTERACTION_EVENTS = new Set(['click', 'keydown', 'pointerdown', 'pointerup']);
-const MAX_FILE_LENGTH = 60;
-const MAX_INVOKER_LENGTH = 80;
-const MAX_SCRIPTS = 3;
-const MAX_TARGET_LENGTH = 60;
-const MAX_FN_LENGTH = 60;
 const MAX_TEXT_LENGTH = 24;
 /** A large container's text is cut before it is scanned. */
 const MAX_TEXT_SOURCE = 200;
-/** Ten windows of 10 s a minute, so a periodic update goes out every five minutes of visible play. */
+/** Six windows of 10 s a minute, so a periodic update goes out every five minutes of visible play. */
 const PERIODIC_WINDOWS = 30;
-const RING_SIZE = 12;
-const SOURCES_SENT = 12;
 const STORAGE_KEY = 'atomic-clicker-perf';
 const TARGET_SELECTOR = '[aria-label],[data-hint],[title],[role="button"],a,button,canvas';
 
@@ -166,8 +175,8 @@ export class PerfMonitor {
 	summary(): SessionPerf {
 		return {
 			evidence: this.evidence ?? [...this.ring],
-			incidents: perfTracker.incidents.worst(INCIDENTS_SENT),
-			sources: rankSources(perfTracker.sessionSources(), SOURCES_SENT),
+			incidents: perfTracker.incidents.worst(MAX_INCIDENTS),
+			sources: rankSources(perfTracker.sessionSources(), MAX_SOURCES),
 			totals: { ...perfTracker.totals(), eventTiming: this.eventTiming, loaf: this.loafSupported },
 		};
 	}
@@ -218,13 +227,13 @@ export class PerfMonitor {
 		if (this.loafSupported) this.watch({ type: 'long-animation-frame' }, entries => this.onLoaf(entries as LoafTiming[]));
 	}
 
-	/** Every interaction feeds the latency p95, the slow ones become incidents with their three phases. */
+	/** Every interaction feeds the latency p95, the slow ones become incidents with their three phases. Past `MAX_FREEZE_MS` an entry is a suspended device and counts as nothing. */
 	private onEvents(entries: PerformanceEventTiming[]) {
 		if (perfTracker.paused) return;
 
 		for (const entry of entries) {
 			const interaction = entry.interactionId > 0 || (entry.interactionId === undefined && INTERACTION_EVENTS.has(entry.name));
-			if (!interaction || entry.startTime < perfTracker.resumedAt) continue;
+			if (!interaction || entry.startTime < perfTracker.resumedAt || entry.duration > MAX_FREEZE_MS) continue;
 
 			perfTracker.input(entry.duration);
 			if (entry.duration < SLOW_INPUT_MS) continue;
@@ -253,6 +262,9 @@ export class PerfMonitor {
 			const scripts = entry.scripts.map(toScript).sort((a, b) => b.durationMs - a.durationMs);
 			const scriptMs = entry.scripts.reduce((sum, script) => sum + script.duration, 0);
 			const styleLayoutMs = entry.styleAndLayoutStart > 0 ? Math.max(0, end - entry.styleAndLayoutStart) : 0;
+			/** A frame past `MAX_FREEZE_MS` is a suspended device unless script and style/layout cover half of it. */
+			if (entry.duration > MAX_FREEZE_MS && scriptMs + styleLayoutMs < entry.duration / 2) continue;
+
 			perfTracker.incidents.observe({
 				end,
 				loaf: {
@@ -276,7 +288,7 @@ export class PerfMonitor {
 		this.windowsSinceUpdate++;
 		if (!this.evidence) {
 			this.ring.push(closed);
-			if (this.ring.length > RING_SIZE) this.ring.shift();
+			if (this.ring.length > MAX_EVIDENCE) this.ring.shift();
 			if (isDegraded(this.ring)) {
 				this.evidence = [...this.ring];
 				this.reportDegraded();

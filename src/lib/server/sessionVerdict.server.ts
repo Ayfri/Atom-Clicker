@@ -1,5 +1,5 @@
 import { IncidentKinds, incidentKind } from '#helpers/perfIncidents.js';
-import { rankSources } from '#helpers/perfStats.js';
+import { JANK_MIN_FRAMES, JANK_RATIO_BAD, LAG_BAD_MS, rankSources } from '#helpers/perfStats.js';
 import type { IncidentKind, PerfIncident, SessionGame, SessionPerf, SessionProblem } from '#lib/types/session.js';
 
 export interface SessionVerdict {
@@ -8,18 +8,22 @@ export interface SessionVerdict {
 	summary: string | null;
 }
 
-/** Below this much blocked time the session is judged on its steady timer lag and frame jank instead. */
-const MIN_BLOCKED_MS = 1_000;
 const MAX_CAUSE = 80;
 const MAX_MOMENTS = 5;
 /** Discord embed descriptions stop at 4096 characters. */
 const MAX_SUMMARY = 3_500;
+/** Below this much blocked time the session is judged on its steady timer lag and frame jank instead. */
+const MIN_BLOCKED_MS = 1_000;
+/** A breakdown that leaves at least this much, and a quarter of the incident, unexplained shows a `rest`. */
+const MIN_REST_MS = 100;
 const MOMENTS_HEADER = '\n\nWorst moments';
-/** The counts behind a render problem stay in the Context line, a cause that changes per session would defeat the per-cause throttle. */
+/** The counts behind a render problem stay in the head line, a cause that changes per session would defeat the per-cause throttle. */
 const RENDER_CAUSE = 'render';
 const SCRIPTS_SHOWN = 2;
 const SOURCES_SHOWN = 4;
 const SPANS_SHOWN = 2;
+/** The cause of a block that no script, no named call and no forced detail explains. */
+const UNATTRIBUTED = 'unattributed';
 
 /** The order breaks ties between kinds that blocked the same time. */
 const KINDS = [IncidentKinds.INPUT, IncidentKinds.FREEZE, IncidentKinds.STALL, IncidentKinds.FRAME] as const;
@@ -81,8 +85,8 @@ function renderDominates(incidents: readonly PerfIncident[]): boolean {
 
 /** Steady jank with a late timer is JavaScript, with an on-time timer it is rendering. */
 function steadyProblem(lagMs: number, jank: number): SessionProblem | null {
-	if (jank >= 0.25) return lagMs <= 50 ? 'render-bound' : 'low-frame-rate';
-	return lagMs > 100 ? 'low-frame-rate' : null;
+	if (jank >= JANK_RATIO_BAD) return lagMs <= 50 ? 'render-bound' : 'low-frame-rate';
+	return lagMs > LAG_BAD_MS ? 'low-frame-rate' : null;
 }
 
 /** The action that blocked the most time, then `detail` or what ran inside it: the longest script, else the longest named call. */
@@ -103,21 +107,26 @@ function incidentCause(incidents: readonly PerfIncident[], detail: string | null
 	const script = group.incidents.flatMap(({ loaf }) => loaf?.scripts ?? []).sort((a, b) => b.durationMs - a.durationMs)[0];
 	const span = group.incidents.flatMap(({ sources }) => sources).sort((a, b) => b.ms - a.ms)[0];
 	const inside = detail ?? (script ? `${invokerName(script.invoker)}${script.fn ? ` (${script.fn})` : ''}` : span?.name);
-	return inside ? `${action} > ${inside}` : action;
+	return `${action} > ${inside ?? UNATTRIBUTED}`;
 }
 
 /** The cause is stored and compared by the throttle, so it keeps plain characters only. */
 const cleanCause = (cause: string | null) => cause?.replace(/[^\w :@.#>()-]/g, '').slice(0, MAX_CAUSE) || null;
+
+const restText = (restMs: number, durationMs: number) => (restMs >= MIN_REST_MS && restMs * 4 >= durationMs ? `, rest ${duration(restMs)}` : '');
 
 function momentText(incident: PerfIncident, index: number): string {
 	const lines = [
 		`${index + 1}. **${duration(incident.durationMs)}** at ${clock(incident.atMs)}${incident.action ? ` after ${code(incident.action, 80)}` : ''}, ${incident.realm} realm${incident.modal ? `, modal ${code(incident.modal, 40)}` : ''}`,
 	];
 
-	if (incident.input) {
-		lines.push(`   delay ${duration(incident.input.delayMs)}, handlers ${duration(incident.input.processingMs)}, presentation ${duration(incident.input.presentationMs)}`);
-	} else if (incident.loaf) {
-		lines.push(`   script ${duration(incident.loaf.scriptMs)}, style/layout ${duration(incident.loaf.styleLayoutMs)}, other ${duration(incident.loaf.otherMs)}`);
+	const { input, loaf } = incident;
+	if (input) {
+		const rest = incident.durationMs - input.delayMs - input.processingMs - input.presentationMs;
+		lines.push(`   delay ${duration(input.delayMs)}, handlers ${duration(input.processingMs)}, presentation ${duration(input.presentationMs)}${restText(rest, incident.durationMs)}`);
+	} else if (loaf) {
+		const rest = incident.durationMs - loaf.scriptMs - loaf.styleLayoutMs - loaf.otherMs;
+		lines.push(`   script ${duration(loaf.scriptMs)}, style/layout ${duration(loaf.styleLayoutMs)}, other ${duration(loaf.otherMs)}${restText(rest, incident.durationMs)}`);
 	}
 
 	const scripts = (incident.loaf?.scripts ?? []).slice(0, SCRIPTS_SHOWN).map(({ durationMs, file, fn, invoker }) =>
@@ -183,7 +192,7 @@ export function judgeSession(perf: SessionPerf, game: SessionGame): SessionVerdi
 		cause = incidentCause(incidents, problem === 'render-bound' ? RENDER_CAUSE : null);
 	} else {
 		// The evidence windows are the ones that made the session degraded, the session totals dilute a late slow stretch.
-		const judged = perf.evidence.filter(window => window.frameCount >= 60);
+		const judged = perf.evidence.filter(window => window.frameCount >= JANK_MIN_FRAMES);
 		problem =
 			steadyProblem(
 				Math.max(0, ...perf.evidence.map(window => window.commitLagP95Ms)),

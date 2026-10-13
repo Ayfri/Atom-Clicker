@@ -1,17 +1,15 @@
 import { RealmTypes, type RealmType } from '#data/realms.js';
-import { MAX_FREEZE_MS, SLOW_INPUT_MS } from '#helpers/perfStats.js';
+import { MAX_FREEZE_MS, MAX_SPANS, SLOW_INPUT_MS } from '#helpers/perfStats.js';
 import type { IncidentKind, InputBreakdown, LoafBreakdown, PerfIncident } from '#lib/types/session.js';
 
 /** About nine dropped frames, the 50 ms Long Animation Frame default would flood low-end devices where one atom frame is 82 ms. */
 export const INCIDENT_MIN_MS = 150;
-export const INCIDENTS_SENT = 6;
 /** A named call this long is worth remembering as something that ran inside an incident. */
 export const SPAN_MIN_MS = 10;
 const ACTION_RING = 4;
 const ACTION_WINDOW_MS = 1_000;
 const FREEZE_MS = 1_000;
 const MAX_KEPT = 12;
-const MAX_SPANS = 3;
 /** The 20 ms commit step, a 16 ms frame and the 8 ms Event Timing rounding. */
 const MERGE_SLACK_MS = 50;
 /** Blocks that can still receive a late view, apart from the worst ones that are reported. */
@@ -59,6 +57,17 @@ interface Block {
 	start: number;
 	timerLate: boolean;
 	views: number;
+}
+
+/** What `merge` reads from a view or a block: only a block has an action. */
+interface Part {
+	action?: string | null;
+	actionAgoMs?: number | null;
+	end: number;
+	input?: InputBreakdown | null;
+	loaf?: LoafBreakdown | null;
+	start: number;
+	timerLate: boolean;
 }
 
 type Resolved = IncidentObservation & { timerLate: boolean };
@@ -139,16 +148,7 @@ export class IncidentLog {
 		}
 
 		this.release(target);
-		const earlier = resolved.start < target.start;
-		target.start = Math.min(target.start, resolved.start);
-		target.end = Math.max(target.end, resolved.end);
-		target.timerLate ||= resolved.timerLate;
-		target.views |= views;
-		if (resolved.input && (!target.input || inputMs(resolved.input) > inputMs(target.input))) target.input = resolved.input;
-		if (resolved.loaf) target.loaf = resolved.loaf;
-		target.sources = this.collect(target.start, target.end);
-		if (earlier && !target.action) this.readAction(target);
-		this.claim(target);
+		this.merge(target, resolved, views);
 
 		// A view can bridge two blocks that were separate until it widened this one.
 		for (let index = this.recent.length - 1; index >= 0; index--) {
@@ -209,22 +209,10 @@ export class IncidentLog {
 	private absorb(target: Block, other: Block) {
 		this.release(other);
 		this.release(target);
-		if (other.start < target.start && other.action) {
-			target.action = other.action;
-			target.actionAgoMs = other.actionAgoMs;
-		}
-		target.start = Math.min(target.start, other.start);
-		target.end = Math.max(target.end, other.end);
-		target.timerLate ||= other.timerLate;
-		target.views |= other.views;
-		if (other.input && (!target.input || inputMs(other.input) > inputMs(target.input))) target.input = other.input;
-		target.loaf ??= other.loaf;
 		if (other.long && target.long) this.longBlocks--;
 		else if (other.long) target.long = true;
 		if (other.kept) this.kept.splice(this.kept.indexOf(other), 1);
-		target.sources = this.collect(target.start, target.end);
-		if (!target.action) this.readAction(target);
-		this.claim(target);
+		this.merge(target, other, other.views);
 	}
 
 	/** Adds the block to `blocked` under its current kind, `release` takes it back before the kind or span changes. */
@@ -283,6 +271,23 @@ export class IncidentLog {
 		if (block.views & views & EXCLUSIVE_VIEWS) return false;
 		if (Math.max(end, block.end) - Math.min(start, block.start) > MAX_FREEZE_MS) return false;
 		return Math.min(end, block.end) - Math.max(start, block.start) + MERGE_SLACK_MS >= Math.min(end - start, lengthOf(block)) / 2;
+	}
+
+	/** Widens `target` over a view or another block and counts it again, the caller released it first. A part that starts earlier brings its action along. */
+	private merge(target: Block, part: Part, views: number) {
+		if (part.start < target.start && part.action) {
+			target.action = part.action;
+			target.actionAgoMs = part.actionAgoMs ?? null;
+		}
+		target.start = Math.min(target.start, part.start);
+		target.end = Math.max(target.end, part.end);
+		target.timerLate ||= part.timerLate;
+		target.views |= views;
+		if (part.input && (!target.input || inputMs(part.input) > inputMs(target.input))) target.input = part.input;
+		target.loaf = part.loaf ?? target.loaf;
+		target.sources = this.collect(target.start, target.end);
+		if (!target.action) this.readAction(target);
+		this.claim(target);
 	}
 
 	/** The latest action up to the block's start (an action during the block, such as a tap queued behind it, doesn't explain it). */

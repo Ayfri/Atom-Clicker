@@ -144,7 +144,25 @@ describe('incident based problems', () => {
 		const verdict = judgeSession(perf({ incidents: log.worst(6), totals: totals({ blocked: structuredClone(log.blocked) }) }), game);
 		expect(log.blocked.input).toEqual(none);
 		expect(verdict.problem).toBe('freezes');
-		expect(verdict.cause).toBe('no action');
+		expect(verdict.cause).toBe('no action > unattributed');
+		expect(verdict.summary).toContain('delay 13 ms, handlers 0 ms, presentation 195 ms, rest');
+	});
+
+	test('a breakdown that leaves a quarter of the incident and 100 ms unexplained shows the rest', () => {
+		const tap = incident({ durationMs: 5_163, input: { delayMs: 13, presentationMs: 195, processingMs: 0, target: 'Atom' } });
+		expect(judgeSession(perf({ incidents: [tap] }), game).summary).toContain('delay 13 ms, handlers 0 ms, presentation 195 ms, rest 5.0 s');
+
+		const loaf = incident({ durationMs: 900, loaf: { otherMs: 20, scriptMs: 300, scripts: [], styleLayoutMs: 100 } });
+		expect(judgeSession(perf({ incidents: [loaf] }), game).summary).toContain('script 300 ms, style/layout 100 ms, other 20 ms, rest 480 ms');
+
+		const covered = incident({ durationMs: 900, loaf: { otherMs: 20, scriptMs: 700, scripts: [], styleLayoutMs: 100 } });
+		expect(judgeSession(perf({ incidents: [covered] }), game).summary).not.toContain('rest');
+
+		const quarter = incident({ durationMs: 2_000, loaf: { otherMs: 100, scriptMs: 1_000, scripts: [], styleLayoutMs: 600 } });
+		expect(judgeSession(perf({ incidents: [quarter] }), game).summary).not.toContain('rest');
+
+		const small = incident({ durationMs: 300, input: { delayMs: 5, presentationMs: 100, processingMs: 100, target: 'Atom' } });
+		expect(judgeSession(perf({ incidents: [small] }), game).summary).not.toContain('rest');
 	});
 
 	test('frame-only incidents are render bound, and the cause carries no per-session counts', () => {
@@ -173,15 +191,15 @@ describe('incident based problems', () => {
 		const stall = incident({ action: 'tap:Atom', durationMs: 700 });
 		const verdict = judgeSession(perf({ incidents: [stall, stall], totals: { ...stalls(2, 1_400), eventTiming: false, loaf: false } }), game);
 		expect(verdict.problem).toBe('low-frame-rate');
-		expect(verdict.cause).toBe('tap:Atom');
-		expect(verdict.summary).toContain('`tap:Atom`');
+		expect(verdict.cause).toBe('tap:Atom > unattributed');
+		expect(verdict.summary).toContain('`tap:Atom > unattributed`');
 	});
 
 	test('a winning kind with no sent incident takes its cause from the others', () => {
 		const stall = incident({ action: 'tap:Atom', durationMs: 700 });
 		const verdict = judgeSession(perf({ incidents: [stall], totals: totals({ blocked: { frame: none, freeze: none, input: { count: 4, ms: 1_600 }, stall: none } }) }), game);
 		expect(verdict.problem).toBe('slow-interactions');
-		expect(verdict.cause).toBe('tap:Atom');
+		expect(verdict.cause).toBe('tap:Atom > unattributed');
 	});
 });
 

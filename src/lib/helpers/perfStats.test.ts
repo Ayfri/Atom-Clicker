@@ -49,7 +49,7 @@ describe('LatencyHistogram', () => {
 		const histogram = new LatencyHistogram();
 		histogram.add(80);
 		histogram.reset();
-		expect([histogram.count, histogram.max, histogram.sum, histogram.percentile(0.95)]).toEqual([0, 0, 0, 0]);
+		expect([histogram.count, histogram.max, histogram.percentile(0.95)]).toEqual([0, 0, 0]);
 	});
 });
 
@@ -117,7 +117,7 @@ describe('isDegraded', () => {
 
 describe('rankSources', () => {
 	test('sources rank by total time, then by worst call', () => {
-		const ranked = rankSources([source('a', 5, 1), source('b', 9, 1), source('c', 5, 7)]);
+		const ranked = rankSources([source('a', 5, 1), source('b', 9, 1), source('c', 5, 7)], 8);
 		expect(ranked.map(({ name }) => name)).toEqual(['b', 'c', 'a']);
 		expect(rankSources([source('a', 1), source('b', 2)], 1)).toHaveLength(1);
 	});

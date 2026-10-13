@@ -249,6 +249,16 @@ describe('actions', () => {
 		expect(log.worst(1)[0]).toMatchObject({ action: 'modal:skill-tree', actionAgoMs: 100 });
 	});
 
+	test('a merge into a block without an action reads the actions again', () => {
+		log.observe({ end: 1_300, start: 1_000, timerLate: true });
+		expect(log.worst(1)[0].action).toBeNull();
+
+		log.action('tap:', element, 1_030);
+		log.observe({ end: 1_290, loaf: loaf(), start: 1_000 });
+		expect(log.worst(10)).toHaveLength(1);
+		expect(log.worst(1)[0]).toMatchObject({ action: 'tap:Atom', actionAgoMs: 0 });
+	});
+
 	test('without an environment the realm falls back to the atoms realm and a target stays undescribed', () => {
 		const bare = new IncidentLog();
 		bare.action('tap:', element, 1_000);
