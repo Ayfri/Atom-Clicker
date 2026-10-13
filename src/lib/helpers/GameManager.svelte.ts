@@ -705,11 +705,11 @@ export class GameManager {
 		return true;
 	}
 
-	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline. Returns the purchased ids. */
-	purchaseAffordableUpgrades(): string[] {
+	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline, or only those paid in `currency`. Returns the purchased ids. */
+	purchaseAffordableUpgrades(currency?: CurrencyName): string[] {
 		const owned = new Set(this.upgrades);
 		const candidates = Object.values(UPGRADES)
-			.filter(upgrade => !owned.has(upgrade.id) && (upgrade.condition?.(this) ?? true))
+			.filter(upgrade => !owned.has(upgrade.id) && (!currency || upgrade.cost.currency === currency) && (upgrade.condition?.(this) ?? true))
 			.sort((a, b) => a.cost.amount - b.cost.amount);
 		const purchased: string[] = [];
 		for (const upgrade of candidates) {

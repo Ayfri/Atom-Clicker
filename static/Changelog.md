@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Upgrades**: Each upgrade is now a single row that levels up along a bar, and tells you what opens its next levels.
+
 # What's new 08-10-2026
 
 - **Achievements**: New achievements for Ionize, the Prism's Spectrum and every colored Light, and the other tiers now spread further into the late game.

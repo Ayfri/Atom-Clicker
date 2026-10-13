@@ -74,7 +74,7 @@ export const HINTS: Hint[] = [
 		placement: 'right',
 		realm: RealmTypes.ATOMS,
 		show: () => reveals.upgrades,
-		targets: ['#upgrades-list button', '[data-hint="upgrades-tab"]'],
+		targets: ['#upgrades-list [data-hint="upgrade"]', '[data-hint="upgrades-tab"]'],
 		text: 'Upgrades boost your clicks and generators. Grab one whenever you can afford it.',
 		title: 'Upgrades',
 	},

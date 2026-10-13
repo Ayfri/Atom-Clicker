@@ -10,10 +10,13 @@ class AutoUpgradeManager {
 	purchaseAvailableUpgrades() {
 		if (!gameManager.settings.automation.upgrades) return;
 
-		for (const id of gameManager.purchaseAffordableUpgrades()) {
-			this.recentlyAutoPurchased.add(id);
-			setTimeout(() => this.recentlyAutoPurchased.delete(id), 2000);
-		}
+		const bought = gameManager.purchaseAffordableUpgrades();
+		if (bought.length === 0) return;
+		for (const id of bought) this.recentlyAutoPurchased.add(id);
+		/** One timer per batch: its ids leave together, so a "+3" never counts down to "+1" on the way out. */
+		setTimeout(() => {
+			for (const id of bought) this.recentlyAutoPurchased.delete(id);
+		}, 2000);
 	}
 
 	init() {

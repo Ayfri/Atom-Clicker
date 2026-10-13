@@ -1,24 +1,33 @@
 <script lang="ts">
-	import {CURRENCIES, CurrenciesTypes, type CurrencyName} from '#data/currencies.js';
-	import { AmbientField } from '#helpers/AmbientField.js';
-	import { AtomRenderer } from '#helpers/AtomRenderer.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { UPGRADES, boostTiersUnlockedByNextProtonise } from '#data/upgrades.js';
-	import { ICONS } from '#data/icons.js';
-	import { RealmTypes } from '#data/realms.js';
-	import type { Upgrade } from '#lib/types.js';
+	import UpgradeTrack from '#components/game/UpgradeTrack.svelte';
 	import AutoButton from '#components/ui/AutoButton.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import Value from '#components/ui/Value.svelte';
-	import { reveal, reveals } from '#helpers/reveals.svelte.js';
-	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
 	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
-	import { fly, scale } from 'svelte/transition';
-	import { Eye, EyeOff } from '@lucide/svelte';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import type { UpgradeCategory } from '#data/upgrades.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
+	import { bloomPurchase, buyAllFamilies } from '#helpers/upgradeFx.js';
+	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	import { Bot, ChevronDown, Factory, MousePointerClick, ShieldCheck, TrendingUp, Wrench, Zap } from '@lucide/svelte';
+
+	const CATEGORY_ICONS = {
+		Automation: Bot,
+		Click: MousePointerClick,
+		Electrons: Zap,
+		Generators: Factory,
+		Production: TrendingUp,
+		'Stability Field': ShieldCheck,
+		Utility: Wrench,
+	} as const satisfies Record<UpgradeCategory, typeof Factory>;
 
 	let selectedCurrency: CurrencyName = $state(CurrenciesTypes.ATOMS);
+	/** A currency's list is built the first time its tab opens, then kept so switching back never remounts it. */
+	let visited: CurrencyName[] = $state([CurrenciesTypes.ATOMS]);
+	/** Keyed `currency:category`, a section the player folded. */
+	let collapsed: Record<string, boolean> = $state({});
 
 	const hasProtonUpgrades = $derived(gameManager.upgrades.some(id => id.startsWith('proton')));
 	const showProtons = $derived(gameManager.protons > 0 || gameManager.totalProtonisesAllTime > 0 || hasProtonUpgrades);
@@ -30,51 +39,55 @@
 		[CurrenciesTypes.ATOMS, ...(showProtons ? [CurrenciesTypes.PROTONS] : []), ...(showElectrons ? [CurrenciesTypes.ELECTRONS] : [])].map(id => ({ id, title: CURRENCIES[id].name })),
 	);
 
-	const boughtUpgrades = $derived(new Set(gameManager.upgrades));
+	const hasAutomation = $derived(gameManager.effects.has('auto_upgrade'));
 
-	const availableUpgrades = $derived.by(() => {
-		return Object.values(UPGRADES)
-			.filter((upgrade) => {
-				const condition = upgrade.condition?.(gameManager) ?? true;
-				const notPurchased = !boughtUpgrades.has(upgrade.id);
-				const matchesCurrency = upgrade.cost.currency === selectedCurrency;
-				const shouldDisplay = gameManager.settings.upgrades.displayAlreadyBought || notPurchased;
-				return condition && shouldDisplay && matchesCurrency;
-			})
-			.sort((a, b) => {
-				const aBought = boughtUpgrades.has(a.id);
-				const bBought = boughtUpgrades.has(b.id);
-				if (aBought !== bBought) return aBought ? 1 : -1;
-				return a.cost.amount - b.cost.amount;
-			});
+	const affordableCount = $derived(upgradeFamilies.affordableCount(selectedCurrency));
+
+	/** Levels the auto-upgrade bought in the last seconds, by family. */
+	const autoBought = $derived.by(() => {
+		const counts = new Map<FamilyView, number>();
+		for (const id of autoUpgradeManager.recentlyAutoPurchased) {
+			const view = upgradeFamilies.byUpgrade.get(id);
+			if (view) counts.set(view, (counts.get(view) ?? 0) + 1);
+		}
+		return counts;
 	});
 
-	let hasAutomation = $derived(gameManager.effects.has('auto_upgrade'));
+	let list = $state<HTMLDivElement>();
+	let seenAuto = new Map<FamilyView, number>();
 
-	const gatedBoostTiers = $derived(selectedCurrency === CurrenciesTypes.ATOMS ? boostTiersUnlockedByNextProtonise(gameManager) : 0);
-
-	const affordableCount = $derived(availableUpgrades.filter(upgrade => !boughtUpgrades.has(upgrade.id) && gameManager.canAfford(upgrade.cost)).length);
-
-	function buyAll(event: MouseEvent) {
-		// availableUpgrades is sorted cheapest first, so this drains the balance into as many upgrades as possible.
-		let bought = 0;
-		for (const upgrade of availableUpgrades) if (gameManager.purchaseUpgrade(upgrade.id)) bought++;
-		const nucleus = AtomRenderer.current?.target();
-		if (bought > 0) {
-			AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, {
-				color: CURRENCIES[selectedCurrency].color,
-				count: 10 + Math.min(14, bought),
-				surge: Math.min(20, 4 + bought * 2),
-				// One comet per upgrade bought, streaming into the nucleus.
-				target: nucleus && Array.from({ length: Math.min(10, bought) }, () => nucleus),
-			});
+	/**
+	 * Levels the auto-upgrade buys bloom like a click: from their row, clamped into the visible part of the list when it is
+	 * scrolled away, or from the top of the list when the row sits in a folded section or another currency tab.
+	 */
+	$effect(() => {
+		const counts = autoBought;
+		const previous = seenAuto;
+		seenAuto = counts;
+		/** Counts also drop as purchases age out, those changes must not touch the layout. */
+		const gains: [FamilyView, number][] = [];
+		for (const [view, count] of counts) {
+			const bought = count - (previous.get(view) ?? 0);
+			if (bought > 0) gains.push([view, bought]);
 		}
-	}
+		if (gains.length === 0 || !list?.checkVisibility()) return;
 
-	function buy(upgrade: Upgrade, event: MouseEvent) {
-		if (!gameManager.purchaseUpgrade(upgrade.id)) return;
-		// Upgrades boost the whole atom, so the comet lands on the nucleus.
-		AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { color: CURRENCIES[upgrade.cost.currency].color, surge: 6, target: AtomRenderer.current?.target() });
+		const bounds = list.getBoundingClientRect();
+		const top = Math.max(bounds.top, 0) + 16;
+		const bottom = Math.min(bounds.bottom, window.innerHeight) - 16;
+		if (bottom <= top) return;
+		const x = bounds.left + bounds.width / 2;
+		for (const [view, bought] of gains) {
+			const row = list.querySelector(`[data-family="${view.family.id}"]`);
+			const box = row?.checkVisibility() ? row.getBoundingClientRect() : null;
+			const y = box ? Math.min(Math.max(box.top + box.height / 2, top), bottom) : top;
+			bloomPurchase({ x, y }, view.family.currency, bought);
+		}
+	});
+
+	function select(currency: CurrencyName) {
+		selectedCurrency = currency;
+		if (!visited.includes(currency)) visited.push(currency);
 	}
 </script>
 
@@ -94,20 +107,6 @@
 				</HelpIcon>
 			</div>
 			<div class="flex items-center gap-1">
-				{#if reveals.boughtUpgradesToggle}
-					<button
-						class="flex items-center justify-center p-1 rounded-md transition-all duration-200 border {gameManager.settings.upgrades.displayAlreadyBought ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25' : 'bg-transparent text-gray-400 border-white/10 hover:bg-white/5'}"
-						in:reveal={{ y: 0 }}
-						onclick={() => gameManager.settings.upgrades.displayAlreadyBought = !gameManager.settings.upgrades.displayAlreadyBought}
-						title={gameManager.settings.upgrades.displayAlreadyBought ? 'Hide bought upgrades' : 'Show bought upgrades'}
-					>
-						{#if gameManager.settings.upgrades.displayAlreadyBought}
-							<Eye size={18} />
-						{:else}
-							<EyeOff size={18} />
-						{/if}
-					</button>
-				{/if}
 				{#if hasAutomation}
 					<AutoButton
 						description="Automatically buys the cheapest affordable upgrade."
@@ -125,71 +124,51 @@
 	</div>
 
 	<div class="flex items-center gap-1">
-		<Tabs accent={CURRENCIES[selectedCurrency].color} buttonClass="p-1.5" onselect={currency => (selectedCurrency = currency)} selected={selectedCurrency} tabs={currencyTabs}>
+		<Tabs accent={CURRENCIES[selectedCurrency].color} buttonClass="p-1.5" onselect={select} selected={selectedCurrency} tabs={currencyTabs}>
 			{#snippet item(tab)}
 				<Currency name={tab.id} />
 			{/snippet}
 		</Tabs>
-		{#if affordableCount > 3}
+		{#if affordableCount > 1}
 			<button
 				class="ml-auto rounded-lg border border-accent-500/30 bg-accent-500/15 px-2 py-1 text-xs font-semibold text-accent-400 transition-all duration-200 hover:bg-accent-500/25 cursor-pointer"
-				onclick={buyAll}
-				title="Buy every affordable upgrade, cheapest first"
+				onclick={event => buyAllFamilies(selectedCurrency, event)}
+				title="Buy every affordable level of these upgrades, cheapest first"
 			>
 				Buy all ({affordableCount})
 			</button>
 		{/if}
 	</div>
 
-	<div id="upgrades-list" class="flex-1 lg:overflow-y-auto px-1 custom-scrollbar">
-		<div class="grid gap-1.5">
-			{#each availableUpgrades as upgrade (upgrade.id)}
-				{const isBought = $derived(boughtUpgrades.has(upgrade.id))}
-				{const affordable = $derived(gameManager.canAfford(upgrade.cost) && !isBought)}
-				{const wasAutoPurchased = $derived(autoUpgradeManager.recentlyAutoPurchased.has(upgrade.id))}
-				{const Icon = $derived(upgrade.icon ? ICONS[upgrade.icon] : null)}
-				<button
-					class="relative text-start rounded-lg p-2 transition-all duration-200 border
-					{isBought
-						? 'bg-green-300/3 cursor-default'
-						: `bg-white/5 hover:bg-white/10 cursor-pointer ${affordable ? 'opacity-100 border-white/10' : 'opacity-45 cursor-not-allowed border-transparent'}`
-					}"
-					onclick={event => {
-						if (affordable && !isBought) buy(upgrade, event);
-					}}
-					disabled={isBought}
-				>
-					{#if wasAutoPurchased}
-						<div
-							class="absolute top-1 right-1 bg-linear-to-br from-green-500 to-green-700 text-white font-bold text-xs px-1.5 py-0.5 rounded shadow-lg shadow-green-500/40 z-10 pointer-events-none"
-							in:scale={{ duration: 200, start: 0.3 }}
-							out:fly={{ y: -30, duration: 500, opacity: 0 }}
+	<div bind:this={list} id="upgrades-list" class="flex-1 lg:overflow-y-auto px-1 custom-scrollbar">
+		{#each visited as currency (currency)}
+			<div class={['flex flex-col gap-3', currency !== selectedCurrency && 'hidden']}>
+				{#each upgradeFamilies.categories(currency) as group (group.category)}
+					{@const key = `${currency}:${group.category}`}
+					{@const open = !collapsed[key]}
+					{@const Icon = CATEGORY_ICONS[group.category]}
+					<section class="flex flex-col gap-1.5">
+						<button
+							aria-expanded={open}
+							class="-mb-2 flex min-h-10 cursor-pointer items-center gap-1.5 text-start text-[11px] font-semibold tracking-wider text-white/60 uppercase"
+							onclick={() => (collapsed[key] = open)}
+							type="button"
 						>
-							+1
-						</div>
-					{/if}
-					<h3 class="text-blue-400 text-sm flex items-center gap-2">
-						{#if Icon}
-							<Icon size={14} color="currentColor" />
+							<Icon class="text-accent-400" size={14} />
+							{group.category}
+							<span class="h-px flex-1 bg-white/10"></span>
+							<ChevronDown class="transition-transform {open ? '' : '-rotate-90'}" size={14} />
+						</button>
+						{#if open}
+							{#each group.views as view (view.family.id)}
+								<UpgradeTrack auto={autoBought.get(view) ?? 0} {view} />
+							{/each}
 						{/if}
-						{upgrade.name}
-						{#if isBought}
-							<span class="text-[10px] uppercase font-bold text-white/50 bg-white/10 px-1 rounded-sm">Bought</span>
-						{/if}
-					</h3>
-					<p class="text-xs my-0.5">{upgrade.description}</p>
-					<div class="text-xs mt-1" style="color: {CURRENCIES[upgrade.cost.currency].color}">
-						{#if !isBought}
-							Cost: <Value value={upgrade.cost.amount} currency={upgrade.cost.currency}/>
-						{/if}
-					</div>
-				</button>
-			{/each}
-			{#if gatedBoostTiers > 0}
-				<p class="rounded-lg border border-dashed border-white/10 p-2 text-center text-xs text-white/50">
-					{gatedBoostTiers} more Boost tiers unlock after your next Protonize
-				</p>
-			{/if}
-		</div>
+					</section>
+				{:else}
+					<p class="p-4 text-center text-xs text-white/40">Nothing to buy with {CURRENCIES[currency].name} yet.</p>
+				{/each}
+			</div>
+		{/each}
 	</div>
 </div>

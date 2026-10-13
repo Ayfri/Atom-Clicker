@@ -5,6 +5,7 @@ import type { FeatureType } from '#data/features.js';
 import type { GeneratorType } from '#data/generators.js';
 import type { IconName } from '#data/icons.js';
 import type { RealmType } from '#data/realms.js';
+import type { UpgradeCategory } from '#data/upgrades.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import type { IconStackSpec } from '#helpers/iconStacks.js';
 import type { LayerType } from '#helpers/statConstants.js';
@@ -280,13 +281,25 @@ export interface SkillUpgrade {
 }
 
 export interface Upgrade {
+	category: UpgradeCategory;
 	condition?: (state: GameManager) => boolean;
 	cost: Price;
 	description: string;
 	effects: Effect[];
+	/** Tiers sharing a family are one row in the panel, defaults to `id`. */
+	family?: string;
+	/** Defaults to `name`. */
+	familyName?: string;
+	/** Already part of `condition`, kept apart so the panel can tell a closed level from a hidden upgrade. */
+	gate?: UpgradeGate;
 	icon?: IconName;
 	id: string;
 	name: string;
+}
+
+export interface UpgradeGate {
+	open: (manager: GameManager) => boolean;
+	reason: (manager: GameManager) => string;
 }
 
 export type Range = [number, number];
