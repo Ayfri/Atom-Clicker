@@ -22,7 +22,10 @@ async function prune(cacheName: string, keep: Set<string>): Promise<void> {
 async function fromNetwork(event: FetchEvent, cacheName: string, key: string): Promise<Response> {
 	const response = await fetch(event.request);
 	const storable = response.status === 200 && !response.headers.get('cache-control')?.includes('no-store');
-	if (storable) event.waitUntil(caches.open(cacheName).then(cache => cache.put(key, response.clone())));
+	if (!storable) return response;
+	/** Cloned before the page gets the response: once it reads the body, a clone taken after `caches.open` resolves throws. */
+	const copy = response.clone();
+	event.waitUntil(caches.open(cacheName).then(cache => cache.put(key, copy)));
 	return response;
 }
 
