@@ -2,7 +2,7 @@ import { assets, immutable } from '$app/manifest';
 import { self } from '$app/service-worker';
 
 /**
- * Chunks are cached as pages request them rather than precached, so players never download the Cosmos or benchmark code they don't open.
+ * Chunks are cached as pages request them rather than precached, so players never download the code of views they don't open.
  * Hashed chunks never change, so they stay cached across deploys and only the ones gone from the build get pruned.
  */
 const IMMUTABLE_CACHE = 'immutable';
@@ -41,8 +41,9 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', event => {
 	const urls: unknown = event.data;
 	if (!Array.isArray(urls)) return;
-	const paths = urls.map(url => new URL(String(url)).pathname).filter(path => buildPaths.has(path));
-	event.waitUntil(caches.open(IMMUTABLE_CACHE).then(cache => cache.addAll(paths)));
+	const paths = new Set(urls.map(url => new URL(String(url)).pathname).filter(path => buildPaths.has(path)));
+	/** `addAll` stores nothing when one request fails, so each chunk is added on its own. */
+	event.waitUntil(caches.open(IMMUTABLE_CACHE).then(cache => Promise.allSettled([...paths].map(path => cache.add(path)))));
 });
 
 self.addEventListener('fetch', event => {
@@ -55,7 +56,7 @@ self.addEventListener('fetch', event => {
 		return;
 	}
 
-	// Other routes hydrate with their own nodes, so only the game itself falls back to the cached shell
+	/** Other routes hydrate with their own nodes, so only the game itself falls back to the cached shell. */
 	const cacheable = request.mode === 'navigate' ? url.pathname === '/' : staticPaths.has(url.pathname);
 	if (!cacheable) return;
 
