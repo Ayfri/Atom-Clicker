@@ -1,22 +1,18 @@
 <script lang="ts">
 	import { CHROMATIC, CHROMATIC_UPGRADES, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
-	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import type { PrestigeListItem } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import IonizeIcon from '#components/icons/Ionize.svelte';
-	import Currency from '#components/ui/Currency.svelte';
-	import HoldButton from '#components/ui/HoldButton.svelte';
+	import PrestigeHoldButton from '#components/prestige/PrestigeHoldButton.svelte';
+	import ResetKeepGrid from '#components/prestige/ResetKeepGrid.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { Check, Rainbow, RotateCcw, Vault, X } from '@lucide/svelte';
-
-	interface ListItem {
-		currencies: CurrencyName[];
-		label: string;
-	}
+	import { Rainbow } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -45,7 +41,7 @@
 	/** The three Lights darkened enough for white text, holding the button fills it with white as they recombine. */
 	const BUTTON_GRADIENT = `linear-gradient(100deg, ${[RED, GREEN, BLUE, GREEN, RED].map(color => `color-mix(in oklab, ${color} 72%, black)`).join(', ')})`;
 	const LIGHTS = [CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT];
-	const RESETS: ListItem[] = [
+	const RESETS: PrestigeListItem[] = [
 		{ currencies: [CurrenciesTypes.ATOMS], label: 'Atoms, generators and upgrades' },
 		{ currencies: [CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS], label: 'Protons and Electrons' },
 		{ currencies: [CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS], label: 'Photons and Excited Photons' },
@@ -74,7 +70,7 @@
 	);
 	const capTooLow = $derived(radiationManager.maxCpm < radiationManager.ionizeCpm);
 	const lightBonus = $derived(ionizeMilestoneBonus(ionizes));
-	const keeps: ListItem[] = $derived([
+	const keeps: PrestigeListItem[] = $derived([
 		{ currencies: [], label: 'Photon upgrades' },
 		{ currencies: [], label: 'Proton and electron upgrades' },
 		{ currencies: [], label: 'Skills and achievements' },
@@ -87,19 +83,6 @@
 		onClose();
 	}
 </script>
-
-{#snippet entry({ currencies, label }: ListItem)}
-	<span>
-		{#each currencies as currency (currency)}
-			<Currency
-				class="mr-0.5 -mt-0.5 align-middle"
-				name={currency}
-				size={15}
-			/>
-		{/each}
-		{label}
-	</span>
-{/snippet}
 
 <Modal
 	{onClose}
@@ -238,66 +221,19 @@
 			{/if}
 		</section>
 
-		<div class="grid grid-cols-2 text-sm">
-			<div class="flex flex-col gap-2 pr-4">
-				<h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-red-300/80">
-					<RotateCcw size={13} />
-					Resets
-				</h3>
-				<ul class="flex flex-col gap-1.5 text-white/55">
-					{#each RESETS as item (item.label)}
-						<li class="flex gap-2">
-							<X
-								class="mt-0.5 shrink-0 text-red-300/50"
-								size={14}
-							/>
-							{@render entry(item)}
-						</li>
-					{/each}
-				</ul>
-			</div>
-			<div class="flex flex-col gap-2 border-l border-white/10 pl-4">
-				<h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-radiation/80">
-					<Vault size={13} />
-					Keeps
-				</h3>
-				<ul class="flex flex-col gap-1.5 text-white/85">
-					{#each keeps as item (item.label)}
-						<li class="flex gap-2">
-							<Check
-								class="mt-0.5 shrink-0 text-radiation/70"
-								size={14}
-							/>
-							{@render entry(item)}
-						</li>
-					{/each}
-				</ul>
-			</div>
-		</div>
+		<ResetKeepGrid
+			color="var(--color-radiation)"
+			{keeps}
+			resets={RESETS}
+		/>
 
-		<HoldButton
-			class="ionize-button w-full rounded-lg py-4 text-lg font-bold uppercase tracking-wide text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)] hover:enabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+		<PrestigeHoldButton
 			disabled={!radiationManager.ionizeReady}
+			drift={6}
+			gradient={BUTTON_GRADIENT}
+			label="Hold to Ionize"
 			onHoldComplete={handleIonize}
-			style="background-image: {BUTTON_GRADIENT}; --hold-color: #ffffff; --hold-color-2: #f5f7ff; --hold-glow: rgba(245, 247, 255, 0.6);"
-		>
-			<span class="relative z-10">Hold to Ionize</span>
-		</HoldButton>
+			style="--hold-color: #ffffff; --hold-color-2: #f5f7ff; --hold-glow: rgba(245, 247, 255, 0.6);"
+		/>
 	</div>
 </Modal>
-
-<style>
-	:global(.ionize-button) {
-		background-size: 200% 100%;
-	}
-
-	:global(.ionize-button:enabled) {
-		animation: spectrum-drift 6s ease-in-out infinite alternate;
-	}
-
-	@keyframes spectrum-drift {
-		to {
-			background-position: 100% 0;
-		}
-	}
-</style>
