@@ -1,6 +1,7 @@
 # Unreleased
 
 - **Upgrades**: Each upgrade is now a single row that levels up along a bar, and tells you what opens its next levels.
+- **Performance**: The game runs smoother, especially on phones, and when it lags a report now reaches me so I can fix it fast.
 
 # What's new 08-10-2026
 
