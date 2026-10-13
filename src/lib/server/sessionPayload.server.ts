@@ -243,21 +243,6 @@ function parsePerf(value: unknown): SessionPerf | null {
 	};
 }
 
-/** Reads a request body as JSON, or the 413 or 400 response to send back when it is too big (in bytes) or not JSON. */
-export async function readJsonBody(request: Request, maxBytes: number): Promise<{ body: unknown } | { error: Response }> {
-	const tooLarge = { error: Response.json({ error: 'Payload too large' }, { status: 413 }) };
-	if (Number(request.headers.get('content-length')) > maxBytes) return tooLarge;
-
-	const raw = await request.text();
-	if (raw.length > maxBytes || new TextEncoder().encode(raw).length > maxBytes) return tooLarge;
-
-	try {
-		return { body: JSON.parse(raw) };
-	} catch {
-		return { error: Response.json({ error: 'Invalid JSON' }, { status: 400 }) };
-	}
-}
-
 /** Groups the sessions of one device without storing an IP: a hash of the user agent, screen and language. */
 export async function deviceKey({ language, pixelRatio, screenHeight, screenWidth, userAgent }: DeviceInfo): Promise<string> {
 	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${userAgent}|${screenWidth}x${screenHeight}@${pixelRatio}|${language}`));

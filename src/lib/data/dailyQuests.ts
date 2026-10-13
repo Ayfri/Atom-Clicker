@@ -219,3 +219,7 @@ export function pickDailyQuests(dayKey: string, count = DAILY_QUEST_COUNT, conte
 export function getDailyCap(quests: DailyQuest[]): number {
 	return quests.reduce((sum, quest) => sum + quest.reward, 0);
 }
+
+export function todayUtcDayKey(): string {
+	return new Date().toISOString().slice(0, 10);
+}

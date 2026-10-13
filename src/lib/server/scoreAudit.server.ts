@@ -70,6 +70,8 @@ export interface AuditContext {
 	colliderTotal: number;
 	now: number;
 	previous: PreviousScore | null;
+	/** Every account, the community upgrade scales with it. */
+	totalUsers: number;
 }
 
 export interface ScoreAudit {
@@ -148,11 +150,12 @@ function runSpending(state: GameState): number {
  * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
  * Server-compiled `$state` fields hold the objects they are given, so without the copy the wipe would zero the audited state too.
  */
-function measure(state: GameState, colliderTotal: number, now: number, seconds: number): RunBounds {
+function measure(state: GameState, { colliderTotal, totalUsers }: AuditContext, now: number, seconds: number): RunBounds {
 	gameManager.resetAll();
 	gameManager.loadSaveData(structuredClone({ ...state, activePowerUps: [] }));
 	gameManager.colliderBonus = colliderBonus(colliderTotal);
 	gameManager.quarkBoostSources = QUARK_SOURCES;
+	gameManager.totalUsers = totalUsers;
 	/**
 	 * Server-compiled runes never cache a derived, so every stat read would rebuild the effect table about a hundred times and one
 	 * table is pinned instead. A caching build (the tests) must not be pinned, its deriveds would keep values read from the pin.
@@ -165,6 +168,7 @@ function measure(state: GameState, colliderTotal: number, now: number, seconds: 
 		if (uncached) Reflect.deleteProperty(gameManager, 'effects');
 		gameManager.colliderBonus = 0;
 		gameManager.quarkBoostSources = [];
+		gameManager.totalUsers = 0;
 		gameManager.resetAll();
 	}
 }
@@ -173,7 +177,8 @@ function measure(state: GameState, colliderTotal: number, now: number, seconds: 
  * Checks a submitted game state against what the current balance allows, alone and against the previous accepted submission.
  * Returns 'outdated' for a client older than the server and 'malformed' for something that is not a game state at all.
  */
-export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now, previous }: AuditContext): ScoreAudit | 'malformed' | 'outdated' {
+export function auditScore(raw: unknown, context: AuditContext): ScoreAudit | 'malformed' | 'outdated' {
+	const { accountCreatedAt, now, previous } = context;
 	if (!isObject(raw)) return 'malformed';
 	if (raw.version !== SAVE_VERSION || raw.balanceVersion !== BALANCE_VERSION) return 'outdated';
 
@@ -214,7 +219,7 @@ export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now,
 	const knownSince = sameRun ? null : (previous?.receivedAt ?? accountCreatedAt);
 	let seconds = runSeconds(runStart, state.startDate, now);
 	if (knownSince !== null) seconds = Math.min(seconds, Math.max(0, now - knownSince + CLOCK_TOLERANCE_MS) / 1000);
-	const bounds = measure(state, colliderTotal, now, seconds);
+	const bounds = measure(state, context, now, seconds);
 	if (atoms.earnedRun > maxRunAtoms(bounds, seconds, state.totalClicksRun)) issues.push('production');
 	if (atoms.amount > atoms.earnedRun * (1 + 1e-9) + 1) issues.push('atoms');
 	if (state.totalXP > atoms.earnedRun * bounds.xpPerAtom * RUN_BOUND_SLACK + 1) issues.push('xp');

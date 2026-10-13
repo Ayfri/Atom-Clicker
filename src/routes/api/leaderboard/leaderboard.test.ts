@@ -15,6 +15,7 @@ let verdict: ScoreAudit | 'malformed' | 'outdated' = passing;
 let context: ScoreContext = { accountCreatedAt: null, colliderTotal: 0, lastReceivedAt: null, previous: null };
 
 const service = {
+	countUsers: mock(async () => 1234),
 	getLeaderboard: mock(async () => []),
 	getScoreContext: mock(async () => context),
 	recordScore: mock(async (_userId: string, audit: ScoreAudit): Promise<ScoreStatus> => (audit.issues.length > 0 ? 'rolled_back' : 'valid')),
@@ -58,6 +59,11 @@ beforeEach(() => {
 test('a passing state is recorded with the score the audit read', async () => {
 	expect(await submit(payload)).toEqual({ body: { issues: [], status: 'valid' }, status: 200 });
 	expect(service.recordScore).toHaveBeenCalledWith('user-1', passing, 'Player', 'https://cdn.example/avatar.png');
+});
+
+test('the audit gets the account count from the server', async () => {
+	await submit(payload);
+	expect(auditScore).toHaveBeenCalledWith(payload.state, expect.objectContaining({ totalUsers: 1234 }));
 });
 
 test('a failing state is still recorded so the board can roll back', async () => {

@@ -1,7 +1,8 @@
 import { dev } from '$app/env';
 import type { RequestHandler } from './$types';
 import { RateLimiter } from '#lib/server/rateLimit.server.js';
-import { deviceKey, parseSessionStart, readJsonBody } from '#lib/server/sessionPayload.server.js';
+import { readJsonBody } from '#lib/server/requestBody.server.js';
+import { deviceKey, parseSessionStart } from '#lib/server/sessionPayload.server.js';
 import { SessionConflictError, sessionsService } from '#lib/server/sessions.server.js';
 import { resolveUserFromRequest } from '#lib/server/supabase.server.js';
 import type { SessionStartResponse } from '#lib/types/session.js';

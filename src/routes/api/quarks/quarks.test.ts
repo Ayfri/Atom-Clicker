@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, setSystemTime, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, mock, setSystemTime, spyOn, test } from 'bun:test';
 import { DAILY_QUEST_COUNT, getDailyCap, pickDailyQuests } from '#data/dailyQuests.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
@@ -47,6 +47,19 @@ test('every route needs a session and an untouched signed payload', async () => 
 	expect((await call(purchase, { itemId: 'boost_click_power' }, { auth: false })).status).toBe(401);
 	expect((await call(purchase, { itemId: 'boost_click_power' }, { tamper: true })).status).toBe(400);
 	expect(service.purchaseItem).not.toHaveBeenCalled();
+});
+
+test('a service that rejects becomes a 500 carrying the route failure message', async () => {
+	const error = spyOn(console, 'error').mockImplementation(() => {});
+	service.purchaseItem.mockImplementationOnce(async () => {
+		throw new Error('database down');
+	});
+	try {
+		expect(await call(purchase, { itemId: 'boost_click_power' })).toEqual({ body: { error: 'Failed to purchase quark item' }, status: 500 });
+		expect(error).toHaveBeenCalledTimes(1);
+	} finally {
+		error.mockRestore();
+	}
 });
 
 describe('purchase and refund', () => {

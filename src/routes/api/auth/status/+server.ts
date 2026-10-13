@@ -1,33 +1,29 @@
 import type { RequestHandler } from './$types';
-import { supabaseAdmin } from '#lib/server/supabase.server.js';
+import { readJsonBody } from '#lib/server/requestBody.server.js';
+import { resolveUserFromRequest, supabaseAdmin } from '#lib/server/supabase.server.js';
+
+const MAX_BODY_BYTES = 1024;
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const authHeader = request.headers.get('Authorization');
-		if (!authHeader) {
-			return Response.json({ error: 'No authorization header' }, { status: 401 });
-		}
+		const userId = await resolveUserFromRequest(request);
+		if (!userId) return Response.json({ error: 'No authorization header' }, { status: 401 });
 
-		const token = authHeader.replace('Bearer ', '');
-		const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+		const read = await readJsonBody(request, MAX_BODY_BYTES);
+		if ('error' in read) return read.error;
 
-		if (authError || !user) {
-			return Response.json({ error: 'Invalid token' }, { status: 401 });
-		}
-
-		const { is_online } = await request.json();
-
-		if (typeof is_online !== 'boolean') {
+		const isOnline = (read.body as { is_online?: unknown } | null)?.is_online;
+		if (typeof isOnline !== 'boolean') {
 			return Response.json({ error: 'Invalid is_online value' }, { status: 400 });
 		}
 
 		const { error: updateError } = await supabaseAdmin
 			.from('profiles')
 			.update({
-				is_online,
+				is_online: isOnline,
 				updated_at: new Date().toISOString()
 			})
-			.eq('id', user.id);
+			.eq('id', userId);
 
 		if (updateError) {
 			console.error('Error updating online status:', updateError);
