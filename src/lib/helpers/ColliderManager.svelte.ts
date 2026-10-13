@@ -7,7 +7,7 @@ import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
 /** Owns the `/api/collider` calls, GameManager only receives the bonus so the simulation worker never pulls in `fetch`. */
-export class ColliderManager {
+class ColliderManager {
 	injections = $state(0);
 	pending = $state(false);
 	/** Flipped by a timer when the cooldown ends, so nothing polls the clock. */
@@ -31,8 +31,7 @@ export class ColliderManager {
 	}
 
 	private async headers(signedIn: boolean): Promise<Record<string, string>> {
-		const accessToken = signedIn ? await supabaseAuth.getAccessToken() : null;
-		return accessToken ? { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+		return { ...(signedIn && await supabaseAuth.authHeaders()), 'Content-Type': 'application/json' };
 	}
 
 	/** A failed refresh keeps the last known bonus, the next one retries. */

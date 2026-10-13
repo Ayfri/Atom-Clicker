@@ -8,13 +8,14 @@ import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { findImplausible } from '#helpers/plausibility.js';
 import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds, type RunBounds } from '#helpers/runBounds.js';
 import { SAVE_VERSION, validateAndRepairGameState } from '#helpers/saves.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import { levelFromTotalXP } from '#helpers/xp.js';
 import { GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS } from '#lib/constants.js';
 import type { EffectSource, GameState } from '#lib/types.js';
+import type { AuditCheck } from '#lib/types/audit.js';
 
 /** Client clocks drift, a run start or save date this far ahead of the server is still taken as honest. */
 const CLOCK_TOLERANCE_MS = 10 * 60_000;
@@ -41,6 +42,22 @@ const COUNTERS = [
 	'totalProtonisesRun',
 	'totalUpgradesPurchasedAllTime',
 ] as const satisfies readonly (keyof GameState)[];
+
+/** Readable names of the structure issue ids, an id missing here (`currency:Atoms`, `generator:blackHole`) is shown as is. */
+const STRUCTURE_LABELS: Record<string, string> = {
+	achievements: 'Duplicate achievements',
+	boosts: 'Currency boosts out of range',
+	chromaticUpgrades: 'Chromatic upgrade levels out of range',
+	counters: 'Counters not whole numbers',
+	dates: 'Dates in the future',
+	photonUpgrades: 'Photon upgrade levels out of range',
+	radiation: 'Control rod level out of range',
+	radiationUpgrades: 'Radiation upgrade levels out of range',
+	runStart: 'Run start date out of range',
+	skills: 'Duplicate skills',
+	stats: 'Stats negative or not finite',
+	upgrades: 'Duplicate upgrades',
+};
 
 /** Every Quark boost at once, the server bounds the best case instead of reading which ones the player owns. */
 const QUARK_SOURCES: EffectSource[] = Object.values(QUARK_SHOP).flatMap(item => (item.effects ? [{ effects: item.effects, id: item.id, name: item.name }] : []));
@@ -70,6 +87,14 @@ export interface AuditContext {
 	colliderTotal: number;
 	now: number;
 	previous: PreviousScore | null;
+	/** Every account, the community upgrade scales with it. */
+	totalUsers: number;
+}
+
+export interface ScoreInspection extends ScoreAudit {
+	checks: AuditCheck[];
+	/** The most atoms the run could have earned, null when the audit stopped before measuring. */
+	maxEarnedRun: number | null;
 }
 
 export interface ScoreAudit {
@@ -131,7 +156,7 @@ function structureIssues(state: GameState, now: number): string[] {
 }
 
 /** Atoms the generators and atom-priced upgrades of the current run cost, both reset on every Protonize. */
-function runSpending(state: GameState): number {
+export function runSpending(state: GameState): number {
 	let cost = 0;
 	for (const type of GENERATOR_TYPES) {
 		const count = state.generators[type]?.count ?? 0;
@@ -148,11 +173,12 @@ function runSpending(state: GameState): number {
  * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
  * Server-compiled `$state` fields hold the objects they are given, so without the copy the wipe would zero the audited state too.
  */
-function measure(state: GameState, colliderTotal: number, now: number, seconds: number): RunBounds {
+function measure(state: GameState, { colliderTotal, totalUsers }: AuditContext, now: number, seconds: number): RunBounds {
 	gameManager.resetAll();
 	gameManager.loadSaveData(structuredClone({ ...state, activePowerUps: [] }));
 	gameManager.colliderBonus = colliderBonus(colliderTotal);
 	gameManager.quarkBoostSources = QUARK_SOURCES;
+	gameManager.totalUsers = totalUsers;
 	/**
 	 * Server-compiled runes never cache a derived, so every stat read would rebuild the effect table about a hundred times and one
 	 * table is pinned instead. A caching build (the tests) must not be pinned, its deriveds would keep values read from the pin.
@@ -165,6 +191,7 @@ function measure(state: GameState, colliderTotal: number, now: number, seconds: 
 		if (uncached) Reflect.deleteProperty(gameManager, 'effects');
 		gameManager.colliderBonus = 0;
 		gameManager.quarkBoostSources = [];
+		gameManager.totalUsers = 0;
 		gameManager.resetAll();
 	}
 }
@@ -173,7 +200,16 @@ function measure(state: GameState, colliderTotal: number, now: number, seconds: 
  * Checks a submitted game state against what the current balance allows, alone and against the previous accepted submission.
  * Returns 'outdated' for a client older than the server and 'malformed' for something that is not a game state at all.
  */
-export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now, previous }: AuditContext): ScoreAudit | 'malformed' | 'outdated' {
+export function auditScore(raw: unknown, context: AuditContext): ScoreAudit | 'malformed' | 'outdated' {
+	const inspection = inspectScore(raw, context);
+	if (typeof inspection === 'string') return inspection;
+	const { checks, maxEarnedRun, ...audit } = inspection;
+	return audit;
+}
+
+/** The audit with the number behind each failed check, `auditScore` is this minus the extras. */
+export function inspectScore(raw: unknown, context: AuditContext): ScoreInspection | 'malformed' | 'outdated' {
+	const { accountCreatedAt, now, previous } = context;
 	if (!isObject(raw)) return 'malformed';
 	if (raw.version !== SAVE_VERSION || raw.balanceVersion !== BALANCE_VERSION) return 'outdated';
 
@@ -181,12 +217,24 @@ export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now,
 	const sent = { ...input };
 	const { state } = validateAndRepairGameState(input);
 	if (!state) return 'malformed';
+
+	const checks: AuditCheck[] = [];
+	const issues: string[] = [];
+	const fail = (id: string, value: number | null, limit: number | null, label: string) => {
+		checks.push({ id, label, limit, value });
+		if (!issues.includes(id)) issues.push(id);
+	};
+
 	/** The repair swaps a missing or broken stat for a fresh default, so a changed reference is a stat the client got wrong. */
 	const repaired = Object.keys(statsConfig).filter(key => !OMITTED_KEYS.has(key) && input[key] !== sent[key]);
-	if (repaired.length > 0) return { ...emptyAudit(state), issues: repaired.map(key => `malformed:${key}`) };
+	if (repaired.length > 0) {
+		for (const key of repaired) fail(`malformed:${key}`, null, null, `${key} is missing or broken`);
+		return { ...emptyAudit(state), checks, issues, maxEarnedRun: null };
+	}
 
-	const issues = [...structureIssues(state, now), ...(checkStatePlausibility(state).length > 0 ? ['plausibility'] : [])];
-	if (issues.length > 0) return { ...emptyAudit(state), issues };
+	for (const issue of structureIssues(state, now)) fail(issue, null, null, STRUCTURE_LABELS[issue] ?? issue);
+	for (const { label, limit, limitLabel, value } of findImplausible(state)) fail('plausibility', value, limit, `${label} vs ${limitLabel}`);
+	if (issues.length > 0) return { ...emptyAudit(state), checks, issues, maxEarnedRun: null };
 
 	const warnings: string[] = [];
 	const atoms = state.currencies[CurrenciesTypes.ATOMS];
@@ -214,16 +262,24 @@ export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now,
 	const knownSince = sameRun ? null : (previous?.receivedAt ?? accountCreatedAt);
 	let seconds = runSeconds(runStart, state.startDate, now);
 	if (knownSince !== null) seconds = Math.min(seconds, Math.max(0, now - knownSince + CLOCK_TOLERANCE_MS) / 1000);
-	const bounds = measure(state, colliderTotal, now, seconds);
-	if (atoms.earnedRun > maxRunAtoms(bounds, seconds, state.totalClicksRun)) issues.push('production');
-	if (atoms.amount > atoms.earnedRun * (1 + 1e-9) + 1) issues.push('atoms');
-	if (state.totalXP > atoms.earnedRun * bounds.xpPerAtom * RUN_BOUND_SLACK + 1) issues.push('xp');
+	const bounds = measure(state, context, now, seconds);
+	const cap = maxRunAtoms(bounds, seconds, state.totalClicksRun);
+	if (atoms.earnedRun > cap) fail('production', atoms.earnedRun, cap, 'Atoms earned this run');
+	const heldLimit = atoms.earnedRun * (1 + 1e-9) + 1;
+	if (atoms.amount > heldLimit) fail('atoms', atoms.amount, heldLimit, 'Atoms held vs earned this run');
+	const xpLimit = atoms.earnedRun * bounds.xpPerAtom * RUN_BOUND_SLACK + 1;
+	if (state.totalXP > xpLimit) fail('xp', state.totalXP, xpLimit, 'Total XP vs XP from atoms earned this run');
 	/** Only a run started since runStartedAt exists has an earned total that counts every purchase from zero. */
-	if (state.runStartedAt > 0 && runSpending(state) > (atoms.earnedRun - atoms.amount) * RUN_BOUND_SLACK + 1e4) issues.push('spending');
+	if (state.runStartedAt > 0) {
+		const spent = runSpending(state);
+		const spendingLimit = (atoms.earnedRun - atoms.amount) * RUN_BOUND_SLACK + 1e4;
+		if (spent > spendingLimit) fail('spending', spent, spendingLimit, 'Atoms spent this run vs earned minus held');
+	}
 
 	if (sameRun) {
 		const growth = atoms.earnedRun - previousSnapshot.atomsEarnedRun;
-		if (growth > maxRunAtoms(bounds, sinceLast, state.totalClicksRun - previousSnapshot.clicksRun)) issues.push('growth');
+		const growthLimit = maxRunAtoms(bounds, sinceLast, state.totalClicksRun - previousSnapshot.clicksRun);
+		if (growth > growthLimit) fail('growth', growth, growthLimit, 'Atoms gained since the previous submission');
 	}
 	if (sameLineage && sinceLast >= MIN_RATE_WINDOW_SECONDS) {
 		if (state.totalClicksAllTime - previousSnapshot.clicksAllTime > (bounds.autoClicksPerSecond + HUMAN_CLICKS_PER_SECOND) * sinceLast) warnings.push('clicks');
@@ -232,7 +288,7 @@ export function auditScore(raw: unknown, { accountCreatedAt, colliderTotal, now,
 	}
 
 	const audit = emptyAudit(state);
-	return { ...audit, issues, snapshot: { ...audit.snapshot, runStartedAt: now - seconds * 1000 }, warnings };
+	return { ...audit, checks, issues, maxEarnedRun: cap, snapshot: { ...audit.snapshot, runStartedAt: now - seconds * 1000 }, warnings };
 }
 
 function emptyAudit(state: GameState): ScoreAudit {

@@ -1,3 +1,85 @@
+<script lang="ts" module>
+	import type { Attachment } from 'svelte/attachments';
+
+	interface Motion {
+		delay: number;
+		duration: number;
+		easing: string;
+	}
+
+	const vmax = (amount: number) => (amount * Math.max(window.innerWidth, window.innerHeight)) / 100;
+
+	const centered = (scale: number, rotate = 0) => `translate(0px, 0px) scale(${scale}) rotate(${rotate}deg)`;
+
+	function flung(angle: number, distance: number, scale: number, rotate = 0) {
+		const radians = (angle * Math.PI) / 180;
+		return `translate(${Math.cos(radians) * distance}px, ${Math.sin(radians) * distance}px) scale(${scale}) rotate(${rotate}deg)`;
+	}
+
+	/**
+	 * Plays a burst particle with its values resolved to pixels, the `-50%` centering sits in the static `translate` property:
+	 * keyframes reading per-element `var()` or mixing percentages run on the main thread in Chrome, which held the animation near
+	 * 15 fps on phones. Each keyframe carries the easing, like in a CSS animation.
+	 */
+	function play(keyframes: Keyframe[], { delay, duration, easing }: Motion): Attachment<HTMLElement> {
+		return element => {
+			const animation = element.animate(
+				keyframes.map(keyframe => ({ easing, ...keyframe })),
+				{ delay: delay * 1000, duration: duration * 1000, fill: 'forwards' },
+			);
+			return () => animation.cancel();
+		};
+	}
+
+	function dust(i: number): Attachment<HTMLElement> {
+		const toward = `rotate(${(i / 40) * 360}deg)`;
+		return play(
+			[
+				{ opacity: 1, transform: `${toward} translateX(0)` },
+				{ opacity: 0, transform: `${toward} translateX(${vmax(50 + Math.random() * 50)}px)` },
+			],
+			{ delay: Math.random() * 0.7, duration: 2 + Math.random() * 1.5, easing: 'ease-out' },
+		);
+	}
+
+	/** Heavy, explosive radial burst with rotation. */
+	function protonSplash(i: number): Attachment<HTMLElement> {
+		const spin = Math.random() * 360;
+		return play(
+			[
+				{ opacity: 0, transform: centered(0.2) },
+				{ offset: 0.1, opacity: 1, transform: centered(1, spin) },
+				{ opacity: 0, transform: flung(i * 6 + Math.random() * 10, vmax(30 + Math.random() * 20), 0.5, spin + 180) },
+			],
+			{ delay: 0.1 + Math.random() * 0.2, duration: 3 + Math.random() * 2, easing: 'cubic-bezier(0.1, 0.8, 0.2, 1)' },
+		);
+	}
+
+	/** Fast, erratic burst. */
+	function electronSplash(): Attachment<HTMLElement> {
+		const spin = Math.random() * 360;
+		return play(
+			[
+				{ opacity: 0, transform: centered(0.2, spin) },
+				{ offset: 0.15, opacity: 1 },
+				{ opacity: 0, transform: flung(Math.random() * 360, vmax(40 + Math.random() * 30), 0, spin + 720) },
+			],
+			{ delay: Math.random() * 0.4, duration: 2.5 + Math.random() * 1.5, easing: 'ease-out' },
+		);
+	}
+
+	function lightSplash(i: number): Attachment<HTMLElement> {
+		return play(
+			[
+				{ opacity: 0, transform: centered(0.3) },
+				{ offset: 0.1, opacity: 1, transform: centered(1) },
+				{ opacity: 0, transform: flung(i * 8 + Math.random() * 8, vmax(35 + Math.random() * 30), 0.6) },
+			],
+			{ delay: 1.7 + Math.random() * 0.4, duration: 2 + Math.random(), easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
+		);
+	}
+</script>
+
 <script lang="ts">
 	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 	import { CURRENCIES } from '#data/currencies.js';
@@ -26,12 +108,15 @@
 	let isPlaying = $state(false);
 	let currentAnimation = $state<AnimationType | null>(null);
 
+	let timer: ReturnType<typeof setTimeout> | undefined;
+
 	$effect(() => {
 		if (animation) {
 			untrack(() => {
+				clearTimeout(timer);
 				currentAnimation = animation;
 				isPlaying = true;
-				setTimeout(() => {
+				timer = setTimeout(() => {
 					isPlaying = false;
 					currentAnimation = null;
 					onComplete?.();
@@ -39,6 +124,8 @@
 			});
 		}
 	});
+
+	$effect(() => () => clearTimeout(timer));
 </script>
 
 {#if isPlaying && currentAnimation}
@@ -68,14 +155,9 @@
 		<!-- Background Dust Particles -->
 		{#each { length: 40 }, i}
 			<div
+				{@attach dust(i)}
 				class="particle"
-				style="
-					--angle: {(i / 40) * 360}deg;
-					--distance: {50 + Math.random() * 50}vmax;
-					--size: {8 + Math.random() * 12}px;
-					--delay: {Math.random() * 0.7}s;
-					--duration: {2 + Math.random() * 1.5}s;
-				"
+				style:--size="{8 + Math.random() * 12}px"
 			></div>
 		{/each}
 
@@ -99,14 +181,8 @@
 			<div class="currency-splash">
 				{#each { length: 60 }, i}
 					<div
-						class="currency-particle proton-motion"
-						style="
-							--angle: {i * 6 + Math.random() * 10}deg;
-							--dist: {30 + Math.random() * 20}vmax;
-							--delay: {0.1 + Math.random() * 0.2}s;
-							--duration: {3 + Math.random() * 2}s;
-							--spin: {Math.random() * 360}deg;
-						"
+						{@attach protonSplash(i)}
+						class="currency-particle"
 					>
 						<Proton size={32 + Math.random() * 32} />
 					</div>
@@ -143,14 +219,8 @@
 			<div class="currency-splash">
 				{#each { length: 80 }, i}
 					<div
-						class="currency-particle electron-motion"
-						style="
-							--angle: {Math.random() * 360}deg;
-							--dist: {40 + Math.random() * 30}vmax;
-							--delay: {Math.random() * 0.4}s;
-							--duration: {2.5 + Math.random() * 1.5}s;
-							--spin: {Math.random() * 360}deg;
-						"
+						{@attach electronSplash()}
+						class="currency-particle"
 					>
 						<Electron size={96 + Math.random() * 96} />
 					</div>
@@ -192,13 +262,8 @@
 				{#each { length: 45 }, i}
 					{const light = $derived(LIGHTS[i % LIGHTS.length])}
 					<div
-						class="currency-particle light-motion"
-						style="
-							--angle: {i * 8 + Math.random() * 8}deg;
-							--dist: {35 + Math.random() * 30}vmax;
-							--delay: {1.7 + Math.random() * 0.4}s;
-							--duration: {2 + Math.random() * 1}s;
-						"
+						{@attach lightSplash(i)}
+						class="currency-particle"
 					>
 						<Light
 							color={light.color}
@@ -306,49 +371,7 @@
 		opacity: 0;
 		position: absolute;
 		top: 0;
-	}
-
-	/* Proton Motion: Heavy, explosive radial burst with rotation */
-	.proton-motion {
-		animation: proton-splash var(--duration) cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
-		animation-delay: var(--delay);
-	}
-
-	@keyframes proton-splash {
-		0% {
-			opacity: 0;
-			transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
-		}
-		10% {
-			opacity: 1;
-			transform: translate(-50%, -50%) scale(1) rotate(var(--spin));
-		}
-		100% {
-			opacity: 0;
-			transform: translate(calc(cos(var(--angle)) * var(--dist) - 50%), calc(sin(var(--angle)) * var(--dist) - 50%)) scale(0.5)
-				rotate(calc(var(--spin) + 180deg));
-		}
-	}
-
-	/* Electron Motion: Fast, erratic zig-zag/chaotic burst */
-	.electron-motion {
-		animation: electron-splash var(--duration) ease-out forwards;
-		animation-delay: var(--delay);
-	}
-
-	@keyframes electron-splash {
-		0% {
-			opacity: 0;
-			transform: translate(-50%, -50%) scale(0.2) rotate(var(--spin));
-		}
-		15% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 0;
-			transform: translate(calc(cos(var(--angle)) * var(--dist) - 50%), calc(sin(var(--angle)) * var(--dist) - 50%)) scale(0)
-				rotate(calc(var(--spin) + 720deg));
-		}
+		translate: -50% -50%;
 	}
 
 	/** Rasterised at 100vmax and composited up to 3x: same visual as a 300vmax layer for a ninth of the blurred pixels. */
@@ -435,8 +458,6 @@
 	}
 
 	.particle {
-		animation: particle-burst var(--duration) ease-out forwards;
-		animation-delay: var(--delay);
 		background: var(--primary);
 		border-radius: 50%;
 		box-shadow: 0 0 10px var(--glow);
@@ -445,18 +466,8 @@
 		opacity: 0;
 		position: absolute;
 		top: 50%;
+		translate: -50% -50%;
 		width: var(--size);
-	}
-
-	@keyframes particle-burst {
-		0% {
-			opacity: 1;
-			transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0);
-		}
-		100% {
-			opacity: 0;
-			transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--distance));
-		}
 	}
 
 	.hex-grid {
@@ -769,26 +780,6 @@
 		100% {
 			opacity: 0;
 			transform: scale(1.15);
-		}
-	}
-
-	.light-motion {
-		animation: light-splash var(--duration) cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
-		animation-delay: var(--delay);
-	}
-
-	@keyframes light-splash {
-		0% {
-			opacity: 0;
-			transform: translate(-50%, -50%) scale(0.3);
-		}
-		10% {
-			opacity: 1;
-			transform: translate(-50%, -50%) scale(1);
-		}
-		100% {
-			opacity: 0;
-			transform: translate(calc(cos(var(--angle)) * var(--dist) - 50%), calc(sin(var(--angle)) * var(--dist) - 50%)) scale(0.6);
 		}
 	}
 

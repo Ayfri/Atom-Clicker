@@ -3,6 +3,7 @@ import { gameManager } from '#helpers/GameManager.svelte.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import type { Currency } from '#lib/types.js';
+import { untrack } from 'svelte';
 
 /** Delay plus duration of the arriving realm's swing in `+page.svelte`, rects measured before it ends are still transformed. */
 export const REALM_SWITCH_MS = 800;
@@ -18,7 +19,9 @@ export interface RealmConfig {
 }
 
 class RealmManager {
-	selectedRealmId = $state<RealmType>(RealmTypes.ATOMS);
+	get selectedRealmId() {
+		return gameManager.selectedRealmId;
+	}
 
 	realms: RealmConfig[] = [
 		{
@@ -62,10 +65,15 @@ class RealmManager {
 		return this.realms.find(r => r.id === this.selectedRealmId) || this.realms[0];
 	}
 
+	/** An off-screen realm stays mounted, a value read through this freezes there instead of rerunning on every atom commit. */
+	live<T>(realm: RealmType, read: () => T): T {
+		return this.selectedRealmId === realm ? read() : untrack(read);
+	}
+
 	selectRealm(id: RealmType) {
-		if (this.realms.find(r => r.id === id && gameManager.realms[r.id].unlocked)) {
+		if (this.realms.find(r => r.id === id && gameManager.realms[r.id]?.unlocked)) {
 			perfTracker.action(`realm:${id}`);
-			this.selectedRealmId = id;
+			gameManager.selectedRealmId = id;
 		}
 	}
 }

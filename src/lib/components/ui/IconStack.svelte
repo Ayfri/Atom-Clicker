@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { ICONS, type IconName } from '#data/icons.js';
+	import type { IconName } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
 	import { MAX_STACK_COUNT } from '#helpers/iconStacks.js';
 
 	interface Props {

@@ -1,4 +1,5 @@
 import { QUARK_CHARGE_COLORS } from '#data/quarks.js';
+import { prefersReducedMotion } from 'svelte/motion';
 
 const ARC_STEPS = 12;
 const CHARGE_COLORS = Object.values(QUARK_CHARGE_COLORS);
@@ -22,8 +23,6 @@ function bump(element: Element) {
 	element.animate([{ scale: 1 }, { scale: 1.15 }, { scale: 1 }], { duration: 200, easing: 'ease-out' });
 }
 
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /**
  * Colored sparks rise from every `sources` point into `target` and resolve once the last one landed. Sources leave in
  * order across `cascade` ms, each spark flies for `duration`. One-shot WAAPI on transform and opacity, capped at 48
@@ -33,7 +32,7 @@ const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').match
  */
 export function gatherSparks(sources: { x: number; y: number }[], target: Element, duration = 600, cascade = 0): Promise<void> {
 	const to = target.getBoundingClientRect();
-	if (sources.length === 0 || !to.width || reducedMotion()) return Promise.resolve();
+	if (sources.length === 0 || !to.width || prefersReducedMotion.current) return Promise.resolve();
 
 	const sampled = sources.length <= MAX_SPARKS ? sources : Array.from({ length: MAX_SPARKS }, (_, i) => sources[Math.floor((i * sources.length) / MAX_SPARKS)]);
 	const perSource = Math.max(1, Math.min(SPARKS_PER_SOURCE, Math.floor(MAX_SPARKS / sampled.length)));
@@ -76,7 +75,7 @@ export function quarkFlight(source: Element): (count: number, cascade?: number) 
 		const flyers = Math.min(count, MAX_FLYERS);
 		const target = document.getElementById('nav-quarks');
 		const to = target?.getBoundingClientRect();
-		if (!icon || !from?.width || !target || !to?.width || count <= 0 || reducedMotion()) return;
+		if (!icon || !from?.width || !target || !to?.width || count <= 0 || prefersReducedMotion.current) return;
 
 		const dx = to.left + to.width / 2 - (from.left + from.width / 2);
 		const dy = to.top + to.height / 2 - (from.top + from.height / 2);

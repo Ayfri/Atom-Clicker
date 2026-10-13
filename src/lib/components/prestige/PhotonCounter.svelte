@@ -48,9 +48,10 @@
 				</span>
 			{/if}
 			<AutoButton
+				description="Automatically clicks purple circles for you, continuously."
 				onClick={() => gameManager.toggleAutoClickPhotons()}
+				status={gameManager.photonAutoClicksPer5Seconds > 0 ? `Currently clicking ${formatNumber(gameManager.photonAutoClicksPer5Seconds / 5, 1)} times per second.` : null}
 				toggled={gameManager.settings.automation.autoClickPhotons}
-				tooltipContent={autoClickPhotonsTooltip}
 			/>
 		</div>
 	{/if}
@@ -59,12 +60,3 @@
 		<p class="mt-2 text-base text-realm-300" transition:fade={{ duration: 5000 }}>Click the purple circles to collect more photons!</p>
 	{/if}
 </div>
-
-{#snippet autoClickPhotonsTooltip()}
-	<div class="flex flex-col gap-1">
-		<p class="text-xs text-white/80">Automatically clicks purple circles for you, continuously.</p>
-		{#if gameManager.settings.automation.autoClickPhotons && gameManager.photonAutoClicksPer5Seconds > 0}
-			<p class="text-xs text-white/60">Currently clicking {formatNumber(gameManager.photonAutoClicksPer5Seconds / 5, 1)} times per second.</p>
-		{/if}
-	</div>
-{/snippet}

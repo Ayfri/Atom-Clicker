@@ -11,10 +11,14 @@ const CHECK_INTERVAL_MS = 250;
 class AutoBuyManager {
 	recentlyAutoPurchasedGenerators = new SvelteMap<GeneratorType, number>();
 	nextFireTimes = new SvelteMap<GeneratorType, number>();
+	/** Called after each auto-buy with the generator's count and level from before it, set by the Generators panel to play the purchase particles. */
+	onPurchase: ((type: GeneratorType, count: number, level: number) => void) | null = null;
 
 	purchaseGenerator(type: GeneratorType) {
+		const { count = 0, level = 0 } = gameManager.generators[type] ?? {};
 		if (!gameManager.purchaseGenerator(type, 1)) return;
 
+		this.onPurchase?.(type, count, level);
 		this.recentlyAutoPurchasedGenerators.set(type, (this.recentlyAutoPurchasedGenerators.get(type) ?? 0) + 1);
 		setTimeout(() => {
 			const current = this.recentlyAutoPurchasedGenerators.get(type) ?? 0;

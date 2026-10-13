@@ -2,7 +2,6 @@
 	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { CachedRect } from '#helpers/CachedRect.svelte.js';
@@ -87,7 +86,6 @@
 		/** Offset of the float cycle, so neighbours never bob in sync. */
 		phase: number;
 		type?: 'normal' | 'excited';
-		baseValue?: number;
 	}
 
 	// Circles are drawn to a canvas, so they deliberately stay out of the reactive graph.
@@ -244,8 +242,7 @@
 			rotation: Math.random() * 360,
 			spin: (Math.random() < 0.5 ? -1 : 1) * (MIN_SPIN + Math.random() * (MAX_SPIN - MIN_SPIN)),
 			phase: Math.random() * Math.PI * 2,
-			type: isExcited ? 'excited' : 'normal',
-			baseValue: isExcited ? 1 : 1
+			type: isExcited ? 'excited' : 'normal'
 		};
 
 		circles.push(circle);
@@ -539,8 +536,7 @@
 	 * The photons keep their currency color, a golden normal photon would pass for an excited one.
 	 */
 	const themePalette = $derived.by(() => {
-		const themeId = quarksManager.equippedThemes[RealmTypes.PHOTONS];
-		const theme = themeId ? getQuarkShopItem(themeId)?.theme : undefined;
+		const theme = quarksManager.theme(RealmTypes.PHOTONS);
 		if (!theme) return undefined;
 
 		const accent = theme.accent;

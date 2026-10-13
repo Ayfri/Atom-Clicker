@@ -7,16 +7,17 @@
 		getGeneratorColor,
 		type GeneratorType,
 	} from '#data/generators.js';
-	import { GENERATOR_ICON_NAMES, ICONS } from '#data/icons.js';
+	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { GENERATOR_COST_MULTIPLIER } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { AmbientField, ELECTRON_FLIGHT } from '#helpers/AmbientField.js';
 	import { AtomRenderer } from '#helpers/AtomRenderer.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
-	import { clock } from '#stores/clock.svelte.js';
 	import AutoButton from '#components/ui/AutoButton.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -42,7 +43,9 @@
 	const automatedByUpgrade = $derived(new Set(gameManager.effects.targets('auto_buy')));
 
 	const hiddenGenerators = $derived(
-		GENERATOR_TYPES.filter(type => !gameManager.generators[type]?.unlocked && !gameManager.canAfford(GENERATORS[type].cost)),
+		realmManager.live(RealmTypes.ATOMS, () =>
+			GENERATOR_TYPES.filter(type => !gameManager.generators[type]?.unlocked && !gameManager.canAfford(GENERATORS[type].cost)),
+		),
 	);
 
 	const obfuscatedGenerators = $derived(new Set(hiddenGenerators));
@@ -50,32 +53,36 @@
 	const fullyHiddenGenerators = $derived(new Set(hiddenGenerators.slice(1)));
 
 	const purchaseAmounts = $derived(
-		Object.fromEntries(
-			GENERATOR_TYPES.map(type => [
-				type,
-				selectedPurchaseMode === 'max' ? gameManager.getMaxAffordableGenerator(type) : PurchaseModes[selectedPurchaseMode],
-			]),
-		) as Record<GeneratorType, number>,
+		realmManager.live(
+			RealmTypes.ATOMS,
+			() =>
+				Object.fromEntries(
+					GENERATOR_TYPES.map(type => [
+						type,
+						selectedPurchaseMode === 'max' ? gameManager.getMaxAffordableGenerator(type) : PurchaseModes[selectedPurchaseMode],
+					]),
+				) as Record<GeneratorType, number>,
+		),
 	);
 
 	const affordableGenerators = $derived(
-		new Set(
-			GENERATOR_TYPES.filter(type => {
-				const amount = purchaseAmounts[type];
-				if (amount <= 0) return false;
-				return gameManager.canAfford({ amount: gameManager.getGeneratorCost(type, amount), currency: GENERATORS[type].cost.currency });
-			}),
+		realmManager.live(
+			RealmTypes.ATOMS,
+			() =>
+				new Set(
+					GENERATOR_TYPES.filter(type => {
+						const amount = purchaseAmounts[type];
+						if (amount <= 0) return false;
+						return gameManager.canAfford({ amount: gameManager.getGeneratorCost(type, amount), currency: GENERATORS[type].cost.currency });
+					}),
+				),
 		),
 	);
 
 	const totalProduction = $derived(GENERATOR_TYPES.reduce((sum, type) => sum + gameManager.generatorProductions[type], 0));
 
-	function handlePurchase(type: GeneratorType, event: MouseEvent) {
-		const amount = purchaseAmounts[type];
-		if (!affordableGenerators.has(type) || amount <= 0) return;
-
-		const { count = 0, level = 0 } = gameManager.generators[type] ?? {};
-		if (!gameManager.purchaseGenerator(type, amount)) return;
+	/** `count` and `level` are the generator's values from before the purchase. */
+	function playPurchase(type: GeneratorType, amount: number, count: number, level: number, origin: MouseEvent | { x: number; y: number }) {
 		const newLevel = gameManager.generators[type]?.level ?? 0;
 
 		// The new electrons wait for a group of comets, each landing on the slot where one of them grows in. A level up empties
@@ -99,15 +106,32 @@
 		// A level up changes the generator color, so it blooms in the new one.
 		const arrivals =
 			newLevel > level ?
-				AmbientField.emit(RealmTypes.ATOMS, 'bloom', event, { ...burst, color: getGeneratorColor(newLevel), surge: 12 })
-			:	AmbientField.emit(RealmTypes.ATOMS, 'embers', event, { ...burst, color: getGeneratorColor(level), count: 4 + extra, surge: 2 + extra });
+				AmbientField.emit(RealmTypes.ATOMS, 'bloom', origin, { ...burst, color: getGeneratorColor(newLevel), surge: 12 })
+			:	AmbientField.emit(RealmTypes.ATOMS, 'embers', origin, { ...burst, color: getGeneratorColor(level), count: 4 + extra, surge: 2 + extra });
 		if (arrivals.length > 0) renderer?.hold(line, Math.max(...arrivals), after);
+	}
+
+	function handlePurchase(type: GeneratorType, event: MouseEvent) {
+		const amount = purchaseAmounts[type];
+		if (!affordableGenerators.has(type) || amount <= 0) return;
+
+		const { count = 0, level = 0 } = gameManager.generators[type] ?? {};
+		if (gameManager.purchaseGenerator(type, amount)) playPurchase(type, amount, count, level, event);
 	}
 
 	function formatShare(production: number) {
 		const share = (production / totalProduction) * 100;
 		return share < 1 ? '<1%' : `${Math.round(share)}%`;
 	}
+
+	$effect(() => {
+		autoBuyManager.onPurchase = (type, count, level) => {
+			if (realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
+			const row = document.querySelector(`[data-generator=${type}]`)?.getBoundingClientRect();
+			if (row?.width) playPurchase(type, 1, count, level, { x: row.x + row.width / 2, y: row.y + row.height / 2 });
+		};
+		return () => (autoBuyManager.onPurchase = null);
+	});
 
 	$effect(() => {
 		for (const type of GENERATOR_TYPES) {
@@ -163,22 +187,6 @@
 			{const isAutomated = $derived(gameManager.settings.automation.generators.includes(type))}
 			{const autoPurchasedCount = $derived(autoBuyManager.recentlyAutoPurchasedGenerators.get(type) ?? 0)}
 			{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
-
-			{#snippet autoBuyTooltip()}
-				{const interval = $derived(gameManager.autoBuyIntervals[type])}
-				{const nextFire = $derived(autoBuyManager.nextFireTimes.get(type))}
-				<div class="flex flex-col gap-1">
-					<p class="text-xs text-white/80">Automatically buys 1 {generator.name} whenever you can afford it.</p>
-					{#if isAutomated && interval}
-						<p class="text-xs text-white/60">
-							Checks every {(interval / 1000).toFixed(1)}s
-							{#if nextFire}
-								- next in {Math.max(0, (nextFire - clock.now) / 1000).toFixed(1)}s
-							{/if}
-						</p>
-					{/if}
-				</div>
-			{/snippet}
 
 			<button
 				class="relative text-start rounded-lg border p-2 transition-all duration-200 {affordable ?
@@ -242,12 +250,14 @@
 						{/if}
 						{#if automatedByUpgrade.has(type)}
 							<AutoButton
+								description="Automatically buys 1 {generator.name} whenever you can afford it."
+								interval={gameManager.autoBuyIntervals[type]}
+								nextFire={autoBuyManager.nextFireTimes.get(type)}
 								onClick={e => {
 									e.stopPropagation();
 									gameManager.toggleAutomation(type);
 								}}
 								toggled={isAutomated}
-								tooltipContent={autoBuyTooltip}
 							/>
 						{/if}
 					</span>

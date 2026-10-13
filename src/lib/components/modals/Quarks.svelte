@@ -12,7 +12,8 @@
 	import Modal from '#components/ui/Modal.svelte';
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
-	import { CURRENCY_ICON_NAMES, type IconComponent } from '#data/icons.js';
+	import { CURRENCY_ICON_NAMES } from '#data/iconNames.js';
+	import type { IconComponent } from '#data/icons.js';
 	import { QUARK_CHARGE_COLORS } from '#data/quarks.js';
 	import { QUARK_SHOP, type QuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';

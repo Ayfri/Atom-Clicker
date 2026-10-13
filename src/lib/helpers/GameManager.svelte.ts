@@ -1,3 +1,4 @@
+import { dev } from '$app/env';
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
 import { CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
@@ -6,7 +7,7 @@ import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
 import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
 import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
-import { REALMS, RealmTypes } from '#data/realms.js';
+import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
@@ -33,13 +34,11 @@ import { applyOfflineProgress } from '#helpers/offlineProgress.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds } from '#helpers/runBounds.js';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/saves.js';
 import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
 import { TutorialManager } from '#helpers/TutorialManager.svelte.js';
 import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '#helpers/xp.js';
-import { leaderboard } from '#stores/leaderboard.svelte.js';
 import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
@@ -85,6 +84,7 @@ export class GameManager {
 	realms = $state<Record<string, RealmState>>(structuredClone(statsConfig.realms.defaultValue));
 	runStartedAt = $state(Date.now());
 	saveIntegrityWarnings = $state<string[]>([]);
+	selectedRealmId = $state<RealmType>(RealmTypes.ATOMS);
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
 	skillUpgrades = $state.raw<string[]>([]);
 	startDate = $state(Date.now());
@@ -98,6 +98,8 @@ export class GameManager {
 	totalProtonisesAllTime = $state(0);
 	totalProtonisesRun = $state(0);
 	totalUpgradesPurchasedAllTime = $state(0);
+	/** Every account, pushed in by the leaderboard store on the client and by the audit on the server, never read from a save. */
+	totalUsers = $state(0);
 	totalXP = $state(0);
 	tutorialManager = new TutorialManager();
 	upgrades = $state.raw<string[]>([]);
@@ -338,8 +340,6 @@ export class GameManager {
 	/** Idle time to fill the stability field: 10 minutes, stretched by capacity and shortened by speed. */
 	stabilityTimeRequired = $derived((STABILITY_BASE_TIME_MS * this.stabilityCapacity) / this.stabilitySpeed);
 
-	totalUsers = $derived(leaderboard.stats.totalUsers);
-
 	/** Membership lookups run over every achievement each tick, so the array is mirrored into a set once per change. */
 	unlockedAchievementIds = $derived(new Set(this.achievements));
 
@@ -491,7 +491,7 @@ export class GameManager {
 			radiationUpgrades: this.radiationUpgrades,
 			realms: this.realms,
 			runStartedAt: this.runStartedAt,
-			selectedRealmId: realmManager.selectedRealmId,
+			selectedRealmId: this.selectedRealmId,
 			settings: this.settings,
 			skillUpgrades: this.skillUpgrades,
 			startDate: this.startDate,
@@ -504,7 +504,6 @@ export class GameManager {
 			totalProtonisesAllTime: this.totalProtonisesAllTime,
 			totalProtonisesRun: this.totalProtonisesRun,
 			totalUpgradesPurchasedAllTime: this.totalUpgradesPurchasedAllTime,
-			totalUsers: this.totalUsers,
 			totalXP: this.totalXP,
 			tutorial: this.tutorialManager.state,
 			upgrades: this.upgrades,
@@ -569,7 +568,7 @@ export class GameManager {
 
 		this.loadSaveData(result.state);
 		this.syncUnlocks();
-		if (result.integrityTampered) this.integrityFlagged = true;
+		if (result.integrityTampered && !dev) this.integrityFlagged = true;
 		this.reportIntegrity(result.integrityWarnings ?? []);
 		this.catchUpOffline();
 		this.save();
@@ -621,7 +620,9 @@ export class GameManager {
 		});
 	}
 
+	/** Dev saves are edited through the DevTools on purpose, and leaderboard submissions are off in dev. */
 	private reportIntegrity(warnings: string[]) {
+		if (dev) return;
 		this.saveIntegrityWarnings = warnings;
 		if (!this.integrityFlagged && warnings.length === 0) return;
 		console.warn('Save integrity check flagged this save:', { flagged: this.integrityFlagged, warnings });
@@ -649,7 +650,9 @@ export class GameManager {
 					this.radiationUpgrades = data.radiationUpgrades ?? {};
 					break;
 				case 'selectedRealmId':
-					if (data.selectedRealmId) realmManager.selectRealm(data.selectedRealmId);
+					if (data.selectedRealmId && Object.hasOwn(REALMS, data.selectedRealmId) && this.realms[data.selectedRealmId]?.unlocked) {
+						this.selectedRealmId = data.selectedRealmId;
+					}
 					break;
 				case 'settings': {
 					const defaults = statsConfig.settings.defaultValue;
@@ -705,11 +708,11 @@ export class GameManager {
 		return true;
 	}
 
-	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline. Returns the purchased ids. */
-	purchaseAffordableUpgrades(): string[] {
+	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline, or only those paid in `currency`. Returns the purchased ids. */
+	purchaseAffordableUpgrades(currency?: CurrencyName): string[] {
 		const owned = new Set(this.upgrades);
 		const candidates = Object.values(UPGRADES)
-			.filter(upgrade => !owned.has(upgrade.id) && (upgrade.condition?.(this) ?? true))
+			.filter(upgrade => !owned.has(upgrade.id) && (!currency || upgrade.cost.currency === currency) && (upgrade.condition?.(this) ?? true))
 			.sort((a, b) => a.cost.amount - b.cost.amount);
 		const purchased: string[] = [];
 		for (const upgrade of candidates) {
@@ -805,10 +808,7 @@ export class GameManager {
 				currenciesManager.hardReset();
 				break;
 			case 'radiation':
-				radiationManager.loadState({ ...statsConfig.radiation.defaultValue, lastTick: Date.now() });
-				break;
-			case 'selectedRealmId':
-				realmManager.selectRealm(RealmTypes.ATOMS);
+				radiationManager.loadState({ ...statsConfig.radiation.defaultValue });
 				break;
 			case 'tutorial':
 				this.tutorialManager.reset();

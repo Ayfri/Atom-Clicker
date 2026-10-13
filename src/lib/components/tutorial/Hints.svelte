@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { HINTS, type Hint } from '#data/hints.js';
+	import type { RealmType } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { perfTracker } from '#helpers/perfTracker.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -18,16 +19,32 @@
 
 	const unseen = $derived(tutorial.state.enabled ? HINTS.filter(hint => !tutorial.hasSeen(hint.id)) : []);
 
-	// Completion is tracked for every unseen hint, so a player who already did the action never gets told to do it.
+	/** Hints for the realm on screen, changes only on the poll so atom commits never rebuild it. */
+	let pending = $state.raw<Hint[]>([]);
+
+	/** Completion is tracked for every unseen hint, so a player who already did the action never gets told to do it. */
+	function evaluate(realm: RealmType) {
+		const start = performance.now();
+		const next: Hint[] = [];
+		for (const hint of unseen) {
+			if (hint.done?.()) tutorial.markSeen(hint.id);
+			else if (hint.realm === realm && (!hint.show || hint.show())) next.push(hint);
+		}
+		if (next.length !== pending.length || next.some((hint, i) => hint !== pending[i])) pending = next;
+		perfTracker.track('hints:evaluate', start);
+	}
+
 	$effect(() => {
-		for (const hint of unseen) if (hint.done?.()) tutorial.markSeen(hint.id);
+		if (unseen.length === 0) {
+			pending = [];
+			return;
+		}
+		const realm = realmManager.selectedRealmId;
+		untrack(() => evaluate(realm));
+		const interval = setInterval(() => evaluate(realm), POLL_MS);
+		return () => clearInterval(interval);
 	});
 
-	const pending = $derived(
-		unseen.filter(hint => hint.realm === realmManager.selectedRealmId && (!hint.show || hint.show()) && !hint.done?.()),
-	);
-
-	// `pending` is rebuilt on every atom commit, the polling effect only restarts when it empties or fills.
 	const hasPending = $derived(pending.length > 0);
 
 	let current = $state.raw<Hint | null>(null);

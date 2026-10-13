@@ -1,4 +1,4 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { between, CanvasLoop, RadialGlow } from '#helpers/CanvasLoop.js';
 
 const MAX_SPARKS = 16;
 /** Sparks spawned per second. */
@@ -11,6 +11,14 @@ const SWAY = 8;
 /** Glow radius in px. */
 const SIZE: readonly [number, number] = [3, 5];
 const GLOW_SIZE = 16;
+const GLOW = new RadialGlow(
+	[
+		[0, 1],
+		[0.3, 0.5],
+		[1, 0],
+	],
+	{ size: GLOW_SIZE, tint: true },
+);
 /** Distance between the canvas bottom and the gauge center, where sparks are born. */
 const GAUGE_OFFSET = 6;
 
@@ -24,15 +32,12 @@ interface Spark {
 	y: number;
 }
 
-const between = ([min, max]: readonly [number, number]) => min + Math.random() * (max - min);
-
 /** Glowing sparks rising off a maxed currency boost gauge, mounted only while the gauge is full. */
 export class BoostSparks extends CanvasLoop {
 	private readonly ctx: CanvasRenderingContext2D;
 	/** Fraction of a spark owed by the spawn rate, carried between frames. */
 	private debt = 0;
 	private height = 0;
-	private ratio = 1;
 	private readonly sparks: Spark[] = [];
 	private width = 0;
 
@@ -63,7 +68,7 @@ export class BoostSparks extends CanvasLoop {
 		}
 
 		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-		const glow = this.glow();
+		const glow = GLOW.sprite(this.color);
 		let alive = 0;
 		for (const spark of sparks) {
 			spark.age += dt;
@@ -79,31 +84,11 @@ export class BoostSparks extends CanvasLoop {
 		return true;
 	}
 
-	protected resize() {
-		this.ratio = pixelRatio();
-		this.width = this.canvas.clientWidth;
-		this.height = this.canvas.clientHeight;
-		this.canvas.width = Math.max(1, Math.round(this.width * this.ratio));
-		this.canvas.height = Math.max(1, Math.round(this.height * this.ratio));
+	protected resize(width: number, height: number) {
+		this.fit(width, height);
+		this.width = width;
+		this.height = height;
 		// Resizing resets the context state and clears the canvas.
 		this.ctx.globalCompositeOperation = 'lighter';
-	}
-
-	private glow() {
-		return this.sprite(
-			this.color,
-			(ctx, half) => {
-				const halo = ctx.createRadialGradient(half, half, 0, half, half, half);
-				halo.addColorStop(0, 'rgba(255, 255, 255, 1)');
-				halo.addColorStop(0.3, 'rgba(255, 255, 255, 0.5)');
-				halo.addColorStop(1, 'rgba(255, 255, 255, 0)');
-				ctx.fillStyle = halo;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-				ctx.globalCompositeOperation = 'source-in';
-				ctx.fillStyle = this.color;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-			},
-			GLOW_SIZE,
-		);
 	}
 }

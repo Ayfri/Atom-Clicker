@@ -107,13 +107,11 @@ export async function reportError(error: Error | string): Promise<void> {
 		if (isDuplicateError(report.errorMessage, report.stackTrace)) return;
 
 		// The server attributes the report to the session behind this token, so an unauthenticated report stays anonymous.
-		const token = await supabaseAuth.getAccessToken().catch(() => null);
-		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-		if (token) headers.Authorization = `Bearer ${token}`;
+		const authHeaders = await supabaseAuth.authHeaders().catch(() => ({}));
 
 		await fetch('/api/errors', {
 			body: JSON.stringify(report),
-			headers,
+			headers: { ...authHeaders, 'Content-Type': 'application/json' },
 			method: 'POST'
 		});
 	} catch {

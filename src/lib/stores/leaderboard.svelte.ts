@@ -1,5 +1,5 @@
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { browser } from '$app/env';
+import { browser, dev } from '$app/env';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 import { obfuscateClientData } from '#lib/utils/obfuscation.js';
@@ -29,7 +29,7 @@ interface LeaderboardData {
 	stats: LeaderboardStats;
 }
 
-export class LeaderboardStore {
+class LeaderboardStore {
 	entries = $state.raw<LeaderboardEntry[]>([]);
 	/** Bumped on every successful fetch, restarts the header's refresh countdown. */
 	fetchedAt = $state(0);
@@ -90,10 +90,21 @@ export class LeaderboardStore {
 			const userId = supabaseAuth.isAuthenticated ? supabaseAuth.user?.id : undefined;
 			this.entries = userId ? data.entries.map((entry) => (entry.userId === userId ? { ...entry, self: true } : entry)) : data.entries;
 			this.stats = data.stats;
+			gameManager.totalUsers = data.stats.totalUsers;
 			this.fetchedAt = Date.now();
 			if (this.visiting) this.saveRanks();
 		} catch (error) {
 			console.error('Error fetching leaderboard:', error);
+		}
+	}
+
+	/** The community upgrade needs the account count right after load, without opening the leaderboard. */
+	async fetchPlayerCount() {
+		try {
+			const response = await fetch('/api/stats');
+			if (response.ok) gameManager.totalUsers = ((await response.json()) as { totalUsers: number }).totalUsers;
+		} catch (error) {
+			console.warn('Error fetching player count:', error);
 		}
 	}
 
@@ -106,7 +117,8 @@ export class LeaderboardStore {
 
 	/** Sends the whole game state, the server audits it and reads the score from it, see /api/leaderboard. */
 	async updateScore() {
-		if (!browser || this.isUpdating) return;
+		/** Dev saves are edited freely through the DevTools, they never reach the leaderboard. */
+		if (!browser || dev || this.isUpdating) return;
 		// Skip submission for saves flagged by the integrity checks, see plausibility.ts.
 		if (gameManager.integrityFlagged || gameManager.saveIntegrityWarnings.length > 0) return;
 
@@ -114,8 +126,8 @@ export class LeaderboardStore {
 			this.isUpdating = true;
 			if (!supabaseAuth || !supabaseAuth.isAuthenticated || !supabaseAuth.user) return;
 
-			const accessToken = await supabaseAuth.getAccessToken();
-			if (!accessToken) return;
+			const headers = await supabaseAuth.authHeaders();
+			if (!('Authorization' in headers)) return;
 			this.nextSubmitAt = Date.now() + MIN_UPDATE_INTERVAL;
 
 			const { dailyStats, settings, tutorial, ...state } = gameManager.getCurrentState();
@@ -127,10 +139,7 @@ export class LeaderboardStore {
 
 			const response = await fetch('/api/leaderboard', {
 				body: JSON.stringify(obfuscateClientData(data)),
-				headers: {
-					'Authorization': `Bearer ${accessToken}`,
-					'Content-Type': 'application/json',
-				},
+				headers: { ...headers, 'Content-Type': 'application/json' },
 				method: 'POST',
 			});
 
@@ -164,7 +173,7 @@ export class LeaderboardStore {
 	}
 
 	constructor() {
-		if (browser) {
+		if (browser && !dev) {
 			let lastAtoms = 0;
 			let lastLevel = 0;
 

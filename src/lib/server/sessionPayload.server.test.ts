@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { deviceKey, parseSessionStart, parseSessionUpdate, readJsonBody } from '#lib/server/sessionPayload.server.js';
+import { deviceKey, parseSessionStart, parseSessionUpdate } from '#lib/server/sessionPayload.server.js';
 import type { DeviceInfo, PerfIncident, PerfWindow, SessionGame, SessionPerf } from '#lib/types/session.js';
 
 const SESSION_ID = '3f2b8c1e-4d5a-4e6f-9a7b-1c2d3e4f5a6b';
@@ -253,31 +253,6 @@ describe('parseSessionUpdate', () => {
 		};
 		expect(new TextEncoder().encode(JSON.stringify(full)).length).toBeLessThan(16 * 1024);
 		expect(parseSessionUpdate(full)?.perf.incidents).toHaveLength(6);
-	});
-});
-
-describe('readJsonBody', () => {
-	const post = (body: string, headers: Record<string, string> = {}) => new Request('http://localhost/api', { body, headers, method: 'POST' });
-
-	test('parses a body within the cap', async () => {
-		expect(await readJsonBody(post('{"a":1}'), 100)).toEqual({ body: { a: 1 } });
-	});
-
-	test('a declared length over the cap is refused before the body is read', async () => {
-		const result = await readJsonBody(post('{}', { 'content-length': '500' }), 100);
-		expect('error' in result && result.error.status).toBe(413);
-	});
-
-	test('the cap is in UTF-8 bytes, not characters', async () => {
-		const body = JSON.stringify({ a: 'é'.repeat(60) });
-		expect(body.length).toBeLessThan(100);
-		const result = await readJsonBody(post(body), 100);
-		expect('error' in result && result.error.status).toBe(413);
-	});
-
-	test('invalid JSON is a 400', async () => {
-		const result = await readJsonBody(post('{nope'), 100);
-		expect('error' in result && result.error.status).toBe(400);
 	});
 });
 

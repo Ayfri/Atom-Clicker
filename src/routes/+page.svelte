@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { COLLIDER_REFRESH_MS } from '#data/collider.js';
 	import { FeatureTypes } from '#data/features.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
-	import type { RealmConfig } from '#helpers/RealmManager.svelte.js';
 	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { perfMonitor } from '#helpers/PerfMonitor.js';
@@ -15,6 +13,7 @@
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
@@ -40,13 +39,6 @@
 		PhotonRealm: PhotonRealm,
 		RadiationRealm: RadiationRealm,
 	};
-
-	// Equipped Quark themes only swap the background gradient; falls back to the realm's default.
-	function getRealmBackground(realm: RealmConfig): string | undefined {
-		const themeId = quarksManager.equippedThemes[realm.id];
-		const theme = themeId ? getQuarkShopItem(themeId)?.theme : undefined;
-		return theme?.background ?? realm.background;
-	}
 
 	const selectedIndex = $derived(realmManager.selectedIndex);
 
@@ -223,6 +215,7 @@
 
 		perfMonitor.start();
 		bootstrapAccount();
+		void leaderboard.fetchPlayerCount();
 
 		return () => {
 			document.removeEventListener('visibilitychange', saveOnHide);
@@ -256,17 +249,19 @@
 		     children, even with reduced motion where it has no transform. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
 			{const RealmComponent = $derived(realmComponents[realm.componentId])}
-			{const background = $derived(getRealmBackground(realm))}
+			{const background = $derived(quarksManager.theme(realm.id)?.background ?? realm.background)}
 			{const side = $derived(Math.sign(i - selectedIndex))}
 
 			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
-			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
+			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade.
+			     A leaving panel catches clicks with its `::after` layer: `pointer-events` is inherited, toggling it restyles
+			     every element of the realm, half a second for the Atom realm on a slow laptop. -->
 			<div
 				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
 					side
 				) ?
-					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
+					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 after:absolute after:inset-0 after:z-1000'
 				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
 				style="top: {mobile.current ? 'var(--banner-height)' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
 					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`

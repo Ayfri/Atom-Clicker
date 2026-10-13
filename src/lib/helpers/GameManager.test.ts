@@ -87,6 +87,15 @@ describe('upgrade purchases', () => {
 		expect(affordable.map(upgrade => upgrade.id)).toEqual([]);
 	});
 
+	test('buying affordable upgrades for one currency never touches the others', () => {
+		currenciesManager.add(ATOMS, 1e12);
+		currenciesManager.add(PROTONS, 1e6);
+		const bought = gameManager.purchaseAffordableUpgrades(PROTONS);
+		expect(bought.length).toBeGreaterThan(0);
+		expect(bought.every(id => UPGRADES[id].cost.currency === PROTONS)).toBe(true);
+		expect(gameManager.atoms).toBe(1e12);
+	});
+
 	test('photon upgrades spend photons level by level up to their max', () => {
 		const upgrade = PHOTON_UPGRADES.auto_clicker;
 		let total = 0;

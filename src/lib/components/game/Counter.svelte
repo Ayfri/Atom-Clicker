@@ -5,7 +5,9 @@
 	import Tooltip from '#components/ui/Tooltip.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
+	import { RealmTypes } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { Info } from '@lucide/svelte';
@@ -24,6 +26,7 @@
 		return { base: multipliers.reduce((base, { value }) => base / value, gameManager.atomsPerSecond), multipliers };
 	}
 
+	const atoms = $derived(realmManager.live(RealmTypes.ATOMS, () => gameManager.atoms));
 	const hasAutoClick = $derived(gameManager.effects.has('auto_click'));
 	const prestigeCurrencies = $derived([CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS].filter(type => gameManager.currencies[type].amount > 0));
 	const stabilityPaused = $derived(gameManager.activePowerUps.length > 0);
@@ -62,7 +65,7 @@
 				'[text-shadow:0_0_18px_#4a90e2,0_0_40px_#4a90e2]'
 			:	'[text-shadow:0_0_24px_rgb(74_144_226/0.45)]'}"
 		>
-			{formatNumber(gameManager.atoms)}
+			{formatNumber(atoms)}
 		</span>
 	</div>
 	<span class="text-[11px] font-bold tracking-[0.3em] text-white/45 uppercase">Atoms</span>
@@ -107,9 +110,10 @@
 			{/if}
 			{#if hasAutoClick}
 				<AutoButton
+					description="Automatically clicks the atom for you, continuously."
 					onClick={() => gameManager.toggleAutoClick()}
+					status={gameManager.autoClicksPerSecond > 0 ? `Currently clicking ${formatNumber(gameManager.autoClicksPerSecond, 1)} times per second.` : null}
 					toggled={gameManager.settings.automation.autoClick}
-					tooltipContent={autoClickTooltip}
 				/>
 			{/if}
 		</div>
@@ -170,11 +174,3 @@
 	{/if}
 </div>
 
-{#snippet autoClickTooltip()}
-	<div class="flex flex-col gap-1">
-		<p class="text-xs text-white/80">Automatically clicks the atom for you, continuously.</p>
-		{#if gameManager.settings.automation.autoClick && gameManager.autoClicksPerSecond > 0}
-			<p class="text-xs text-white/60">Currently clicking {formatNumber(gameManager.autoClicksPerSecond, 1)} times per second.</p>
-		{/if}
-	</div>
-{/snippet}

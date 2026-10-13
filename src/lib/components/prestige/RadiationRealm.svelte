@@ -5,7 +5,6 @@
 	import RadiationUpgrades from '#components/radiation/RadiationUpgrades.svelte';
 	import ReactorCore from '#components/radiation/ReactorCore.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -16,10 +15,7 @@
 
 	const DEFAULT_ACCENT = '#39ff14';
 
-	const accent = $derived.by(() => {
-		const themeId = quarksManager.equippedThemes[RealmTypes.RADIATION];
-		return (themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined) ?? DEFAULT_ACCENT;
-	});
+	const accent = $derived(quarksManager.theme(RealmTypes.RADIATION)?.accent ?? DEFAULT_ACCENT);
 	const mass = $derived(radiationManager.mass);
 	const power = $derived(radiationManager.controlRodLevel);
 	const cpm = $derived(radiationManager.currentCpm);
@@ -36,9 +32,14 @@
 				2 + Math.round(8 * Math.min(1, cpm / radiationManager.maxCpm)) + Math.min(6, Object.keys(radiationManager.upgradeLevels).length)
 			:	1,
 	});
-	/** Latched so lowering the power under 10 CPM does not hide the upgrades again, once true the derived has no dependency left. */
+	/**
+	 * Ionizing takes far more than 10 CPM, so after one the upgrades stay open across Ionizes and reloads. Latched so lowering the
+	 * power under 10 CPM does not hide them again, once true the derived has no dependency left.
+	 */
 	let upgradesReached = false;
-	const showUpgrades = $derived((upgradesReached ||= cpm >= 10 || Object.keys(radiationManager.upgradeLevels).length > 0));
+	const showUpgrades = $derived(
+		(upgradesReached ||= radiationManager.ionizes > 0 || cpm >= 10 || Object.keys(radiationManager.upgradeLevels).length > 0),
+	);
 
 	const status = $derived(
 		!hasMass ? { color: 'text-white/50', detail: 'inject fuel to start', label: 'Core empty' }

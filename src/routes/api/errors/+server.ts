@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { logError } from '#lib/server/errorHandler.server.js';
 import { RateLimiter } from '#lib/server/rateLimit.server.js';
+import { readJsonBody } from '#lib/server/requestBody.server.js';
 import { resolveUserFromRequest } from '#lib/server/supabase.server.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -26,13 +27,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });
 		}
 
-		const rawBody = await request.text();
-		if (rawBody.length > MAX_BODY_BYTES) {
-			return Response.json({ error: 'Payload too large' }, { status: 413 });
-		}
+		const read = await readJsonBody(request, MAX_BODY_BYTES);
+		if ('error' in read) return read.error;
 
-		const body: Record<string, unknown> = JSON.parse(rawBody);
-		const errorMessage = clampString(body.errorMessage, MAX_MESSAGE_LENGTH);
+		const body = read.body as Record<string, unknown> | null;
+		const errorMessage = clampString(body?.errorMessage, MAX_MESSAGE_LENGTH);
 		if (!errorMessage) {
 			return Response.json({ error: 'Missing error message' }, { status: 400 });
 		}
@@ -41,11 +40,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		const userId = await resolveUserFromRequest(request);
 
 		const result = await logError({
-			browserInfo: clampJson(body.browserInfo),
+			browserInfo: clampJson(body?.browserInfo),
 			errorMessage,
-			gameState: clampJson(body.gameState),
-			stackTrace: clampString(body.stackTrace, MAX_STACK_LENGTH),
-			url: clampString(body.url, MAX_URL_LENGTH),
+			gameState: clampJson(body?.gameState),
+			stackTrace: clampString(body?.stackTrace, MAX_STACK_LENGTH),
+			url: clampString(body?.url, MAX_URL_LENGTH),
 			userId
 		});
 
