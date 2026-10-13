@@ -36,9 +36,14 @@
 				2 + Math.round(8 * Math.min(1, cpm / radiationManager.maxCpm)) + Math.min(6, Object.keys(radiationManager.upgradeLevels).length)
 			:	1,
 	});
-	/** Latched so lowering the power under 10 CPM does not hide the upgrades again, once true the derived has no dependency left. */
+	/**
+	 * Ionizing takes far more than 10 CPM, so after one the upgrades stay open across Ionizes and reloads. Latched so lowering the
+	 * power under 10 CPM does not hide them again, once true the derived has no dependency left.
+	 */
 	let upgradesReached = false;
-	const showUpgrades = $derived((upgradesReached ||= cpm >= 10 || Object.keys(radiationManager.upgradeLevels).length > 0));
+	const showUpgrades = $derived(
+		(upgradesReached ||= radiationManager.ionizes > 0 || cpm >= 10 || Object.keys(radiationManager.upgradeLevels).length > 0),
+	);
 
 	const status = $derived(
 		!hasMass ? { color: 'text-white/50', detail: 'inject fuel to start', label: 'Core empty' }
