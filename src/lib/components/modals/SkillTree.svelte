@@ -116,6 +116,8 @@
 		const draw = () => {
 			const start = performance.now();
 			frame = 0;
+			if (!panZoom.measured) return;
+
 			const ratio = pixelRatio();
 			const cell = GRID_STEP * panZoom.zoom * ratio;
 			const size = Math.max(1, Math.round(cell));
@@ -142,7 +144,7 @@
 		const observer = new ResizeObserver(schedule);
 		observer.observe(canvas);
 		$effect(() => {
-			void [panZoom.x, panZoom.y, panZoom.zoom];
+			void [panZoom.measured, panZoom.x, panZoom.y, panZoom.zoom];
 			schedule();
 		});
 		return () => {
