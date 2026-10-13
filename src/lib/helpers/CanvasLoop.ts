@@ -22,6 +22,7 @@ export abstract class CanvasLoop {
 	private observers: (IntersectionObserver | ResizeObserver)[] = [];
 	/** Timestamp of the previous frame of this loop, 0 after a stop so the idle gap is not counted as a hitch. */
 	private previousFrame = 0;
+	private sized = false;
 	private visible = false;
 
 	/** `source` names the loop in the performance reports, e.g. `canvas:atom`. */
@@ -45,16 +46,25 @@ export abstract class CanvasLoop {
 	/** Returns whether the scene still moves: a settled scene stops the loop until `update` wakes it. */
 	protected abstract draw(dt: number): boolean;
 
-	protected abstract resize(): void;
+	/** `width` and `height` are the canvas CSS size, in pixels. */
+	protected abstract resize(width: number, height: number): void;
 
 	/** Whether effects emitted now would be seen: a paused, hidden or reduced-motion canvas drops them instead of piling them up. */
 	protected get shown() {
 		return this.active && this.visible && !document.hidden && !prefersReducedMotion.current;
 	}
 
-	/** Called by the subclass constructor once its own fields exist, the first resize reads them. */
+	/**
+	 * Called by the subclass constructor once its own fields exist. The size comes from the ResizeObserver, after layout: reading
+	 * `clientWidth` here would force a full style and layout of the realm being mounted, about 400 ms of a realm switch on a slow laptop.
+	 * The loop waits for that first size.
+	 */
 	protected observe() {
-		const resize = new ResizeObserver(() => this.resize());
+		const resize = new ResizeObserver(([entry]) => {
+			this.resize(entry.contentRect.width, entry.contentRect.height);
+			this.sized = true;
+			this.update();
+		});
 		resize.observe(this.canvas);
 		const intersection = new IntersectionObserver(([entry]) => {
 			this.visible = entry.isIntersecting;
@@ -62,7 +72,6 @@ export abstract class CanvasLoop {
 		});
 		intersection.observe(this.canvas);
 		this.observers = [resize, intersection];
-		this.resize();
 	}
 
 	/** Runs when the loop stops for a hidden or deselected canvas. */
@@ -75,7 +84,7 @@ export abstract class CanvasLoop {
 
 	/** Starts or stops the loop to match the realm selection and visibility, and wakes a settled one. */
 	protected update() {
-		const running = this.active && this.visible;
+		const running = this.active && this.sized && this.visible;
 		if (running && !this.frame) {
 			this.lastTime = performance.now();
 			this.frame = requestAnimationFrame(this.loop);

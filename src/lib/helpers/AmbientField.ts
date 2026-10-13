@@ -312,10 +312,10 @@ export class AmbientField extends CanvasLoop {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	}
 
-	protected resize() {
+	protected resize(width: number, height: number) {
 		this.ratio = pixelRatio(MAX_PIXEL_RATIO);
-		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
-		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
+		this.canvas.width = Math.max(1, Math.round(width * this.ratio));
+		this.canvas.height = Math.max(1, Math.round(height * this.ratio));
 		// Resizing resets the context state and clears the canvas.
 		this.ctx.globalCompositeOperation = 'lighter';
 		for (const mote of this.motes) mote.boxSize = 0;

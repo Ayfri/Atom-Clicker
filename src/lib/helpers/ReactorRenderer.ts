@@ -146,9 +146,8 @@ export class ReactorRenderer extends CanvasLoop {
 		this.fuel.fill(0);
 	}
 
-	protected resize() {
-		const cssSize = this.canvas.clientWidth;
-		this.pixelSize = Math.max(1, Math.round(cssSize * pixelRatio()));
+	protected resize(width: number) {
+		this.pixelSize = Math.max(1, Math.round(width * pixelRatio()));
 		this.canvas.width = this.canvas.height = this.vessel.width = this.vessel.height = this.pixelSize;
 		this.nucleonSprites.length = 0;
 		this.paintVessel();

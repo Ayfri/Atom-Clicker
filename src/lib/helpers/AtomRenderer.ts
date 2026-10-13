@@ -199,8 +199,8 @@ export class AtomRenderer extends CanvasLoop {
 		if (this.sparks.length > MAX_SPARKS) this.sparks.shift();
 	}
 
-	protected resize() {
-		this.size = this.canvas.clientWidth;
+	protected resize(width: number) {
+		this.size = width;
 		this.ratio = pixelRatio();
 		this.canvas.width = Math.max(1, Math.round(this.size * this.ratio));
 		this.canvas.height = this.canvas.width;

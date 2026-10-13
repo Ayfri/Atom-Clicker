@@ -87,10 +87,10 @@ export class ColliderRenderer extends CanvasLoop {
 		return this.beams || impacting || sparking;
 	}
 
-	protected resize() {
+	protected resize(width: number, height: number) {
 		const ratio = pixelRatio();
-		this.pixelWidth = this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * ratio));
-		this.pixelHeight = this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * ratio));
+		this.pixelWidth = this.canvas.width = Math.max(1, Math.round(width * ratio));
+		this.pixelHeight = this.canvas.height = Math.max(1, Math.round(height * ratio));
 		this.redraw();
 	}
 

@@ -79,10 +79,10 @@ export class BoostSparks extends CanvasLoop {
 		return true;
 	}
 
-	protected resize() {
+	protected resize(width: number, height: number) {
 		this.ratio = pixelRatio();
-		this.width = this.canvas.clientWidth;
-		this.height = this.canvas.clientHeight;
+		this.width = width;
+		this.height = height;
 		this.canvas.width = Math.max(1, Math.round(this.width * this.ratio));
 		this.canvas.height = Math.max(1, Math.round(this.height * this.ratio));
 		// Resizing resets the context state and clears the canvas.

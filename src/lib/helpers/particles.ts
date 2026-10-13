@@ -201,10 +201,10 @@ export class ClickParticles extends CanvasLoop {
 	}
 
 	/** Resizing clears the canvas, so nothing is left to erase. */
-	protected resize() {
+	protected resize(width: number, height: number) {
 		this.ratio = pixelRatio();
-		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
-		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
+		this.canvas.width = Math.max(1, Math.round(width * this.ratio));
+		this.canvas.height = Math.max(1, Math.round(height * this.ratio));
 		this.right = -Infinity;
 	}
 
