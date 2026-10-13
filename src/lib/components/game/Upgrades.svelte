@@ -12,7 +12,6 @@
 	import Value from '#components/ui/Value.svelte';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
-	import { clock } from '#stores/clock.svelte.js';
 	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -110,26 +109,15 @@
 					</button>
 				{/if}
 				{#if hasAutomation}
-					{#snippet autoUpgradeTooltip()}
-						<div class="flex flex-col gap-1">
-							<p class="text-xs text-white/80">Automatically buys the cheapest affordable upgrade.</p>
-							{#if gameManager.settings.automation.upgrades && gameManager.autoUpgradeInterval}
-								<p class="text-xs text-white/60">
-									Checks every {(gameManager.autoUpgradeInterval / 1000).toFixed(1)}s
-									{#if autoUpgradeManager.nextFireTime}
-										- next in {Math.max(0, (autoUpgradeManager.nextFireTime - clock.now) / 1000).toFixed(1)}s
-									{/if}
-								</p>
-							{/if}
-						</div>
-					{/snippet}
 					<AutoButton
+						description="Automatically buys the cheapest affordable upgrade."
+						interval={gameManager.autoUpgradeInterval}
+						nextFire={autoUpgradeManager.nextFireTime}
 						onClick={(e) => {
 							e.stopPropagation();
 							gameManager.toggleUpgradeAutomation();
 						}}
 						toggled={gameManager.settings.automation.upgrades}
-						tooltipContent={autoUpgradeTooltip}
 					/>
 				{/if}
 			</div>

@@ -16,7 +16,6 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
-	import { clock } from '#stores/clock.svelte.js';
 	import AutoButton from '#components/ui/AutoButton.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -164,22 +163,6 @@
 			{const autoPurchasedCount = $derived(autoBuyManager.recentlyAutoPurchasedGenerators.get(type) ?? 0)}
 			{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
 
-			{#snippet autoBuyTooltip()}
-				{const interval = $derived(gameManager.autoBuyIntervals[type])}
-				{const nextFire = $derived(autoBuyManager.nextFireTimes.get(type))}
-				<div class="flex flex-col gap-1">
-					<p class="text-xs text-white/80">Automatically buys 1 {generator.name} whenever you can afford it.</p>
-					{#if isAutomated && interval}
-						<p class="text-xs text-white/60">
-							Checks every {(interval / 1000).toFixed(1)}s
-							{#if nextFire}
-								- next in {Math.max(0, (nextFire - clock.now) / 1000).toFixed(1)}s
-							{/if}
-						</p>
-					{/if}
-				</div>
-			{/snippet}
-
 			<button
 				class="relative text-start rounded-lg border p-2 transition-all duration-200 {affordable ?
 					'bg-white/5 border-white/10 hover:bg-white/10 cursor-pointer'
@@ -242,12 +225,14 @@
 						{/if}
 						{#if automatedByUpgrade.has(type)}
 							<AutoButton
+								description="Automatically buys 1 {generator.name} whenever you can afford it."
+								interval={gameManager.autoBuyIntervals[type]}
+								nextFire={autoBuyManager.nextFireTimes.get(type)}
 								onClick={e => {
 									e.stopPropagation();
 									gameManager.toggleAutomation(type);
 								}}
 								toggled={isAutomated}
-								tooltipContent={autoBuyTooltip}
 							/>
 						{/if}
 					</span>
