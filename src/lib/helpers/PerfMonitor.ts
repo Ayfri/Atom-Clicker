@@ -112,9 +112,8 @@ export class PerfMonitor {
 			const device = getDeviceInfo();
 			if (!device) return;
 
-			const token = await supabaseAuth.getAccessToken().catch(() => null);
-			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-			if (token) headers.Authorization = `Bearer ${token}`;
+			const authHeaders = await supabaseAuth.authHeaders().catch(() => ({}));
+			const headers = { ...authHeaders, 'Content-Type': 'application/json' };
 			const payload: SessionStartPayload = { device, game: this.gameContext() };
 
 			const response = await fetch('/api/sessions', { body: JSON.stringify(payload), headers, method: 'POST' });

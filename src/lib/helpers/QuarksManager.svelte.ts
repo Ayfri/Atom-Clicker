@@ -8,6 +8,7 @@ import {
 	getQuestTarget,
 	pickDailyQuests,
 	QUEST_POOL,
+	todayUtcDayKey,
 } from '#data/dailyQuests.js';
 import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
@@ -33,7 +34,7 @@ interface QuarksApiState {
 	quests: DailyQuest[];
 }
 
-export class QuarksManager {
+class QuarksManager {
 	pendingActions = $state<string[]>([]);
 	balance = $state(0);
 	claimedAchievementIds = $state<string[]>([]);
@@ -80,6 +81,12 @@ export class QuarksManager {
 
 	isActionPending(actionId: string): boolean {
 		return this.pendingActions.includes(actionId);
+	}
+
+	/** The equipped theme of a realm, undefined when none is. */
+	theme(realm: RealmType) {
+		const id = this.equippedThemes[realm];
+		return id ? getQuarkShopItem(id)?.theme : undefined;
 	}
 
 	clear() {
@@ -145,9 +152,8 @@ export class QuarksManager {
 
 	private async authHeaders(): Promise<Record<string, string> | null> {
 		if (!browser || !supabaseAuth.isAuthenticated) return null;
-		const accessToken = await supabaseAuth.getAccessToken();
-		if (!accessToken) return null;
-		return { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+		const headers = await supabaseAuth.authHeaders();
+		return 'Authorization' in headers ? { ...headers, 'Content-Type': 'application/json' } : null;
 	}
 
 	private rolloverDailyStatsIfNeeded(serverDayKey: string) {
@@ -181,7 +187,7 @@ export class QuarksManager {
 		if (!browser) return;
 
 		if (this.devOverride) {
-			const dayKey = new Date().toISOString().slice(0, 10);
+			const dayKey = todayUtcDayKey();
 			this.dayKey = dayKey;
 			this.quests = this.selectDailyQuests(dayKey);
 			this.rolloverDailyStatsIfNeeded(dayKey);

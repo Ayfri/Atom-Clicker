@@ -16,7 +16,7 @@ const PROFILE_COLUMNS = 'id, picture, username';
 
 export type CloudSaveInfo = GameState & { lastSaveDate: number | null };
 
-export class SupabaseAuth {
+class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
 	profile = $state.raw<AccountProfile | null>(null);
@@ -158,15 +158,12 @@ export class SupabaseAuth {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
 			/** supabase-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
-			const accessToken = await this.getAccessToken();
-			if (!accessToken) return;
+			const headers = await this.authHeaders();
+			if (!('Authorization' in headers)) return;
 			try {
 				await fetch('/api/auth/status', {
 					body: JSON.stringify({ is_online: true }),
-					headers: {
-						'Authorization': `Bearer ${accessToken}`,
-						'Content-Type': 'application/json',
-					},
+					headers: { ...headers, 'Content-Type': 'application/json' },
 					method: 'POST',
 				});
 			} catch (err) {
@@ -186,11 +183,17 @@ export class SupabaseAuth {
 	 * Returns a fresh access token for authenticating requests to our own API routes.
 	 * Reads from Supabase (which auto-refreshes) rather than the cached session, so it stays valid.
 	 */
-	async getAccessToken(): Promise<string | null> {
+	private async getAccessToken(): Promise<string | null> {
 		if (!this.supabase) return null;
 		const { data: { session } } = await this.supabase.auth.getSession();
 		this.currentSession = session;
 		return session?.access_token ?? null;
+	}
+
+	/** The bearer header for our own API routes, empty when signed out. */
+	async authHeaders(): Promise<Record<string, string>> {
+		const accessToken = await this.getAccessToken();
+		return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 	}
 
 	async signInWithProvider(provider: Provider) {
