@@ -41,6 +41,8 @@ declare global {
 			};
 		};
 		gtag: (...args: unknown[]) => void;
+		/** Caught by the inline script of `app.html`, before the install store exists. */
+		installPrompt?: BeforeInstallPromptEvent;
 	}
 }
 

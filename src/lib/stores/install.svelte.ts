@@ -6,14 +6,11 @@ class InstallStore {
 	/** Set by the browser's `appinstalled` event, the Settings tab shows it in place of the button. */
 	installed = $state(false);
 
-	/** Registered from `hooks.client.ts`, the event fires early in the page load, before the layout mounts. */
+	/** Takes the event the inline script of `app.html` caught before this module loaded, then follows the later ones. The installed app (any display mode but `browser`) never offers it. */
 	constructor() {
-		if (!browser) return;
-		window.addEventListener('beforeinstallprompt', event => {
-			// Keeps Chrome's mini-infobar off the game, the Settings tab offers the install instead.
-			event.preventDefault();
-			this.#event = event;
-		});
+		if (!browser || !matchMedia('(display-mode: browser)').matches) return;
+		this.#event = window.installPrompt ?? null;
+		window.addEventListener('beforeinstallprompt', event => (this.#event = event));
 		window.addEventListener('appinstalled', () => {
 			this.#event = null;
 			this.installed = true;
@@ -28,6 +25,7 @@ class InstallStore {
 		const event = this.#event;
 		if (!event) return;
 		this.#event = null;
+		window.installPrompt = undefined;
 		try {
 			await event.prompt();
 		} catch {
