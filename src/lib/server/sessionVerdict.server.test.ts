@@ -134,6 +134,19 @@ describe('incident based problems', () => {
 		expect(verdict.cause).toBe('modal:skill-tree > skilltree:grid');
 	});
 
+	test('a quick tap inside a 5 s freeze leaves it a freeze, not a render bound slow interaction', () => {
+		const log = new IncidentLog();
+		for (const at of [10_000, 20_000]) {
+			log.observe({ end: at + 5_000, start: at, timerLate: true });
+			log.observe({ end: at + 5_050, start: at + 20 });
+			log.observe({ end: at + 2_210, input: { delayMs: 13, presentationMs: 195, processingMs: 0, target: 'Atom' }, start: at + 2_000 });
+		}
+		const verdict = judgeSession(perf({ incidents: log.worst(6), totals: totals({ blocked: structuredClone(log.blocked) }) }), game);
+		expect(log.blocked.input).toEqual(none);
+		expect(verdict.problem).toBe('freezes');
+		expect(verdict.cause).toBe('no action');
+	});
+
 	test('frame-only incidents are render bound, and the cause carries no per-session counts', () => {
 		const frame = incident({ durationMs: 300, timerLate: false });
 		const verdict = judgeSession(perf({ incidents: [frame], totals: totals({ blocked: { frame: { count: 5, ms: 1_500 }, freeze: none, input: none, stall: none } }) }), game);

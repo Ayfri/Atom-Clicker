@@ -74,9 +74,12 @@ const inputMs = ({ delayMs, presentationMs, processingMs }: InputBreakdown) => d
 /** Script files and invokers are URLs: the fragment after one and any query string can carry tokens, `#document.onclick` stays. */
 export const stripUrlDetails = (value: string) => value.replace(/(https?:\/\/[^\s?#]*)#\S*/g, '$1').replace(/\?\S*/g, '');
 
-/** Input beats freeze beats stall: a late timer or a Long Animation Frame is JavaScript, otherwise only the frames were late (compositor or GPU). */
+/**
+ * Input beats freeze beats stall: a late timer or a Long Animation Frame is JavaScript, otherwise only the frames were late (compositor or
+ * GPU). An interaction only names a block it covers at least half of, a 200 ms click inside a 5 s freeze stays a freeze.
+ */
 export function incidentKind({ durationMs, input, loaf, timerLate }: Pick<PerfIncident, 'durationMs' | 'input' | 'loaf' | 'timerLate'>): IncidentKind {
-	if (input && inputMs(input) >= SLOW_INPUT_MS) return IncidentKinds.INPUT;
+	if (input && inputMs(input) >= SLOW_INPUT_MS && inputMs(input) * 2 >= durationMs) return IncidentKinds.INPUT;
 	if (durationMs >= FREEZE_MS) return IncidentKinds.FREEZE;
 	return timerLate || loaf ? IncidentKinds.STALL : IncidentKinds.FRAME;
 }
