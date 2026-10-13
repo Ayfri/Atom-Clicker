@@ -108,12 +108,15 @@
 	let isPlaying = $state(false);
 	let currentAnimation = $state<AnimationType | null>(null);
 
+	let timer: ReturnType<typeof setTimeout> | undefined;
+
 	$effect(() => {
 		if (animation) {
 			untrack(() => {
+				clearTimeout(timer);
 				currentAnimation = animation;
 				isPlaying = true;
-				setTimeout(() => {
+				timer = setTimeout(() => {
 					isPlaying = false;
 					currentAnimation = null;
 					onComplete?.();
@@ -121,6 +124,8 @@
 			});
 		}
 	});
+
+	$effect(() => () => clearTimeout(timer));
 </script>
 
 {#if isPlaying && currentAnimation}
