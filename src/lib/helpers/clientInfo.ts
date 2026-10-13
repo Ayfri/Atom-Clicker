@@ -14,7 +14,8 @@ export interface BrowserInfo {
 	userAgent: string;
 }
 
-const CRAWLER_UA_PATTERN = /bot|crawler|spider|crawling|bingpreview|slurp|headlesschrome/i;
+/** Also the page speed probes (Cloudflare Observatory, Lighthouse) and read-aloud fetchers, which load the game without a player. */
+const CRAWLER_UA_PATTERN = /bot|crawler|spider|crawling|bingpreview|slurp|headlesschrome|observatory|lighthouse|read-aloud/i;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Named in-app browsers first, the generic webview checks last since they match all of them. */
