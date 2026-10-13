@@ -3,6 +3,8 @@
 	import Value from '#components/ui/Value.svelte';
 	import { CURRENCIES } from '#data/currencies.js';
 	import { ICONS } from '#data/icons.js';
+	import { RealmTypes } from '#data/realms.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { FamilyView } from '#helpers/UpgradeFamilies.svelte.js';
 	import { buyFamily } from '#helpers/upgradeFx.js';
 	import { Check } from '@lucide/svelte';
@@ -19,6 +21,8 @@
 
 	const color = $derived(CURRENCIES[view.family.currency].color);
 	const Icon = $derived(ICONS[view.family.icon]);
+	const affordable = $derived(realmManager.live(RealmTypes.ATOMS, () => view.affordable));
+	const affordableTiers = $derived(realmManager.live(RealmTypes.ATOMS, () => view.affordableTiers));
 
 	let chip = $state<HTMLSpanElement>();
 	let pop: Animation | undefined;
@@ -44,7 +48,7 @@
 <div
 	class="relative rounded-lg border p-2 transition-[background-color] duration-200 {view.maxed
 		? 'border-transparent bg-white/3 text-white/60'
-		: view.affordable
+		: affordable
 			? 'border-(--c)/40 bg-(--c)/10 hover:bg-(--c)/15'
 			: 'border-transparent bg-white/5 opacity-45'}"
 	data-family={view.family.id}
@@ -52,7 +56,7 @@
 >
 	<button
 		aria-label="Buy {view.family.name}"
-		class="absolute inset-0 rounded-lg {view.affordable ? 'cursor-pointer' : view.next ? 'cursor-not-allowed' : ''}"
+		class="absolute inset-0 rounded-lg {affordable ? 'cursor-pointer' : view.next ? 'cursor-not-allowed' : ''}"
 		data-hint="upgrade"
 		disabled={!view.next}
 		onclick={event => buyFamily(view, event, event.shiftKey)}
@@ -72,7 +76,7 @@
 		</h3>
 		<p class="my-0.5 text-xs">{view.preview.description}</p>
 		{#if view.max > 1}
-			<UpgradeTierBar affordable={view.affordable} {color} hasNext={view.next !== null} level={view.level} segments={view.shown} />
+			<UpgradeTierBar {affordable} {color} hasNext={view.next !== null} level={view.level} segments={view.shown} />
 		{/if}
 		{#if view.next}
 			<div class="mt-1 flex h-4 items-center gap-1 text-xs" style:color>Cost: <Value currency={view.family.currency} value={view.nextCost} /></div>
@@ -80,15 +84,15 @@
 			<div class="mt-1 flex h-4 items-center text-xs text-white/50">{view.lockReason}</div>
 		{/if}
 	</div>
-	{#if view.affordableTiers > 1}
+	{#if affordableTiers > 1}
 		<button
-			aria-label="Buy {view.affordableTiers} levels"
+			aria-label="Buy {affordableTiers} levels"
 			class="absolute right-0 bottom-0 z-10 flex h-10 min-w-10 cursor-pointer items-end justify-end p-2"
 			onclick={event => buyFamily(view, event, true)}
-			title="Buy {view.affordableTiers} levels"
+			title="Buy {affordableTiers} levels"
 			type="button"
 		>
-			<span class="rounded-sm border border-accent-500/30 bg-accent-500/15 px-1 text-xs font-semibold text-accent-400 tabular-nums">×{view.affordableTiers}</span>
+			<span class="rounded-sm border border-accent-500/30 bg-accent-500/15 px-1 text-xs font-semibold text-accent-400 tabular-nums">×{affordableTiers}</span>
 		</button>
 	{/if}
 	{#if auto > 0}

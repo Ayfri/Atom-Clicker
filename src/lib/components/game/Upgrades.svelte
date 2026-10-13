@@ -6,8 +6,10 @@
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { RealmTypes } from '#data/realms.js';
 	import type { UpgradeCategory } from '#data/upgrades.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
 	import { bloomPurchase, buyAllFamilies } from '#helpers/upgradeFx.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
@@ -41,7 +43,7 @@
 
 	const hasAutomation = $derived(gameManager.effects.has('auto_upgrade'));
 
-	const affordableCount = $derived(upgradeFamilies.affordableCount(selectedCurrency));
+	const affordableCount = $derived(realmManager.live(RealmTypes.ATOMS, () => upgradeFamilies.affordableCount(selectedCurrency)));
 
 	/** Levels the auto-upgrade bought in the last seconds, by family. */
 	const autoBought = $derived.by(() => {
