@@ -24,7 +24,7 @@
 				['Emails', 'Your email may occasionally receive game news, sent through Resend (resend.com). Every email has a one-click unsubscribe link.'],
 				['Leaderboard', 'Your username, picture, level, atoms and equipped cosmetics are public on the leaderboard. Your public profile also shows the game stats of your cloud save: play time, clicks, prestiges, realms, achievements, skills, generators and currencies earned.'],
 				['Crash reports', 'When the game crashes, the error, page URL, browser info and a snapshot of your game state are sent to help fix the bug, linked to your account if you are signed in.'],
-				['Performance reports', 'Each visit sends device and browser details, a summary of your game progress and how smoothly the game runs, linked to your account if you are signed in and kept for 90 days. They stop when usage analytics are turned off.'],
+				['Performance reports', 'Each visit sends device and browser details, a summary of your game progress and how smoothly the game runs, including the button or screen that preceded a slowdown, linked to your account if you are signed in and kept for 90 days. They stop when usage analytics are turned off.'],
 				['Feedback', 'The feedback form is hosted by Tally (tally.so), your email is prefilled if you are signed in.'],
 				['Analytics', 'Cloudflare Web Analytics counts visits without cookies. Google Analytics measures usage with cookies and can be turned off above.'],
 				['Your rights', 'Under the GDPR you can access, fix or delete your data. Ask on Discord or GitHub to delete your account. Clearing your browser data deletes your local save. You can also contact the CNIL (cnil.fr).'],

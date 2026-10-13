@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '#lib/server/supabase.server.js';
+import type { SessionProblem } from '#lib/types/session.js';
 import type { Database, Json } from '#lib/types/supabase.js';
 
 type ClientSessionInsert = Database['public']['Tables']['client_sessions']['Insert'];
@@ -26,13 +27,15 @@ export const sessionsService = {
 	},
 
 	/** False when the id and write key match no live row, the RPC also refuses sessions past their update cap or two days old. */
-	async update(args: { degraded: boolean; game: Json; id: string; perf: Json; topSource: string | null; writeKey: string }): Promise<boolean> {
+	async update(args: { cause: string | null; degraded: boolean; game: Json; id: string; perf: Json; problem: SessionProblem | null; summary: string | null; writeKey: string }): Promise<boolean> {
 		const { data, error } = await supabaseAdmin.rpc('update_client_session', {
+			p_cause: args.cause as string,
 			p_degraded: args.degraded,
 			p_game: args.game,
 			p_id: args.id,
 			p_perf: args.perf,
-			p_top_source: args.topSource as string,
+			p_problem: args.problem as string,
+			p_summary: args.summary as string,
 			p_write_key: args.writeKey,
 		});
 

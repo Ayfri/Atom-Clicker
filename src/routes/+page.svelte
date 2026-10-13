@@ -263,7 +263,6 @@
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
 			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
 			<div
-				data-offscreen={side !== 0 || undefined}
 				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
 					side
 				) ?

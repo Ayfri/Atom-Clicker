@@ -17,6 +17,7 @@ export type Database = {
 			client_sessions: {
 				Row: {
 					app_version: string
+					cause: string | null
 					degraded: boolean
 					degraded_at: string | null
 					device: Json
@@ -28,8 +29,9 @@ export type Database = {
 					notified_at: string | null
 					notify_skipped: string | null
 					perf: Json | null
+					problem: string | null
 					started_at: string
-					top_source: string | null
+					summary: string | null
 					updates: number
 					user_agent: string
 					user_id: string | null
@@ -37,6 +39,7 @@ export type Database = {
 				}
 				Insert: {
 					app_version: string
+					cause?: string | null
 					degraded?: boolean
 					degraded_at?: string | null
 					device?: Json
@@ -48,8 +51,9 @@ export type Database = {
 					notified_at?: string | null
 					notify_skipped?: string | null
 					perf?: Json | null
+					problem?: string | null
 					started_at?: string
-					top_source?: string | null
+					summary?: string | null
 					updates?: number
 					user_agent: string
 					user_id?: string | null
@@ -57,6 +61,7 @@ export type Database = {
 				}
 				Update: {
 					app_version?: string
+					cause?: string | null
 					degraded?: boolean
 					degraded_at?: string | null
 					device?: Json
@@ -68,8 +73,9 @@ export type Database = {
 					notified_at?: string | null
 					notify_skipped?: string | null
 					perf?: Json | null
+					problem?: string | null
 					started_at?: string
-					top_source?: string | null
+					summary?: string | null
 					updates?: number
 					user_agent?: string
 					user_id?: string | null
@@ -426,11 +432,13 @@ export type Database = {
 			}
 			update_client_session: {
 				Args: {
+					p_cause: string
 					p_degraded: boolean
 					p_game: Json
 					p_id: string
 					p_perf: Json
-					p_top_source: string
+					p_problem: string
+					p_summary: string
 					p_write_key: string
 				}
 				Returns: boolean

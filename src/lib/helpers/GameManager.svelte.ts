@@ -439,6 +439,7 @@ export class GameManager {
 
 	electronize() {
 		if (this.protons < ELECTRONS_PROTONS_REQUIRED) return false;
+		perfTracker.action('prestige:electronize');
 		this.totalElectronizesAllTime++;
 		this.totalElectronizesRun++;
 		this.dailyStats.electronizes = (this.dailyStats.electronizes ?? 0) + 1;
@@ -453,6 +454,7 @@ export class GameManager {
 	 */
 	ionize() {
 		if (!radiationManager.ionizeReady) return false;
+		perfTracker.action('prestige:ionize');
 		this.totalIonizesAllTime++;
 		this.prestige(LAYERS.RADIATION_REALM);
 		currenciesManager.remove(CurrenciesTypes.ELECTRONS, this.electrons);
@@ -693,6 +695,7 @@ export class GameManager {
 
 	protonise() {
 		if (this.atoms < PROTONS_ATOMS_REQUIRED) return false;
+		perfTracker.action('prestige:protonise');
 		this.totalProtonisesAllTime++;
 		this.totalProtonisesRun++;
 		this.dailyStats.protonises++;
