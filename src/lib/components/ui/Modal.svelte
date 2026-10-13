@@ -15,6 +15,8 @@
 		/** Dialog only, replaces its default border and background. */
 		class?: ClassValue;
 		containerClass?: string;
+		/** Pauses the realm canvases, on by default for full modals. */
+		cover?: boolean;
 		/** A centered card sized to its content, whose heading lives in its children while `title` names it for screen readers. */
 		dialog?: boolean;
 		header?: Snippet;
@@ -23,16 +25,16 @@
 		width?: 'sm' | 'md' | 'lg' | 'xl';
 	}
 
-	let { children, class: className, containerClass, dialog = false, header, onClose = () => {}, title, width = 'md' }: Props = $props();
+	let { children, class: className, containerClass, cover, dialog = false, header, onClose = () => {}, title, width = 'md' }: Props = $props();
 
 	const widthClasses = $derived({ lg: 'max-w-5xl', md: 'max-w-3xl', sm: 'max-w-xl', xl: 'max-w-7xl' }[width]);
 
 	/**
 	 * A full modal pauses the realm canvases: on phones it fills the screen, on desktop the game around it is dimmed and blurred,
-	 * and a canvas animating under the blur makes the browser redo it every frame. A dialog leaves the game running.
+	 * and a canvas animating under the blur makes the browser redo it every frame. A dialog leaves the game running unless it sets `cover`.
 	 */
 	$effect(() => {
-		if (!dialog) return ui.cover();
+		if (cover ?? !dialog) return ui.cover();
 	});
 
 	const id = Symbol();
