@@ -1,9 +1,9 @@
 import type { RealmType } from '#data/realms.js';
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { between, CanvasLoop, easeOut, RadialGlow } from '#helpers/CanvasLoop.js';
+import { TAU } from '#helpers/nucleus.js';
 import { REALM_SWITCH_MS } from '#helpers/RealmManager.svelte.js';
 import { prefersReducedMotion } from 'svelte/motion';
 
-const TAU = Math.PI * 2;
 /** Soft glows need no retina detail and the canvas spans the whole realm: 1x keeps its fill and memory at a quarter of 2x. */
 const MAX_PIXEL_RATIO = 1;
 const MAX_BURST_MOTES = 90;
@@ -11,6 +11,14 @@ const MAX_DUST = 20;
 /** Extra dust purchases may add on top of the realm density. */
 const MAX_SURGE = 30;
 const GLOW_SIZE = 32;
+const GLOW = new RadialGlow(
+	[
+		[0, 1],
+		[0.25, 0.5],
+		[1, 0],
+	],
+	{ core: [0.22, 0.9], size: GLOW_SIZE, tint: true },
+);
 const FADE_IN_S = 0.08;
 /** A ring ends its life this many times wider than its preset size. */
 const RING_GROWTH = 9;
@@ -149,8 +157,6 @@ interface Mote {
 	y: number;
 }
 
-const between = ([min, max]: readonly [number, number]) => min + Math.random() * (max - min);
-
 /**
  * Background particles of the realm on screen: constant dust that thickens with progression, and bursts reacting to what the
  * player does. Only the selected realm mounts one, and each frame clears just the areas its motes covered on the previous one.
@@ -172,7 +178,6 @@ export class AmbientField extends CanvasLoop {
 	private motes: Mote[] = [];
 	/** Time not yet simulated by a skipped dust frame. */
 	private pending = 0;
-	private ratio = 1;
 	private rect: DOMRect | null = null;
 	private readonly settleTimeout: ReturnType<typeof setTimeout>;
 
@@ -272,7 +277,7 @@ export class AmbientField extends CanvasLoop {
 			ctx.globalAlpha = envelope * mote.alpha;
 			let reach: number;
 			if (mote.ring) {
-				reach = mote.size * RING_GROWTH * (1 - (1 - t) ** 3);
+				reach = mote.size * RING_GROWTH * easeOut(t);
 				ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 				ctx.globalAlpha *= RING_ALPHA;
 				ctx.lineWidth = 0.5 + 2 * (1 - t);
@@ -286,7 +291,7 @@ export class AmbientField extends CanvasLoop {
 				const cos = speed > 0 ? mote.vx / speed : 1;
 				const sin = speed > 0 ? mote.vy / speed : 0;
 				ctx.setTransform(ratio * cos, ratio * sin, -ratio * sin, ratio * cos, ratio * x, ratio * mote.y);
-				ctx.drawImage(this.glow(mote.color), -mote.size * length, -mote.size, 2 * mote.size * length, 2 * mote.size);
+				ctx.drawImage(GLOW.sprite(mote.color), -mote.size * length, -mote.size, 2 * mote.size * length, 2 * mote.size);
 				reach = mote.size * length;
 			}
 
@@ -313,9 +318,7 @@ export class AmbientField extends CanvasLoop {
 	}
 
 	protected resize(width: number, height: number) {
-		this.ratio = pixelRatio(MAX_PIXEL_RATIO);
-		this.canvas.width = Math.max(1, Math.round(width * this.ratio));
-		this.canvas.height = Math.max(1, Math.round(height * this.ratio));
+		this.fit(width, height, MAX_PIXEL_RATIO);
 		// Resizing resets the context state and clears the canvas.
 		this.ctx.globalCompositeOperation = 'lighter';
 		for (const mote of this.motes) mote.boxSize = 0;
@@ -338,32 +341,6 @@ export class AmbientField extends CanvasLoop {
 		}
 		this.update();
 		return arrivals;
-	}
-
-	private glow(color: string) {
-		return this.sprite(
-			color,
-			(ctx, half) => {
-				// A white alpha mask tinted with `source-in`: a gradient straight to a transparent color would darken its fringe.
-				const halo = ctx.createRadialGradient(half, half, 0, half, half, half);
-				halo.addColorStop(0, 'rgba(255, 255, 255, 1)');
-				halo.addColorStop(0.25, 'rgba(255, 255, 255, 0.5)');
-				halo.addColorStop(1, 'rgba(255, 255, 255, 0)');
-				ctx.fillStyle = halo;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-				ctx.globalCompositeOperation = 'source-in';
-				ctx.fillStyle = color;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-
-				ctx.globalCompositeOperation = 'source-over';
-				const core = ctx.createRadialGradient(half, half, 0, half, half, half * 0.22);
-				core.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-				core.addColorStop(1, 'rgba(255, 255, 255, 0)');
-				ctx.fillStyle = core;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-			},
-			GLOW_SIZE,
-		);
 	}
 
 	/** Sends a comet along a curve bent to a random side, so a group fans out and repeated purchases never draw the same line. */

@@ -1,4 +1,4 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { CanvasLoop, RadialGlow } from '#helpers/CanvasLoop.js';
 import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, spiralDirection, TAU, type Vector } from '#helpers/nucleus.js';
 
 export interface AtomShell {
@@ -47,11 +47,23 @@ const FOCAL_LENGTH = 650;
 /** Aura sprites are baked at the brightest click impulse and dimmed with `globalAlpha`, which cannot go above 1. */
 const AURA_PEAK = 0.3;
 const AURA_REST = 0.22;
+const AURA = new RadialGlow([
+	[0, AURA_PEAK],
+	[0.45, (0.06 * AURA_PEAK) / AURA_REST],
+	[1, 0],
+]);
 const MAX_SPARKS = 12;
 const NUCLEON_SHADES = 4;
 const ORBIT_SEGMENTS = 48;
 const SPARK_COLOR = '#8cc2ff';
 const SPARK_DURATION = 0.35;
+const SPARK_GLOW = new RadialGlow(
+	[
+		[0, 0.45],
+		[1, 0],
+	],
+	{ size: 64 },
+);
 
 function cross(a: Vector, b: Vector): Vector {
 	return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
@@ -118,7 +130,6 @@ export class AtomRenderer extends CanvasLoop {
 	private readonly v: Vector = { x: 0, y: 0, z: 0 };
 	private impulse = 0;
 	private nucleusScale = 0;
-	private ratio = 1;
 	private size = 0;
 	/** Last spin rate, so `target` can predict where a shell will be once a comet lands. */
 	private speed = 1;
@@ -201,9 +212,7 @@ export class AtomRenderer extends CanvasLoop {
 
 	protected resize(width: number) {
 		this.size = width;
-		this.ratio = pixelRatio();
-		this.canvas.width = Math.max(1, Math.round(this.size * this.ratio));
-		this.canvas.height = this.canvas.width;
+		this.fit(width, width);
 	}
 
 	private palette(color: string): Palette {
@@ -258,18 +267,6 @@ export class AtomRenderer extends CanvasLoop {
 		return shades[shade];
 	}
 
-	/** Keyed by the bare color, the ball sprites carry a prefix. */
-	private auraSprite(color: string): HTMLCanvasElement {
-		return this.sprite(color, (ctx, half) => {
-			const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-			gradient.addColorStop(0, rgba(color, AURA_PEAK));
-			gradient.addColorStop(0.45, rgba(color, (0.06 * AURA_PEAK) / AURA_REST));
-			gradient.addColorStop(1, rgba(color, 0));
-			ctx.fillStyle = gradient;
-			ctx.fillRect(0, 0, half * 2, half * 2);
-		});
-	}
-
 	/** The atom never settles, it spins as long as it is on screen. */
 	protected draw(dt: number): boolean {
 		const { ctx, scene } = this;
@@ -295,7 +292,7 @@ export class AtomRenderer extends CanvasLoop {
 		ctx.globalAlpha = (AURA_REST + 0.08 * this.impulse) / AURA_PEAK;
 		for (let i = 0; i < scene.auras.length; i++) {
 			const radius = nucleusRadius * (2.3 + i * 0.9) * (1 + 0.07 * Math.sin(time * 1.6 + i * 2));
-			ctx.drawImage(this.auraSprite(scene.auras[i]), center - radius, center - radius, radius * 2, radius * 2);
+			ctx.drawImage(AURA.sprite(scene.auras[i]), center - radius, center - radius, radius * 2, radius * 2);
 		}
 		ctx.globalCompositeOperation = 'source-over';
 
@@ -464,12 +461,8 @@ export class AtomRenderer extends CanvasLoop {
 			const x = center + spark.x;
 			const y = center + spark.y;
 			const glow = unit * (8 + 6 * progress);
-			const gradient = ctx.createRadialGradient(x, y, 0, x, y, glow);
-			gradient.addColorStop(0, rgba(SPARK_COLOR, 0.45));
-			gradient.addColorStop(1, rgba(SPARK_COLOR, 0));
 			ctx.globalAlpha = 1 - progress;
-			ctx.fillStyle = gradient;
-			ctx.fillRect(x - glow, y - glow, glow * 2, glow * 2);
+			ctx.drawImage(SPARK_GLOW.sprite(SPARK_COLOR), x - glow, y - glow, glow * 2, glow * 2);
 			ctx.fillStyle = '#ffffff';
 			ctx.beginPath();
 			ctx.arc(x, y, unit * 1.8 * (1 - progress * 0.5), 0, TAU);

@@ -1,5 +1,6 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { CanvasLoop, RadialGlow } from '#helpers/CanvasLoop.js';
 import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, TAU, type Vector } from '#helpers/nucleus.js';
+import { prefersReducedMotion } from 'svelte/motion';
 
 export interface ReactorScene {
 	accent: string;
@@ -22,6 +23,12 @@ const GAUGE_RADIUS = 44.5;
 /** The gauge opens at the bottom, where the output readout sits, and fills clockwise over the top. */
 const GAUGE_START = Math.PI * 0.75;
 const GAUGE_SWEEP = Math.PI * 1.5;
+const GLOW = new RadialGlow([
+	[0, 1],
+	[0.25, 0.45],
+	[0.6, 0.1],
+	[1, 0],
+]);
 /** Heat runs 0 (frozen) to 1 (running) to 2 (white-hot), nucleon sprites snap to quarter steps instead of cross-fading two draws. */
 const HEAT_STEPS_PER_UNIT = 4;
 const HOT_COLOR = '#fff1b8';
@@ -39,6 +46,16 @@ const SHOCK_DURATION = 0.7;
 /** Nucleons for a fuel mass: a handful for the first units, then logarithmic so late game masses still fit the chamber. */
 function nucleonCount(mass: number): number {
 	return mass <= 0 ? 0 : Math.min(MAX_NUCLEONS, Math.round(3 + 6 * Math.log2(1 + mass / 4)));
+}
+
+function paintRod(ctx: CanvasRenderingContext2D, half: number) {
+	const gradient = ctx.createLinearGradient(0, 0, 0, half * 2);
+	gradient.addColorStop(0, '#1b2126');
+	gradient.addColorStop(0.35, '#59636b');
+	gradient.addColorStop(0.55, '#3a4249');
+	gradient.addColorStop(1, '#14191d');
+	ctx.fillStyle = gradient;
+	ctx.fillRect(0, 0, half * 2, half * 2);
 }
 
 /** Rods point sideways and diagonally, keeping the top and the bottom gauge gap clear. */
@@ -66,7 +83,6 @@ export class ReactorRenderer extends CanvasLoop {
 	private readonly nucleonSprites: (HTMLCanvasElement | undefined)[] = [];
 	/** Radiation streaks: x, y, vx, vy per slot, a zero speed marks a free slot. */
 	private readonly rays = new Float32Array(MAX_RAYS * 4);
-	private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 	/** Frame view transform, rumble included, kept so each rod rotates from it without a save/restore. */
 	private readonly view: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
 	private accent = '';
@@ -79,6 +95,7 @@ export class ReactorRenderer extends CanvasLoop {
 	private power = 0;
 	private rayBudget = 0;
 	private rayColor = '';
+	private reducedMotion = false;
 	private shock = 1;
 	private spin = 0;
 	private time = 0;
@@ -108,10 +125,6 @@ export class ReactorRenderer extends CanvasLoop {
 	destroy() {
 		super.destroy();
 		if (ReactorRenderer.current === this) ReactorRenderer.current = null;
-	}
-
-	get scene(): ReactorScene {
-		return this.state;
 	}
 
 	/** A new scene wakes a settled loop. */
@@ -147,23 +160,12 @@ export class ReactorRenderer extends CanvasLoop {
 	}
 
 	protected resize(width: number) {
-		this.pixelSize = Math.max(1, Math.round(width * pixelRatio()));
-		this.canvas.width = this.canvas.height = this.vessel.width = this.vessel.height = this.pixelSize;
+		this.fit(width, width);
+		this.pixelSize = this.canvas.width;
+		this.vessel.width = this.vessel.height = this.pixelSize;
 		this.nucleonSprites.length = 0;
 		this.paintVessel();
 		this.redraw();
-	}
-
-	private glowSprite(color: string): HTMLCanvasElement {
-		return this.sprite(`glow${color}`, (ctx, half) => {
-			const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-			gradient.addColorStop(0, rgba(color, 1));
-			gradient.addColorStop(0.25, rgba(color, 0.45));
-			gradient.addColorStop(0.6, rgba(color, 0.1));
-			gradient.addColorStop(1, rgba(color, 0));
-			ctx.fillStyle = gradient;
-			ctx.fillRect(0, 0, half * 2, half * 2);
-		});
 	}
 
 	/** Rasterized at the nucleon's on-screen size: downscaling a 128px sprite cost more than the rest of the frame. */
@@ -254,10 +256,10 @@ export class ReactorRenderer extends CanvasLoop {
 	/** Settles once a frozen or empty core has nothing left to animate, so an idle reactor costs no frames. */
 	protected draw(dt: number): boolean {
 		const { ctx, state: scene } = this;
+		this.reducedMotion = prefersReducedMotion.current;
 		if (scene.accent !== this.accent) {
 			this.accent = scene.accent;
 			this.rayColor = mix(scene.accent, '#ffffff', 0.35);
-			this.clearSprites();
 			this.nucleonSprites.length = 0;
 			this.paintVessel();
 		}
@@ -297,7 +299,7 @@ export class ReactorRenderer extends CanvasLoop {
 			const radius = coreRadius * (1.7 + this.heat * 0.5) * (1 + 0.06 * Math.sin(this.time * 5));
 			ctx.globalCompositeOperation = 'lighter';
 			ctx.globalAlpha = Math.min(1, 0.12 + this.power * 0.55 + this.flash * 0.5);
-			ctx.drawImage(this.glowSprite(this.accent), -radius, -radius, radius * 2, radius * 2);
+			ctx.drawImage(GLOW.sprite(this.accent), -radius, -radius, radius * 2, radius * 2);
 			ctx.globalCompositeOperation = 'source-over';
 		} else {
 			ctx.globalAlpha = 0.3;
@@ -328,7 +330,7 @@ export class ReactorRenderer extends CanvasLoop {
 			const radius = coreRadius * (1 + this.flash);
 			ctx.globalCompositeOperation = 'lighter';
 			ctx.globalAlpha = this.flash * 0.8;
-			ctx.drawImage(this.glowSprite('#ffffff'), -radius, -radius, radius * 2, radius * 2);
+			ctx.drawImage(GLOW.sprite('#ffffff'), -radius, -radius, radius * 2, radius * 2);
 			ctx.globalCompositeOperation = 'source-over';
 		}
 
@@ -355,15 +357,7 @@ export class ReactorRenderer extends CanvasLoop {
 		const { ctx } = this;
 		const tip = coreRadius + 2 + (CHAMBER_RADIUS + 1 - coreRadius - 2) * this.power;
 		const length = RING_RADIUS + 2 - tip;
-		const rod = this.sprite('rod', (sctx, half) => {
-			const gradient = sctx.createLinearGradient(0, 0, 0, half * 2);
-			gradient.addColorStop(0, '#1b2126');
-			gradient.addColorStop(0.35, '#59636b');
-			gradient.addColorStop(0.55, '#3a4249');
-			gradient.addColorStop(1, '#14191d');
-			sctx.fillStyle = gradient;
-			sctx.fillRect(0, 0, half * 2, half * 2);
-		});
+		const rod = this.sprite('rod', paintRod);
 		const tipAlpha = 0.35 + 0.5 * (1 - this.power);
 		ctx.fillStyle = this.accent;
 		for (let i = 0; i < ROD_COUNT; i++) {
@@ -449,7 +443,7 @@ export class ReactorRenderer extends CanvasLoop {
 			const radius = this.coreRadius * 1.3;
 			ctx.globalCompositeOperation = 'lighter';
 			ctx.globalAlpha = (this.heat - 1) * 0.35;
-			ctx.drawImage(this.glowSprite(HOT_COLOR), -radius, -radius, radius * 2, radius * 2);
+			ctx.drawImage(GLOW.sprite(HOT_COLOR), -radius, -radius, radius * 2, radius * 2);
 			ctx.globalCompositeOperation = 'source-over';
 		}
 		return moving;

@@ -1,6 +1,6 @@
 import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
 import type { RealmType } from '#data/realms.js';
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { between, CanvasLoop } from '#helpers/CanvasLoop.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 
 const MAX_ICONS = 110;
@@ -89,7 +89,6 @@ export class ClickParticles extends CanvasLoop {
 	/** Keyed by currency id, filled as the SVGs load: a click before that only gets its label. */
 	private readonly iconSprites = new Map<string, Sprite>();
 	private left = Infinity;
-	private ratio = 1;
 	private right = -Infinity;
 	private readonly texts = new Pool(MAX_TEXTS);
 	private readonly textSprites = new Map<string, Sprite>();
@@ -119,7 +118,7 @@ export class ClickParticles extends CanvasLoop {
 			const particle = field.icons.take(sprite, x, y);
 			if (!particle) break;
 			const angle = Math.random() * Math.PI * 2;
-			const speed = ICON_SPEED[0] + Math.random() * (ICON_SPEED[1] - ICON_SPEED[0]);
+			const speed = between(ICON_SPEED);
 			particle.alpha = ICON_ALPHA;
 			particle.cos = Math.cos(angle);
 			particle.scale = ICON_SCALE;
@@ -202,9 +201,7 @@ export class ClickParticles extends CanvasLoop {
 
 	/** Resizing clears the canvas, so nothing is left to erase. */
 	protected resize(width: number, height: number) {
-		this.ratio = pixelRatio();
-		this.canvas.width = Math.max(1, Math.round(width * this.ratio));
-		this.canvas.height = Math.max(1, Math.round(height * this.ratio));
+		this.fit(width, height);
 		this.right = -Infinity;
 	}
 

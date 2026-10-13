@@ -1,5 +1,6 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
-import { rgba, TAU } from '#helpers/nucleus.js';
+import { CanvasLoop, easeOut, RadialGlow } from '#helpers/CanvasLoop.js';
+import { TAU } from '#helpers/nucleus.js';
+import { prefersReducedMotion } from 'svelte/motion';
 
 const BEAM_ACCELERATION = 22;
 const BEAM_COLORS = ['#81addf', '#ffd58a'] as const;
@@ -11,6 +12,14 @@ const COLLISION_MIN_TRAVEL = 3 * Math.PI;
 const DEBRIS = 44;
 const FIZZLE_DURATION = 0.4;
 const FLASH_DURATION = 0.35;
+const GLOW = new RadialGlow(
+	[
+		[0, '#ffffff'],
+		[0.2, 0.9],
+		[1, 0],
+	],
+	{ size: 64 },
+);
 const IMPACT_DURATION = 1.1;
 const MAX_SPARKS = 96;
 const RING_RADIUS = 44;
@@ -19,15 +28,12 @@ const TRAIL_SEGMENTS = 14;
 /** The canvas overflows the 100 unit ring button so the debris flies past it, taller than wide for the vertical collision jets. */
 const VIEW_WIDTH = 120;
 
-const easeOut = (t: number) => 1 - (1 - t) ** 3;
-
 /**
  * Draws the Collider injection: two beams accelerate around the ring in opposite directions while the request runs, then collide at the top
  * with a flash, a shockwave, debris jets and energy running back down the ring. The loop only runs during the animation.
  */
 export class ColliderRenderer extends CanvasLoop {
 	private readonly ctx: CanvasRenderingContext2D;
-	private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 	/** x, y, vx, vy, remaining life, lifespan per slot, a spent life marks a free slot. */
 	private readonly sparks = new Float32Array(MAX_SPARKS * 6);
 	private beams = false;
@@ -50,7 +56,7 @@ export class ColliderRenderer extends CanvasLoop {
 
 	/** Sends the beams around the ring, they keep circling until `collide` or `fizzle`. */
 	accelerate() {
-		if (this.reducedMotion) return;
+		if (prefersReducedMotion.current) return;
 		this.beams = true;
 		this.fade = 1;
 		this.fizzling = false;
@@ -88,9 +94,9 @@ export class ColliderRenderer extends CanvasLoop {
 	}
 
 	protected resize(width: number, height: number) {
-		const ratio = pixelRatio();
-		this.pixelWidth = this.canvas.width = Math.max(1, Math.round(width * ratio));
-		this.pixelHeight = this.canvas.height = Math.max(1, Math.round(height * ratio));
+		this.fit(width, height);
+		this.pixelWidth = this.canvas.width;
+		this.pixelHeight = this.canvas.height;
 		this.redraw();
 	}
 
@@ -129,7 +135,7 @@ export class ColliderRenderer extends CanvasLoop {
 				ctx.stroke();
 			}
 			ctx.globalAlpha = this.fade;
-			ctx.drawImage(this.glow(BEAM_COLORS[beam]), Math.cos(head) * RING_RADIUS - size, Math.sin(head) * RING_RADIUS - size, size * 2, size * 2);
+			ctx.drawImage(GLOW.sprite(BEAM_COLORS[beam]), Math.cos(head) * RING_RADIUS - size, Math.sin(head) * RING_RADIUS - size, size * 2, size * 2);
 		}
 	}
 
@@ -146,7 +152,7 @@ export class ColliderRenderer extends CanvasLoop {
 		const flash = Math.min(1, this.impact / FLASH_DURATION);
 		const flashSize = 10 + 28 * Math.sqrt(flash);
 		ctx.globalAlpha = 1 - flash;
-		ctx.drawImage(this.glow('#ffffff'), -flashSize, -RING_RADIUS - flashSize, flashSize * 2, flashSize * 2);
+		ctx.drawImage(GLOW.sprite('#ffffff'), -flashSize, -RING_RADIUS - flashSize, flashSize * 2, flashSize * 2);
 
 		ctx.strokeStyle = BEAM_COLORS[0];
 		ctx.globalAlpha = fade;
@@ -154,7 +160,7 @@ export class ColliderRenderer extends CanvasLoop {
 		ctx.beginPath();
 		ctx.arc(0, 0, RING_RADIUS, 0, TAU);
 		ctx.stroke();
-		if (this.reducedMotion) return true;
+		if (prefersReducedMotion.current) return true;
 
 		ctx.globalAlpha = fade * 0.5;
 		ctx.lineWidth = 1;
@@ -174,7 +180,7 @@ export class ColliderRenderer extends CanvasLoop {
 		ctx.globalAlpha = 1 - t;
 		for (let beam = 0; beam < 2; beam++) {
 			const angle = -BOTTOM + (beam === 0 ? offset : -offset);
-			ctx.drawImage(this.glow(BEAM_COLORS[beam]), Math.cos(angle) * RING_RADIUS - 6, Math.sin(angle) * RING_RADIUS - 6, 12, 12);
+			ctx.drawImage(GLOW.sprite(BEAM_COLORS[beam]), Math.cos(angle) * RING_RADIUS - 6, Math.sin(angle) * RING_RADIUS - 6, 12, 12);
 		}
 		return true;
 	}
@@ -211,23 +217,8 @@ export class ColliderRenderer extends CanvasLoop {
 		this.impact = 0;
 		this.onImpact?.();
 		this.onImpact = undefined;
-		if (!this.reducedMotion) this.burst(0, -RING_RADIUS, DEBRIS, 62, 1.1);
+		if (!prefersReducedMotion.current) this.burst(0, -RING_RADIUS, DEBRIS, 62, 1.1);
 		this.update();
-	}
-
-	private glow(color: string): HTMLCanvasElement {
-		return this.sprite(
-			color,
-			(ctx, half) => {
-				const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-				gradient.addColorStop(0, '#ffffff');
-				gradient.addColorStop(0.2, rgba(color, 0.9));
-				gradient.addColorStop(1, rgba(color, 0));
-				ctx.fillStyle = gradient;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-			},
-			64,
-		);
 	}
 
 	private moveBeams(dt: number) {
