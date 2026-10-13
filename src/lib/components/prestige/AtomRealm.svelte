@@ -11,7 +11,6 @@
 	import Tabs from '#components/ui/Tabs.svelte';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { GENERATOR_TYPES, getGeneratorColor } from '#data/generators.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
@@ -35,10 +34,7 @@
 	);
 	const shownTab = $derived(tabs.includes(activeTab) ? activeTab : tabs[0]);
 
-	const themeAccent = $derived.by(() => {
-		const themeId = quarksManager.equippedThemes[RealmTypes.ATOMS];
-		return themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined;
-	});
+	const themeAccent = $derived(quarksManager.theme(RealmTypes.ATOMS)?.accent);
 
 	/** Each owned generator adds a mote in its level color, each prestige and realm reached thickens the dust. */
 	const ambience = $derived.by(() => {

@@ -5,7 +5,6 @@
 	import RadiationUpgrades from '#components/radiation/RadiationUpgrades.svelte';
 	import ReactorCore from '#components/radiation/ReactorCore.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -16,10 +15,7 @@
 
 	const DEFAULT_ACCENT = '#39ff14';
 
-	const accent = $derived.by(() => {
-		const themeId = quarksManager.equippedThemes[RealmTypes.RADIATION];
-		return (themeId ? getQuarkShopItem(themeId)?.theme?.accent : undefined) ?? DEFAULT_ACCENT;
-	});
+	const accent = $derived(quarksManager.theme(RealmTypes.RADIATION)?.accent ?? DEFAULT_ACCENT);
 	const mass = $derived(radiationManager.mass);
 	const power = $derived(radiationManager.controlRodLevel);
 	const cpm = $derived(radiationManager.currentCpm);
