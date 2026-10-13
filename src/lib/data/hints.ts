@@ -2,6 +2,7 @@ import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
@@ -10,12 +11,15 @@ import { gameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
-import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { APP_PRODUCTION_PERCENT, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { installStore } from '#stores/install.svelte.js';
 import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 import { ui } from '#stores/ui.svelte.js';
 
 export interface Hint {
+	/** A button that runs `run` and replaces "Got it", the hint is done by `done` as usual. */
+	action?: { label: string; run: () => void };
 	/** The action that teaches the hint, it is marked seen as soon as this holds, even if it was never displayed. Without it the hint shows a "Got it" button. */
 	done?: () => boolean;
 	/** `realm:name`, the realm prefix also scopes the replay buttons. */
@@ -33,6 +37,8 @@ export interface Hint {
 	title: string;
 }
 
+/** In-game time before the install hint shows up, an hour in means the player came to stay. */
+const INSTALL_HINT_PLAY_MS = 3_600_000;
 const SKILL_TREE_ROOTS = Object.values(SKILL_UPGRADES).filter(skill => !skill.requires || skill.requires.length === 0);
 
 const realmHint = (realm: RealmType, title: string): Hint => ({
@@ -127,6 +133,17 @@ export const HINTS: Hint[] = [
 		targets: ['#nav-electronize'],
 		text: 'A deeper reset: trade your Protons for Electrons and their own upgrades.',
 		title: 'Electronize',
+	},
+	{
+		action: { label: 'Show me', run: () => ui.openSettings('install') },
+		done: () => gameManager.installedApp || installStore.installed || (ui.activeModalId === 'settings' && ui.activeTab === 'install'),
+		id: 'atoms:install',
+		placement: 'right',
+		realm: RealmTypes.ATOMS,
+		show: () => gameManager.inGameTime >= INSTALL_HINT_PLAY_MS && installStore.canInstall,
+		targets: ['#nav-settings'],
+		text: `Install Atom Clicker as an app: playing from it gives +${APP_PRODUCTION_PERCENT}% production, and ${APP_REWARD_QUARKS} Quarks to your account.`,
+		title: 'Play from the app',
 	},
 	realmHint(RealmTypes.PHOTONS, 'The Photon Realm'),
 	realmHint(RealmTypes.RADIATION, 'The Radiation Realm'),

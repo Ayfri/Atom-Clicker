@@ -11,11 +11,13 @@ import {
 	todayUtcDayKey,
 } from '#data/dailyQuests.js';
 import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
 import type { RealmType } from '#data/realms.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { EffectSource } from '#lib/types.js';
 import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
@@ -335,6 +337,24 @@ class QuarksManager {
 		this.balance += granted;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...achievementIds])];
 		return granted;
+	}
+
+	/** The server pays it once per account, the local key only spares this device a request on every sync. */
+	async claimAppReward() {
+		const userId = supabaseAuth.user?.id;
+		if (this.devOverride || !userId) return;
+
+		const key = `appRewardClaimed:${userId}`;
+		if (getItem(key)) return;
+
+		const result = await this.postAction<{ balance: number; status: 'already_claimed' | 'cap_reached' | 'ok' }>('/api/quarks/app-reward', {}, 'claim-app-reward');
+		if (!result) return;
+
+		setItem(key, 'true');
+		this.balance = result.balance;
+		if (result.status === 'ok') {
+			toastStore.info({ message: 'Thanks for playing from the installed app.', title: `+${APP_REWARD_QUARKS} Quarks` });
+		}
 	}
 
 	async collectHiggsBoson() {

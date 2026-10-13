@@ -10,7 +10,7 @@ import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
-import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
+import { APP_PRODUCTION_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
 import type {
 	ChromaticState,
 	CurrencyBoosts,
@@ -70,6 +70,8 @@ export class GameManager {
 	/** Best rate since the last Electronize, which sets the daily atoms quest: the all-time best can sit 60+ orders above a fresh run. */
 	highestAPSRun = $state(0);
 	inGameTime = $state(0);
+	/** Pushed in by the install store while the game runs as the installed app, never saved. */
+	installedApp = $state(false);
 	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
 	integrityFlagged = $state(false);
 	lastInteractionTime = $state(Date.now());
@@ -283,7 +285,9 @@ export class GameManager {
 		return productions;
 	});
 
-	globalMultiplier = $derived(this.effects.value('global', 1, this) * this.radiationMultiplier);
+	appMultiplier = $derived(this.installedApp ? APP_PRODUCTION_MULTIPLIER : 1);
+
+	globalMultiplier = $derived(this.effects.value('global', 1, this) * this.radiationMultiplier * this.appMultiplier);
 
 	hasAvailableSkillUpgrades = $derived(Object.values(SKILL_UPGRADES).some(skill => this.canPurchaseSkill(skill)));
 

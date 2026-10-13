@@ -10,6 +10,7 @@
 	import GlobalStats from '#components/settings/Stats.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import NotificationDot from '#components/ui/NotificationDot.svelte';
+	import { APP_PRODUCTION_PERCENT } from '#lib/constants.js';
 	import { changelog } from '#stores/changelog.svelte.js';
 	import { installStore } from '#stores/install.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
@@ -53,7 +54,7 @@
 				{ component: Gameplay, description: 'Offline progress, numbers and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
 				{ component: GlobalStats, description: 'Your progress in numbers', icon: ChartLine, id: 'stats', label: 'Stats' },
 				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog', notification: () => changelog.unread },
-				{ component: Install, description: 'Add the game to your device as an app', highlight: true, icon: MonitorDown, id: 'install', label: 'Install', visible: () => canInstall },
+				{ component: Install, description: `Install as an app for +${APP_PRODUCTION_PERCENT}% production`, highlight: true, icon: MonitorDown, id: 'install', label: 'Install', visible: () => canInstall },
 			],
 		},
 		{

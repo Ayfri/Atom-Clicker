@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, GeneratorTypes } from '#data/generators.js';
 import { getPhotonUpgradeCost, PHOTON_UPGRADES } from '#data/photonUpgrades.js';
@@ -8,7 +8,7 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { LAYERS } from '#helpers/statConstants.js';
-import { MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { APP_PRODUCTION_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import type { GameState } from '#lib/types.js';
 
 const { ATOMS, ELECTRONS, EXCITED_PHOTONS, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
@@ -282,6 +282,28 @@ describe('stability field', () => {
 		} finally {
 			gameManager.clock = () => Date.now();
 		}
+	});
+});
+
+describe('installed app', () => {
+	afterEach(() => {
+		gameManager.installedApp = false;
+	});
+
+	test('multiplies production, leaves click power and never reaches the save', () => {
+		gameManager.generators = { [GeneratorTypes.MOLECULE]: { count: 10, level: 0, unlocked: true } };
+		const production = gameManager.atomsPerSecond;
+		const clickPower = gameManager.clickPower;
+		const state = JSON.stringify(gameManager.getCurrentState());
+
+		gameManager.installedApp = true;
+		expect(gameManager.appMultiplier).toBe(APP_PRODUCTION_MULTIPLIER);
+		expect(gameManager.atomsPerSecond).toBeCloseTo(production * APP_PRODUCTION_MULTIPLIER, 10);
+		expect(gameManager.clickPower).toBe(clickPower);
+		expect(JSON.stringify(gameManager.getCurrentState())).toBe(state);
+
+		gameManager.installedApp = false;
+		expect(gameManager.atomsPerSecond).toBe(production);
 	});
 });
 

@@ -18,6 +18,9 @@ export interface BrowserInfo {
 const CRAWLER_UA_PATTERN = /bot|crawler|spider|crawling|bingpreview|slurp|headlesschrome|observatory|lighthouse|read-aloud/i;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Display modes an installed app opens in. Fullscreen is left out because a fullscreen browser tab can match it. */
+export const APP_DISPLAY_QUERY = '(display-mode: standalone), (display-mode: minimal-ui), (display-mode: window-controls-overlay)';
+
 /** Named in-app browsers first, the generic webview checks last since they match all of them. */
 const IN_APP_BROWSERS: [InAppBrowser, RegExp][] = [
 	['tiktok', /musical_ly|BytedanceWebview|TikTok/i],
@@ -74,11 +77,16 @@ export function getBrowserInfo(): BrowserInfo | null {
 	};
 }
 
+/** `navigator.standalone` is the iOS home screen app, which has no display-mode query. */
+export function isInstalledApp(): boolean {
+	return matchMedia(APP_DISPLAY_QUERY).matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
 export function getDeviceInfo(): DeviceInfo | null {
 	const info = getBrowserInfo();
 	if (!info) return null;
 
-	const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+	const standalone = isInstalledApp();
 
 	return {
 		...info,

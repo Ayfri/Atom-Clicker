@@ -13,6 +13,8 @@
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	/** Builds the install store at load, it pushes the installed app flag into the game. */
+	import '#stores/install.svelte.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
@@ -144,6 +146,11 @@
 			}
 			if (authenticated) checkCloudSaveOnLoad();
 		});
+	});
+
+	/** The installed app pays its Quarks once per account, after a sync has proven the session and the connection. */
+	$effect(() => {
+		if (gameManager.installedApp && quarksManager.hasSynced) untrack(() => void quarksManager.claimAppReward());
 	});
 
 	/** Quests roll over at UTC midnight, a tab left open overnight resyncs then instead of keeping yesterday's quests and counters. */

@@ -1,3 +1,7 @@
+export const APP_PRODUCTION_MULTIPLIER = 1.1;
+/** The same bonus as players read it, `10` for `+10%`. */
+export const APP_PRODUCTION_PERCENT = Math.round((APP_PRODUCTION_MULTIPLIER - 1) * 100);
+
 export const GENERATOR_COST_MULTIPLIER = 1.17;
 
 // Currency requirements for prestige mechanics

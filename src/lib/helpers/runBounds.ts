@@ -40,7 +40,7 @@ export interface RunBounds {
 
 /**
  * Best rates the loaded state can reach in a run of `seconds`: the whole boost pool on atoms, a full Stability Field, the reactor
- * at its CPM cap, auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
+ * at its CPM cap, the installed app bonus, auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
  * Protonize run these rates only grow and bound the whole run.
  */
 export function measureRunBounds(manager: GameManager, now: number, seconds: number): RunBounds {
@@ -49,6 +49,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		autoClick: manager.settings.automation.autoClick,
 		controlRodLevel: radiationManager.controlRodLevel,
 		currencyBoosts: manager.currencyBoosts,
+		installedApp: manager.installedApp,
 		lastInteractionTime: manager.lastInteractionTime,
 		mass: radiationManager.mass,
 		tickTime: manager.tickTime,
@@ -58,6 +59,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 	try {
 		manager.activePowerUps = [];
 		manager.settings.automation.autoClick = true;
+		manager.installedApp = true;
 		manager.lastInteractionTime = 0;
 		manager.tickTime = now;
 		manager.currencyBoosts = { ...saved.currencyBoosts, [CurrenciesTypes.ATOMS]: Math.min(MAX_BOOST_POINTS, manager.boostPointsTotal) };
@@ -86,6 +88,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 	} finally {
 		manager.activePowerUps = saved.activePowerUps;
 		manager.settings.automation.autoClick = saved.autoClick;
+		manager.installedApp = saved.installedApp;
 		manager.lastInteractionTime = saved.lastInteractionTime;
 		manager.tickTime = saved.tickTime;
 		manager.currencyBoosts = saved.currencyBoosts;

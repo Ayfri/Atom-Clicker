@@ -168,7 +168,14 @@
 			</button>
 			<h3 class="text-sm font-bold text-white">{hint.title}</h3>
 			<p class="mt-1 text-xs text-white/70">{@html highlightCurrencies(hint.text)}</p>
-			{#if !hint.done}
+			{#if hint.action}
+				<button
+					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
+					onclick={hint.action.run}
+				>
+					{hint.action.label}
+				</button>
+			{:else if !hint.done}
 				<button
 					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
 					onclick={() => tutorial.markSeen(hint.id)}

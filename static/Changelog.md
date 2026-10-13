@@ -1,6 +1,6 @@
 # Unreleased
 
-- **Install the Game**: Settings now has an Install tab when your browser can add Atom Clicker as an app.
+- **Install the Game**: Install Atom Clicker as an app from Settings, and playing from it gives +10% production and 10 Quarks once per account.
 
 # What's new 13-10-2026
 
