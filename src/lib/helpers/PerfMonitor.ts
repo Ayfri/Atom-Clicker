@@ -1,9 +1,11 @@
+import { FeatureTypes } from '#data/features.js';
 import { getDeviceInfo, isCrawler, isUuid, SESSION_ID } from '#helpers/clientInfo.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { EVENT_DURATION_THRESHOLD, isDegraded, MIN_PROBE_FRAMES, probeVerdict, rankSources, RESUME_WARMUP_MS, shouldProbe, WARMUP_MS } from '#helpers/perfStats.js';
+import { INCIDENT_MIN_MS, INCIDENTS_SENT, stripUrlDetails } from '#helpers/perfIncidents.js';
+import { EVENT_DURATION_THRESHOLD, isDegraded, rankSources, RESUME_WARMUP_MS, SLOW_INPUT_MS, WARMUP_MS } from '#helpers/perfStats.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
-import type { PerfWindow, ProbeLayerResult, ProbeResult, SessionGame, SessionPerf, SessionStartPayload, SessionStartResponse, SessionUpdatePayload } from '#lib/types/session.js';
+import type { LoafScript, PerfWindow, SessionGame, SessionPerf, SessionStartPayload, SessionStartResponse, SessionUpdatePayload } from '#lib/types/session.js';
 import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 import { privacy } from '#stores/privacy.svelte.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
@@ -15,63 +17,58 @@ interface EventObserverInit extends PerformanceObserverInit {
 	durationThreshold: number;
 }
 
-interface LoafScript {
+/** Long Animation Frames aren't in the DOM lib yet, and `sourceURL` is missing in some Chromium versions. */
+interface LoafScriptTiming {
 	duration: number;
 	invoker: string;
 	invokerType: string;
 	sourceFunctionName: string;
+	sourceURL?: string;
 }
 
-/** Long Animation Frames aren't in the DOM lib yet. */
 interface LoafTiming extends PerformanceEntry {
-	renderStart: number;
-	scripts: readonly LoafScript[];
+	scripts: readonly LoafScriptTiming[];
 	styleAndLayoutStart: number;
 }
-
-interface ProbePhase {
-	/** Null below `MIN_PROBE_FRAMES`: a phase that drew almost nothing says nothing about jank. */
-	jankRatio: number | null;
-	lostMsPerS: number;
-}
-
-/** Decorative layers the probe can hide, each one is an element family the page marks or styles. */
-const PROBE_LAYERS = [
-	{ name: 'glows', selector: '[data-perf-layer="glow"]' },
-	{ name: 'backdrop', selector: '[class*="backdrop-blur"]' },
-	{ name: 'ambient', selector: '[data-perf-layer="ambient"]' },
-	{ name: 'particles', selector: '[data-perf-layer="particles"]' },
-	{ name: 'panels', selector: '[data-offscreen]' },
-] as const;
 
 const DAY_MS = 86_400_000;
 const FINAL_BEACON_GAP_MS = 30_000;
 const INTERACTION_EVENTS = new Set(['click', 'keydown', 'pointerdown', 'pointerup']);
-const MAX_SCRIPT_LABEL = 120;
-const MAX_TARGET_LABEL = 60;
-const MAX_TOP_SCRIPTS = 3;
+const MAX_FILE_LENGTH = 60;
+const MAX_INVOKER_LENGTH = 80;
+const MAX_SCRIPTS = 3;
+const MAX_TARGET_LENGTH = 60;
+const MAX_FN_LENGTH = 60;
+const MAX_TEXT_LENGTH = 24;
+/** A large container's text is cut before it is scanned. */
+const MAX_TEXT_SOURCE = 200;
 /** Ten windows of 10 s a minute, so a periodic update goes out every five minutes of visible play. */
 const PERIODIC_WINDOWS = 30;
-const PROBE_PHASE_MS = 2_000;
-const PROBE_SETTLE_MS = 1_000;
 const RING_SIZE = 12;
 const SOURCES_SENT = 12;
 const STORAGE_KEY = 'atomic-clicker-perf';
-const TARGET_SELECTOR = '[aria-label],[data-hint],[data-photon-realm],button,canvas';
+const TARGET_SELECTOR = '[aria-label],[data-hint],[title],[role="button"],a,button,canvas';
 
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+/** The nearest labelled element's name, digits masked so a counter that ticks does not make every label unique: `Atom`, `Buy # atoms`. */
+function describeTarget(target: Element): string {
+	const element = target.closest(TARGET_SELECTOR) ?? target;
+	const label = element.getAttribute('aria-label') ?? element.getAttribute('data-hint') ?? element.getAttribute('title');
+	if (label) return label.slice(0, MAX_TARGET_LENGTH);
 
-function describeTarget(target: EventTarget | null): string | null {
-	if (!(target instanceof Element)) return null;
-	const element = target.closest(TARGET_SELECTOR);
-	const label = element?.getAttribute('aria-label') ?? element?.getAttribute('data-hint') ?? element?.tagName.toLowerCase() ?? target.tagName.toLowerCase();
-	return label.slice(0, MAX_TARGET_LABEL);
+	const text = element.textContent?.slice(0, MAX_TEXT_SOURCE).replace(/[\d.,]+/g, '#').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT_LENGTH);
+	return text || element.tagName.toLowerCase();
 }
 
+const toScript = ({ duration, invoker, invokerType, sourceFunctionName, sourceURL }: LoafScriptTiming): LoafScript => ({
+	durationMs: Math.round(duration),
+	file: sourceURL?.split(/[?#]/)[0].split('/').pop()?.slice(0, MAX_FILE_LENGTH) || null,
+	fn: sourceFunctionName.slice(0, MAX_FN_LENGTH) || null,
+	invoker: stripUrlDetails(`${invokerType}:${invoker}`).slice(0, MAX_INVOKER_LENGTH),
+});
+
 /**
- * Watches the session for sustained lag through the perf tracker and the browser's own entries (Event Timing, Long Animation Frames),
- * reports to `/api/sessions` and, on a degraded session whose lost time no tracked source explains or that hitches on screen, hides
- * decorative layers one at a time to name the one that costs frames. Everything respects the usage analytics switch.
+ * Watches the session for main thread blocks through the perf tracker and the browser's own entries (Event Timing, Long Animation
+ * Frames), tags each with what the player did just before, and reports to `/api/sessions`. Everything respects the usage analytics switch.
  */
 export class PerfMonitor {
 	private awaitingKey = false;
@@ -79,16 +76,13 @@ export class PerfMonitor {
 	private cooldownPending = false;
 	private dirty = false;
 	private evidence: PerfWindow[] | null = null;
+	private eventTiming = false;
 	private lastBeaconAt = 0;
-	private loafRenderMs = 0;
-	private loafScriptMs = 0;
-	private loafStyleLayoutMs = 0;
 	private loafSupported = false;
-	private longTaskCount: number | null = null;
 	private observers: PerformanceObserver[] = [];
-	private probeResult: ProbeResult | null = null;
-	private probing: Promise<ProbeResult> | null = null;
-	private probedThisLoad = false;
+	private readonly onAction = (event: Event) => {
+		if (event.target instanceof Element) perfTracker.action(event.type === 'keydown' ? 'key:' : 'tap:', event.target, event.timeStamp);
+	};
 	private readonly onPageShow = (event: PageTransitionEvent) => {
 		if (event.persisted) this.resume(RESUME_WARMUP_MS);
 	};
@@ -102,7 +96,6 @@ export class PerfMonitor {
 	private rejected = false;
 	private reportedThisLoad = false;
 	private started = false;
-	private topScripts: { label: string; ms: number }[] = [];
 	private warmup: ReturnType<typeof setTimeout> | undefined;
 	private windowsSinceUpdate = 0;
 	private writeKey: string | null = null;
@@ -134,11 +127,6 @@ export class PerfMonitor {
 		if (this.awaitingKey) this.send(false);
 	}
 
-	/** Forces the probe now, also exposed to the console in dev. One probe runs at a time. */
-	probe(): Promise<ProbeResult> {
-		return (this.probing ??= this.runProbe().finally(() => (this.probing = null)));
-	}
-
 	/** Idempotent, and a no-op for crawlers, non-UUID sessions (which is every server-side run), missing `performance` or analytics turned off. */
 	start() {
 		if (this.started || typeof performance === 'undefined' || isCrawler() || !isUuid(SESSION_ID) || !privacy.analytics) return;
@@ -146,7 +134,10 @@ export class PerfMonitor {
 		this.started = true;
 		try {
 			perfTracker.onWindow = closed => this.onWindow(closed);
+			perfTracker.incidents.environment = { describe: describeTarget, modal: () => ui.activeModalId, realm: () => realmManager.selectedRealmId };
 			document.addEventListener('visibilitychange', this.onVisibility);
+			document.addEventListener('pointerdown', this.onAction, { capture: true, passive: true });
+			document.addEventListener('keydown', this.onAction, { capture: true, passive: true });
 			window.addEventListener('pagehide', this.onHide);
 			window.addEventListener('pageshow', this.onPageShow);
 			this.observe();
@@ -161,35 +152,25 @@ export class PerfMonitor {
 
 		this.started = false;
 		clearTimeout(this.warmup);
-		perfTracker.paused = true;
+		perfTracker.pause();
 		perfTracker.onWindow = null;
+		perfTracker.incidents.environment = null;
 		document.removeEventListener('visibilitychange', this.onVisibility);
+		document.removeEventListener('pointerdown', this.onAction, { capture: true });
+		document.removeEventListener('keydown', this.onAction, { capture: true });
 		window.removeEventListener('pagehide', this.onHide);
 		window.removeEventListener('pageshow', this.onPageShow);
 		for (const observer of this.observers) observer.disconnect();
 		this.observers = [];
-		delete document.documentElement.dataset.perfProbe;
 	}
 
 	summary(): SessionPerf {
-		const topScripts = this.topScripts.map(script => script.label);
 		return {
 			evidence: this.evidence ?? [...this.ring],
-			probe: this.probeResult,
+			incidents: perfTracker.incidents.worst(INCIDENTS_SENT),
 			sources: rankSources(perfTracker.sessionSources(), SOURCES_SENT),
-			totals: {
-				...perfTracker.totals(),
-				loaf: this.loafSupported ? { renderMs: this.loafRenderMs, scriptMs: this.loafScriptMs, styleLayoutMs: this.loafStyleLayoutMs, topScripts } : null,
-				longTaskCount: this.longTaskCount,
-			},
+			totals: { ...perfTracker.totals(), eventTiming: this.eventTiming, loaf: this.loafSupported },
 		};
-	}
-
-	private abortReason(realm: SessionGame['realm']): string | null {
-		if (document.hidden) return 'hidden';
-		if (perfTracker.paused || !privacy.analytics) return 'paused';
-		if (ui.activeModal || ui.covered) return 'modal';
-		return realmManager.selectedRealmId === realm ? null : 'realm';
 	}
 
 	/** Game context is read at report time only, nothing here runs on a hot path. */
@@ -201,13 +182,14 @@ export class PerfMonitor {
 		return {
 			animations: document.getAnimations?.().length ?? null,
 			autoClicksPerSecond: gameManager.autoClicksPerSecond,
+			backdrops: document.querySelectorAll('[class*="backdrop-blur"]').length,
 			canvasBytes,
 			canvases: canvases.length,
 			covered: ui.covered,
 			electronizes: gameManager.totalElectronizesAllTime,
 			glows: document.querySelectorAll('[data-perf-layer="glow"]').length,
 			ionizes: gameManager.totalIonizesAllTime,
-			level: gameManager.playerLevel,
+			level: gameManager.features[FeatureTypes.LEVELS] ? gameManager.playerLevel : null,
 			modal: ui.activeModalId,
 			protonises: gameManager.totalProtonisesAllTime,
 			realm: realmManager.selectedRealmId,
@@ -219,7 +201,7 @@ export class PerfMonitor {
 	/** Pauses, drops the partial window and sends what changed since the last report, a closing tab gets one beacon per 30 s at most. */
 	private hide() {
 		clearTimeout(this.warmup);
-		perfTracker.paused = true;
+		perfTracker.pause();
 		if (this.dirty && Date.now() - this.lastBeaconAt >= FINAL_BEACON_GAP_MS) this.send(true);
 	}
 
@@ -227,30 +209,38 @@ export class PerfMonitor {
 		if (typeof PerformanceObserver === 'undefined') return;
 
 		const supported = PerformanceObserver.supportedEntryTypes ?? [];
+		this.eventTiming = supported.includes('event');
 		this.loafSupported = supported.includes('long-animation-frame');
 
-		if (supported.includes('event')) {
+		if (this.eventTiming) {
 			const init: EventObserverInit = { durationThreshold: EVENT_DURATION_THRESHOLD, type: 'event' };
 			this.watch(init, entries => this.onEvents(entries as PerformanceEventTiming[]));
 		}
-		if (this.loafSupported) {
-			this.watch({ type: 'long-animation-frame' }, entries => this.onLoaf(entries as LoafTiming[]));
-		} else if (supported.includes('longtask')) {
-			this.longTaskCount = 0;
-			this.watch({ type: 'longtask' }, entries => {
-				if (!perfTracker.paused && this.longTaskCount !== null) this.longTaskCount += entries.length;
-			});
-		}
+		if (this.loafSupported) this.watch({ type: 'long-animation-frame' }, entries => this.onLoaf(entries as LoafTiming[]));
 	}
 
+	/** Every interaction feeds the latency p95, the slow ones become incidents with their three phases. */
 	private onEvents(entries: PerformanceEventTiming[]) {
 		if (perfTracker.paused) return;
 
 		for (const entry of entries) {
 			const interaction = entry.interactionId > 0 || (entry.interactionId === undefined && INTERACTION_EVENTS.has(entry.name));
-			if (!interaction) continue;
-			const target = entry.duration > perfTracker.inputMaxMs ? describeTarget(entry.target) : null;
-			perfTracker.input(entry.duration, Math.max(0, entry.startTime + entry.duration - entry.processingEnd), target);
+			if (!interaction || entry.startTime < perfTracker.resumedAt) continue;
+
+			perfTracker.input(entry.duration);
+			if (entry.duration < SLOW_INPUT_MS) continue;
+
+			const end = entry.startTime + entry.duration;
+			perfTracker.incidents.observe({
+				end,
+				input: {
+					delayMs: Math.max(0, Math.round(entry.processingStart - entry.startTime)),
+					presentationMs: Math.max(0, Math.round(end - entry.processingEnd)),
+					processingMs: Math.max(0, Math.round(entry.processingEnd - entry.processingStart)),
+					target: entry.target instanceof Element ? describeTarget(entry.target) : null,
+				},
+				start: entry.startTime,
+			});
 		}
 	}
 
@@ -258,13 +248,22 @@ export class PerfMonitor {
 		if (perfTracker.paused) return;
 
 		for (const entry of entries) {
+			if (entry.duration < INCIDENT_MIN_MS || entry.startTime < perfTracker.resumedAt) continue;
+
 			const end = entry.startTime + entry.duration;
-			if (entry.styleAndLayoutStart > 0) this.loafStyleLayoutMs += Math.max(0, end - entry.styleAndLayoutStart);
-			if (entry.renderStart > 0) this.loafRenderMs += Math.max(0, end - entry.renderStart);
-			for (const script of entry.scripts) {
-				this.loafScriptMs += script.duration;
-				this.rememberScript(script);
-			}
+			const scripts = entry.scripts.map(toScript).sort((a, b) => b.durationMs - a.durationMs);
+			const scriptMs = entry.scripts.reduce((sum, script) => sum + script.duration, 0);
+			const styleLayoutMs = entry.styleAndLayoutStart > 0 ? Math.max(0, end - entry.styleAndLayoutStart) : 0;
+			perfTracker.incidents.observe({
+				end,
+				loaf: {
+					otherMs: Math.max(0, Math.round(entry.duration - scriptMs - styleLayoutMs)),
+					scriptMs: Math.round(scriptMs),
+					scripts: scripts.slice(0, MAX_SCRIPTS),
+					styleLayoutMs: Math.round(styleLayoutMs),
+				},
+				start: entry.startTime,
+			});
 		}
 	}
 
@@ -281,109 +280,31 @@ export class PerfMonitor {
 			if (this.ring.length > RING_SIZE) this.ring.shift();
 			if (isDegraded(this.ring)) {
 				this.evidence = [...this.ring];
-				void this.reportDegraded();
+				this.reportDegraded();
 				return;
 			}
 		}
-		if (this.windowsSinceUpdate >= PERIODIC_WINDOWS && !this.probing) this.send(false);
+		if (this.windowsSinceUpdate >= PERIODIC_WINDOWS) this.send(false);
 	}
 
 	/**
-	 * One degraded report and one probe per page load, and one per 24 h per device: inside that day the periodic and final updates
-	 * still carry the evidence, so the server still flags the session. The day only starts once the server took the report.
+	 * One degraded report per page load, and one per 24 h per device: inside that day the periodic and final updates still carry the
+	 * evidence, so the server still flags the session. The day only starts once the server took the report.
 	 */
-	private async reportDegraded() {
+	private reportDegraded() {
 		const { degradedAt = 0 } = getJSON<{ degradedAt?: number }>(STORAGE_KEY, {});
 		if (this.reportedThisLoad || Date.now() - degradedAt < DAY_MS) return;
 
 		this.reportedThisLoad = true;
 		this.cooldownPending = true;
-		if (this.evidence && shouldProbe(this.evidence) && !this.probedThisLoad && !ui.activeModal && !document.hidden) {
-			this.probedThisLoad = true;
-			await this.probe();
-		}
 		this.send(false);
-	}
-
-	private rememberScript({ duration, invoker, invokerType, sourceFunctionName }: LoafScript) {
-		const label = `${invokerType}:${invoker}@${sourceFunctionName}`.replace(/\?[^\s@]*/g, '').slice(0, MAX_SCRIPT_LABEL);
-		const known = this.topScripts.find(script => script.label === label);
-		if (known) known.ms = Math.max(known.ms, duration);
-		else this.topScripts.push({ label, ms: duration });
-		this.topScripts.sort((a, b) => b.ms - a.ms);
-		this.topScripts.splice(MAX_TOP_SCRIPTS);
 	}
 
 	private resume(delay: number) {
 		clearTimeout(this.warmup);
 		this.warmup = setTimeout(() => {
-			if (document.hidden) return;
-			perfTracker.resetWindow();
-			perfTracker.paused = false;
+			if (!document.hidden) perfTracker.resume();
 		}, delay);
-	}
-
-	private async runProbe(): Promise<ProbeResult> {
-		const realm = realmManager.selectedRealmId;
-		const layers = PROBE_LAYERS.filter(({ selector }) => document.querySelector(selector));
-		const results: ProbeLayerResult[] = [];
-		const baselines: ProbePhase[] = [];
-		let aborted: string | null = layers.length === 0 ? 'no-layers' : null;
-
-		try {
-			// A baseline first and last, so a drift over the probe cancels out of the verdict.
-			const steps = aborted ? [] : [null, ...layers.map(({ name }) => name), null];
-			for (const name of steps) {
-				const phase = await this.measure(realm, name);
-				if (!phase) {
-					aborted = this.abortReason(realm) ?? 'aborted';
-					break;
-				}
-				if (name === null) {
-					baselines.push(phase);
-					continue;
-				}
-
-				results.push({ jankRatio: phase.jankRatio, lostMsPerS: phase.lostMsPerS, name });
-				await sleep(PROBE_SETTLE_MS);
-				aborted = this.abortReason(realm);
-				if (aborted) break;
-			}
-		} finally {
-			delete document.documentElement.dataset.perfProbe;
-		}
-
-		const [first, second] = baselines;
-		const complete = !aborted && baselines.length === 2;
-		const baselineJank = first?.jankRatio != null && second?.jankRatio != null ? (first.jankRatio + second.jankRatio) / 2 : null;
-		this.probeResult = {
-			aborted,
-			baselineLostMsPerS: baselines.length ? baselines.reduce((sum, phase) => sum + phase.lostMsPerS, 0) / baselines.length : 0,
-			culprit: complete ? probeVerdict([first.lostMsPerS, second.lostMsPerS], results, baselineJank) : null,
-			layers: results,
-		};
-		this.dirty = true;
-		return this.probeResult;
-	}
-
-	/** One probe phase: the tracker counters across `PROBE_PHASE_MS` on a timer, with the layer hidden when one is given. */
-	private async measure(realm: SessionGame['realm'], layer: string | null): Promise<ProbePhase | null> {
-		if (this.abortReason(realm)) return null;
-
-		const root = document.documentElement;
-		if (layer) root.dataset.perfProbe = layer;
-		const before = { ...perfTracker.counters() };
-		const start = performance.now();
-		await sleep(PROBE_PHASE_MS);
-		delete root.dataset.perfProbe;
-		const after = perfTracker.counters();
-		if (this.abortReason(realm)) return null;
-
-		const frames = after.frames - before.frames;
-		return {
-			jankRatio: frames >= MIN_PROBE_FRAMES ? (after.janks - before.janks) / frames : null,
-			lostMsPerS: ((after.lostMs - before.lostMs) * 1000) / Math.max(1, performance.now() - start),
-		};
 	}
 
 	/** `final` sends through `sendBeacon` for a closing page, anything else through a keepalive `fetch`. */

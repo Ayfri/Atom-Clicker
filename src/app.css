@@ -140,19 +140,3 @@
 		z-index: 1;
 	}
 }
-
-/* The performance probe hides one decorative layer at a time to measure what it costs. */
-:root[data-perf-probe='ambient'] [data-perf-layer='ambient'],
-:root[data-perf-probe='glows'] [data-perf-layer='glow'],
-:root[data-perf-probe='particles'] [data-perf-layer='particles'] {
-	display: none !important;
-}
-
-:root[data-perf-probe='backdrop'] * {
-	backdrop-filter: none !important;
-}
-
-:root[data-perf-probe='panels'] [data-offscreen] {
-	transform: none !important;
-	transition: none !important;
-}

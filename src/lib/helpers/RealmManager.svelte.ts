@@ -1,5 +1,6 @@
 import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { perfTracker } from '#helpers/perfTracker.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import type { Currency } from '#lib/types.js';
 
@@ -63,6 +64,7 @@ class RealmManager {
 
 	selectRealm(id: RealmType) {
 		if (this.realms.find(r => r.id === id && gameManager.realms[r.id].unlocked)) {
+			perfTracker.action(`realm:${id}`);
 			this.selectedRealmId = id;
 		}
 	}

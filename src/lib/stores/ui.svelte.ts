@@ -1,3 +1,4 @@
+import { perfTracker } from '#helpers/perfTracker.js';
 import { type Component, untrack } from 'svelte';
 
 type ModalComponent = Component<{ onClose: () => void }>;
@@ -47,6 +48,7 @@ class UIStore {
 	}
 
 	openModal(component: ModalComponent, tab: string | null = null, id: string | null = null) {
+		perfTracker.action(`modal:${id ?? 'open'}`);
 		this.#activeModal = component;
 		this.#activeModalId = id;
 		this.#activeTab = tab;
@@ -54,6 +56,7 @@ class UIStore {
 
 	/** Opens a code-split modal, keeping its chunk out of the initial bundle. A newer open wins if the import resolves late. */
 	async openModalLazy(id: string, loader: ModalLoader, tab: string | null = null) {
+		perfTracker.action(`modal:${id}`);
 		this.#activeModalId = id;
 		this.#activeTab = tab;
 		const cached = this.#loaded.get(id);
@@ -64,7 +67,10 @@ class UIStore {
 		this.#activeModal = null;
 		const component = (await loader()).default;
 		this.#loaded.set(id, component);
-		if (this.#activeModalId === id) this.#activeModal = component;
+		if (this.#activeModalId !== id) return;
+
+		perfTracker.action(`modal:${id}`);
+		this.#activeModal = component;
 	}
 
 	/** Warms a modal chunk (idle time, hover) so the first open renders instantly. */
@@ -82,6 +88,7 @@ class UIStore {
 	}
 
 	closeModal() {
+		perfTracker.action('modal:close');
 		this.#activeModal = null;
 		this.#activeModalId = null;
 		this.#activeTab = null;

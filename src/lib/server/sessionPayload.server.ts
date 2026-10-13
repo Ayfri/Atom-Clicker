@@ -1,13 +1,16 @@
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { isUuid } from '#helpers/clientInfo.js';
+import { IncidentKinds, stripUrlDetails } from '#helpers/perfIncidents.js';
 import type {
 	DeviceInfo,
 	InAppBrowser,
+	InputBreakdown,
+	LoafBreakdown,
+	LoafScript,
+	PerfIncident,
 	PerfSourceStat,
 	PerfTotals,
 	PerfWindow,
-	ProbeLayerResult,
-	ProbeResult,
 	SessionGame,
 	SessionPerf,
 	SessionStartPayload,
@@ -18,13 +21,16 @@ import type {
 
 const APP_VERSION_PATTERN = /^[\w.-]{1,64}$/;
 const IN_APP_BROWSERS: readonly string[] = ['facebook', 'instagram', 'line', 'linkedin', 'other-webview', 'snapchat', 'tiktok', 'twitter', 'wechat'];
+const MAX_AT_MS = 1e9;
 const MAX_COUNT = 1e6;
 const MAX_EVIDENCE = 12;
-const MAX_LAYERS = 8;
+const MAX_INCIDENT_MS = 60_000;
+const MAX_INCIDENTS = 6;
 const MAX_MS = 600_000;
 const MAX_REALMS = 8;
+const MAX_SCRIPTS = 3;
 const MAX_SOURCES = 12;
-const MAX_TOP_SCRIPTS = 3;
+const MAX_SPANS = 3;
 /** Session-long sums (tracked time, canvas bytes) outgrow a single window. */
 const MAX_TOTAL = 1e10;
 const REALMS: readonly string[] = Object.values(RealmTypes);
@@ -50,9 +56,13 @@ function rangedOrNull(value: unknown, min: number, max: number): number | null {
 	return typeof value === 'number' ? ranged(value, min, max) : null;
 }
 
+/** Control characters go: `\u0000` is refused by a `jsonb` column. */
 function text(value: unknown, maxLength: number): string | null {
-	return typeof value === 'string' ? value.slice(0, maxLength) : null;
+	return typeof value === 'string' ? value.replace(/\p{Cc}/gu, '').slice(0, maxLength) : null;
 }
+
+/** Script files and invokers are URLs, their query strings can carry tokens. */
+const withoutQuery = (value: unknown, maxLength: number) => text(typeof value === 'string' ? stripUrlDetails(value) : null, maxLength);
 
 function sourceName(value: unknown): string | null {
 	return typeof value === 'string' && SOURCE_PATTERN.test(value) ? value : null;
@@ -99,13 +109,14 @@ function parseGame(value: unknown): SessionGame | null {
 	return {
 		animations: rangedOrNull(value.animations, 0, MAX_COUNT),
 		autoClicksPerSecond: ranged(value.autoClicksPerSecond, 0, MAX_COUNT),
+		backdrops: ranged(value.backdrops, 0, MAX_COUNT),
 		canvasBytes: ranged(value.canvasBytes, 0, MAX_TOTAL),
 		canvases: ranged(value.canvases, 0, MAX_COUNT),
 		covered: value.covered === true,
 		electronizes: ranged(value.electronizes, 0, MAX_COUNT),
 		glows: ranged(value.glows, 0, MAX_COUNT),
 		ionizes: ranged(value.ionizes, 0, MAX_COUNT),
-		level: ranged(value.level, 0, MAX_COUNT),
+		level: rangedOrNull(value.level, 0, MAX_COUNT),
 		modal: text(value.modal, 40),
 		protonises: ranged(value.protonises, 0, MAX_COUNT),
 		realm: selected,
@@ -118,19 +129,75 @@ function parseWindow(value: unknown): PerfWindow | null {
 	if (!isRecord(value)) return null;
 
 	return {
-		attributedMs: ranged(value.attributedMs, 0, MAX_MS),
+		blockedMs: ranged(value.blockedMs, 0, MAX_MS),
 		commitLagP95Ms: ranged(value.commitLagP95Ms, 0, MAX_MS),
-		commitStallMs: ranged(value.commitStallMs, 0, MAX_MS),
 		frameCount: ranged(value.frameCount, 0, MAX_COUNT),
 		frameJankCount: ranged(value.frameJankCount, 0, MAX_COUNT),
 		freezeCount: ranged(value.freezeCount, 0, MAX_COUNT),
-		freezeMs: ranged(value.freezeMs, 0, MAX_MS),
-		inputMaxMs: ranged(value.inputMaxMs, 0, MAX_MS),
-		inputSlowCount: ranged(value.inputSlowCount, 0, MAX_COUNT),
-		lostMs: ranged(value.lostMs, 0, MAX_MS),
 		observedMs: ranged(value.observedMs, 0, MAX_MS),
-		topSource: sourceName(value.topSource),
+		slowInputCount: ranged(value.slowInputCount, 0, MAX_COUNT),
 	};
+}
+
+function parseInput(value: unknown): InputBreakdown | null {
+	if (!isRecord(value)) return null;
+
+	return {
+		delayMs: ranged(value.delayMs, 0, MAX_INCIDENT_MS),
+		presentationMs: ranged(value.presentationMs, 0, MAX_INCIDENT_MS),
+		processingMs: ranged(value.processingMs, 0, MAX_INCIDENT_MS),
+		target: text(value.target, 60),
+	};
+}
+
+function parseScript(value: unknown): LoafScript | null {
+	if (!isRecord(value)) return null;
+
+	return {
+		durationMs: ranged(value.durationMs, 0, MAX_INCIDENT_MS),
+		file: withoutQuery(value.file, 60) || null,
+		fn: text(value.fn, 60) || null,
+		invoker: withoutQuery(value.invoker, 80) ?? '',
+	};
+}
+
+function parseLoaf(value: unknown): LoafBreakdown | null {
+	if (!isRecord(value)) return null;
+
+	return {
+		otherMs: ranged(value.otherMs, 0, MAX_INCIDENT_MS),
+		scriptMs: ranged(value.scriptMs, 0, MAX_INCIDENT_MS),
+		scripts: items(value.scripts, MAX_SCRIPTS, parseScript),
+		styleLayoutMs: ranged(value.styleLayoutMs, 0, MAX_INCIDENT_MS),
+	};
+}
+
+/** The incident kind is never read from the client, the server derives it from the parts. */
+function parseIncident(value: unknown): PerfIncident | null {
+	if (!isRecord(value)) return null;
+
+	const selected = realm(value.realm);
+	if (!selected) return null;
+
+	return {
+		action: text(value.action, 80) || null,
+		actionAgoMs: rangedOrNull(value.actionAgoMs, 0, MAX_INCIDENT_MS),
+		atMs: ranged(value.atMs, 0, MAX_AT_MS),
+		durationMs: ranged(value.durationMs, 0, MAX_INCIDENT_MS),
+		input: parseInput(value.input),
+		loaf: parseLoaf(value.loaf),
+		modal: text(value.modal, 40) || null,
+		realm: selected,
+		sources: items(value.sources, MAX_SPANS, parseSpan),
+		timerLate: value.timerLate === true,
+	};
+}
+
+function parseSpan(value: unknown): PerfIncident['sources'][number] | null {
+	if (!isRecord(value)) return null;
+
+	const name = sourceName(value.name);
+	return name ? { ms: ranged(value.ms, 0, MAX_INCIDENT_MS), name } : null;
 }
 
 function parseSource(value: unknown): PerfSourceStat | null {
@@ -140,50 +207,25 @@ function parseSource(value: unknown): PerfSourceStat | null {
 	return name ? { calls: ranged(value.calls, 0, MAX_TOTAL), maxMs: ranged(value.maxMs, 0, MAX_MS), name, totalMs: ranged(value.totalMs, 0, MAX_TOTAL) } : null;
 }
 
+const blocked = (value: unknown) => ({ count: isRecord(value) ? ranged(value.count, 0, MAX_TOTAL) : 0, ms: isRecord(value) ? ranged(value.ms, 0, MAX_TOTAL) : 0 });
+
+/** Totals of the older report shape have no `blocked` and are refused, a tab on an old build gets a 400 until it reloads. */
 function parseTotals(value: unknown): PerfTotals | null {
-	if (!isRecord(value)) return null;
+	if (!isRecord(value) || !isRecord(value.blocked)) return null;
 
-	const loaf = isRecord(value.loaf) ? value.loaf : null;
 	return {
-		commitLagMaxMs: ranged(value.commitLagMaxMs, 0, MAX_MS),
-		commitLagP95Ms: ranged(value.commitLagP95Ms, 0, MAX_MS),
-		frameP95GapMs: ranged(value.frameP95GapMs, 0, MAX_MS),
-		freezeCount: ranged(value.freezeCount, 0, MAX_TOTAL),
-		freezeMs: ranged(value.freezeMs, 0, MAX_TOTAL),
-		inputMaxMs: ranged(value.inputMaxMs, 0, MAX_MS),
-		inputP95Ms: ranged(value.inputP95Ms, 0, MAX_MS),
-		inputPresentationShare: share(value.inputPresentationShare),
-		jankRatio: share(value.jankRatio),
-		loaf: loaf && {
-			renderMs: ranged(loaf.renderMs, 0, MAX_TOTAL),
-			scriptMs: ranged(loaf.scriptMs, 0, MAX_TOTAL),
-			styleLayoutMs: ranged(loaf.styleLayoutMs, 0, MAX_TOTAL),
-			topScripts: items(loaf.topScripts, MAX_TOP_SCRIPTS, script => text(script, 160)),
+		blocked: {
+			[IncidentKinds.FRAME]: blocked(value.blocked[IncidentKinds.FRAME]),
+			[IncidentKinds.FREEZE]: blocked(value.blocked[IncidentKinds.FREEZE]),
+			[IncidentKinds.INPUT]: blocked(value.blocked[IncidentKinds.INPUT]),
+			[IncidentKinds.STALL]: blocked(value.blocked[IncidentKinds.STALL]),
 		},
-		longTaskCount: rangedOrNull(value.longTaskCount, 0, MAX_TOTAL),
-		observedMs: ranged(value.observedMs, 0, MAX_TOTAL),
-		stallMsPer10s: ranged(value.stallMsPer10s, 0, MAX_MS),
-		unaccountedShare: share(value.unaccountedShare),
-		windows: ranged(value.windows, 0, MAX_COUNT),
-		worstTarget: text(value.worstTarget, 80),
-	};
-}
-
-function parseProbeLayer(value: unknown): ProbeLayerResult | null {
-	if (!isRecord(value)) return null;
-
-	const name = sourceName(value.name);
-	return name ? { jankRatio: typeof value.jankRatio === 'number' ? share(value.jankRatio) : null, lostMsPerS: ranged(value.lostMsPerS, 0, 1_000), name } : null;
-}
-
-function parseProbe(value: unknown): ProbeResult | null {
-	if (!isRecord(value)) return null;
-
-	return {
-		aborted: text(value.aborted, 40),
-		baselineLostMsPerS: ranged(value.baselineLostMsPerS, 0, 1_000),
-		culprit: sourceName(value.culprit),
-		layers: items(value.layers, MAX_LAYERS, parseProbeLayer),
+		commitLagP95Ms: ranged(value.commitLagP95Ms, 0, MAX_MS),
+		eventTiming: value.eventTiming === true,
+		inputP95Ms: ranged(value.inputP95Ms, 0, MAX_MS),
+		jankRatio: share(value.jankRatio),
+		loaf: value.loaf === true,
+		visibleMs: ranged(value.visibleMs, 0, MAX_TOTAL),
 	};
 }
 
@@ -195,7 +237,7 @@ function parsePerf(value: unknown): SessionPerf | null {
 
 	return {
 		evidence: items(value.evidence, MAX_EVIDENCE, parseWindow),
-		probe: parseProbe(value.probe),
+		incidents: items(value.incidents, MAX_INCIDENTS, parseIncident),
 		sources: items(value.sources, MAX_SOURCES, parseSource),
 		totals,
 	};
@@ -231,7 +273,7 @@ export function parseSessionStart(body: unknown): SessionStartPayload | null {
 	return device && game ? { device, game } : null;
 }
 
-/** The session id and write key must be UUIDs, the degraded flag and top source are never read from the client. */
+/** The session id and write key must be UUIDs, the degraded flag, problem and cause are never read from the client. */
 export function parseSessionUpdate(body: unknown): SessionUpdatePayload | null {
 	if (!isRecord(body) || !isUuid(body.sessionId) || !isUuid(body.writeKey)) return null;
 

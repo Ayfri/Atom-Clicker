@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, mock, spyOn, test } from 'bun:test';
 import { perfTracker } from '#helpers/perfTracker.js';
 import type { DeviceInfo, PerfWindow } from '#lib/types/session.js';
 import { privacy } from '#stores/privacy.svelte.js';
+import { ui } from '#stores/ui.svelte.js';
 
 const SESSION_ID = '3f2b8c1e-4d5a-4e6f-9a7b-1c2d3e4f5a6b';
 const WRITE_KEY = '9a1d7c52-8e3b-4f10-b6a2-5d4c3b2a1f0e';
@@ -31,20 +32,7 @@ const clientInfo = await import('#helpers/clientInfo.js');
 mock.module('#helpers/clientInfo.js', () => ({ ...clientInfo, SESSION_ID, getDeviceInfo: () => device, isCrawler: () => false }));
 const { PerfMonitor } = await import('#helpers/PerfMonitor.js');
 
-const badWindow: PerfWindow = {
-	attributedMs: 0,
-	commitLagP95Ms: 150,
-	commitStallMs: 0,
-	frameCount: 600,
-	frameJankCount: 0,
-	freezeCount: 0,
-	freezeMs: 0,
-	inputMaxMs: 0,
-	inputSlowCount: 0,
-	lostMs: 800,
-	observedMs: 10_000,
-	topSource: null,
-};
+const badWindow: PerfWindow = { blockedMs: 0, commitLagP95Ms: 150, frameCount: 600, frameJankCount: 0, freezeCount: 0, observedMs: 10_000, slowInputCount: 0 };
 
 const stubbed = new Map<object, Map<string, PropertyDescriptor | undefined>>();
 
@@ -67,9 +55,34 @@ function restore() {
 }
 
 class FakeObserver {
+	static instances: FakeObserver[] = [];
 	static supportedEntryTypes = ['event', 'long-animation-frame'];
 	disconnect = mock(() => {});
 	observe = mock(() => {});
+
+	constructor(private readonly callback: (list: { getEntries(): unknown[] }) => void) {
+		FakeObserver.instances.push(this);
+	}
+
+	deliver(...entries: unknown[]) {
+		this.callback({ getEntries: () => entries });
+	}
+}
+
+/** The few things the monitor reads from an element: a closest match, attributes and text. */
+class FakeElement {
+	constructor(private readonly attributes: Record<string, string> = {}) {}
+
+	closest() {
+		return this;
+	}
+
+	getAttribute(name: string) {
+		return this.attributes[name] ?? null;
+	}
+
+	tagName = 'DIV';
+	textContent = '';
 }
 
 interface FetchCall {
@@ -77,23 +90,25 @@ interface FetchCall {
 	url: string;
 }
 
+type Handler = (event?: unknown) => void;
+
 let fetchCalls: FetchCall[] = [];
 let updateStatus = 200;
-let layers = new Set<string>();
 let beacons: unknown[] = [];
-let documentHandlers = new Map<string, () => void>();
-let documentStub: { documentElement: { dataset: Record<string, string | undefined> }; hidden: boolean };
+let documentHandlers = new Map<string, Handler>();
+let listenerOptions = new Map<string, unknown>();
+let removedListeners: string[] = [];
+let documentStub: { hidden: boolean };
 let monitor = new PerfMonitor();
 let storage = new Map<string, string>();
 
-const GLOWS = '[data-perf-layer="glow"]';
 const updates = () => fetchCalls.filter(({ url }) => url === '/api/sessions/update');
 /** Lets every pending promise continuation run. */
 async function flush() {
 	for (let i = 0; i < 20; i++) await Promise.resolve();
 }
 
-/** Bun's fake timers have no async advance: the probe chains a timer after each await, so time moves in short steps with a flush between. */
+/** Bun's fake timers have no async advance, so time moves in short steps with a flush between. */
 async function advance(ms: number) {
 	for (let elapsed = 0; elapsed < ms; elapsed += 250) {
 		jest.advanceTimersByTime(Math.min(250, ms - elapsed));
@@ -118,24 +133,26 @@ beforeEach(() => {
 	jest.useFakeTimers();
 	fetchCalls = [];
 	updateStatus = 200;
-	layers = new Set();
 	beacons = [];
 	documentHandlers = new Map();
+	listenerOptions = new Map();
+	removedListeners = [];
 	storage = new Map();
-	documentStub = { documentElement: { dataset: {} }, hidden: false };
+	documentStub = { hidden: false };
 	stub(globalThis, 'document', {
-		...documentStub,
-		addEventListener: (type: string, handler: () => void) => documentHandlers.set(type, handler),
-		documentElement: documentStub.documentElement,
+		addEventListener: (type: string, handler: Handler, options?: unknown) => {
+			documentHandlers.set(type, handler);
+			listenerOptions.set(type, options);
+		},
 		getAnimations: () => [],
 		get hidden() {
 			return documentStub.hidden;
 		},
-		querySelector: (selector: string) => (layers.has(selector) ? {} : null),
 		querySelectorAll: () => [],
-		removeEventListener: () => {},
+		removeEventListener: (type: string) => removedListeners.push(type),
 	});
 	stub(globalThis, 'window', { addEventListener: () => {}, removeEventListener: () => {} });
+	stub(globalThis, 'Element', FakeElement);
 	stub(globalThis, 'localStorage', {
 		getItem: (key: string) => storage.get(key) ?? null,
 		removeItem: (key: string) => storage.delete(key),
@@ -148,15 +165,19 @@ beforeEach(() => {
 	});
 	stub(navigator, 'sendBeacon', (_url: string, body: Blob) => beacons.push(body));
 	privacy.analytics = true;
-	perfTracker.paused = true;
+	FakeObserver.instances = [];
+	perfTracker.pause();
 	perfTracker.onWindow = null;
+	perfTracker.incidents.reset();
 	monitor = new PerfMonitor();
 });
 
 afterEach(() => {
 	monitor.stop();
-	perfTracker.paused = true;
+	perfTracker.pause();
 	perfTracker.onWindow = null;
+	perfTracker.incidents.reset();
+	ui.closeModal();
 	privacy.analytics = true;
 	jest.useRealTimers();
 	restore();
@@ -168,6 +189,7 @@ describe('analytics switch', () => {
 		monitor.start();
 		await monitor.open();
 		expect(perfTracker.onWindow).toBeNull();
+		expect(perfTracker.incidents.environment).toBeNull();
 		expect(fetchCalls).toHaveLength(0);
 	});
 
@@ -199,35 +221,75 @@ describe('analytics switch', () => {
 	});
 });
 
-describe('probe', () => {
-	test('an abort removes the probe attribute and reports why', async () => {
-		layers.add(GLOWS);
-		perfTracker.paused = false;
-		const run = monitor.probe();
-		await advance(2_000);
-		expect(document.documentElement.dataset.perfProbe).toBe('glows');
+describe('listeners and environment', () => {
+	test('start registers the capture listeners and the environment, stop removes them', () => {
+		monitor.start();
+		expect(perfTracker.incidents.environment).not.toBeNull();
+		expect(listenerOptions.get('pointerdown')).toEqual({ capture: true, passive: true });
+		expect(listenerOptions.get('keydown')).toEqual({ capture: true, passive: true });
 
-		documentStub.hidden = true;
-		await advance(2_000);
-		const result = await run;
-		expect(document.documentElement.dataset.perfProbe).toBeUndefined();
-		expect(result).toMatchObject({ aborted: 'hidden', culprit: null });
+		monitor.stop();
+		expect(perfTracker.incidents.environment).toBeNull();
+		expect(removedListeners).toEqual(expect.arrayContaining(['keydown', 'pointerdown', 'visibilitychange']));
 	});
 
-	test('a probe that saw almost no frames reports no jank value instead of zero', async () => {
-		layers.add(GLOWS);
-		perfTracker.paused = false;
-		const run = monitor.probe();
-		await advance(7_000);
-		const result = await run;
-		expect(result.aborted).toBeNull();
-		expect(result.layers.map(({ jankRatio }) => jankRatio)).toEqual([null]);
-		expect(result.culprit).toBeNull();
+	test('a pointerdown on the atom followed by a 300 ms late commit is an incident after tap:Atom', async () => {
+		await startAndOpen();
+		documentHandlers.get('pointerdown')?.({ target: new FakeElement({ 'aria-label': 'Atom' }), timeStamp: performance.now() - 400, type: 'pointerdown' });
+		perfTracker.commit(300);
+		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ action: 'tap:Atom', modal: null, realm: 'atoms', timerLate: true });
+		expect(monitor.summary().incidents).toHaveLength(1);
 	});
 
-	test('a page without any decorative layer has nothing to probe', async () => {
-		perfTracker.paused = false;
-		expect(await monitor.probe()).toMatchObject({ aborted: 'no-layers', culprit: null, layers: [] });
+	test('a key press is described with the key prefix and digits in a label are masked', async () => {
+		await startAndOpen();
+		const button = new FakeElement();
+		button.textContent = 'Buy 1,234.5 atoms';
+		documentHandlers.get('keydown')?.({ target: button, timeStamp: performance.now() - 400, type: 'keydown' });
+		perfTracker.commit(300);
+		expect(perfTracker.incidents.worst(1)[0].action).toBe('key:Buy # atoms');
+	});
+
+	test('an event that is not an element names nothing', async () => {
+		await startAndOpen();
+		documentHandlers.get('pointerdown')?.({ target: null, timeStamp: performance.now() - 400, type: 'pointerdown' });
+		perfTracker.commit(300);
+		expect(perfTracker.incidents.worst(1)[0].action).toBeNull();
+	});
+
+	test('the lazy modal labels the action again once its loader resolved', async () => {
+		await startAndOpen();
+		const action = spyOn(perfTracker, 'action');
+		const loaded = ui.openModalLazy('skill-tree', () => Promise.resolve({ default: (() => {}) as never }));
+		expect(action).toHaveBeenCalledTimes(1);
+		await loaded;
+		expect(action.mock.calls.map(([label]) => label)).toEqual(['modal:skill-tree', 'modal:skill-tree']);
+
+		perfTracker.commit(300);
+		expect(perfTracker.incidents.worst(1)[0].modal).toBe('skill-tree');
+		action.mockRestore();
+	});
+
+	test('observer entries that started before the last resume are dropped, later ones become incidents', async () => {
+		await startAndOpen();
+		const [events, frames] = FakeObserver.instances;
+		const entry = (startTime: number) => ({ duration: 300, interactionId: 1, name: 'click', processingEnd: startTime + 200, processingStart: startTime + 10, startTime, target: null });
+		events.deliver(entry(perfTracker.resumedAt - 100));
+		frames.deliver({ duration: 400, scripts: [], startTime: perfTracker.resumedAt - 500, styleAndLayoutStart: 0 });
+		expect(perfTracker.incidents.worst(1)).toEqual([]);
+
+		events.deliver(entry(perfTracker.resumedAt + 100));
+		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 300, input: { delayMs: 10, processingMs: 190, presentationMs: 100 } });
+	});
+
+	test('a modal replaced while its loader runs is not labelled again', async () => {
+		await startAndOpen();
+		const action = spyOn(perfTracker, 'action');
+		const loaded = ui.openModalLazy('skill-tree', () => Promise.resolve({ default: (() => {}) as never }));
+		ui.closeModal();
+		await loaded;
+		expect(action.mock.calls.map(([label]) => label)).toEqual(['modal:skill-tree', 'modal:close']);
+		action.mockRestore();
 	});
 });
 
@@ -286,18 +348,24 @@ describe('degraded reports', () => {
 		expect(beacons).toHaveLength(1);
 	});
 
-	test('the periodic send waits for a running probe to finish', async () => {
-		layers.add(GLOWS);
+	test('a periodic update goes out after thirty calm windows', async () => {
 		await startAndOpen();
-		feed(3);
-		await advance(1_000);
+		feed(29, { ...badWindow, commitLagP95Ms: 4 });
+		await settle();
 		expect(updates()).toHaveLength(0);
 
-		feed(30, { ...badWindow, commitLagP95Ms: 4 });
-		await advance(1_000);
-		expect(updates()).toHaveLength(0);
-
-		await advance(6_000);
+		feed(1, { ...badWindow, commitLagP95Ms: 4 });
+		await settle();
 		expect(updates()).toHaveLength(1);
+	});
+
+	test('the update carries incidents and the totals the server judges', async () => {
+		await startAndOpen();
+		perfTracker.commit(400);
+		feed(3);
+		await settle();
+		expect(updates()[0].body).toMatchObject({
+			perf: { incidents: [{ durationMs: 400, timerLate: true }], totals: { blocked: { stall: { count: 1 } }, eventTiming: true, loaf: true } },
+		});
 	});
 });

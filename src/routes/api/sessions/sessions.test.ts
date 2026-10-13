@@ -41,6 +41,7 @@ const device = {
 const game = {
 	animations: null,
 	autoClicksPerSecond: 0,
+	backdrops: 0,
 	canvasBytes: 0,
 	canvases: 1,
 	covered: false,
@@ -55,29 +56,22 @@ const game = {
 	reducedMotion: false,
 };
 
-const calm: PerfWindow = { attributedMs: 100, commitLagP95Ms: 4, commitStallMs: 0, frameCount: 600, frameJankCount: 0, freezeCount: 0, freezeMs: 0, inputMaxMs: 0, inputSlowCount: 0, lostMs: 100, observedMs: 10_000, topSource: 'loop:commit' };
+const calm: PerfWindow = { blockedMs: 0, commitLagP95Ms: 4, frameCount: 600, frameJankCount: 0, freezeCount: 0, observedMs: 10_000, slowInputCount: 0 };
 const bad: PerfWindow = { ...calm, commitLagP95Ms: 150 };
 
+const none = { count: 0, ms: 0 };
+
 const totals = {
-	commitLagMaxMs: 0,
-	commitLagP95Ms: 0,
-	frameP95GapMs: 0,
-	freezeCount: 0,
-	freezeMs: 0,
-	inputMaxMs: 0,
+	blocked: { frame: none, freeze: none, input: none, stall: none },
+	commitLagP95Ms: 150,
+	eventTiming: true,
 	inputP95Ms: 0,
-	inputPresentationShare: 0,
 	jankRatio: 0,
-	loaf: null,
-	longTaskCount: null,
-	observedMs: 10_000,
-	stallMsPer10s: 0,
-	unaccountedShare: 0,
-	windows: 1,
-	worstTarget: null,
+	loaf: true,
+	visibleMs: 30_000,
 };
 
-const perf = (evidence: PerfWindow[]) => ({ evidence, probe: null, sources: [{ calls: 1, maxMs: 1, name: 'loop:commit', totalMs: 80 }], totals });
+const perf = (evidence: PerfWindow[]) => ({ evidence, incidents: [], sources: [{ calls: 1, maxMs: 1, name: 'loop:commit', totalMs: 80 }], totals });
 
 let address = 0;
 
@@ -147,7 +141,22 @@ describe('update', () => {
 
 	test('the write key and session id are passed through', async () => {
 		await send([calm]);
-		expect(service.update.mock.calls[0][0]).toMatchObject({ id: SESSION_ID, topSource: 'loop:commit', writeKey: WRITE_KEY });
+		expect(service.update.mock.calls[0][0]).toMatchObject({ id: SESSION_ID, writeKey: WRITE_KEY });
+	});
+
+	test('the problem, cause and summary are computed here whatever the client sends', async () => {
+		await send([calm], { cause: 'evil', perf: { ...perf([calm]), cause: 'evil', problem: 'freezes', summary: 'evil' }, problem: 'freezes', summary: 'evil' });
+		const [args] = service.update.mock.calls[0];
+		expect(args).toMatchObject({ cause: 'loop:commit', problem: 'low-frame-rate' });
+		expect(String(args.summary)).toContain('**Low frame rate**');
+		expect(JSON.stringify(args)).not.toContain('evil');
+	});
+
+	test('a calm session stores no problem or cause but still a summary', async () => {
+		await send([calm], { perf: { ...perf([calm]), totals: { ...totals, commitLagP95Ms: 4 } } });
+		const [args] = service.update.mock.calls[0];
+		expect(args).toMatchObject({ cause: null, problem: null });
+		expect(String(args.summary)).toContain('**Unclassified**');
 	});
 
 	test('a session or key the database does not know is a 404', async () => {

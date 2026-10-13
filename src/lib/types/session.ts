@@ -1,5 +1,6 @@
 import type { RealmType } from '#data/realms.js';
 import type { BrowserInfo } from '#helpers/clientInfo.js';
+import type { IncidentKinds } from '#helpers/perfIncidents.js';
 
 export type InAppBrowser = 'facebook' | 'instagram' | 'line' | 'linkedin' | 'other-webview' | 'snapchat' | 'tiktok' | 'twitter' | 'wechat';
 
@@ -19,6 +20,8 @@ export interface SessionGame {
 	/** `document.getAnimations().length` at report time. */
 	animations: number | null;
 	autoClicksPerSecond: number;
+	/** Elements with a `backdrop-blur` class. */
+	backdrops: number;
 	/** Sum of `width * height * 4` over the DOM canvases. */
 	canvasBytes: number;
 	canvases: number;
@@ -28,7 +31,8 @@ export interface SessionGame {
 	/** Elements marked `data-perf-layer="glow"`. */
 	glows: number;
 	ionizes: number;
-	level: number;
+	/** Null while levels are locked. */
+	level: number | null;
 	/** `ui.activeModalId`. */
 	modal: string | null;
 	protonises: number;
@@ -37,20 +41,56 @@ export interface SessionGame {
 	reducedMotion: boolean;
 }
 
+export type IncidentKind = (typeof IncidentKinds)[keyof typeof IncidentKinds];
+
+export type SessionProblem = 'freezes' | 'low-frame-rate' | 'render-bound' | 'slow-interactions';
+
+/** The Event Timing phases of one interaction: input delay, handlers, then everything until the next paint. */
+export interface InputBreakdown {
+	delayMs: number;
+	presentationMs: number;
+	processingMs: number;
+	target: string | null;
+}
+
+export interface LoafScript {
+	durationMs: number;
+	file: string | null;
+	fn: string | null;
+	invoker: string;
+}
+
+export interface LoafBreakdown {
+	otherMs: number;
+	scriptMs: number;
+	scripts: LoafScript[];
+	styleLayoutMs: number;
+}
+
+/** A main thread block of 150 ms or more, with what the player did just before and what ran inside it. */
+export interface PerfIncident {
+	action: string | null;
+	actionAgoMs: number | null;
+	/** Start of the block in ms since the page loaded. */
+	atMs: number;
+	durationMs: number;
+	input: InputBreakdown | null;
+	loaf: LoafBreakdown | null;
+	modal: string | null;
+	realm: RealmType;
+	sources: { ms: number; name: string }[];
+	timerLate: boolean;
+}
+
 export interface PerfWindow {
-	attributedMs: number;
+	blockedMs: number;
 	commitLagP95Ms: number;
-	commitStallMs: number;
 	frameCount: number;
 	frameJankCount: number;
-	/** Timer gaps past the ignore threshold but short enough to be a visible freeze rather than a suspended tab. */
+	/** Incidents that crossed one second inside the window. */
 	freezeCount: number;
-	freezeMs: number;
-	inputMaxMs: number;
-	inputSlowCount: number;
-	lostMs: number;
 	observedMs: number;
-	topSource: string | null;
+	slowInputCount: number;
 }
 
 export interface PerfSourceStat {
@@ -61,43 +101,20 @@ export interface PerfSourceStat {
 }
 
 export interface PerfTotals {
-	commitLagMaxMs: number;
+	blocked: Record<IncidentKind, { count: number; ms: number }>;
 	commitLagP95Ms: number;
-	frameP95GapMs: number;
-	freezeCount: number;
-	freezeMs: number;
-	inputMaxMs: number;
+	eventTiming: boolean;
 	inputP95Ms: number;
-	/** Share of slow-input time spent after the handlers, on the rendering side. */
-	inputPresentationShare: number;
 	jankRatio: number;
-	loaf: { renderMs: number; scriptMs: number; styleLayoutMs: number; topScripts: string[] } | null;
-	longTaskCount: number | null;
-	observedMs: number;
-	stallMsPer10s: number;
-	unaccountedShare: number;
-	windows: number;
-	worstTarget: string | null;
-}
-
-export interface ProbeLayerResult {
-	/** Null when too few frames ran during the phase to tell. */
-	jankRatio: number | null;
-	lostMsPerS: number;
-	name: string;
-}
-
-export interface ProbeResult {
-	aborted: string | null;
-	baselineLostMsPerS: number;
-	culprit: string | null;
-	layers: ProbeLayerResult[];
+	loaf: boolean;
+	/** Unpaused time of the session, the base of every share. */
+	visibleMs: number;
 }
 
 /** `evidence` holds the windows that triggered degraded (frozen once detected), otherwise the last 12 windows or fewer. */
 export interface SessionPerf {
 	evidence: PerfWindow[];
-	probe: ProbeResult | null;
+	incidents: PerfIncident[];
 	sources: PerfSourceStat[];
 	totals: PerfTotals;
 }

@@ -1,16 +1,17 @@
 import { dev } from '$app/env';
 import type { RequestHandler } from './$types';
-import { isDegraded, pickTopSource } from '#helpers/perfStats.js';
+import { isDegraded } from '#helpers/perfStats.js';
 import { RateLimiter } from '#lib/server/rateLimit.server.js';
 import { parseSessionUpdate, readJsonBody } from '#lib/server/sessionPayload.server.js';
 import { sessionsService } from '#lib/server/sessions.server.js';
+import { judgeSession } from '#lib/server/sessionVerdict.server.js';
 import type { Json } from '#lib/types/supabase.js';
 
 const MAX_BODY_BYTES = 16 * 1024;
 
 const updateRateLimit = new RateLimiter(60 * 1000, 20);
 
-/** Safe for `sendBeacon`: the write key in the body is the credential. The degraded flag and top source are recomputed here, never read from the client. */
+/** Safe for `sendBeacon`: the write key in the body is the credential. The degraded flag, problem, cause and summary are computed here, never read from the client. */
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	try {
 		if (updateRateLimit.limited(getClientAddress())) {
@@ -27,12 +28,15 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 
 		if (dev) return new Response(null, { status: 204 });
 
+		const { cause, problem, summary } = judgeSession(payload.perf, payload.game);
 		const updated = await sessionsService.update({
+			cause,
 			degraded: isDegraded(payload.perf.evidence),
 			game: payload.game as unknown as Json,
 			id: payload.sessionId,
 			perf: payload.perf as unknown as Json,
-			topSource: pickTopSource(payload.perf),
+			problem,
+			summary,
 			writeKey: payload.writeKey,
 		});
 

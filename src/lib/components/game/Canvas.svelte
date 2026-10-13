@@ -10,7 +10,6 @@
 		 * Appended to the body, out of the transformed realms, and sized by CSS: a pixel width taken from innerWidth in landscape
 		 * kept the page that wide after rotating back, phones then zoomed out to fit it and innerWidth never shrank again.
 		 */
-		canvas.dataset.perfLayer = 'particles';
 		canvas.style.cssText = 'height: 100%; inset: 0; position: fixed; width: 100%;';
 		document.body.appendChild(canvas);
 		const field = new ClickParticles(canvas);
