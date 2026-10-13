@@ -24,7 +24,6 @@ class RadiationManager {
 	/** Saved by GameManager as `totalIonizesAllTime`, it lives here because it sets the ionization line. */
 	ionizes = $state(0);
 	ionizeCpm = $derived(IONIZE_CPM + IONIZE_CPM_STEP * this.ionizes);
-	lastTick = $state(Date.now());
 	/** Swapped by the simulation for a seeded generator so a benchmark run is reproducible. */
 	random: () => number = () => Math.random();
 	mass = $state(0);
@@ -161,7 +160,6 @@ class RadiationManager {
 
 		this.mass = Math.max(0, this.mass - decay);
 		if (!this.ionizeReady) this.ionizeHold = this.currentCpm >= this.ionizeCpm ? this.ionizeHold + seconds : 0;
-		this.lastTick = Date.now();
 	}
 
 	/** Advances the core over an offline stretch and returns the radiation multiplier at its average mass. */
@@ -216,7 +214,6 @@ class RadiationManager {
 	loadState(state: RadiationState) {
 		this.controlRodLevel = state.controlRodLevel ?? 0;
 		this.ionizeHold = 0;
-		this.lastTick = state.lastTick ?? Date.now();
 		this.mass = state.mass ?? 0;
 		this.unlocked = state.unlocked ?? false;
 	}
@@ -224,7 +221,6 @@ class RadiationManager {
 	getState(): RadiationState {
 		return {
 			controlRodLevel: this.controlRodLevel,
-			lastTick: this.lastTick,
 			mass: this.mass,
 			unlocked: this.unlocked,
 		};
@@ -233,7 +229,6 @@ class RadiationManager {
 	reset() {
 		this.controlRodLevel = 0;
 		this.ionizeHold = 0;
-		this.lastTick = Date.now();
 		this.mass = 0;
 	}
 

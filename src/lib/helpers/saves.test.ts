@@ -1,8 +1,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { type RealmType, RealmTypes } from '#data/realms.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { loadSavedState, migrateSavedState, SAVE_KEY, SAVE_VERSION, serializeSaveState, validateAndRepairGameState } from '#helpers/saves.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { GameState } from '#lib/types.js';
@@ -210,7 +212,7 @@ describe('save round trip', () => {
 		gameManager.totalIonizesAllTime = 2;
 		gameManager.totalXP = 4321;
 		gameManager.upgrades = ['molecular_boost'];
-		radiationManager.loadState({ controlRodLevel: 0.4, lastTick: 1, mass: 77, unlocked: true });
+		radiationManager.loadState({ controlRodLevel: 0.4, mass: 77, unlocked: true });
 		const played = JSON.parse(JSON.stringify(gameManager.getCurrentState()));
 
 		storage.set(SAVE_KEY, serializeSaveState(gameManager.getCurrentState()));
@@ -218,6 +220,40 @@ describe('save round trip', () => {
 		const { state } = loadSavedState();
 		gameManager.loadSaveData(state!);
 		expect(JSON.parse(JSON.stringify(gameManager.getCurrentState()))).toEqual(played);
+	});
+
+	test('the radiation state carries no tick time', () => {
+		expect(gameManager.getCurrentState().radiation).toEqual({ controlRodLevel: 0.5, mass: 0, unlocked: false });
+	});
+
+	test('a saved realm selection only loads once that realm is unlocked', () => {
+		gameManager.loadSaveData({ selectedRealmId: RealmTypes.PHOTONS });
+		expect(gameManager.selectedRealmId).toBe(RealmTypes.ATOMS);
+
+		gameManager.realms[RealmTypes.PHOTONS].unlocked = true;
+		gameManager.loadSaveData({ selectedRealmId: RealmTypes.PHOTONS });
+		expect(gameManager.selectedRealmId).toBe(RealmTypes.PHOTONS);
+		expect(realmManager.selectedRealmId).toBe(RealmTypes.PHOTONS);
+
+		gameManager.resetAll();
+		expect(gameManager.selectedRealmId).toBe(RealmTypes.ATOMS);
+
+		Reflect.set(gameManager.realms, 'foo', { unlocked: true });
+		gameManager.loadSaveData({ selectedRealmId: 'foo' as RealmType });
+		expect(gameManager.selectedRealmId).toBe(RealmTypes.ATOMS);
+		Reflect.deleteProperty(gameManager.realms, 'foo');
+	});
+
+	test('the player count is never saved or loaded', () => {
+		try {
+			gameManager.totalUsers = 1234;
+			expect(gameManager.getCurrentState()).not.toHaveProperty('totalUsers');
+
+			gameManager.loadSaveData({ totalUsers: 5000 } as Partial<GameState>);
+			expect(gameManager.totalUsers).toBe(1234);
+		} finally {
+			gameManager.totalUsers = 0;
+		}
 	});
 
 	test('retired achievement ids drop out on load', () => {

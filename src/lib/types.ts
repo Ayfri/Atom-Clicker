@@ -134,7 +134,6 @@ export type CurrencyBoosts = Partial<Record<CurrencyName, number>>;
 
 export interface RadiationState {
 	controlRodLevel: number;
-	lastTick: number;
 	mass: number;
 	unlocked: boolean;
 }
@@ -182,7 +181,6 @@ export interface GameState {
 	totalProtonisesAllTime: number;
 	totalProtonisesRun: number;
 	totalUpgradesPurchasedAllTime: number;
-	totalUsers: number;
 	totalXP: number;
 	tutorial: TutorialState;
 	upgrades: string[];
