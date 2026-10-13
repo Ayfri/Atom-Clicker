@@ -52,11 +52,12 @@
 	</button>
 {/snippet}
 
+<!-- No exit transition: an outroing element is made `inert`, which restyles the whole modal on close (~900 elements for the Skill Tree). -->
 <div
 	class={['overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs', dialog && 'p-4']}
+	in:fade={{ duration: 200 }}
 	onclick={e => e.target === e.currentTarget && onClose()}
 	role="presentation"
-	transition:fade={{ duration: 200 }}
 >
 	{#if dialog}
 		<div
