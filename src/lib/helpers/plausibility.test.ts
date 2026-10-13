@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { checkStatePlausibility } from '#helpers/plausibility.js';
+import { checkStatePlausibility, findImplausible } from '#helpers/plausibility.js';
 
 const HOUR = 3_600_000;
 
@@ -22,6 +22,10 @@ test('a consistent save raises nothing', () => {
 
 test('flags run counters above their all-time totals', () => {
 	expect(checkStatePlausibility({ ...legit, totalClicksRun: 101 })).toEqual(['totalClicksRun (101) exceeds totalClicksAllTime (100)']);
+});
+
+test('reports the value and the limit of each breach', () => {
+	expect(findImplausible({ ...legit, totalClicksRun: 101 })).toEqual([{ label: 'totalClicksRun', limit: 100, limitLabel: 'totalClicksAllTime', value: 101 }]);
 });
 
 test('flags a currency holding or earning more than it ever earned', () => {

@@ -5,9 +5,12 @@
 	import { SAVE_KEY, SAVE_VERSION } from '#helpers/saves.js';
 	import { statsConfig } from '#helpers/statConstants.js';
 	import type { GameState } from '#lib/types.js';
+	import type { StateFix } from '#lib/types/audit.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { getItem } from '#lib/utils/safeLocalStorage.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
+	import { integrityCheck } from '../integrity.svelte.js';
 	import { btn, btnAccent, btnDanger, field, reloadWithSave, snapshots } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
@@ -62,6 +65,16 @@
 		gameManager.syncUnlocks();
 	}
 
+	const report = $derived(integrityCheck.report);
+	const checked = $derived(report?.status === 'checked' ? report : null);
+
+	const fixTarget = (fix: StateFix) => ('currency' in fix ? `${fix.currency}.${fix.field}` : fix.key);
+	/** Dates read as dates, and 0 for a run start means the save doesn't know it. */
+	function fixValue(fix: StateFix, value: number): string {
+		if ('currency' in fix || (fix.key !== 'runStartedAt' && fix.key !== 'startDate')) return formatNumber(value);
+		return value === 0 ? 'unknown' : new Date(value).toLocaleString();
+	}
+
 	let rawJson = $state<string | null>(null);
 	let cloudJson = $state<string | null>(null);
 
@@ -99,6 +112,57 @@
 			<button class={btnAccent} disabled={!importText || !!importError} onclick={() => reloadWithSave(importText)}>Load and reload</button>
 		</div>
 	{/if}
+</Section>
+
+<Section title="Leaderboard check">
+	<div class="flex flex-wrap gap-1">
+		<button class={btn} disabled={integrityCheck.busy} onclick={() => integrityCheck.run()}>Check integrity</button>
+		<button class={btnAccent} disabled={integrityCheck.busy || !integrityCheck.fixable} onclick={() => integrityCheck.fix()}>Fix</button>
+	</div>
+	<p class="mt-1.5 font-mono text-[11px]">
+		{#if integrityCheck.error}
+			<span class="text-red-400">{integrityCheck.error}</span>
+		{:else if report?.status === 'outdated'}
+			<span class="text-yellow-300/80">outdated, reload</span>
+		{:else if report?.status === 'malformed'}
+			<span class="text-red-400">malformed</span>
+		{:else if checked}
+			{@const time = new Date(integrityCheck.checkedAt).toLocaleTimeString()}
+			{#if checked.issues.length === 0}
+				<span class="text-green-400">checked {time}, passes</span>
+			{:else}
+				<span class="text-red-400">checked {time}, {checked.issues.length} {checked.issues.length === 1 ? 'issue' : 'issues'}</span>
+			{/if}
+		{:else}
+			<span class="text-white/40">not checked yet</span>
+		{/if}
+	</p>
+	{#if integrityCheck.storedTampered}<p class="mt-1 text-[11px] text-red-400">stored save signature mismatch</p>{/if}
+	{#if checked}
+		{#if checked.checks.length > 0}
+			<div class="mt-1.5 grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-0.5 font-mono text-[11px]">
+				{#each checked.checks as check (check.id + check.label)}
+					<span class="min-w-0 truncate text-white/70" title="{check.id}: {check.label}">{check.id}: {check.label}</span>
+					<span class="text-red-300">{check.value === null ? 'n/a' : formatNumber(check.value)}</span>
+					<span class="text-white/40">{check.limit === null ? 'n/a' : `> ${formatNumber(check.limit)}`}</span>
+				{/each}
+			</div>
+		{/if}
+		{#if checked.fixes.length > 0}
+			<div class="mt-1.5 flex flex-col gap-0.5 font-mono text-[11px]">
+				{#each checked.fixes as fix (fixTarget(fix))}
+					<div class="flex flex-wrap gap-x-2">
+						<span class="text-white/70">{fixTarget(fix)}</span>
+						<span class="text-white/50">{fixValue(fix, fix.from)} -> {fixValue(fix, fix.to)}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		{#each checked.remaining as id (id)}
+			<p class="mt-1 text-[11px] text-yellow-300/80">{id}: no automatic fix, edit in the State editor</p>
+		{/each}
+	{/if}
+	<p class="mt-1.5 text-[11px] text-white/30">Checked as a first submission with an account as old as the save.</p>
 </Section>
 
 <Section title="Snapshots">
