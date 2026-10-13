@@ -8,7 +8,6 @@
 	import { X } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
-	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 	import { fade, fly, scale } from 'svelte/transition';
 
 	interface Props {
@@ -28,13 +27,12 @@
 
 	const widthClasses = $derived({ lg: 'max-w-5xl', md: 'max-w-3xl', sm: 'max-w-xl', xl: 'max-w-7xl' }[width]);
 
-	let modalHeight = $state(0);
-	let modalWidth = $state(0);
-	/** Phones show the modal fullscreen, the desktop one leaves the game visible around it. */
-	const covers = $derived(modalWidth >= (innerWidth.current ?? Infinity) && modalHeight >= (innerHeight.current ?? Infinity));
-
+	/**
+	 * A full modal pauses the realm canvases: on phones it fills the screen, on desktop the game around it is dimmed and blurred,
+	 * and a canvas animating under the blur makes the browser redo it every frame. A dialog leaves the game running.
+	 */
 	$effect(() => {
-		if (covers) return ui.cover();
+		if (!dialog) return ui.cover();
 	});
 
 	const id = Symbol();
@@ -77,8 +75,6 @@
 		<div
 			aria-label={title}
 			aria-modal="true"
-			bind:offsetHeight={modalHeight}
-			bind:offsetWidth={modalWidth}
 			class="modal flex h-dvh w-screen md:h-[85vh] md:w-[85vw] {widthClasses} flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800"
 			role="dialog"
 			tabindex="-1"

@@ -34,14 +34,14 @@ class UIStore {
 	}
 
 	/**
-	 * A modal fills the whole viewport, so the realm canvases behind it pause: an IntersectionObserver doesn't see an overlay,
-	 * and a loop left running forces a main frame per vsync that also restyles every animation of the modal.
+	 * A full modal hides the game, so the realm canvases behind it pause: an IntersectionObserver doesn't see an overlay, and a loop
+	 * left running forces a main frame per vsync that also restyles every animation of the modal and redoes its backdrop blur.
 	 */
 	get covered() {
 		return this.#covers > 0;
 	}
 
-	/** Registers a viewport-filling overlay, returns its release. Untracked, so an effect calling it doesn't depend on the count it changes. */
+	/** Registers an overlay hiding the game, returns its release. Untracked, so an effect calling it doesn't depend on the count it changes. */
 	cover() {
 		untrack(() => this.#covers++);
 		return () => untrack(() => this.#covers--);
