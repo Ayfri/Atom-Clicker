@@ -8,7 +8,6 @@
 	import { X } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
-	import { innerHeight, innerWidth } from 'svelte/reactivity/window';
 	import { fade, fly, scale } from 'svelte/transition';
 
 	interface Props {
@@ -16,6 +15,8 @@
 		/** Dialog only, replaces its default border and background. */
 		class?: ClassValue;
 		containerClass?: string;
+		/** Pauses the realm canvases, on by default for full modals. */
+		cover?: boolean;
 		/** A centered card sized to its content, whose heading lives in its children while `title` names it for screen readers. */
 		dialog?: boolean;
 		/** On desktop, sized to its content up to 85vh instead of always 85vh tall. */
@@ -26,17 +27,16 @@
 		width?: 'sm' | 'md' | 'lg' | 'xl';
 	}
 
-	let { children, class: className, containerClass, dialog = false, fit = false, header, onClose = () => {}, title, width = 'md' }: Props = $props();
+	let { children, class: className, containerClass, cover, dialog = false, fit = false, header, onClose = () => {}, title, width = 'md' }: Props = $props();
 
 	const widthClasses = $derived({ lg: 'max-w-5xl', md: 'max-w-3xl', sm: 'max-w-xl', xl: 'max-w-7xl' }[width]);
 
-	let modalHeight = $state(0);
-	let modalWidth = $state(0);
-	/** Phones show the modal fullscreen, the desktop one leaves the game visible around it. */
-	const covers = $derived(modalWidth >= (innerWidth.current ?? Infinity) && modalHeight >= (innerHeight.current ?? Infinity));
-
+	/**
+	 * A full modal pauses the realm canvases: on phones it fills the screen, on desktop the game around it is dimmed and blurred,
+	 * and a canvas animating under the blur makes the browser redo it every frame. A dialog leaves the game running unless it sets `cover`.
+	 */
 	$effect(() => {
-		if (covers) return ui.cover();
+		if (cover ?? !dialog) return ui.cover();
 	});
 
 	const id = Symbol();
@@ -54,11 +54,12 @@
 	</button>
 {/snippet}
 
+<!-- No exit transition: an outroing element is made `inert`, which restyles the whole modal on close (~900 elements for the Skill Tree). -->
 <div
 	class={['overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs', dialog && 'p-4']}
+	in:fade={{ duration: 200 }}
 	onclick={e => e.target === e.currentTarget && onClose()}
 	role="presentation"
-	transition:fade={{ duration: 200 }}
 >
 	{#if dialog}
 		<div
@@ -79,8 +80,6 @@
 		<div
 			aria-label={title}
 			aria-modal="true"
-			bind:offsetHeight={modalHeight}
-			bind:offsetWidth={modalWidth}
 			class={[
 				'modal flex h-dvh w-screen md:w-[85vw] flex-col overflow-hidden md:rounded-2xl shadow-2xl bg-linear-to-br from-accent-900 to-accent-800',
 				fit ? 'md:h-auto md:max-h-[85vh]' : 'md:h-[85vh]',

@@ -1,4 +1,4 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
+import { CanvasLoop } from '#helpers/CanvasLoop.js';
 
 const MAX_SPARKS = 320;
 const MAX_COMETS = 24;
@@ -36,11 +36,10 @@ interface Comet {
 export class TableParticles extends CanvasLoop {
 	private readonly comets: Comet[] = [];
 	private readonly ctx: CanvasRenderingContext2D;
-	private ratio = 1;
 	private readonly sparks: Spark[] = [];
 
 	constructor(canvas: HTMLCanvasElement) {
-		super(canvas);
+		super(canvas, 'canvas:tableParticles');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;
@@ -132,10 +131,8 @@ export class TableParticles extends CanvasLoop {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	}
 
-	protected resize() {
-		this.ratio = pixelRatio();
-		this.canvas.width = Math.max(1, Math.round(this.canvas.clientWidth * this.ratio));
-		this.canvas.height = Math.max(1, Math.round(this.canvas.clientHeight * this.ratio));
+	protected resize(width: number, height: number) {
+		this.fit(width, height);
 	}
 
 	private bezier({ control, from, to }: Comet, t: number): Point {

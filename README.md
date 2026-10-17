@@ -8,9 +8,9 @@ Welcome to Atom Clicker, an engaging incremental game where you'll build your ow
 
 🎮 [Play Now](https://atom-clicker.ayfri.com) | 💬 [Discord](https://discord.ayfri.com)
 
-![Atom Clicker Gameplay](static/ingame-screenshot.png)
-![Atom Clicker Gameplay](static/ingame-screenshot2.png)
-![Atom Clicker Gameplay](static/ingame-screenshot3.png)
+![The Atom realm](static/screenshots/wide-atoms.webp)
+![The Skill Tree](static/screenshots/wide-skill-tree.webp)
+![The Photon realm](static/screenshots/wide-photons.webp)
 
 ## 🎮 How to Play
 

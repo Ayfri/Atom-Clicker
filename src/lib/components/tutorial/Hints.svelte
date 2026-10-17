@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { HINTS, type Hint } from '#data/hints.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { highlightCurrencies } from '#lib/utils/highlightCurrencies.js';
 	import type { TooltipPosition } from '#stores/tooltip.svelte.js';
@@ -17,16 +18,32 @@
 
 	const unseen = $derived(tutorial.state.enabled ? HINTS.filter(hint => !tutorial.hasSeen(hint.id)) : []);
 
-	// Completion is tracked for every unseen hint, so a player who already did the action never gets told to do it.
+	/** Hints for the realm on screen, changes only on the poll so atom commits never rebuild it. */
+	let pending = $state.raw<Hint[]>([]);
+
+	/** Completion is tracked for every unseen hint, so a player who already did the action never gets told to do it. */
+	function evaluate(realm: Hint['realm']) {
+		const start = performance.now();
+		const next: Hint[] = [];
+		for (const hint of unseen) {
+			if (hint.done?.()) tutorial.markSeen(hint.id);
+			else if (hint.realm === realm && (!hint.show || hint.show())) next.push(hint);
+		}
+		if (next.length !== pending.length || next.some((hint, i) => hint !== pending[i])) pending = next;
+		perfTracker.track('hints:evaluate', start);
+	}
+
 	$effect(() => {
-		for (const hint of unseen) if (hint.done?.()) tutorial.markSeen(hint.id);
+		if (unseen.length === 0) {
+			pending = [];
+			return;
+		}
+		const realm = realmManager.hintScope;
+		untrack(() => evaluate(realm));
+		const interval = setInterval(() => evaluate(realm), POLL_MS);
+		return () => clearInterval(interval);
 	});
 
-	const pending = $derived(
-		unseen.filter(hint => hint.realm === realmManager.hintScope &&(!hint.show || hint.show()) && !hint.done?.()),
-	);
-
-	// `pending` is rebuilt on every atom commit, the polling effect only restarts when it empties or fills.
 	const hasPending = $derived(pending.length > 0);
 
 	let current = $state.raw<Hint | null>(null);
@@ -62,7 +79,11 @@
 		}
 		untrack(pick);
 		if (ui.activeModal) return;
-		const interval = setInterval(pick, POLL_MS);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			pick();
+			perfTracker.track('hints:poll', start);
+		}, POLL_MS);
 		window.addEventListener('scroll', pick, { capture: true, passive: true });
 		return () => {
 			clearInterval(interval);
@@ -146,7 +167,14 @@
 			</button>
 			<h3 class="text-sm font-bold text-white">{hint.title}</h3>
 			<p class="mt-1 text-xs text-white/70">{@html highlightCurrencies(hint.text)}</p>
-			{#if !hint.done}
+			{#if hint.action}
+				<button
+					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
+					onclick={hint.action.run}
+				>
+					{hint.action.label}
+				</button>
+			{:else if !hint.done}
 				<button
 					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
 					onclick={() => tutorial.markSeen(hint.id)}

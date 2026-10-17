@@ -3,7 +3,7 @@ import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { GameMessage } from '#lib/types/supabase.js';
 
-export class RemoteMessageStore {
+class RemoteMessageStore {
 	message = $state<GameMessage | null>(null);
 	dismissedIds = $state<string[]>([]);
 	isVisible = $state(true);
@@ -91,10 +91,6 @@ export class RemoteMessageStore {
 			clearInterval(this.interval);
 			this.interval = null;
 		}
-	}
-
-	refresh() {
-		return this.fetchMessage();
 	}
 }
 

@@ -1,5 +1,6 @@
 import {SKILL_UPGRADES} from '#data/skillTree.js';
 import {gameManager} from '#helpers/GameManager.svelte.js';
+import {perfMonitor} from '#helpers/PerfMonitor.js';
 import {ACHIEVEMENTS} from '#data/achievements.js';
 import {GENERATORS} from '#data/generators.js';
 import {UPGRADES} from '#data/upgrades.js';
@@ -10,6 +11,9 @@ export function setGlobals() {
 	window.GENERATORS = GENERATORS;
 	window.SKILL_UPGRADES = SKILL_UPGRADES;
 	window.UPGRADES = UPGRADES;
-	if (import.meta.env.DEV) window.gameManager = gameManager;
+	if (import.meta.env.DEV) {
+		window.gameManager = gameManager;
+		window.perfMonitor = perfMonitor;
+	}
 	window.formatNumber = formatNumber;
 }

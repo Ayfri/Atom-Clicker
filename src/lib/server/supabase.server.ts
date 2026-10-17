@@ -11,7 +11,7 @@ export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABAS
 		autoRefreshToken: false,
 		persistSession: false
 	}
-})
+});
 
 export interface ScoreContext {
 	accountCreatedAt: number | null;
@@ -35,7 +35,25 @@ export async function resolveUserFromRequest(request: Request): Promise<string |
 	return user.id;
 }
 
+const USER_COUNT_TTL_MS = 60_000;
+let userCount: { at: number; count: number } | undefined;
+
 export const leaderboardService = {
+	/** Every account, cached per Worker isolate because each audit and each page load asks for it. */
+	async countUsers(): Promise<number> {
+		if (userCount && Date.now() - userCount.at < USER_COUNT_TTL_MS) return userCount.count;
+
+		const { count, error } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
+
+		if (error || count === null) {
+			console.error('Error counting users:', error);
+			throw error ?? new Error('Missing user count');
+		}
+
+		userCount = { at: Date.now(), count };
+		return count;
+	},
+
 	async getLeaderboard(limit: number = 1000) {
 		const { data, error } = await supabaseAdmin.rpc('get_leaderboard', {
 			p_limit: limit
@@ -82,38 +100,22 @@ export const leaderboardService = {
 		return (data as { status: ScoreStatus }).status;
 	},
 
-	async getProfile(userId: string) {
-		const { data, error } = await supabaseAdmin
-			.from('profiles')
-			.select('*')
-			.eq('id', userId)
-			.single()
-
-		if (error && error.code !== 'PGRST116') {
-			// PGRST116 is "not found" error, which is expected for new users
-			console.error('Error fetching profile:', error)
-			throw error
-		}
-
-		return data
-	},
-
 	/** The save stays server-side, the profile route only publishes the stats it reads from it. */
 	async getPublicSave(userId: string) {
 		const { data, error } = await supabaseAdmin
 			.from('profiles')
 			.select('created_at, save')
 			.eq('id', userId)
-			.maybeSingle()
+			.maybeSingle();
 
 		if (error) {
-			console.error('Error fetching public save:', error)
-			throw error
+			console.error('Error fetching public save:', error);
+			throw error;
 		}
 
-		return data
-	}
-}
+		return data;
+	},
+};
 
 export const colliderService = {
 	async get(userId: string | null): Promise<ColliderState> {
@@ -227,7 +229,7 @@ export const quarksService = {
 	async getBalance(userId: string) {
 		const { data, error } = await supabaseAdmin
 			.from('player_quarks')
-			.select('*')
+			.select('balance')
 			.eq('user_id', userId)
 			.maybeSingle();
 
@@ -297,25 +299,27 @@ export const quarksService = {
 		}
 	},
 
-	async getEquippedThemes(userId: string): Promise<Record<string, string>> {
+	async getEquipped(userId: string): Promise<{ equippedBanner: string | null; equippedThemes: Record<string, string> }> {
 		const { data, error } = await supabaseAdmin
 			.from('profiles')
-			.select('equipped_themes')
+			.select('equipped_banner, equipped_themes')
 			.eq('id', userId)
 			.maybeSingle();
 
 		if (error) {
-			console.error('Error fetching equipped themes:', error);
+			console.error('Error fetching equipped cosmetics:', error);
 			throw error;
 		}
 
-		return (data as { equipped_themes?: Record<string, string> } | null)?.equipped_themes ?? {};
+		return {
+			equippedBanner: data?.equipped_banner ?? null,
+			equippedThemes: (data?.equipped_themes as Record<string, string> | null) ?? {},
+		};
 	},
 
-	// Read-modify-write on a small per-user jsonb map -
-	// cosmetic preferences don't need the row-lock/RPC treatment the balance-affecting Quark ops get.
+	/** Read-modify-write on a small per-user jsonb map, cosmetics don't need the RPC treatment of the balance-affecting Quark ops. */
 	async equipTheme(userId: string, realmId: string, itemId: string | null): Promise<Record<string, string>> {
-		const current = await this.getEquippedThemes(userId);
+		const { equippedThemes: current } = await this.getEquipped(userId);
 		const next = { ...current };
 
 		if (itemId) next[realmId] = itemId; else delete next[realmId];

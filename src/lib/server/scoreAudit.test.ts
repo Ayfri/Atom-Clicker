@@ -27,17 +27,18 @@ function capture(): Capture {
 }
 
 /** The bot signs up as it starts playing. */
-const context = (now: number, previous: PreviousScore | null = null) => ({ accountCreatedAt: OFFSET, colliderTotal: 0, now, previous });
-const audit = ({ now, state }: Capture, previous: PreviousScore | null = null) => auditScore(state, context(now, previous)) as ScoreAudit;
+const context = (now: number, previous: PreviousScore | null = null, totalUsers = 0) => ({ accountCreatedAt: OFFSET, colliderTotal: 0, now, previous, totalUsers });
+const audit = ({ now, state }: Capture, previous: PreviousScore | null = null, totalUsers = 0) => auditScore(state, context(now, previous, totalUsers)) as ScoreAudit;
 const atomsOf = (state: GameState) => state.currencies[CurrenciesTypes.ATOMS];
 const runId = ({ state }: Capture) => `${state.totalProtonisesAllTime}:${state.totalElectronizesAllTime}:${state.totalIonizesAllTime}`;
 /** A late state with a known run start, past the first Protonize. */
 const lateRun = () => captures.findLast(({ state }) => state.runStartedAt > 0 && atomsOf(state).earnedRun > 1e12)!;
 
+/** Playing six hours takes several seconds, past the default hook timeout on a busy machine. */
 beforeAll(() => {
 	playHonestRun('balanced', 6, () => captures.push(capture()));
 	captures = captures.filter((_, i) => i % 6 === 0);
-});
+}, 60_000);
 
 beforeEach(() => gameManager.resetAll());
 
@@ -156,6 +157,19 @@ describe('edited states', () => {
 			const entry = lateRun();
 			const limit = rejectedFrom(factor => audit(inflated(entry, factor)));
 			expect(rejectedFrom(factor => audit(inflated(entry, factor, backdate)))).toBeLessThanOrEqual(limit);
+		});
+
+		test('the account count comes from the server, a total claimed by the client is ignored', () => {
+			const entry = structuredClone(lateRun());
+			if (!entry.state.upgrades.includes('proton_community_power')) entry.state.upgrades.push('proton_community_power');
+			const forged = structuredClone(entry);
+			(forged.state as GameState & { totalUsers: number }).totalUsers = 1e12;
+
+			const plain = rejectedFrom(factor => audit(inflated(entry, factor)));
+			expect(plain).toBeLessThan(Infinity);
+			expect(rejectedFrom(factor => audit(inflated(forged, factor)))).toBe(plain);
+			expect(rejectedFrom(factor => audit(inflated(forged, factor), null, 1e12))).toBeGreaterThan(plain);
+			expect(rejectedFrom(factor => audit(inflated(entry, factor), null, 100_000))).toBeGreaterThan(plain);
 		});
 
 		test('the credited run start never predates what the server saw', () => {

@@ -1,4 +1,5 @@
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { perfTracker } from '#helpers/perfTracker.js';
 import { browser } from '$app/env';
 import { SvelteSet } from 'svelte/reactivity';
 
@@ -9,10 +10,13 @@ class AutoUpgradeManager {
 	purchaseAvailableUpgrades() {
 		if (!gameManager.settings.automation.upgrades) return;
 
-		for (const id of gameManager.purchaseAffordableUpgrades()) {
-			this.recentlyAutoPurchased.add(id);
-			setTimeout(() => this.recentlyAutoPurchased.delete(id), 2000);
-		}
+		const bought = gameManager.purchaseAffordableUpgrades();
+		if (bought.length === 0) return;
+		for (const id of bought) this.recentlyAutoPurchased.add(id);
+		/** One timer per batch: its ids leave together, so a "+3" never counts down to "+1" on the way out. */
+		setTimeout(() => {
+			for (const id of bought) this.recentlyAutoPurchased.delete(id);
+		}, 2000);
 	}
 
 	init() {
@@ -27,8 +31,10 @@ class AutoUpgradeManager {
 
 			this.nextFireTime = Date.now() + interval;
 			const timer = setInterval(() => {
+				const start = performance.now();
 				this.purchaseAvailableUpgrades();
 				this.nextFireTime = Date.now() + interval;
+				perfTracker.track('auto:upgrade', start);
 			}, interval);
 			return () => clearInterval(timer);
 		});

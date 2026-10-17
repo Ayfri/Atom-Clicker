@@ -4,13 +4,16 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, runSeconds } from '#helpers/runBounds.js';
 import { validateAndRepairGameState } from '#helpers/saves.js';
-import { PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { APP_PRODUCTION_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import type { BotProfileId } from '#lib/simulation/presets.js';
 import { playHonestRun } from '../../../tests/simulatedRun.js';
 
 const { ATOMS } = CurrenciesTypes;
 
-beforeEach(() => gameManager.resetAll());
+beforeEach(() => {
+	gameManager.resetAll();
+	gameManager.installedApp = false;
+});
 
 describe('honest play stays under the bound', () => {
 	/**
@@ -46,6 +49,20 @@ describe('honest play stays under the bound', () => {
 		expect(worstRun).toBeLessThan(1);
 		expect(worstStep).toBeLessThan(1);
 	}, 60_000);
+
+	test('a balanced bot over 6 hours from the installed app', () => {
+		gameManager.installedApp = true;
+		let worstRun = 0;
+
+		playHonestRun('balanced', 6, () => {
+			const now = gameManager.clock();
+			const seconds = (now - gameManager.runStartedAt) / 1000;
+			const bounds = measureRunBounds(gameManager, now, seconds);
+			worstRun = Math.max(worstRun, gameManager.currencies[ATOMS].earnedRun / maxRunAtoms(bounds, seconds, gameManager.totalClicksRun) || 0);
+		});
+
+		expect(worstRun).toBeLessThan(1);
+	}, 60_000);
 });
 
 describe('bounds', () => {
@@ -55,6 +72,18 @@ describe('bounds', () => {
 		const before = JSON.stringify(gameManager.getCurrentState());
 		measureRunBounds(gameManager, Date.now(), 60);
 		expect(JSON.stringify(gameManager.getCurrentState())).toBe(before);
+	});
+
+	test('the installed app bonus is always in the bound, and measuring leaves the flag as it was', () => {
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		const production = gameManager.atomsPerSecond;
+		const bounds = measureRunBounds(gameManager, Date.now(), 60);
+		expect(gameManager.installedApp).toBe(false);
+		expect(bounds.rate).toBeGreaterThanOrEqual(production * APP_PRODUCTION_MULTIPLIER * (1 - 1e-12));
+
+		gameManager.installedApp = true;
+		expect(measureRunBounds(gameManager, Date.now(), 60)).toEqual({ ...bounds });
+		expect(gameManager.installedApp).toBe(true);
 	});
 
 	test('ten molecules and a hundred clicks cannot reach the first Protonize in a minute', () => {

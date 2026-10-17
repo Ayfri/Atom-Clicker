@@ -10,6 +10,7 @@
 	import { TrendingUp, Users, Zap } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { backOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
 
 	interface Props {
@@ -93,7 +94,7 @@
 
 	function impact() {
 		charging = false;
-		if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		if (prefersReducedMotion.current) return;
 		button?.animate([{ transform: 'scale(0.93)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 450, easing: 'ease-out' });
 		bonus?.animate([{ color: '#ffffff', transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 700, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
 	}

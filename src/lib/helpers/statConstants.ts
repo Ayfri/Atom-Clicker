@@ -59,7 +59,7 @@ export const statsConfig = {
 	periodic: { defaultValue: { identified: [], sites: {} } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
-	radiation: { defaultValue: { controlRodLevel: 0.5, lastTick: Date.now(), mass: 0, unlocked: false }, layer: LAYERS.NEVER },
+	radiation: { defaultValue: { controlRodLevel: 0.5, mass: 0, unlocked: false }, layer: LAYERS.NEVER },
 	radiationUpgrades: { defaultValue: {}, layer: LAYERS.RADIATION_REALM },
 	realms: {
 		defaultValue: {
@@ -91,7 +91,6 @@ export const statsConfig = {
 	totalProtonisesAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
 	totalProtonisesRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE },
 	totalUpgradesPurchasedAllTime: { defaultValue: 0, layer: LAYERS.NEVER },
-	totalUsers: { defaultValue: 0, layer: LAYERS.NEVER },
 	totalXP: { defaultValue: 0, layer: LAYERS.PROTONIZER },
 	tutorial: { defaultValue: { enabled: true, seen: [] }, layer: LAYERS.NEVER },
 	upgrades: { defaultValue: [], layer: LAYERS.PROTONIZER },

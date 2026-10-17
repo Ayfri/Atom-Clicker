@@ -1,10 +1,6 @@
 import type { RequestHandler } from './$types';
-import { getDailyCap, getDailyQuestCount, pickDailyQuests } from '#data/dailyQuests.js';
-import { leaderboardService, quarksService, resolveUserFromRequest } from '#lib/server/supabase.server.js';
-
-function todayUtcDayKey(): string {
-	return new Date().toISOString().slice(0, 10);
-}
+import { getDailyCap, getDailyQuestCount, pickDailyQuests, todayUtcDayKey } from '#data/dailyQuests.js';
+import { quarksService, resolveUserFromRequest } from '#lib/server/supabase.server.js';
 
 export const GET: RequestHandler = async ({ request }) => {
 	try {
@@ -26,15 +22,14 @@ export const GET: RequestHandler = async ({ request }) => {
 			});
 		}
 
-		const [balanceRow, claimedAchievementIds, claimedQuestIds, entitlements] = await Promise.all([
+		const [balanceRow, claimedAchievementIds, claimedQuestIds, entitlements, equipped] = await Promise.all([
 			quarksService.getBalance(userId),
 			quarksService.getClaimedAchievementIds(userId),
 			quarksService.getClaimedQuestIds(userId, dayKey),
 			quarksService.getEntitlements(userId),
+			quarksService.getEquipped(userId),
 		]);
 		const quests = pickDailyQuests(dayKey, getDailyQuestCount(entitlements));
-		const profile = await leaderboardService.getProfile(userId);
-		const typedProfile = profile as { equipped_banner?: string | null; equipped_themes?: Record<string, string> } | null;
 
 		return Response.json({
 			balance: balanceRow?.balance ?? 0,
@@ -43,8 +38,7 @@ export const GET: RequestHandler = async ({ request }) => {
 			dailyCap: getDailyCap(quests),
 			dayKey,
 			entitlements,
-			equippedBanner: typedProfile?.equipped_banner ?? null,
-			equippedThemes: typedProfile?.equipped_themes ?? {},
+			...equipped,
 			quests,
 		});
 	} catch (error) {

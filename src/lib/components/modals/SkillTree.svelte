@@ -76,6 +76,7 @@
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { mobile } from '#stores/window.svelte.js';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
@@ -113,7 +114,10 @@
 		let pattern: CanvasPattern | null = null;
 		let tileZoom = 0;
 		const draw = () => {
+			const start = performance.now();
 			frame = 0;
+			if (!panZoom.measured) return;
+
 			const ratio = pixelRatio();
 			const cell = GRID_STEP * panZoom.zoom * ratio;
 			const size = Math.max(1, Math.round(cell));
@@ -132,6 +136,7 @@
 			pattern?.setTransform(new DOMMatrix([cell / size, 0, 0, cell / size, (panZoom.x + TREE_BOUNDS.minX * panZoom.zoom) * ratio, (panZoom.y + TREE_BOUNDS.minY * panZoom.zoom) * ratio]));
 			context.fillStyle = pattern ?? 'transparent';
 			context.fillRect(0, 0, width, height);
+			perfTracker.track('skilltree:grid', start);
 		};
 		/** A two-finger pinch sends two pointer moves per frame, the grid draws once. */
 		const schedule = () => (frame ||= requestAnimationFrame(draw));
@@ -139,7 +144,7 @@
 		const observer = new ResizeObserver(schedule);
 		observer.observe(canvas);
 		$effect(() => {
-			void [panZoom.x, panZoom.y, panZoom.zoom];
+			void [panZoom.measured, panZoom.x, panZoom.y, panZoom.zoom];
 			schedule();
 		});
 		return () => {
@@ -191,7 +196,11 @@
 
 	refresh();
 	onMount(() => {
-		const interval = setInterval(refresh, 1000);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			refresh();
+			perfTracker.track('skilltree:refresh', start);
+		}, 1000);
 		return () => clearInterval(interval);
 	});
 </script>

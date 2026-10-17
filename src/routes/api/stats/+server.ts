@@ -1,16 +1,10 @@
 import type { RequestHandler } from './$types';
-import { supabaseAdmin } from '#lib/server/supabase.server.js';
+import { leaderboardService } from '#lib/server/supabase.server.js';
 
 export const GET: RequestHandler = async () => {
 	try {
-		const { count, error } = await supabaseAdmin
-			.from('profiles')
-			.select('*', { count: 'exact', head: true });
-
-		if (error) throw error;
-
 		return Response.json({
-			totalUsers: count || 0
+			totalUsers: await leaderboardService.countUsers()
 		}, {
 			headers: {
 				'Cache-Control': 'public, max-age=3600'

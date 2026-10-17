@@ -21,7 +21,7 @@
 
 	let { children }: Props = $props();
 
-	// The error page and the benchmark dev tool stand alone, none of the in-game overlays belong there.
+	// The error page and the benchmark analysis tool stand alone, none of the in-game overlays belong there.
 	const isStandalone = $derived(!!page.error || page.url.pathname.startsWith('/benchmark'));
 
 	let mounted = $state(false);

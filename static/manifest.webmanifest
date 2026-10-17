@@ -15,9 +15,12 @@
 	"launch_handler": { "client_mode": "focus-existing" },
 	"name": "Atom Clicker",
 	"screenshots": [
-		{ "form_factor": "wide", "sizes": "1920x1080", "src": "/ingame-screenshot2.png", "type": "image/png" },
-		{ "form_factor": "wide", "sizes": "1920x1080", "src": "/ingame-screenshot.png", "type": "image/png" },
-		{ "form_factor": "wide", "sizes": "1920x1080", "src": "/ingame-screenshot3.png", "type": "image/png" }
+		{ "form_factor": "wide", "label": "The Atom realm with its generators and upgrades", "sizes": "1920x1080", "src": "/screenshots/wide-atoms.webp", "type": "image/webp" },
+		{ "form_factor": "wide", "label": "The Skill Tree", "sizes": "1920x1080", "src": "/screenshots/wide-skill-tree.webp", "type": "image/webp" },
+		{ "form_factor": "wide", "label": "The Photon realm", "sizes": "1920x1080", "src": "/screenshots/wide-photons.webp", "type": "image/webp" },
+		{ "form_factor": "narrow", "label": "The Atom realm on a phone", "sizes": "824x1830", "src": "/screenshots/narrow-atoms.webp", "type": "image/webp" },
+		{ "form_factor": "narrow", "label": "The Skill Tree on a phone", "sizes": "824x1830", "src": "/screenshots/narrow-skill-tree.webp", "type": "image/webp" },
+		{ "form_factor": "narrow", "label": "The Photon realm on a phone", "sizes": "824x1830", "src": "/screenshots/narrow-photons.webp", "type": "image/webp" }
 	],
 	"scope": "/",
 	"short_name": "Atom Clicker",

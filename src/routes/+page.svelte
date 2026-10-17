@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { COLLIDER_REFRESH_MS } from '#data/collider.js';
 	import { FeatureTypes } from '#data/features.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
-	import type { RealmConfig } from '#helpers/RealmManager.svelte.js';
 	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { perfMonitor } from '#helpers/PerfMonitor.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
@@ -13,6 +13,9 @@
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	/** Builds the install store at load, it pushes the installed app flag into the game. */
+	import '#stores/install.svelte.js';
+	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
@@ -38,13 +41,6 @@
 		PhotonRealm: PhotonRealm,
 		RadiationRealm: RadiationRealm,
 	};
-
-	// Equipped Quark themes only swap the background gradient; falls back to the realm's default.
-	function getRealmBackground(realm: RealmConfig): string | undefined {
-		const themeId = quarksManager.equippedThemes[realm.id];
-		const theme = themeId ? getQuarkShopItem(themeId)?.theme : undefined;
-		return theme?.background ?? realm.background;
-	}
 
 	const selectedIndex = $derived(realmManager.selectedIndex);
 
@@ -88,10 +84,13 @@
 	function update() {
 		const now = performance.now();
 		const elapsed = now - lastUpdateTime;
+		perfTracker.commit(elapsed - COMMIT_INTERVAL_MS);
 		const paidMs = Math.min(elapsed, MAX_ONLINE_GAP_MS);
 		pendingAtoms += ((gameManager.atomsPerSecond + gameManager.clickPower * gameManager.autoClicksPerSecond) * paidMs) / 1000;
 		lastUpdateTime = now;
 		commitPendingAtoms();
+		perfTracker.track('loop:commit', now);
+		perfTracker.flushAfter();
 
 		awayMs += elapsed - paidMs;
 		if (document.hidden) return;
@@ -135,6 +134,7 @@
 	/** Account bootstrap is network-bound, so it runs beside the game loop instead of delaying it. */
 	async function bootstrapAccount() {
 		await supabaseAuth.init();
+		void perfMonitor.open();
 
 		quarkUserId = supabaseAuth.user?.id ?? null;
 		await Promise.all([quarkUserId ? quarksManager.sync() : Promise.resolve(), checkCloudSaveOnLoad()]);
@@ -156,19 +156,16 @@
 		});
 	});
 
+	/** The installed app pays its Quarks once per account, after a sync has proven the session and the connection. */
+	$effect(() => {
+		if (gameManager.installedApp && quarksManager.hasSynced) untrack(() => void quarksManager.claimAppReward());
+	});
+
 	/** Quests roll over at UTC midnight, a tab left open overnight resyncs then instead of keeping yesterday's quests and counters. */
 	$effect(() => {
 		if (!quarksManager.dayKey) return;
 		const timer = setTimeout(() => quarksManager.sync(), Date.parse(quarksManager.dayKey) + 86_400_000 - Date.now() + 1000);
 		return () => clearTimeout(timer);
-	});
-
-	/** Late enough that the One Tap prompt offers to keep real progress instead of greeting a new player with a login. */
-	const ONE_TAP_PLAY_TIME_MS = 10 * 60_000;
-	const oneTapReady = $derived(accountBootstrapped && !supabaseAuth.isAuthenticated && gameManager.inGameTime >= ONE_TAP_PLAY_TIME_MS);
-
-	$effect(() => {
-		if (oneTapReady) supabaseAuth.promptGoogleOneTap();
 	});
 
 	/** Signing in or out swaps the player half of the Collider state, so it re-syncs on each change. */
@@ -204,12 +201,14 @@
 		setGlobals();
 
 		const saveGame = () => {
+			const start = performance.now();
 			try {
 				commitPendingAtoms();
 				gameManager.save();
 			} catch (e) {
 				console.error('Failed to save game:', e);
 			}
+			perfTracker.track('loop:save', start);
 		};
 		const saveLoop = setInterval(saveGame, SAVE_INTERVAL);
 
@@ -221,7 +220,9 @@
 		};
 		document.addEventListener('visibilitychange', saveOnHide);
 
+		perfMonitor.start();
 		bootstrapAccount();
+		void leaderboard.fetchPlayerCount();
 
 		return () => {
 			document.removeEventListener('visibilitychange', saveOnHide);
@@ -229,6 +230,7 @@
 			clearInterval(commitLoop);
 			commitPendingAtoms();
 			gameManager.cleanup();
+			perfMonitor.stop();
 		};
 	});
 </script>
@@ -254,17 +256,19 @@
 		     children, even with reduced motion where it has no transform. -->
 		{#each realmManager.availableRealms as realm, i (realm.id)}
 			{const RealmComponent = $derived(realmComponents[realm.componentId])}
-			{const background = $derived(getRealmBackground(realm))}
+			{const background = $derived(quarksManager.theme(realm.id)?.background ?? realm.background)}
 			{const side = $derived(Math.sign(i - selectedIndex))}
 
 			<!-- Off-screen realms stay mounted for their timers, `content-visibility` skips their style, layout, paint and CSS
 			     animations. `transition-discrete` holds it visible until the swing out ends. Below opacity 1 the panel is
-			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade. -->
+			     the backdrop root of its `backdrop-blur` children, so its opaque `bg-page` keeps them from lightening mid-fade.
+			     A leaving panel catches clicks with its `::after` layer: `pointer-events` is inherited, toggling it restyles
+			     every element of the realm, half a second for the Atom realm on a slow laptop. -->
 			<div
 				class="absolute inset-x-0 bottom-0 overflow-hidden bg-page contain-layout transition-[content-visibility,opacity,transform] transition-discrete motion-reduce:transform-none! {(
 					side
 				) ?
-					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 pointer-events-none'
+					'[content-visibility:hidden] duration-500 ease-[cubic-bezier(0.55,0,1,0.45)] opacity-0 after:absolute after:inset-0 after:z-1000'
 				:	'z-1 delay-100 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100'}"
 				style="top: {mobile.current ? 'var(--banner-height)' : '0'}; bottom: var(--mobile-nav-height, 0px); transform: {side ?
 					`translateX(${side * 70}%) perspective(1200px) rotateY(${side * 35}deg) scale(0.8)`

@@ -44,6 +44,8 @@
 	let spawnTimeout: ReturnType<typeof setTimeout> | null = null;
 	let fadeTimeout: ReturnType<typeof setTimeout> | null = null;
 	let disappearTimeout: ReturnType<typeof setTimeout> | null = null;
+	let messageTimeout: ReturnType<typeof setTimeout> | null = null;
+	let collectTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	function spawnBonusAtom() {
 		if (fadeTimeout) clearTimeout(fadeTimeout);
@@ -85,12 +87,14 @@
 		gameManager.incrementBonusHiggsBosonClicks();
 		quarksManager.collectHiggsBoson();
 
-		setTimeout(() => (messageShown = false), messageDuration);
+		if (messageTimeout) clearTimeout(messageTimeout);
+		messageTimeout = setTimeout(() => (messageShown = false), messageDuration);
 
 		if (fadeTimeout) clearTimeout(fadeTimeout);
 		if (disappearTimeout) clearTimeout(disappearTimeout);
 
-		setTimeout(() => {
+		if (collectTimeout) clearTimeout(collectTimeout);
+		collectTimeout = setTimeout(() => {
 			showBonus = false;
 			scheduleNextSpawn();
 		}, COLLECT_DURATION);
@@ -112,6 +116,8 @@
 			if (spawnTimeout) clearTimeout(spawnTimeout);
 			if (fadeTimeout) clearTimeout(fadeTimeout);
 			if (disappearTimeout) clearTimeout(disappearTimeout);
+			if (messageTimeout) clearTimeout(messageTimeout);
+			if (collectTimeout) clearTimeout(collectTimeout);
 		};
 	});
 </script>

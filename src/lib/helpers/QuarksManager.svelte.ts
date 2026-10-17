@@ -8,13 +8,16 @@ import {
 	getQuestTarget,
 	pickDailyQuests,
 	QUEST_POOL,
+	todayUtcDayKey,
 } from '#data/dailyQuests.js';
 import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
 import type { RealmType } from '#data/realms.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { EffectSource } from '#lib/types.js';
 import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
@@ -33,7 +36,7 @@ interface QuarksApiState {
 	quests: DailyQuest[];
 }
 
-export class QuarksManager {
+class QuarksManager {
 	pendingActions = $state<string[]>([]);
 	balance = $state(0);
 	claimedAchievementIds = $state<string[]>([]);
@@ -80,6 +83,12 @@ export class QuarksManager {
 
 	isActionPending(actionId: string): boolean {
 		return this.pendingActions.includes(actionId);
+	}
+
+	/** The equipped theme of a realm, undefined when none is. */
+	theme(realm: RealmType) {
+		const id = this.equippedThemes[realm];
+		return id ? getQuarkShopItem(id)?.theme : undefined;
 	}
 
 	clear() {
@@ -145,9 +154,8 @@ export class QuarksManager {
 
 	private async authHeaders(): Promise<Record<string, string> | null> {
 		if (!browser || !supabaseAuth.isAuthenticated) return null;
-		const accessToken = await supabaseAuth.getAccessToken();
-		if (!accessToken) return null;
-		return { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+		const headers = await supabaseAuth.authHeaders();
+		return 'Authorization' in headers ? { ...headers, 'Content-Type': 'application/json' } : null;
 	}
 
 	private rolloverDailyStatsIfNeeded(serverDayKey: string) {
@@ -181,7 +189,7 @@ export class QuarksManager {
 		if (!browser) return;
 
 		if (this.devOverride) {
-			const dayKey = new Date().toISOString().slice(0, 10);
+			const dayKey = todayUtcDayKey();
 			this.dayKey = dayKey;
 			this.quests = this.selectDailyQuests(dayKey);
 			this.rolloverDailyStatsIfNeeded(dayKey);
@@ -329,6 +337,24 @@ export class QuarksManager {
 		this.balance += granted;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...achievementIds])];
 		return granted;
+	}
+
+	/** The server pays it once per account, the local key only spares this device a request on every sync. */
+	async claimAppReward() {
+		const userId = supabaseAuth.user?.id;
+		if (this.devOverride || !userId) return;
+
+		const key = `appRewardClaimed:${userId}`;
+		if (getItem(key)) return;
+
+		const result = await this.postAction<{ balance: number; status: 'already_claimed' | 'cap_reached' | 'ok' }>('/api/quarks/app-reward', {}, 'claim-app-reward');
+		if (!result) return;
+
+		setItem(key, 'true');
+		this.balance = result.balance;
+		if (result.status === 'ok') {
+			toastStore.info({ message: 'Thanks for playing from the installed app.', title: `+${APP_REWARD_QUARKS} Quarks` });
+		}
 	}
 
 	async collectHiggsBoson() {

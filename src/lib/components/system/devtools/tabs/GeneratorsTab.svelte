@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { GENERATOR_TYPES, GENERATORS, getGeneratorColor, type GeneratorType } from '#data/generators.js';
-	import { GENERATOR_ICON_NAMES, ICONS } from '#data/icons.js';
+	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { MAX_BOOST_POINTS } from '#lib/constants.js';

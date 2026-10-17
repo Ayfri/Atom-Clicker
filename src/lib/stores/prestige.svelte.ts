@@ -1,6 +1,6 @@
 export type PrestigeAnimationType = 'electronize' | 'ionize' | 'protonise';
 
-export class PrestigeStore {
+class PrestigeStore {
 	animation = $state<PrestigeAnimationType | null>(null);
 
 	trigger(type: PrestigeAnimationType) {

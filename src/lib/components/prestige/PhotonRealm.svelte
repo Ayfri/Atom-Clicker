@@ -2,7 +2,6 @@
 	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { CachedRect } from '#helpers/CachedRect.svelte.js';
@@ -14,6 +13,7 @@
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { ClickParticles } from '#helpers/particles.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { drawPhotonIcon, pulseOpacity } from '#helpers/photonCanvas.js';
 	import type { NumberNotation } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -22,6 +22,7 @@
 	import Ambient from '#components/game/Ambient.svelte';
 	import PhotonCounter from '#components/prestige/PhotonCounter.svelte';
 	import PhotonUpgrades from '#components/prestige/PhotonUpgrades.svelte';
+	import Glow from '#components/ui/Glow.svelte';
 	import { onMount } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 
@@ -63,8 +64,10 @@
 	$effect(() => {
 		if (!prismUnlocked) return;
 		const interval = setInterval(() => {
+			const start = performance.now();
 			chromatic.spawn(canvasWidth, canvasHeight);
 			wake();
+			perfTracker.track('photon:spawn', start);
 		}, chromaticManager.spawnInterval);
 		return () => clearInterval(interval);
 	});
@@ -83,7 +86,6 @@
 		/** Offset of the float cycle, so neighbours never bob in sync. */
 		phase: number;
 		type?: 'normal' | 'excited';
-		baseValue?: number;
 	}
 
 	// Circles are drawn to a canvas, so they deliberately stay out of the reactive graph.
@@ -98,7 +100,7 @@
 	let hadCircles = false;
 	let hovering = $state(false);
 	let lastHoveredId: number | null = null;
-	let lastUpdateTime = Date.now();
+	let lastUpdateTime = 0;
 	let pointerDown = false;
 
 	const BASE_CIRCLE_LIFETIME = 5000;
@@ -240,8 +242,7 @@
 			rotation: Math.random() * 360,
 			spin: (Math.random() < 0.5 ? -1 : 1) * (MIN_SPIN + Math.random() * (MAX_SPIN - MIN_SPIN)),
 			phase: Math.random() * Math.PI * 2,
-			type: isExcited ? 'excited' : 'normal',
-			baseValue: isExcited ? 1 : 1
+			type: isExcited ? 'excited' : 'normal'
 		};
 
 		circles.push(circle);
@@ -281,8 +282,9 @@
 	}
 
 	function updateCircles() {
-		const currentTime = Date.now();
-		const deltaTime = currentTime - lastUpdateTime;
+		const currentTime = performance.now();
+		/** Never negative: the pop-in scale of a negative age is a negative `arc` radius, which throws and stops the loop. */
+		const deltaTime = Math.max(0, currentTime - lastUpdateTime);
 		lastUpdateTime = currentTime;
 
 		// In-place compaction, this runs ~60 times per second on up to 100 circles.
@@ -475,7 +477,11 @@
 
 	$effect(() => {
 		if (drawn) return;
-		const interval = setInterval(updateCircles, HIDDEN_UPDATE_INTERVAL_MS);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			updateCircles();
+			perfTracker.track('photon:field', start);
+		}, HIDDEN_UPDATE_INTERVAL_MS);
 		return () => clearInterval(interval);
 	});
 
@@ -492,18 +498,25 @@
 	});
 
 	let frame = 0;
+	/** Timestamp of the previous drawn frame, 0 while the loop is stopped so idle time is not counted as a hitch. */
+	let previousFrame = 0;
 
-	function loop() {
+	function loop(now: number) {
+		perfTracker.frame(now, previousFrame);
+		const start = performance.now();
 		updateCircles();
 		if (!document.hidden) render();
-		frame = circles.length > 0 || !chromatic.empty ? requestAnimationFrame(loop) : 0;
+		perfTracker.track('photon:field', start);
+		const more = circles.length > 0 || !chromatic.empty;
+		frame = more ? requestAnimationFrame(loop) : 0;
+		previousFrame = more ? now : 0;
 	}
 
 	/** The loop stops once the field is empty, an idle pending rAF still costs a main frame per vsync. Spawns wake it back up. */
 	function wake() {
 		if (frame || !canvas || !drawn) return;
 		// Nothing aged while stopped, the first delta must not count the idle time.
-		lastUpdateTime = Date.now();
+		lastUpdateTime = performance.now();
 		frame = requestAnimationFrame(loop);
 	}
 
@@ -514,6 +527,7 @@
 		return () => {
 			cancelAnimationFrame(frame);
 			frame = 0;
+			previousFrame = 0;
 		};
 	});
 
@@ -522,8 +536,7 @@
 	 * The photons keep their currency color, a golden normal photon would pass for an excited one.
 	 */
 	const themePalette = $derived.by(() => {
-		const themeId = quarksManager.equippedThemes[RealmTypes.PHOTONS];
-		const theme = themeId ? getQuarkShopItem(themeId)?.theme : undefined;
+		const theme = quarksManager.theme(RealmTypes.PHOTONS);
 		if (!theme) return undefined;
 
 		const accent = theme.accent;
@@ -562,18 +575,26 @@
 	$effect(() => {
 		const clicksPer5Seconds = photonAutoClicksPer5Seconds;
 		if (clicksPer5Seconds > 0) {
-			const interval = setInterval(() => simulateClick(), 5000 / clicksPer5Seconds);
+			const interval = setInterval(() => {
+				const start = performance.now();
+				simulateClick();
+				perfTracker.track('photon:auto-click', start);
+			}, 5000 / clicksPer5Seconds);
 			return () => clearInterval(interval);
 		}
 	});
 
 	$effect(() => {
-		const interval = setInterval(spawnCircle, currentSpawnRate);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			spawnCircle();
+			perfTracker.track('photon:spawn', start);
+		}, currentSpawnRate);
 		return () => clearInterval(interval);
 	});
 
 	onMount(() => {
-		lastUpdateTime = Date.now();
+		lastUpdateTime = performance.now();
 		return clearLabels;
 	});
 </script>
@@ -581,10 +602,10 @@
 <div class="relative lg:pt-4 transition-all duration-1000 ease-in-out" style={themePalette}>
 	<!-- Same glows the Atom Realm gets from its prestiges: the first Ionize splits the light into Red, Green and Blue. -->
 	{#if visible && prismUnlocked}
-		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden">
-			<div class="absolute bg-[#ff4d5e]/12 blur-[160px] h-64 left-[12%] rounded-full top-[12%] w-64"></div>
-			<div class="absolute bg-[#2ee6a0]/10 blur-[160px] h-64 right-[15%] rounded-full top-[35%] w-64"></div>
-			<div class="absolute bg-[#4d8dff]/12 blur-[180px] bottom-[8%] h-80 left-[35%] rounded-full w-80"></div>
+		<div aria-hidden="true" class="fixed inset-0 -z-50 pointer-events-none overflow-hidden" data-perf-layer="glow">
+			<Glow blur={160} class="left-[12%] top-[12%]" color="#ff4d5e" diameter={256} opacity={0.12} />
+			<Glow blur={160} class="right-[15%] top-[35%]" color="#2ee6a0" diameter={256} opacity={0.1} />
+			<Glow blur={180} class="bottom-[8%] left-[35%]" color="#4d8dff" diameter={320} opacity={0.12} />
 		</div>
 	{/if}
 	{#if visible}

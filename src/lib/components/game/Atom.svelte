@@ -7,6 +7,7 @@
 	import { CachedRect } from '#helpers/CachedRect.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { ClickParticles } from '#helpers/particles.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { ui } from '#stores/ui.svelte.js';
@@ -76,7 +77,7 @@
 		const intervalMs = Math.max(1000 / value, MIN_AUTO_CLICK_INTERVAL_MS);
 		const clicksPerTick = (value * intervalMs) / 1000;
 		let pending = 0;
-		const interval = setInterval(() => {
+		const autoClick = () => {
 			pending += clicksPerTick;
 			const count = Math.floor(pending + 1e-9);
 			if (count < 1) return;
@@ -102,6 +103,12 @@
 				{ x: rect.left + rect.width / 2 + Math.cos(angle) * radius, y: rect.top + rect.height / 2 + Math.sin(angle) * radius },
 				{ angle },
 			);
+		};
+		const interval = setInterval(() => {
+			const start = performance.now();
+			autoClick();
+			perfTracker.track('atom:auto-click', start);
+			perfTracker.flushAfter();
 		}, intervalMs);
 		return () => clearInterval(interval);
 	});

@@ -16,7 +16,7 @@
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { ChartLine, Clock, Cloud, Link as LinkIcon, LogOut, Medal, MousePointerClick, Pencil, Trophy, User } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
@@ -50,6 +50,13 @@
 	onMount(() => {
 		leaderboard.ensureLoaded();
 		return () => clearTimeout(previewTimer);
+	});
+
+	/** Only once the session restore finished, so a signed-in player never gets prompted, and never next to the Login modal. */
+	$effect(() => {
+		if (supabaseAuth.loading || supabaseAuth.isAuthenticated || showLoginModal) return;
+		untrack(() => supabaseAuth.promptGoogleOneTap());
+		return () => supabaseAuth.cancelGoogleOneTap();
 	});
 
 	function startEditing() {

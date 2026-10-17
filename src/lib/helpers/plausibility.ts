@@ -1,10 +1,10 @@
 import type { GameState } from '#lib/types.js';
 
 /** Tolerance for clock drift when comparing inGameTime to wall-clock time. */
-const TIME_TOLERANCE_MS = 60_000;
+export const TIME_TOLERANCE_MS = 60_000;
 
 /** Run counters only ever grow together with their all-time total, and reset to zero on their own. */
-const RUN_COUNTERS = [
+export const RUN_COUNTERS = [
 	['totalClicksRun', 'totalClicksAllTime'],
 	['totalElectronizesRun', 'totalElectronizesAllTime'],
 	['totalProtonisesRun', 'totalProtonisesAllTime'],
@@ -18,8 +18,18 @@ const isNumber = (value: unknown): value is number => typeof value === 'number';
 /** A value that must never exceed its limit, labels only feed the warning text. */
 type Bound = [label: string, value: unknown, limitLabel: string, limit: unknown];
 
+export interface Implausibility {
+	label: string;
+	limit: number;
+	limitLabel: string;
+	value: number;
+}
+
 /** Balance-independent sanity checks shared by the client and the leaderboard route, an empty list means nothing looks edited. */
-export function checkStatePlausibility(state: UntrustedState): string[] {
+export const checkStatePlausibility = (state: UntrustedState): string[] => findImplausible(state).map(b => `${b.label} (${b.value}) exceeds ${b.limitLabel} (${b.limit})`);
+
+/** Every value past its limit, with the numbers behind it. */
+export function findImplausible(state: UntrustedState): Implausibility[] {
 	const bounds: Bound[] = RUN_COUNTERS.map(([run, allTime]) => [run, state[run], allTime, state[allTime]]);
 
 	const currencies = state.currencies && typeof state.currencies === 'object' ? Object.entries(state.currencies) : [];
@@ -31,5 +41,5 @@ export function checkStatePlausibility(state: UntrustedState): string[] {
 	const { inGameTime, lastSave, startDate } = state;
 	if (isNumber(lastSave) && isNumber(startDate)) bounds.push(['inGameTime', inGameTime, 'wall-clock time since startDate', lastSave - startDate + TIME_TOLERANCE_MS]);
 
-	return bounds.filter(([, value, , limit]) => isNumber(value) && isNumber(limit) && value > limit).map(([label, value, limitLabel, limit]) => `${label} (${value}) exceeds ${limitLabel} (${limit})`);
+	return bounds.flatMap(([label, value, limitLabel, limit]) => (isNumber(value) && isNumber(limit) && value > limit ? [{ label, limit, limitLabel, value }] : []));
 }

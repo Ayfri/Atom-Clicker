@@ -10,7 +10,6 @@ const FIRST_GENERATOR_COST = GENERATORS[GENERATOR_TYPES[0]].cost.amount;
  * again after a prestige, and short-circuits on them so it stops tracking atoms once revealed.
  */
 class Reveals {
-	boughtUpgradesToggle = $derived(gameManager.totalUpgradesPurchasedAllTime > 0);
 	generators = $derived(gameManager.totalGeneratorsPurchasedAllTime > 0 || gameManager.atoms >= FIRST_GENERATOR_COST / 2);
 	leaderboard = $derived(gameManager.totalGeneratorsPurchasedAllTime >= 25 || gameManager.totalProtonisesAllTime > 0);
 	production = $derived(gameManager.totalGeneratorsPurchasedAllTime > 0);

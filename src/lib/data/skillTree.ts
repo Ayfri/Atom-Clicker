@@ -1,7 +1,7 @@
 import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
-import { GENERATOR_ICON_NAMES } from '#data/icons.js';
+import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 import { add, mul } from '#helpers/effects.js';
 import type { SkillBranch, SkillUpgrade } from '#lib/types.js';
 

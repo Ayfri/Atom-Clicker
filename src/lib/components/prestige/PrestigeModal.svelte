@@ -1,6 +1,8 @@
 <script lang="ts">
+	import PrestigeEntry from '#components/prestige/PrestigeEntry.svelte';
+	import PrestigeHoldButton from '#components/prestige/PrestigeHoldButton.svelte';
+	import ResetKeepGrid from '#components/prestige/ResetKeepGrid.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import HoldButton from '#components/ui/HoldButton.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import Tooltip from '#components/ui/Tooltip.svelte';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
@@ -14,7 +16,7 @@
 	import type { EffectStat, PrestigeListItem } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
-	import { Check, Info, RotateCcw, Sparkles, Vault, X } from '@lucide/svelte';
+	import { Info, Sparkles } from '@lucide/svelte';
 
 	interface Props {
 		animation: 'electronize' | 'protonise';
@@ -42,8 +44,9 @@
 	const title = $derived(animation === 'protonise' ? 'Protonize' : 'Electronize');
 	const color = $derived(CURRENCIES[currency].color);
 	const shade = (percent: number) => `color-mix(in oklab, ${color} ${percent}%, black)`;
+	const buttonGradient = $derived(`linear-gradient(100deg, ${shade(38)}, ${shade(68)}, ${shade(38)})`);
 	const buttonStyle = $derived(
-		`background-image: linear-gradient(100deg, ${shade(38)}, ${shade(68)}, ${shade(38)}); --hold-color: ${color}; --hold-color-2: color-mix(in oklab, ${color}, white 45%); --hold-glow: color-mix(in srgb, ${color} 65%, transparent);`,
+		`--hold-color: ${color}; --hold-color-2: color-mix(in oklab, ${color}, white 45%); --hold-glow: color-mix(in srgb, ${color} 65%, transparent);`,
 	);
 
 	const ready = $derived(gain > 0);
@@ -93,19 +96,6 @@
 		onClose();
 	}
 </script>
-
-{#snippet entry({ currencies = [], label }: PrestigeListItem)}
-	<span>
-		{#each currencies as icon (icon)}
-			<Currency
-				class="mr-0.5 -mt-0.5 align-middle"
-				name={icon}
-				size={15}
-			/>
-		{/each}
-		{label}
-	</span>
-{/snippet}
 
 {#snippet row(label: string, value: string, strong = false)}
 	<div class="flex items-center justify-between gap-3">
@@ -270,77 +260,26 @@
 								size={14}
 								{color}
 							/>
-							{@render entry(perk)}
+							<PrestigeEntry {...perk} />
 						</li>
 					{/each}
 				</ul>
 			</section>
 		{/if}
 
-		<div class="grid grid-cols-2 text-sm">
-			<div class="flex flex-col gap-2 pr-4">
-				<h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-red-300/80">
-					<RotateCcw size={13} />
-					Resets
-				</h3>
-				<ul class="flex flex-col gap-1.5 text-white/55">
-					{#each resets as item (item.label)}
-						<li class="flex gap-2">
-							<X
-								class="mt-0.5 shrink-0 text-red-300/50"
-								size={14}
-							/>
-							{@render entry(item)}
-						</li>
-					{/each}
-				</ul>
-			</div>
-			<div class="flex flex-col gap-2 border-l border-white/10 pl-4">
-				<h3
-					class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
-					style:color
-				>
-					<Vault size={13} />
-					Keeps
-				</h3>
-				<ul class="flex flex-col gap-1.5 text-white/85">
-					{#each keeps as item (item.label)}
-						<li class="flex gap-2">
-							<Check
-								class="mt-0.5 shrink-0"
-								size={14}
-								{color}
-							/>
-							{@render entry(item)}
-						</li>
-					{/each}
-				</ul>
-			</div>
-		</div>
+		<ResetKeepGrid
+			{color}
+			{keeps}
+			{resets}
+		/>
 
-		<HoldButton
-			class="prestige-button w-full rounded-lg py-4 text-lg font-bold uppercase tracking-wide text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)] hover:enabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+		<PrestigeHoldButton
 			disabled={!ready}
+			drift={5}
+			gradient={buttonGradient}
+			label="Hold to {title}"
 			onHoldComplete={handlePrestige}
 			style={buttonStyle}
-		>
-			<span class="relative z-10">Hold to {title}</span>
-		</HoldButton>
+		/>
 	</div>
 </Modal>
-
-<style>
-	:global(.prestige-button) {
-		background-size: 200% 100%;
-	}
-
-	:global(.prestige-button:enabled) {
-		animation: prestige-drift 5s ease-in-out infinite alternate;
-	}
-
-	@keyframes prestige-drift {
-		to {
-			background-position: 100% 0;
-		}
-	}
-</style>

@@ -1,7 +1,7 @@
 import { browser } from '$app/env';
 import { toastStore } from '#stores/toasts.svelte.js';
 
-export class MultiTabDetector {
+class MultiTabDetector {
 	isDuplicate = $state(false);
 	private channel: BroadcastChannel | null = null;
 

@@ -5,9 +5,21 @@ import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
 
 initGlobalErrorHandlers();
 
-/** A first visit loads its chunks before the service worker takes over, so their URLs are handed to it to make the game playable offline. */
-if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
-	navigator.serviceWorker.ready.then(({ active }) => active?.postMessage(performance.getEntriesByType('resource').map(({ name }) => name)));
+/**
+ * A first visit, and the first load after a deploy (still served by the previous worker), fetches chunks before the new service worker
+ * takes over, sometimes before this code runs, so the chunks the page loads are handed to the current worker, all of them again on each
+ * takeover, and the worker only fetches those it lacks.
+ */
+if ('serviceWorker' in navigator) {
+	const chunkPrefix = `${location.origin}/_app/immutable/`;
+	const chunks: string[] = [];
+	new PerformanceObserver(list => {
+		const added = list.getEntriesByType('resource').flatMap(({ name }) => (name.startsWith(chunkPrefix) ? [name] : []));
+		if (added.length === 0) return;
+		chunks.push(...added);
+		navigator.serviceWorker.controller?.postMessage(added);
+	}).observe({ buffered: true, type: 'resource' });
+	navigator.serviceWorker.addEventListener('controllerchange', () => navigator.serviceWorker.controller?.postMessage(chunks));
 }
 
 /** Cloudflare Workers serves only the current build, so a tab left open across a deploy asks for a chunk that is gone. */

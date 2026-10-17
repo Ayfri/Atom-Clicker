@@ -1,6 +1,7 @@
 <script lang="ts">
 	import HiggsBoson from '#components/icons/HiggsBoson.svelte';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { perfTracker } from '#helpers/perfTracker.js';
 	import type { PowerUp } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import type { Attachment } from 'svelte/attachments';
@@ -18,7 +19,11 @@
 	$effect(() => {
 		if (gameManager.activePowerUps.length === 0) return;
 		now = Date.now();
-		const interval = setInterval(() => (now = Date.now()), TICK_MS);
+		const interval = setInterval(() => {
+			const start = performance.now();
+			now = Date.now();
+			perfTracker.track('hud:power-ups', start);
+		}, TICK_MS);
 		return () => clearInterval(interval);
 	});
 

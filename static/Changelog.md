@@ -5,6 +5,12 @@
 - **Quark Shop**: A Cosmos banner for the leaderboard.
 - **Achievements**: New achievements for your Cosmos discoveries, instruments, studies and Starlight.
 - **Daily Quests**: Two Cosmos quests, gather Starlight and study objects.
+- **Install the Game**: Install Atom Clicker as an app from Settings, and playing from it gives +10% production and 10 Quarks once per account.
+
+# What's new 13-10-2026
+
+- **Upgrades**: Each upgrade is now a single row that levels up along a bar, and tells you what opens its next levels.
+- **Performance**: The game runs smoother, especially on phones, and when it lags a report now reaches me so I can fix it fast.
 
 # What's new 08-10-2026
 

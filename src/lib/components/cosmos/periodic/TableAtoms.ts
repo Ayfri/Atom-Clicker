@@ -30,7 +30,6 @@ export class TableAtoms extends CanvasLoop {
 	private readonly ctx: CanvasRenderingContext2D;
 	private full = true;
 	private looks = new Map<number, CellLook>();
-	private ratio = 1;
 	private slots = new Map<number, Slot>();
 	private time = 0;
 
@@ -42,7 +41,7 @@ export class TableAtoms extends CanvasLoop {
 		canvas: HTMLCanvasElement,
 		private readonly zoom = 1,
 	) {
-		super(canvas);
+		super(canvas, 'canvas:tableAtoms');
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;
