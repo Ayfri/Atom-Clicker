@@ -530,6 +530,16 @@ describe('Higgs Overdrive', () => {
 		expect(gameManager.overdrive.molecule?.paidUntil).toBe(later + OVERDRIVE_PERIOD_MS);
 	});
 
+	test('an edited paidUntil that is not a number is paid once, never every tick', () => {
+		gameManager.overdrive = { molecule: { active: true, paidUntil: Number.NaN } };
+		at(T0);
+		expect(bosons()).toBe(9);
+		expect(gameManager.overdrive.molecule).toEqual({ active: true, paidUntil: T0 + OVERDRIVE_PERIOD_MS });
+		at(T0 + 1000);
+		at(T0 + 2000);
+		expect(bosons()).toBe(9);
+	});
+
 	test('off then on again is free while the paid time lasts and costs a boson after it', () => {
 		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
 		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);

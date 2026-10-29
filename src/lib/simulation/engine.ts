@@ -396,7 +396,7 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
-		// One more generator is overdriven once the bank covers an hour of drain for it on top of the ones already running.
+		/** One more generator is overdriven once the bank covers an hour of drain for it on top of the ones already running. */
 		if (canAct() && gameManager.features[FeatureTypes.OVERDRIVE]) {
 			const running = gameManager.overdriveActive;
 			const idle = GENERATOR_TYPES.filter(type => !running.includes(type) && (gameManager.generators[type]?.count ?? 0) > 0);

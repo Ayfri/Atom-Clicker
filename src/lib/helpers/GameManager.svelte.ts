@@ -219,7 +219,12 @@ export class GameManager {
 			...cosmosManager.effectSources,
 			...periodicManager.effectSources,
 			...this.quarkBoostSources,
-			{ effects: this.overdriveActive.map(type => mul('generator', OVERDRIVE_MULTIPLIER, type)), id: 'overdrive', name: 'Overdrive' },
+			/** Read live, a pinned effect table (the server's audit) never rebuilds when `measureRunBounds` overdrives every generator. */
+			{
+				effects: this.features[FeatureTypes.OVERDRIVE] ? GENERATOR_TYPES.map(type => mul('generator', m => (m.overdriveActive.includes(type) ? OVERDRIVE_MULTIPLIER : 1), type)) : [],
+				id: 'overdrive',
+				name: 'Overdrive',
+			},
 		];
 	});
 
@@ -884,13 +889,15 @@ export class GameManager {
 
 	/**
 	 * Pays the next period of an active Overdrive once `now` reaches the end of the paid one, and turns it off when the bank cannot pay.
-	 * A gap longer than a period (a frozen tab, time away) costs one Higgs Boson, never the periods it skipped.
+	 * A gap longer than a period (a frozen tab, time away) costs one Higgs Boson, never the periods it skipped. A `paidUntil` that is not a
+	 * number (an edited save) counts as 0, so it is paid once and rewritten instead of charging every tick.
 	 */
 	renewOverdrive(type: GeneratorType, now: number) {
 		const slot = this.overdrive[type];
-		if (!slot?.active || now < slot.paidUntil) return;
+		const until = slot?.paidUntil || 0;
+		if (!slot?.active || now < until) return;
 		const paid = this.spendCurrency({ amount: OVERDRIVE_COST, currency: CurrenciesTypes.HIGGS_BOSON });
-		const paidUntil = (now - slot.paidUntil > OVERDRIVE_PERIOD_MS ? now : slot.paidUntil) + OVERDRIVE_PERIOD_MS;
+		const paidUntil = (now - until > OVERDRIVE_PERIOD_MS ? now : until) + OVERDRIVE_PERIOD_MS;
 		this.overdrive = { ...this.overdrive, [type]: paid ? { active: true, paidUntil } : { ...slot, active: false } };
 	}
 
@@ -1044,7 +1051,7 @@ export class GameManager {
 		if (!this.features[FeatureTypes.OVERDRIVE] || (this.generators[type]?.count ?? 0) < 1) return false;
 
 		const now = this.clock();
-		let paidUntil = slot?.paidUntil ?? 0;
+		let paidUntil = slot?.paidUntil || 0;
 		if (now >= paidUntil) {
 			if (!this.spendCurrency({ amount: OVERDRIVE_COST, currency: CurrenciesTypes.HIGGS_BOSON })) return false;
 			paidUntil = now + OVERDRIVE_PERIOD_MS;

@@ -3,7 +3,9 @@ import { CurrenciesTypes } from '#data/currencies.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { measureRunBounds } from '#helpers/runBounds.js';
 import { GENERATOR_COST_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import { auditScore, inspectScore, keptSpending, type PreviousScore, runSpending, type ScoreAudit } from '#lib/server/scoreAudit.server.js';
 import type { GameState } from '#lib/types.js';
@@ -220,6 +222,27 @@ describe('Overdrive', () => {
 		expect(doubled).toBeGreaterThan(plain);
 		entry.state.overdrive = {};
 		expect(maxEarned(entry)).toBe(doubled);
+	});
+});
+
+describe('Overdrive on the Worker', () => {
+	/** The Worker pins one effect table before measuring, the all-active override must still reach it when no slot is active. */
+	test('a pinned effect table still sees the bound grow with the skill and no active slot', () => {
+		const entry = structuredClone(lateRun());
+		const pinnedRate = (skills: string[]) => {
+			gameManager.resetAll();
+			gameManager.loadSaveData(structuredClone({ ...entry.state, activePowerUps: [], overdrive: {}, skillUpgrades: skills }));
+			Object.defineProperty(gameManager, 'effects', { configurable: true, value: new EffectTable(gameManager.allEffectSources) });
+			try {
+				return measureRunBounds(gameManager, entry.now, 3600).rate;
+			} finally {
+				Reflect.deleteProperty(gameManager, 'effects');
+				gameManager.resetAll();
+			}
+		};
+		const without = entry.state.skillUpgrades.filter(id => id !== 'higgsOverdrive');
+		const plain = pinnedRate(without);
+		expect(pinnedRate([...without, 'higgsOverdrive'])).toBeGreaterThan(plain * 1.5);
 	});
 });
 
