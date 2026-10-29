@@ -119,16 +119,22 @@
 		if (gameManager.purchaseGenerator(type, amount)) playPurchase(type, amount, count, level, event);
 	}
 
+	function autoBuyDescription(name: string) {
+		const { autoBuyAmount } = gameManager;
+		if (autoBuyAmount === Infinity) return `Automatically buys as many ${name} as you can afford.`;
+		return `Automatically buys ${autoBuyAmount > 1 ? 'up to ' : ''}${autoBuyAmount} ${name} whenever you can afford it.`;
+	}
+
 	function formatShare(production: number) {
 		const share = (production / totalProduction) * 100;
 		return share < 1 ? '<1%' : `${Math.round(share)}%`;
 	}
 
 	$effect(() => {
-		autoBuyManager.onPurchase = (type, count, level) => {
+		autoBuyManager.onPurchase = (type, amount, count, level) => {
 			if (realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
 			const row = document.querySelector(`[data-generator=${type}]`)?.getBoundingClientRect();
-			if (row?.width) playPurchase(type, 1, count, level, { x: row.x + row.width / 2, y: row.y + row.height / 2 });
+			if (row?.width) playPurchase(type, amount, count, level, { x: row.x + row.width / 2, y: row.y + row.height / 2 });
 		};
 		return () => (autoBuyManager.onPurchase = null);
 	});
@@ -204,7 +210,7 @@
 						in:scale={{ duration: 150, start: 0.5 }}
 						out:fly={{ y: -20, duration: 300, opacity: 0, delay: 200 }}
 					>
-						+{autoPurchasedCount}
+						+{formatNumber(autoPurchasedCount, 0)}
 					</div>
 				{/if}
 				<div class="flex items-center gap-2.5">
@@ -250,7 +256,7 @@
 						{/if}
 						{#if automatedByUpgrade.has(type)}
 							<AutoButton
-								description="Automatically buys 1 {generator.name} whenever you can afford it."
+								description={autoBuyDescription(generator.name)}
 								interval={gameManager.autoBuyIntervals[type]}
 								nextFire={autoBuyManager.nextFireTimes.get(type)}
 								onClick={e => {

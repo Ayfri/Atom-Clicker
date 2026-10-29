@@ -11,19 +11,20 @@ const CHECK_INTERVAL_MS = 250;
 class AutoBuyManager {
 	recentlyAutoPurchasedGenerators = new SvelteMap<GeneratorType, number>();
 	nextFireTimes = new SvelteMap<GeneratorType, number>();
-	/** Called after each auto-buy with the generator's count and level from before it, set by the Generators panel to play the purchase particles. */
-	onPurchase: ((type: GeneratorType, count: number, level: number) => void) | null = null;
+	/** Called after each auto-buy with the amount built and the generator's count and level from before it, set by the Generators panel to play the purchase particles. */
+	onPurchase: ((type: GeneratorType, amount: number, count: number, level: number) => void) | null = null;
 
 	purchaseGenerator(type: GeneratorType) {
 		const { count = 0, level = 0 } = gameManager.generators[type] ?? {};
-		if (!gameManager.purchaseGenerator(type, 1)) return;
+		const amount = gameManager.autoBuyGenerator(type);
+		if (amount === 0) return;
 
-		this.onPurchase?.(type, count, level);
-		this.recentlyAutoPurchasedGenerators.set(type, (this.recentlyAutoPurchasedGenerators.get(type) ?? 0) + 1);
+		this.onPurchase?.(type, amount, count, level);
+		this.recentlyAutoPurchasedGenerators.set(type, (this.recentlyAutoPurchasedGenerators.get(type) ?? 0) + amount);
 		setTimeout(() => {
 			const current = this.recentlyAutoPurchasedGenerators.get(type) ?? 0;
-			if (current <= 1) this.recentlyAutoPurchasedGenerators.delete(type);
-			else this.recentlyAutoPurchasedGenerators.set(type, current - 1);
+			if (current <= amount) this.recentlyAutoPurchasedGenerators.delete(type);
+			else this.recentlyAutoPurchasedGenerators.set(type, current - amount);
 		}, 2000);
 	}
 

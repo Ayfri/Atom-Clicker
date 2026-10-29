@@ -10,7 +10,7 @@ import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
-import { APP_PRODUCTION_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
+import { APP_PRODUCTION_MULTIPLIER, AUTO_BUY_BULK, ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
 import type {
 	ChromaticState,
 	CosmosState,
@@ -232,6 +232,9 @@ export class GameManager {
 		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
 
+	/** Generators one auto-buy purchase builds, `Infinity` for as many as the bank pays for. */
+	autoBuyAmount = $derived(AUTO_BUY_BULK[this.photonUpgrades.auto_buy_bulk ?? 0] ?? 1);
+
 	/** Auto-buy period of each generator the player automated, in the order its upgrades were bought. */
 	autoBuyIntervals = $derived.by(() => {
 		const intervals: Partial<Record<GeneratorType, number>> = {};
@@ -419,6 +422,15 @@ export class GameManager {
 		const points = this.currencyBoosts[currency] ?? 0;
 		const added = Math.min(this.boostPointsAvailable, MAX_BOOST_POINTS - points);
 		if (added > 0) this.currencyBoosts = { ...this.currencyBoosts, [currency]: points + added };
+	}
+
+	/** Buys one auto-buy batch of a generator, as many as the Bulk Assembly level allows and the bank pays for, and returns how many were built. */
+	autoBuyGenerator(type: GeneratorType): number {
+		const max = this.getMaxAffordableGenerator(type);
+		/** An overflowed bank makes the max infinite and spending from it would store NaN atoms. */
+		if (!Number.isFinite(max)) return 0;
+		const amount = Math.min(this.autoBuyAmount, max);
+		return amount >= 1 && this.purchaseGenerator(type, amount) ? amount : 0;
 	}
 
 	canAfford(price: Price): boolean {

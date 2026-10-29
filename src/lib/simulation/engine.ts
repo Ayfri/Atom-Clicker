@@ -624,7 +624,7 @@ export class SimulationEngine {
 			const next = this.autoBuyNext[type];
 			if (next === undefined) this.autoBuyNext[type] = now + interval;
 			else if (now >= next) {
-				gameManager.purchaseGenerator(type, 1);
+				gameManager.autoBuyGenerator(type);
 				this.autoBuyNext[type] = Math.max(next + interval, now);
 			}
 		}

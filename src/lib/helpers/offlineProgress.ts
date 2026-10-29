@@ -140,9 +140,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		nextAutoBuyTypes.forEach(generatorType => {
 			const interval = offlineAutoBuyIntervals[generatorType];
 			if (!interval || interval <= 0) return;
-			if (manager.purchaseGenerator(generatorType, 1)) {
-				autoBuyCounts[generatorType] = (autoBuyCounts[generatorType] || 0) + 1;
-			}
+			const bought = manager.autoBuyGenerator(generatorType);
+			if (bought > 0) autoBuyCounts[generatorType] = (autoBuyCounts[generatorType] || 0) + bought;
 			nextAutoBuyTimes[generatorType] = (nextAutoBuyTimes[generatorType] || interval) + interval;
 		});
 	}

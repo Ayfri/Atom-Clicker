@@ -42,6 +42,57 @@ describe('generator purchases', () => {
 		expect(gameManager.generators.molecule).toBeUndefined();
 	});
 
+	describe('auto-buy batches', () => {
+		const { MOLECULE } = GeneratorTypes;
+
+		test('buy one generator without Bulk Assembly, 15 at level 2 and every affordable one at level 4', () => {
+			currenciesManager.add(ATOMS, 1e12);
+			expect(gameManager.autoBuyGenerator(MOLECULE)).toBe(1);
+			expect(gameManager.generators.molecule?.count).toBe(1);
+
+			gameManager.photonUpgrades = { auto_buy_bulk: 2 };
+			expect(gameManager.autoBuyGenerator(MOLECULE)).toBe(15);
+			expect(gameManager.generators.molecule?.count).toBe(16);
+
+			gameManager.photonUpgrades = { auto_buy_bulk: 4 };
+			const max = gameManager.getMaxAffordableGenerator(MOLECULE);
+			expect(max).toBeGreaterThan(50);
+			expect(gameManager.autoBuyGenerator(MOLECULE)).toBe(max);
+			expect(gameManager.generators.molecule?.count).toBe(16 + max);
+		});
+
+		test('a bank that pays for fewer than the batch buys what it pays for and spends exactly that', () => {
+			gameManager.photonUpgrades = { auto_buy_bulk: 2 };
+			const cost = gameManager.getGeneratorCost(MOLECULE, 7);
+			currenciesManager.add(ATOMS, cost);
+			expect(gameManager.autoBuyGenerator(MOLECULE)).toBe(7);
+			expect(gameManager.atoms).toBe(0);
+			expect(gameManager.generators.molecule?.count).toBe(7);
+		});
+
+		test('buys nothing when the next generator is out of reach or the bank overflowed', () => {
+			gameManager.photonUpgrades = { auto_buy_bulk: 4 };
+			currenciesManager.add(ATOMS, gameManager.getGeneratorCost(MOLECULE, 1) - 1);
+			expect(gameManager.autoBuyGenerator(MOLECULE)).toBe(0);
+			expect(gameManager.generators.molecule).toBeUndefined();
+
+			currenciesManager.add(ATOMS, Infinity);
+			for (const level of [0, 4]) {
+				gameManager.photonUpgrades = { auto_buy_bulk: level };
+				expect(gameManager.autoBuyGenerator(MOLECULE)).toBe(0);
+			}
+			expect(gameManager.atoms).toBe(Infinity);
+		});
+
+		test('Bulk Assembly needs an automated generator before it can be bought', () => {
+			currenciesManager.add(PHOTONS, 1e9);
+			expect(gameManager.purchasePhotonUpgrade('auto_buy_bulk')).toBe(false);
+			gameManager.skillUpgrades = ['autoClicker', 'moleculeAutoBuy'];
+			expect(gameManager.purchasePhotonUpgrade('auto_buy_bulk')).toBe(true);
+			expect(gameManager.autoBuyAmount).toBe(5);
+		});
+	});
+
 	test('bulk cost equals the sum of single purchases', () => {
 		const bulk = gameManager.getGeneratorCost(GeneratorTypes.CRYSTAL, 10);
 		currenciesManager.add(ATOMS, 1e12);

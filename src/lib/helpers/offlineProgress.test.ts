@@ -61,6 +61,18 @@ test('an expired power-up never multiplies the catch-up, a live one ran through 
 	expect(catchUp(HOUR)).toBeCloseTo(base * 25);
 });
 
+test('each offline auto-buy builds a whole Bulk Assembly batch', () => {
+	gameManager.skillUpgrades = ['offlineProgress', 'autoClicker', 'moleculeAutoBuy'];
+	gameManager.toggleAutomation('molecule');
+	gameManager.photonUpgrades = { auto_buy_bulk: 1, offline_progress: 1 };
+	currenciesManager.hardReset();
+	currenciesManager.add(CurrenciesTypes.ATOMS, 1e12);
+	/** Offline auto-buy runs at 1/120 speed, so a 30 s period fires every hour, here at 1 h and 2 h of a 3 h absence. */
+	expect(gameManager.catchUpOffline(3 * HOUR)).toBe(true);
+	expect(gameManager.offlineProgressSummary?.autoBuyCounts.molecule).toBe(10);
+	expect(gameManager.generators.molecule?.count).toBe(20);
+});
+
 test('Decay events, lamp and sky Light are paid once for the time away and listed in the gains', () => {
 	gameManager.totalIonizesAllTime = 1;
 	cosmosManager.instruments = [SPECTROSCOPE_ID];

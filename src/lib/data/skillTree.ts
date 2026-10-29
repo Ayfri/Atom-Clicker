@@ -152,7 +152,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	autoUpgrade: {
 		branch: 'automation',
 		cost: { amount: 25, currency: CurrenciesTypes.ELECTRONS },
-		description: 'Automatically buys the cheapest available upgrade every 30 seconds',
+		description: 'Automatically buys the cheapest available upgrade every 30 seconds, sooner with Faster Auto Upgrade',
 		effects: [add('auto_upgrade', 0)],
 		icon: 'upgrade',
 		id: 'autoUpgrade',
@@ -170,7 +170,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 				{
 					branch: 'automation',
 					cost: { amount: 2 + i, currency: CurrenciesTypes.ELECTRONS },
-					description: `Automatically buys 1 ${name} every 30 seconds`,
+					description: `Automatically buys ${name} every 30 seconds, sooner with Faster Auto ${name}`,
 					effects: [add('auto_buy', 0, generatorType)],
 					icon: GENERATOR_ICON_NAMES[generatorType],
 					id,
