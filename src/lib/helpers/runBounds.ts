@@ -8,7 +8,7 @@ import { MAX_BOOST_POINTS, XP_PER_ATOM } from '#lib/constants.js';
  * Bumped by any balance change that lowers what a run can earn. Every save then rebases its current run once on load, and the
  * leaderboard refuses scores checked against an older version, so a nerf never leaves runs above what the game allows.
  */
-export const BALANCE_VERSION = 1;
+export const BALANCE_VERSION = 2;
 /**
  * Manual clicks per second a run is credited with, macros included. The click counter comes from the client and Click Mastery
  * turns it into a production multiplier, so clicks past this rate over the run's duration count for nothing.

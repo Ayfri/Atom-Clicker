@@ -62,7 +62,8 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 const achievementCount = (manager: GameManager) => manager.achievements.length;
 const playerLevel = (manager: GameManager) => manager.playerLevel;
 
-/** Boost tiers 6-10, 11-15 and 16-20 each need one more protonise, so a first run tops out near 1e15 atoms instead of 1e29. */
+const GENERATOR_BOOST_TIERS = 22;
+/** Boost tiers 6-10, 11-15, 16-20 and 21-22 each need one more protonise, so early runs stay limited to the first few tiers. */
 const GENERATOR_BOOST_TIERS_PER_PROTONISE = 5;
 
 function boostTierProtonises(tier: number): number {
@@ -72,7 +73,8 @@ function boostTierProtonises(tier: number): number {
 /** Boost tiers of unlocked generators that the next protonise opens, so the panel can say why the atom list ran dry. */
 export function boostTiersUnlockedByNextProtonise(manager: GameManager): number {
 	const unlockedGenerators = GENERATOR_TYPES.filter(type => manager.generators[type]?.unlocked).length;
-	return manager.totalProtonisesAllTime < 3 ? unlockedGenerators * GENERATOR_BOOST_TIERS_PER_PROTONISE : 0;
+	const remaining = GENERATOR_BOOST_TIERS - GENERATOR_BOOST_TIERS_PER_PROTONISE * (manager.totalProtonisesAllTime + 1);
+	return unlockedGenerators * Math.max(0, Math.min(GENERATOR_BOOST_TIERS_PER_PROTONISE, remaining));
 }
 
 const isGeneratorUnlocked = (generatorType: GeneratorType) => (state: GameManager) => state.generators[generatorType]?.unlocked === true;
@@ -86,7 +88,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 		...createUpgrades({
 			category: 'Generators',
 			condition: (_, state) => isGeneratorUnlocked(generatorType)(state),
-			count: 20,
+			count: GENERATOR_BOOST_TIERS,
 			familyName: `${generator.name} Boost`,
 			gate: {
 				open: (i, state) => state.totalProtonisesAllTime >= boostTierProtonises(i),
@@ -97,7 +99,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 			id,
 			name: i => `${generator.name} Boost ${i}`,
 			description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${generator.name} production`,
-			cost: i => generator.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
+			cost: i => generator.cost.amount * 10 ** (0.8 * i + 0.05 * i * i),
 			effects: i => [mul('generator', 1 + Math.ceil(i / 5), generatorType)],
 		}),
 		{

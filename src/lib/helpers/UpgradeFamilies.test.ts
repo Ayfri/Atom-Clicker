@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES } from '#data/generators.js';
-import { UPGRADE_CATEGORIES, UPGRADES } from '#data/upgrades.js';
+import { boostTiersUnlockedByNextProtonise, UPGRADE_CATEGORIES, UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
@@ -51,7 +51,7 @@ describe('grouping', () => {
 	});
 
 	test('tiers share one name and the table has the expected sizes', () => {
-		expect(view('molecule').family.tiers).toHaveLength(20);
+		expect(view('molecule').family.tiers).toHaveLength(22);
 		expect(view('molecule').family.name).toBe('Molecule Boost');
 		expect(view('offline_cap').max).toBe(5);
 		expect(view('proton_electron_boost').max).toBe(3);
@@ -78,10 +78,10 @@ describe('gates keep the conditions of before', () => {
 	test('a Boost tier needs its generator and floor((tier - 1) / 5) protonises', () => {
 		for (const type of GENERATOR_TYPES) {
 			for (const unlocked of [false, true]) {
-				for (let protonises = 0; protonises <= 3; protonises++) {
+				for (let protonises = 0; protonises <= 4; protonises++) {
 					gameManager.generators = unlocked ? { [type]: { count: 0, level: 0, unlocked: true } } : {};
 					gameManager.totalProtonisesAllTime = protonises;
-					for (let tier = 1; tier <= 20; tier++) {
+					for (let tier = 1; tier <= 22; tier++) {
 						const upgrade = UPGRADES[`${type.toLowerCase()}_${tier}`];
 						expect(upgrade.condition?.(gameManager), `${upgrade.id} at ${protonises} protonises`).toBe(unlocked && protonises >= Math.floor((tier - 1) / 5));
 					}
@@ -129,12 +129,12 @@ describe('Boost tracks across Protonizes', () => {
 		expect(boost.lockReason).toBeNull();
 	});
 
-	test('after three Protonizes the whole track is open and a full one is maxed', () => {
+	test('after four Protonizes the whole track is open and a full one is maxed', () => {
 		gameManager.unlockGenerator('molecule');
-		gameManager.totalProtonisesAllTime = 3;
-		currenciesManager.add(ATOMS, 1e30);
+		gameManager.totalProtonisesAllTime = 4;
+		currenciesManager.add(ATOMS, 1e60);
 		const boost = view('molecule');
-		expect(upgradeFamilies.buyMax(boost)).toBe(20);
+		expect(upgradeFamilies.buyMax(boost)).toBe(22);
 		expect(boost.maxed).toBe(true);
 		expect(boost.lockReason).toBeNull();
 	});
@@ -152,6 +152,26 @@ describe('Boost tracks across Protonizes', () => {
 		gameManager.unlockGenerator('molecule');
 		const boost = view('molecule');
 		expect([boost.level, boost.shown, boost.visible]).toEqual([0, 10, true]);
+	});
+});
+
+describe('Boost prices', () => {
+	test.each(GENERATOR_TYPES)('the %s Boost price step grows from tier to tier without more than doubling', type => {
+		const cost = (tier: number) => UPGRADES[`${type.toLowerCase()}_${tier}`].cost.amount;
+		const steps = Array.from({ length: 21 }, (_, i) => cost(i + 2) / cost(i + 1));
+		for (let i = 1; i < steps.length; i++) {
+			expect(steps[i], `${type} step ${i + 1}`).toBeGreaterThan(steps[i - 1]);
+			expect(steps[i] / steps[i - 1], `${type} step ${i + 1}`).toBeLessThanOrEqual(2);
+		}
+	});
+
+	test('the next Protonize opens five tiers per unlocked generator while tiers remain, then two, then none', () => {
+		gameManager.generators = { crystal: { count: 0, level: 0, unlocked: true }, molecule: { count: 0, level: 0, unlocked: true } };
+		const opened = [0, 1, 2, 3, 4, 5].map(protonises => {
+			gameManager.totalProtonisesAllTime = protonises;
+			return boostTiersUnlockedByNextProtonise(gameManager);
+		});
+		expect(opened).toEqual([10, 10, 10, 4, 0, 0]);
 	});
 });
 
