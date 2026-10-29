@@ -22,6 +22,7 @@
 	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { photonFieldCenter } from '#helpers/photonCanvas.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
@@ -32,6 +33,7 @@
 
 	const visible = (upgrade: ChromaticUpgrade) =>
 		chromaticManager.isUnlocked(upgrade) &&
+		(!upgrade.table || periodicManager.unlocked) &&
 		(chromaticManager.level(upgrade.id) < upgrade.maxLevel || gameManager.settings.upgrades.displayAlreadyBought);
 
 	const whiteUnlocked = $derived(chromaticManager.recombinable > 0 || currenciesManager.getEarnedAllTime(CurrenciesTypes.WHITE_LIGHT) > 0);

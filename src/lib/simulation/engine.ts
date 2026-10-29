@@ -2,7 +2,7 @@ import { ACHIEVEMENTS } from '#data/achievements.js';
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '#data/chromatic.js';
 import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import { decayCost, ELEMENTS } from '#data/elements.js';
+import { bestTuning, decayCost, ELEMENTS } from '#data/elements.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
@@ -420,10 +420,16 @@ export class SimulationEngine {
 		}
 		// Identifying goes before the Prism upgrades, both spend Light and an element's bonus is permanent.
 		if (canAct() && periodicManager.unlocked) {
-			const z = periodicManager.ready.filter(other => periodicManager.canAfford(other)).sort((a, b) => ELEMENTS[a - 1].need - ELEMENTS[b - 1].need)[0];
-			if (z && periodicManager.identify(z)) {
-				this.record('periodic', `identify ${ELEMENTS[z - 1].symbol}`);
-				actionsThisTick++;
+			/** With the Prism Tuning, each element is read through its best window. */
+			const tuningOf = (z: number) => (periodicManager.tuned && ELEMENTS[z - 1].lines.length ? bestTuning(ELEMENTS[z - 1].lines) : null);
+			const z = periodicManager.ready.filter(other => periodicManager.canAfford(other, tuningOf(other))).sort((a, b) => ELEMENTS[a - 1].need - ELEMENTS[b - 1].need)[0];
+			if (z) {
+				const tuning = tuningOf(z);
+				if (tuning !== null) periodicManager.setTuning(tuning);
+				if (periodicManager.identify(z)) {
+					this.record('periodic', `identify ${ELEMENTS[z - 1].symbol}`);
+					actionsThisTick++;
+				}
 			}
 		}
 		if (canAct() && gameManager.totalIonizesAllTime > 0) {
@@ -496,7 +502,7 @@ export class SimulationEngine {
 		let best: { cost: number; id: string } | null = null;
 		for (const upgrade of Object.values(CHROMATIC_UPGRADES)) {
 			const level = chromaticManager.level(upgrade.id);
-			if (level >= upgrade.maxLevel || !chromaticManager.isUnlocked(upgrade)) continue;
+			if (level >= upgrade.maxLevel || !chromaticManager.isUnlocked(upgrade) || (upgrade.table && !periodicManager.unlocked)) continue;
 			const cost = getChromaticUpgradeCost(upgrade, level);
 			const white = upgrade.currencies.includes(CurrenciesTypes.WHITE_LIGHT);
 			const reachable = white

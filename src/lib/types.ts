@@ -150,6 +150,8 @@ export interface PeriodicState {
 	/** Atomic numbers, ascending. */
 	identified: number[];
 	sites: Partial<Record<SiteId, SiteForge>>;
+	/** Center in nm of the Prism's tuning window over the spectrum, missing in saves from before it. */
+	tuning?: number;
 }
 
 /** A nucleosynthesis site's place in its chain: elements before `index` are forged, `progress` nuclei count toward the next one. */

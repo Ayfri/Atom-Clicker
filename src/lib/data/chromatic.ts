@@ -1,4 +1,5 @@
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { TUNING } from '#data/elements.js';
 import { add, mul } from '#helpers/effects.js';
 import type { Effect } from '#lib/types.js';
 import { formatNumber } from '#lib/utils.js';
@@ -62,6 +63,8 @@ export interface ChromaticUpgrade {
 	id: string;
 	maxLevel: number;
 	name: string;
+	/** Hidden until the Periodic Table opens, `PrismUpgrades` and the simulation bot check it. */
+	table?: boolean;
 	/** Hidden until this color reaches the spectrum level, the phase 2 boosts wait for a color to be farmed first. */
 	unlock?: { color: ChromaticColor; spectrum: number };
 }
@@ -166,6 +169,16 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'prism_resonance',
 			maxLevel: 5,
 			name: 'Prism Resonance',
+		},
+		{
+			baseCost: 20_000,
+			costMultiplier: 1,
+			currencies: ALL_LIGHTS,
+			description: () => `A ${TUNING.width} nm window: lines inside cost ×${TUNING.factorIn} Light, lines outside ×${TUNING.factorOut}`,
+			id: 'prism_tuning',
+			maxLevel: 1,
+			name: 'Prism Tuning',
+			table: true,
 		},
 		colorBoost(ChromaticColors.RED, {
 			baseCost: 100,

@@ -325,13 +325,47 @@ export const lanthanideLight = (element: Element): LightColor => lightColorOf(el
 export const elementStat = (element: Element): EffectStat =>
 	element.family === 'lanthanide' ? LIGHT_STATS[lanthanideLight(element)] : FAMILIES[element.family].stat;
 
-/** Light per nucleus, split by the element's lines: Red ≥ 600 nm, Green 500 to 600, Blue under 500. Without a measured spectrum, no Light: see `decayCost`. */
-export function lightCost(element: Element): Record<LightColor, number> {
+/** The Prism's tuning window: lines within `width` nm of its center cost `factorIn` times their Light, the others `factorOut`. */
+export const TUNING = { factorIn: 0.2, factorOut: 2, max: 875, min: 375, width: 50 } as const;
+
+/** Wavelengths outside this range are never read through the window, they always cost their plain share. */
+const TUNING_RANGE = { max: 900, min: 350 } as const;
+
+const lineWeight = (nm: number, tuning: number | null): number =>
+	tuning === null || nm < TUNING_RANGE.min || nm > TUNING_RANGE.max ? 1
+	: Math.abs(nm - tuning) <= TUNING.width / 2 ? TUNING.factorIn
+	: TUNING.factorOut;
+
+/**
+ * Light per nucleus, split by the element's lines: Red ≥ 600 nm, Green 500 to 600, Blue under 500. Without a measured spectrum, no Light: see
+ * `decayCost`. A `tuning` center weighs each line by its distance to the window, `null` is the plain cost.
+ */
+export function lightCost(element: Element, tuning: number | null = null): Record<LightColor, number> {
 	if (!element.lines.length) return { blue: 0, green: 0, red: 0 };
 	const total = element.need / 50;
-	const share = (color: LightColor) => Math.ceil((total * element.lines.filter(nm => lightColorOf(nm) === color).length) / element.lines.length);
+	const share = (color: LightColor) =>
+		Math.ceil(
+			(total * element.lines.filter(nm => lightColorOf(nm) === color).reduce((sum, nm) => sum + lineWeight(nm, tuning), 0)) / element.lines.length,
+		);
 	return { blue: share('blue'), green: share('green'), red: share('red') };
 }
+
+/** The whole nm window center that covers the most of `lines`: a window edge as close as possible to one of them, kept inside the tuning range. */
+export function bestTuning(lines: number[]): number {
+	const weight = (center: number) => lines.reduce((sum, nm) => sum + lineWeight(nm, center), 0);
+	let best: { center: number; total: number } | null = null;
+	for (const nm of lines) {
+		for (const edge of [Math.ceil(nm - TUNING.width / 2), Math.floor(nm + TUNING.width / 2)]) {
+			const center = Math.min(Math.max(edge, TUNING.min), TUNING.max);
+			const total = weight(center);
+			if (!best || total < best.total) best = { center, total };
+		}
+	}
+	return best?.center ?? TUNING.min;
+}
+
+/** Position of a wavelength on the tuning strip's 350 to 900 nm axis, in percent. */
+export const tuneX = (nm: number): number => ((Math.min(Math.max(nm, TUNING_RANGE.min), TUNING_RANGE.max) - TUNING_RANGE.min) / (TUNING_RANGE.max - TUNING_RANGE.min)) * 100;
 
 /** An identified element's lamp pays back its Light cost in this long. */
 export const LAMP_PAYBACK_SECONDS = 10 * 86_400;

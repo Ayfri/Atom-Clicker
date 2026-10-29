@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, zs } from '#data/elements.js';
+import { bestTuning, decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, zs } from '#data/elements.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, siteStudyCost, type SiteId } from '#data/sites.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+import { periodicManager, TUNING_DEFAULT } from '#helpers/PeriodicManager.svelte.js';
 
 const DAY_MS = 86_400_000;
 const xp = () => gameManager.effects.value('xp_gain', 1, gameManager);
@@ -119,6 +120,52 @@ describe('table', () => {
 
 		gameManager.periodic = { identified: [md], sites: { accelerator: { index: 1, level: 0, progress: 0 } } };
 		expect(Object.values(periodicManager.lampLight)).toEqual([0, 0, 0]);
+	});
+
+	test('the Prism tuning makes the lines inside its window cheaper and the others dearer, only once bought', () => {
+		const fe = ELEMENTS[zs('Fe')[0] - 1];
+		const at = ELEMENTS[zs('At')[0] - 1];
+		const total = (cost: Record<'blue' | 'green' | 'red', number>) => cost.blue + cost.green + cost.red;
+
+		periodicManager.setTuning(800);
+		expect(periodicManager.costOf(fe.z).light).toEqual(lightCost(fe));
+
+		chromaticManager.upgradeLevels = { prism_tuning: 1 };
+		periodicManager.setTuning(bestTuning(fe.lines));
+		/** All five Fe lines sit within 25 nm of each other, and the ceil adds at most 1 Light per color. */
+		expect(Math.abs(total(periodicManager.costOf(fe.z).light) - 0.2 * total(lightCost(fe)))).toBeLessThanOrEqual(1);
+		periodicManager.setTuning(800);
+		expect(Math.abs(total(periodicManager.costOf(fe.z).light) - 2 * total(lightCost(fe)))).toBeLessThanOrEqual(1);
+		/** At only has ultraviolet lines, the window never reaches them. */
+		expect(periodicManager.costOf(at.z).light).toEqual(lightCost(at));
+
+		periodicManager.setTuning(bestTuning(fe.lines));
+		gameManager.periodic = { identified: [], sites: { whitedwarf: { index: 5, level: 0, progress: 0 } }, tuning: periodicManager.tuning };
+		const price = periodicManager.costOf(fe.z).light;
+		currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, price.blue - 1);
+		expect(periodicManager.identify(fe.z)).toBe(false);
+		currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, 1);
+		expect(periodicManager.identify(fe.z)).toBe(true);
+		expect(currenciesManager.getAmount(CurrenciesTypes.BLUE_LIGHT)).toBe(0);
+	});
+
+	test('the tuning window stays on the strip and a save only keeps a valid one', () => {
+		periodicManager.setTuning(10);
+		expect(periodicManager.tuning).toBe(375);
+		periodicManager.setTuning(2000);
+		expect(periodicManager.tuning).toBe(875);
+		periodicManager.setTuning(Number.NaN);
+		expect(periodicManager.tuning).toBe(875);
+		periodicManager.setTuning(600.4);
+		expect(periodicManager.tuning).toBe(600);
+
+		for (const tuning of ['x', 9999, undefined] as never[]) {
+			gameManager.periodic = { identified: [], sites: {}, tuning };
+			expect(periodicManager.tuning).toBe(TUNING_DEFAULT);
+			periodicManager.setTuning(600);
+		}
+		gameManager.periodic = { identified: [], sites: {}, tuning: 640 };
+		expect(periodicManager.getState().tuning).toBe(640);
 	});
 
 	test('a full family multiplies its bonus once more', () => {

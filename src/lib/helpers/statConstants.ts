@@ -56,7 +56,7 @@ export const statsConfig = {
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER },
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
-	periodic: { defaultValue: { identified: [], sites: {} } satisfies PeriodicState, layer: LAYERS.NEVER },
+	periodic: { defaultValue: { identified: [], sites: {}, tuning: 375 } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
 	radiation: { defaultValue: { controlRodLevel: 0.5, mass: 0, unlocked: false }, layer: LAYERS.NEVER },

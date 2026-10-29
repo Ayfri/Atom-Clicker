@@ -11,7 +11,7 @@ import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+import { periodicManager, TUNING_DEFAULT } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
@@ -339,6 +339,16 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-lights"]'],
 		text: 'An element you can read, you can also make glow. Each identified element now adds its own Light.',
 		title: 'Lamps',
+	},
+	{
+		done: () => periodicManager.tuning !== TUNING_DEFAULT,
+		id: 'table:tuning',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.tuned,
+		targets: ['[data-hint="table-tuning"]'],
+		text: "Slide the window over an element's lines. Those lines cost 5x less Light.",
+		title: 'Tuning',
 	},
 	{
 		done: () => periodicManager.identified.some(z => !ELEMENTS[z - 1].lines.length),

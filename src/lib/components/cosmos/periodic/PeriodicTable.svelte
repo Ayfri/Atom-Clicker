@@ -3,6 +3,7 @@
 	import { MINI_NUCLEONS, nucleonsOf, paintNucleus, type StageKind } from '#components/cosmos/periodic/atoms.js';
 	import { TableAtoms, type CellLook } from '#components/cosmos/periodic/TableAtoms.js';
 	import { TableParticles, type Point } from '#components/cosmos/periodic/TableParticles.js';
+	import TuningStrip from '#components/cosmos/periodic/TuningStrip.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import { COSMOS_OBJECTS_BY_ID } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
@@ -280,7 +281,7 @@
 			if (from) particles?.comet(from, to, CURRENCIES[CurrenciesTypes.DECAY_EVENTS].color, -40);
 			return;
 		}
-		const cost = lightCost(target);
+		const cost = periodicManager.costOf(target.z).light;
 		let pick = Math.random() * (cost.red + cost.green + cost.blue);
 		const [color] = LIGHTS.find(([candidate]) => (pick -= cost[candidate]) < 0) ?? LIGHTS[0];
 		const from = centerOf(`[data-light="${color}"]`);
@@ -608,7 +609,8 @@
 {#snippet card()}
 	{@const info = FAMILIES[element.family]}
 	{@const family = ELEMENTS.filter(other => other.family === element.family)}
-	{@const cost = lightCost(element)}
+	{@const cost = periodicManager.costOf(element.z).light}
+	{@const lamp = lightCost(element)}
 	{@const decayNeed = decayCost(element)}
 	{@const siteId = FORGED_BY[element.z]}
 	{@const site = SITES[siteId]}
@@ -682,6 +684,11 @@
 					{@render lightPill(null, CurrenciesTypes.DECAY_EVENTS, decayEvents, decayNeed)}
 				{/if}
 			</div>
+			{#if periodicManager.tuned && element.lines.length}
+				<div class="mt-3 flex justify-center">
+					<TuningStrip {element} />
+				</div>
+			{/if}
 		{/if}
 
 		<div class="mt-3 flex flex-col items-center gap-1.5 text-xs">
@@ -697,13 +704,13 @@
 				<span class="flex items-center gap-2 text-white/60">
 					Glows
 					{#each LIGHTS as [color] (color)}
-						{#if cost[color] > 0}
+						{#if lamp[color] > 0}
 							<span class="flex items-center gap-1">
 								<span
 									class="size-1.5 rounded-full"
 									style:background={LIGHT_HEX[color]}
 								></span>
-								+{rateText((cost[color] / LAMP_PAYBACK_SECONDS) * gameManager.lightGain[color])}/s
+								+{rateText((lamp[color] / LAMP_PAYBACK_SECONDS) * gameManager.lightGain[color])}/s
 							</span>
 						{/if}
 					{/each}

@@ -1,7 +1,8 @@
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { decayCost, ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, LAMP_PAYBACK_SECONDS, lightCost, type LightColor, SET_BONUS, zs } from '#data/elements.js';
+import { decayCost, ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, LAMP_PAYBACK_SECONDS, lightCost, type LightColor, SET_BONUS, TUNING, zs } from '#data/elements.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { mul } from '#helpers/effects.js';
@@ -12,6 +13,9 @@ export type SiteStatus =
 	| { kind: 'done' | 'locked' }
 	| { kind: 'forging'; progress: number; z: number }
 	| { kind: 'waiting'; missing: number[]; object: string | null; z: number };
+
+/** Where the tuning window starts: at the blue end of the strip. */
+export const TUNING_DEFAULT: number = TUNING.min;
 
 const LIGHT_CURRENCIES = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT } as const;
 const LIGHT_COLORS = Object.keys(LIGHT_CURRENCIES) as LightColor[];
@@ -27,9 +31,14 @@ class PeriodicManager {
 	identified = $state.raw<number[]>([]);
 	/** Study level and progress of each site that has forged at least once or been studied. */
 	sites = $state.raw<Partial<Record<SiteId, SiteForge>>>({});
+	/** Center in nm of the Prism's tuning window, only read once the Prism Tuning upgrade is bought. */
+	tuning = $state(TUNING_DEFAULT);
 
 	/** Owning the Spectroscope opens the Table. */
 	unlocked = $derived(cosmosManager.unlocked && cosmosManager.instruments.includes(SPECTROSCOPE_ID));
+
+	/** The Prism Tuning upgrade is bought, lines inside the window cost less to read. */
+	tuned = $derived(chromaticManager.level('prism_tuning') > 0);
 
 	identifiedSet = $derived(new Set(this.identified));
 
@@ -92,19 +101,29 @@ class PeriodicManager {
 		return rate > 0 ? (ELEMENTS[status.z - 1].need - status.progress) / rate : Infinity;
 	}
 
-	canAfford(z: number): boolean {
+	/** What identifying an element costs: the Light of its lines read through the tuning window, or `null` for the plain cost, and its Decay events. */
+	costOf(z: number, tuning: number | null = this.tuned ? this.tuning : null): { decay: number; light: Record<LightColor, number> } {
 		const element = ELEMENTS[z - 1];
-		const cost = lightCost(element);
-		return currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS) >= decayCost(element) && LIGHT_COLORS.every(color => currenciesManager.getAmount(LIGHT_CURRENCIES[color]) >= cost[color]);
+		return { decay: decayCost(element), light: lightCost(element, tuning) };
+	}
+
+	canAfford(z: number, tuning?: number | null): boolean {
+		const { decay, light } = this.costOf(z, tuning);
+		return currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS) >= decay && LIGHT_COLORS.every(color => currenciesManager.getAmount(LIGHT_CURRENCIES[color]) >= light[color]);
+	}
+
+	/** Moves the tuning window, rounded and kept on the strip. */
+	setTuning(nm: number) {
+		if (Number.isNaN(nm)) return;
+		this.tuning = Math.min(Math.max(Math.round(nm), TUNING.min), TUNING.max);
 	}
 
 	/** Pays the Light of a forged element's lines, or the Decay events of one nobody has measured, which lights its cell and adds its family bonus. */
 	identify(z: number): boolean {
 		if (!this.unlocked || !this.forged.has(z) || this.identifiedSet.has(z) || !this.canAfford(z)) return false;
-		const element = ELEMENTS[z - 1];
-		const cost = lightCost(element);
-		for (const color of LIGHT_COLORS) if (cost[color] > 0) currenciesManager.remove(LIGHT_CURRENCIES[color], cost[color]);
-		currenciesManager.remove(CurrenciesTypes.DECAY_EVENTS, decayCost(element));
+		const { decay, light } = this.costOf(z);
+		for (const color of LIGHT_COLORS) if (light[color] > 0) currenciesManager.remove(LIGHT_CURRENCIES[color], light[color]);
+		currenciesManager.remove(CurrenciesTypes.DECAY_EVENTS, decay);
 		this.identified = [...this.identified, z].sort((a, b) => a - b);
 		return true;
 	}
@@ -148,7 +167,7 @@ class PeriodicManager {
 	}
 
 	getState(): PeriodicState {
-		return { identified: this.identified, sites: this.sites };
+		return { identified: this.identified, sites: this.sites, tuning: this.tuning };
 	}
 
 	/** Unknown sites and Z from a tampered or future save are dropped, and so is an identified element its chain never forged. */
@@ -163,6 +182,8 @@ class PeriodicManager {
 			sites[id] = { index, level, progress };
 		}
 		this.sites = sites;
+		const { tuning } = state;
+		this.tuning = typeof tuning === 'number' && tuning >= TUNING.min && tuning <= TUNING.max ? tuning : TUNING_DEFAULT;
 		this.identified = [...new Set(state.identified ?? [])].filter(z => this.forged.has(z)).sort((a, b) => a - b);
 	}
 
