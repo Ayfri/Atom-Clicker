@@ -388,7 +388,7 @@ export function bestTuning(lines: number[]): number {
 export const tuneX = (nm: number): number => ((Math.min(Math.max(nm, TUNING_RANGE.min), TUNING_RANGE.max) - TUNING_RANGE.min) / (TUNING_RANGE.max - TUNING_RANGE.min)) * 100;
 
 /** An identified element's lamp pays back its Light cost in this long. */
-export const LAMP_PAYBACK_SECONDS = 10 * 86_400;
+export const LAMP_PAYBACK_SECONDS = 25 * 86_400;
 
 /** Nuclei of an element's `need` that one Decay event stands for. */
 export const NEED_PER_DECAY_EVENT = 1e6;

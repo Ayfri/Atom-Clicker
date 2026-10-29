@@ -112,7 +112,7 @@ export const reactionOf = (element: Element): string => LORE[element.symbol]?.re
 export const DECAY_SITES: SiteId[] = ['accelerator', 'decay'];
 
 /** Decay events per second of each open decay site, times `1 + study level`. */
-export const DECAY_EVENTS_PER_SECOND = 1;
+export const DECAY_EVENTS_PER_SECOND = 0.5;
 
 /** Starlight for a site's next study level, each level adds the base forge rate again. */
 export const siteStudyCost = (level: number) => 1e9 * 4 ** level;

@@ -6,7 +6,7 @@ import type { Effect, EffectStat } from '#lib/types.js';
 export const SPECTROSCOPE_ID = 'spectroscope';
 
 /** Light per second of a discovered object at study level 0 and weight 1, each study level adds it again. */
-export const SKY_LIGHT = 1;
+export const SKY_LIGHT = 0.3;
 
 export const CosmosEras = {
 	BALLOON: 'balloon',
