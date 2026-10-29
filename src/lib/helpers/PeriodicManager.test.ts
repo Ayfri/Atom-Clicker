@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
+import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { decayCost, ELEMENTS, lightCost, SET_BONUS, zs } from '#data/elements.js';
+import { decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, zs } from '#data/elements.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, siteStudyCost, type SiteId } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager, SPECTROSCOPE_ID } from '#helpers/PeriodicManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 
 const DAY_MS = 86_400_000;
 const xp = () => gameManager.effects.value('xp_gain', 1, gameManager);
@@ -98,6 +99,26 @@ describe('table', () => {
 		/** The browser's tick skips production, Decay events are not part of it. */
 		gameManager.tick(2000, true, true);
 		expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(10 * DECAY_EVENTS_PER_SECOND);
+	});
+
+	test('an identified element glows with its own Light, and the browser tick still pays it', () => {
+		const [h] = zs('H');
+		const [md] = zs('Md');
+		gameManager.periodic = { identified: [h], sites: { bigbang: { index: 2, level: 0, progress: 0 } } };
+		const cost = lightCost(ELEMENTS[h - 1]);
+		for (const color of ['blue', 'green', 'red'] as const) expect(periodicManager.lampLight[color]).toBeCloseTo(cost[color] / LAMP_PAYBACK_SECONDS, 12);
+		expect(Object.values(periodicManager.lampLight).some(rate => rate > 0)).toBe(true);
+
+		/** The Light gain stat multiplies lamps and sky, the Prism multipliers (Ionize count, spectrum level) do not. */
+		const lights = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT } as const;
+		gameManager.tick(1000, true, true);
+		for (const color of ['blue', 'green', 'red'] as const) {
+			expect(gameManager.passiveLight[color]).toBeCloseTo((periodicManager.lampLight[color] + cosmosManager.skyLight[color]) * gameManager.lightGain[color], 12);
+			expect(currenciesManager.getAmount(lights[color])).toBeCloseTo(gameManager.passiveLight[color], 12);
+		}
+
+		gameManager.periodic = { identified: [md], sites: { accelerator: { index: 1, level: 0, progress: 0 } } };
+		expect(Object.values(periodicManager.lampLight)).toEqual([0, 0, 0]);
 	});
 
 	test('a full family multiplies its bonus once more', () => {

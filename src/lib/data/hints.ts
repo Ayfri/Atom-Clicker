@@ -1,4 +1,5 @@
 import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { ELEMENTS } from '#data/elements.js';
 import { FeatureTypes } from '#data/features.js';
@@ -10,7 +11,7 @@ import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager, SPECTROSCOPE_ID } from '#helpers/PeriodicManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
@@ -328,6 +329,16 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-forges"]'],
 		text: 'Each source in the sky makes its elements on its own, one after the other. Study a source with Starlight to make them faster.',
 		title: 'Synthesis',
+	},
+	{
+		done: () => periodicManager.identified.length >= 5,
+		id: 'table:lamp',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.identified.length > 0 && Object.values(periodicManager.lampLight).some(rate => rate > 0),
+		targets: ['[data-hint="table-lights"]'],
+		text: 'An element you can read, you can also make glow. Each identified element now adds its own Light.',
+		title: 'Lamps',
 	},
 	{
 		done: () => periodicManager.identified.some(z => !ELEMENTS[z - 1].lines.length),

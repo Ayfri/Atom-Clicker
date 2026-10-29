@@ -1,5 +1,6 @@
+import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { decayCost, ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, lightCost, type LightColor, SET_BONUS, zs } from '#data/elements.js';
+import { decayCost, ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, LAMP_PAYBACK_SECONDS, lightCost, type LightColor, SET_BONUS, zs } from '#data/elements.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -11,9 +12,6 @@ export type SiteStatus =
 	| { kind: 'done' | 'locked' }
 	| { kind: 'forging'; progress: number; z: number }
 	| { kind: 'waiting'; missing: number[]; object: string | null; z: number };
-
-/** The instrument that reads elements in starlight and opens the Table. */
-export const SPECTROSCOPE_ID = 'spectroscope';
 
 const LIGHT_CURRENCIES = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT } as const;
 const LIGHT_COLORS = Object.keys(LIGHT_CURRENCIES) as LightColor[];
@@ -46,6 +44,16 @@ class PeriodicManager {
 	ready = $derived(ELEMENTS.filter(element => this.forged.has(element.z) && !this.identifiedSet.has(element.z)).map(element => element.z));
 
 	complete = $derived(this.identified.length === ELEMENT_COUNT);
+
+	/** Light per second each color gets from the identified elements' lamps: their untuned cost paid back over `LAMP_PAYBACK_SECONDS`. */
+	lampLight = $derived.by((): Record<LightColor, number> => {
+		const rates: Record<LightColor, number> = { blue: 0, green: 0, red: 0 };
+		for (const z of this.identified) {
+			const cost = lightCost(ELEMENTS[z - 1]);
+			for (const color of LIGHT_COLORS) rates[color] += cost[color] / LAMP_PAYBACK_SECONDS;
+		}
+		return rates;
+	});
 
 	/** Decay events per second, paid by `GameManager.tick` online and `applyOfflineProgress` offline, never by `tick` here. */
 	decayEventsPerSecond = $derived(DECAY_SITES.reduce((rate, id) => rate + (this.open.has(id) ? DECAY_EVENTS_PER_SECOND * (1 + this.forge(id).level) : 0), 0));

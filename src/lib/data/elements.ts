@@ -333,6 +333,9 @@ export function lightCost(element: Element): Record<LightColor, number> {
 	return { blue: share('blue'), green: share('green'), red: share('red') };
 }
 
+/** An identified element's lamp pays back its Light cost in this long. */
+export const LAMP_PAYBACK_SECONDS = 10 * 86_400;
+
 /** Nuclei of an element's `need` that one Decay event stands for. */
 export const NEED_PER_DECAY_EVENT = 1e6;
 

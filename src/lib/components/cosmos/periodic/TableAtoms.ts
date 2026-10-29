@@ -3,7 +3,8 @@ import { rgba, TAU } from '#helpers/nucleus.js';
 import { MINI_NUCLEONS, nucleonsOf, paintAtom, paintNucleus } from './atoms.js';
 
 export type CellLook =
-	| { color: string; kind: 'identified' | 'ready' | 'reading' }
+	/** `glow` is the color of an identified element's lamp, painted as a soft halo behind its atom. */
+	| { color: string; glow?: string; kind: 'identified' | 'ready' | 'reading' }
 	| { color: string; kind: 'forging'; progress: number }
 	| { kind: 'waiting' };
 
@@ -17,6 +18,7 @@ const BARE_COLOR = '#c3cad6';
 /** The atom leaves the bottom of its cell to the symbol. */
 const ATOM_SHARE = 0.86;
 const POP_SECONDS = 0.5;
+const LAMP_GLOW_ALPHA = 0.4;
 /** The widest a ready nucleus's pulsing glow gets, relative to its atom, it reaches past the top of the cell. */
 const READY_GLOW = 1.23;
 
@@ -113,6 +115,11 @@ export class TableAtoms extends CanvasLoop {
 		ctx.translate(-cx, -cy);
 
 		if (look.kind === 'identified') {
+			if (look.glow) {
+				ctx.globalAlpha = LAMP_GLOW_ALPHA;
+				ctx.drawImage(this.glow(look.glow), cx - size / 2, cy - size / 2, size, size);
+				ctx.globalAlpha = 1;
+			}
 			ctx.drawImage(this.sprite(`atom:${z}`, ctx => paintAtom(ctx, pixels, z, look.color), pixels), x, y, size, size);
 		} else if (look.kind === 'waiting') {
 			ctx.strokeStyle = 'rgb(252 211 77 / 0.35)';

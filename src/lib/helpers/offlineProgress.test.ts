@@ -1,11 +1,12 @@
 import { beforeEach, expect, test } from 'bun:test';
+import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { zs } from '#data/elements.js';
 import { CHAINS, DECAY_EVENTS_PER_SECOND } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager, SPECTROSCOPE_ID } from '#helpers/PeriodicManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import type { PowerUp } from '#lib/types.js';
 
 const HOUR = 3_600_000;
@@ -60,17 +61,29 @@ test('an expired power-up never multiplies the catch-up, a live one ran through 
 	expect(catchUp(HOUR)).toBeCloseTo(base * 25);
 });
 
-test('Decay events are paid once for the time away and listed in the gains', () => {
+test('Decay events, lamp and sky Light are paid once for the time away and listed in the gains', () => {
 	gameManager.totalIonizesAllTime = 1;
 	cosmosManager.instruments = [SPECTROSCOPE_ID];
-	gameManager.periodic = { identified: zs('U Th'), sites: { decay: { index: 0, level: 1, progress: 0 }, neutron: { index: CHAINS.neutron.steps.length, level: 0, progress: 0 } } };
+	cosmosManager.discovered = ['mira'];
+	gameManager.periodic = {
+		identified: zs('H U Th'),
+		sites: { bigbang: { index: 2, level: 0, progress: 0 }, decay: { index: 0, level: 1, progress: 0 }, neutron: { index: CHAINS.neutron.steps.length, level: 0, progress: 0 } },
+	};
 	const rate = periodicManager.decayEventsPerSecond;
 	expect(rate).toBe(2 * DECAY_EVENTS_PER_SECOND);
+	const passive = { ...gameManager.passiveLight };
+	expect(passive.red).toBeGreaterThan(periodicManager.lampLight.red);
 
 	currenciesManager.hardReset();
 	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+	const { currencyGains } = gameManager.offlineProgressSummary!;
 	expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(rate * 3600);
-	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.DECAY_EVENTS]).toBeCloseTo(rate * 3600);
+	expect(currencyGains[CurrenciesTypes.DECAY_EVENTS]).toBeCloseTo(rate * 3600);
+	const lights = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT } as const;
+	for (const color of ['blue', 'green', 'red'] as const) {
+		expect(currenciesManager.getAmount(lights[color])).toBeCloseTo(passive[color] * 3600);
+		expect(currencyGains[lights[color]]).toBeCloseTo(passive[color] * 3600);
+	}
 });
 
 test('offline purchases stay out of the daily quest counters', () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, ionizeStarlightMultiplier, SKY_SECTIONS, studyCost } from '#data/cosmos.js';
+import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, ionizeStarlightMultiplier, SKY_LIGHT, SKY_SECTIONS, SPECTROSCOPE_ID, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -49,6 +49,23 @@ describe('sky', () => {
 		expect(cosmosManager.starlightPerSecond).toBe(2 * ionizeStarlightMultiplier(1));
 		gameManager.tick(4000, true);
 		expect(starlight()).toBeCloseTo(8 * ionizeStarlightMultiplier(1));
+	});
+
+	test('radiates its own Light once the Spectroscope reads it, each study level adding it again', () => {
+		cosmosManager.discovered = ['mira'];
+		cosmosManager.studies = { mira: 2 };
+		expect(cosmosManager.skyLight).toEqual({ blue: 0, green: 0, red: 0 });
+
+		cosmosManager.instruments = [SPECTROSCOPE_ID];
+		expect(cosmosManager.skyLightOf('mira')).toEqual({ red: SKY_LIGHT * 3 });
+		expect(cosmosManager.skyLightOf('jupiter')).toEqual({});
+		/** The Sun, given from the start, splits its Light in thirds. */
+		expect(cosmosManager.skyLight.red).toBeCloseTo(SKY_LIGHT * (3 + 1 / 3));
+		expect(cosmosManager.skyLight.green).toBeCloseTo(SKY_LIGHT / 3);
+		expect(cosmosManager.skyLight.blue).toBeCloseTo(SKY_LIGHT / 3);
+
+		cosmosManager.discovered = [];
+		expect(cosmosManager.skyLightOf('mira')).toEqual({});
 	});
 
 	test('discovers objects brightest first, once the Aperture reaches them and an owned instrument sees them', () => {

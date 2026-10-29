@@ -13,6 +13,7 @@
 		elementStat,
 		FAMILIES,
 		FAMILY_IDS,
+		LAMP_PAYBACK_SECONDS,
 		lightCost,
 		type Element,
 		type LightColor,
@@ -26,6 +27,7 @@
 	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 	import { particlesEnabled, pixelRatio } from '#helpers/CanvasLoop.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
 	import { periodicManager, type SiteStatus } from '#helpers/PeriodicManager.svelte.js';
 	import type { EffectStat } from '#lib/types.js';
@@ -132,7 +134,8 @@
 		}
 		for (const z of periodicManager.forged) {
 			const kind = reading.has(z) ? 'reading' : periodicManager.identifiedSet.has(z) ? 'identified' : 'ready';
-			map.set(z, { color: FAMILIES[ELEMENTS[z - 1].family].color, kind });
+			const { family, lines } = ELEMENTS[z - 1];
+			map.set(z, { color: FAMILIES[family].color, ...(kind === 'identified' && lines.length > 0 && { glow: wavelengthColor(lines[0]) }), kind });
 		}
 		return map;
 	});
@@ -265,6 +268,9 @@
 		return `~${Math.round(seconds / 86_400)}d`;
 	}
 
+	/** Lamp rates are tiny per element: two decimals would round most of them to 0. */
+	const rateText = (rate: number) => (rate >= 0.01 ? formatNumber(rate) : rate.toPrecision(2));
+
 	const bonusText = (target: Element) => `+${FAMILIES[target.family].step}% ${STAT_LABELS[elementStat(target)]}`;
 
 	/** Light flies from the counters into the held atom, each color as often as the element's lines call for it, Decay events for one without lines. */
@@ -352,7 +358,7 @@
 	);
 </script>
 
-{#snippet lightPill(color: LightColor | 'decay' | null, name: CurrencyName, amount: number, need?: number)}
+{#snippet lightPill(color: LightColor | 'decay' | null, name: CurrencyName, amount: number, need?: number, rate = 0)}
 	<span
 		class={[
 			'flex items-center gap-1.5 rounded-full font-semibold tabular-nums',
@@ -367,6 +373,9 @@
 			size={need === undefined ? 16 : 20}
 		/>
 		{formatNumber(need ?? amount)}
+		{#if rate > 0}
+			<span class="text-[10px] font-normal text-white/45">+{rateText(rate)}/s</span>
+		{/if}
 	</span>
 {/snippet}
 
@@ -684,6 +693,21 @@
 					{@render statIcon(stat, 13)}
 					{bonusText(element)}
 				</span>
+			{:else if element.lines.length}
+				<span class="flex items-center gap-2 text-white/60">
+					Glows
+					{#each LIGHTS as [color] (color)}
+						{#if cost[color] > 0}
+							<span class="flex items-center gap-1">
+								<span
+									class="size-1.5 rounded-full"
+									style:background={LIGHT_HEX[color]}
+								></span>
+								+{rateText((cost[color] / LAMP_PAYBACK_SECONDS) * gameManager.lightGain[color])}/s
+							</span>
+						{/if}
+					{/each}
+				</span>
 			{/if}
 			<span
 				class="flex max-w-60 flex-wrap justify-center gap-1"
@@ -767,7 +791,10 @@
 			</span>
 			<span class="text-xs font-bold tabular-nums">{identifiedCount}<span class="text-white/40">/{ELEMENT_COUNT}</span></span>
 		</div>
-		<div class="flex flex-wrap items-center gap-1.5 text-xs max-lg:order-last max-lg:w-full">
+		<div
+			class="flex flex-wrap items-center gap-1.5 text-xs max-lg:order-last max-lg:w-full"
+			data-hint="table-lights"
+		>
 			<span class="flex items-center gap-1.5 rounded-full bg-white/6 px-2.5 py-1 text-sm font-semibold text-[#cfe8ff] tabular-nums">
 				<Currency
 					name={CurrenciesTypes.STARLIGHT}
@@ -776,7 +803,7 @@
 				{formatNumber(starlight)}
 			</span>
 			{#each LIGHTS as [color, name] (color)}
-				{@render lightPill(color, name, lights[color])}
+				{@render lightPill(color, name, lights[color], undefined, gameManager.passiveLight[color])}
 			{/each}
 			{#if periodicManager.decayEventsPerSecond > 0 || decayEvents > 0}
 				{@render lightPill('decay', CurrenciesTypes.DECAY_EVENTS, decayEvents)}

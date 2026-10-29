@@ -1,5 +1,12 @@
+import type { LightColor } from '#data/elements.js';
 import { mul } from '#helpers/effects.js';
 import type { Effect, EffectStat } from '#lib/types.js';
+
+/** The instrument that reads elements in starlight and opens the Table. */
+export const SPECTROSCOPE_ID = 'spectroscope';
+
+/** Light per second of a discovered object at study level 0 and weight 1, each study level adds it again. */
+export const SKY_LIGHT = 1;
 
 export const CosmosEras = {
 	BALLOON: 'balloon',
@@ -46,6 +53,8 @@ export interface CosmosObject {
 	/** Part of the sky from the start, never observed. */
 	given?: boolean;
 	id: string;
+	/** Visible Light the object radiates per `SKY_LIGHT` unit, weights sum to 1. Read once the Spectroscope is owned. */
+	light?: Partial<Record<LightColor, number>>;
 	/** Apparent magnitude, lower is brighter: the instrument's limit has to reach it before the signal shows. */
 	magnitude: number;
 	name: string;
@@ -227,6 +236,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		fact: 'It holds 99.8% of the mass of the Solar System.',
 		given: true,
 		id: 'sun',
+		light: { blue: 1 / 3, green: 1 / 3, red: 1 / 3 },
 		magnitude: -26.7,
 		name: 'Sun',
 		starlight: 1,
@@ -277,6 +287,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.NAKED_EYE,
 		fact: 'A new star outshone Venus for weeks, and Tycho showed it lay far beyond the Moon: the heavens could change. It was a white dwarf blowing itself apart.',
 		id: 'tycho',
+		light: { blue: 1 },
 		/** As it shone in November 1572, bright enough to see in daylight. */
 		magnitude: -4,
 		name: "Tycho's Supernova",
@@ -338,6 +349,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.NAKED_EYE,
 		fact: 'The first star seen to change on a cycle: a red giant swelling and shrinking every 332 days, trailing a tail of gas 13 light years long.',
 		id: 'mira',
+		light: { red: 1 },
 		/** Not its brightness, which swings from 2 to 10: telling it came back took months of watching the same spot. */
 		magnitude: 0.5,
 		name: 'Mira',
@@ -403,6 +415,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.REFRACTOR,
 		fact: 'A cloud of glowing hydrogen 1,300 light years away where new stars are being born, lit by the four young stars of the Trapezium at its heart.',
 		id: 'orion_nebula',
+		light: { green: 0.4, red: 0.6 },
 		/** Not its glow, which the naked eye sees at 4 as a fuzzy star: telling it was a cloud took a telescope. */
 		magnitude: 6,
 		name: 'Orion Nebula',
@@ -443,6 +456,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.REFRACTOR,
 		fact: "What is left of a star seen exploding in 1054, around a pulsar spinning 30 times a second. Messier took it for Halley's comet in 1758 and began his catalogue so nobody would again.",
 		id: 'crab_nebula',
+		light: { blue: 1 },
 		/** Not its 8.4: a smudge only a long look tells apart from the stars, at the refractor's limit. */
 		magnitude: 9,
 		name: 'Crab Nebula',
@@ -584,6 +598,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.PHOTOGRAPHY,
 		fact: 'Known for a thousand years as a small cloud. In 1924 Hubble timed pulsing stars in it and found it 2.5 million light years away: the Milky Way is one galaxy among countless others.',
 		id: 'andromeda',
+		light: { green: 0.5, red: 0.5 },
 		/** Not its glow, which the naked eye sees at 3.4: proving it a galaxy took single stars in it, picked out on long photographs. */
 		magnitude: 14.6,
 		name: 'Andromeda Galaxy',
@@ -662,6 +677,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.GRAVITATIONAL,
 		fact: 'Two neutron stars merged 130 million light years away. Their ripples in space arrived first, then a glow full of freshly made gold and platinum.',
 		id: 'kilonova',
+		light: { blue: 0.5, red: 0.5 },
 		/** Its real peak: what it took was the ripples telling every telescope where to look. */
 		magnitude: 17.5,
 		name: 'GW170817 kilonova',

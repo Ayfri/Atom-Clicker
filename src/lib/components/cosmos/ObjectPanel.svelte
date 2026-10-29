@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 	import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
-	import { CurrenciesTypes } from '#data/currencies.js';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -20,6 +21,7 @@
 	const object = $derived(COSMOS_OBJECTS_BY_ID[id]);
 	const level = $derived(cosmosManager.level(id));
 	const cost = $derived(studyCost(object, level));
+	const skyLight = $derived(cosmosManager.skyLightOf(id));
 	const affordable = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cost);
 </script>
 
@@ -48,12 +50,29 @@
 	<dl class="grid grid-cols-2 gap-3 text-sm">
 		<div>
 			<dt class="text-xs text-white/50">Radiates</dt>
-			<dd class="flex items-center gap-1 font-mono tabular-nums text-[#cfe8ff]">
-				<Currency
-					name={CurrenciesTypes.STARLIGHT}
-					size={14}
-				/>
-				{formatNumber(cosmosManager.starlightOf(id))}/s
+			<dd class="flex flex-col gap-0.5 font-mono tabular-nums">
+				<span class="flex items-center gap-1 text-[#cfe8ff]">
+					<Currency
+						name={CurrenciesTypes.STARLIGHT}
+						size={14}
+					/>
+					{formatNumber(cosmosManager.starlightOf(id))}/s
+				</span>
+				{#each CHROMATIC_COLORS as color (color)}
+					{@const rate = skyLight[color] ?? 0}
+					{#if rate > 0}
+						<span
+							class="flex items-center gap-1"
+							style:color={CURRENCIES[CHROMATIC[color].currency].color}
+						>
+							<Currency
+								name={CHROMATIC[color].currency}
+								size={14}
+							/>
+							{formatNumber(rate)}/s
+						</span>
+					{/if}
+				{/each}
 			</dd>
 		</div>
 		<div>

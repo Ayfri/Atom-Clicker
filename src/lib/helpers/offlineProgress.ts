@@ -178,6 +178,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * (appliedMs / 1000));
 	addCurrency(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * (appliedMs / 1000));
+	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * (appliedMs / 1000));
 	cosmosManager.advance(appliedMs);
 	periodicManager.tick(appliedMs);
 

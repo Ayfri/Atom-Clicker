@@ -1,6 +1,6 @@
 import { dev } from '$app/env';
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
-import { CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
+import { CHROMATIC, CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats } from '#data/dailyQuests.js';
 import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
@@ -338,6 +338,13 @@ export class GameManager {
 		blue: this.effects.value('blue_light_gain', 1, this),
 		green: this.effects.value('green_light_gain', 1, this),
 		red: this.effects.value('red_light_gain', 1, this),
+	});
+
+	/** Light per second each color earns with no click: the Table's lamps and the sky times the stat-only Light gain, outside every Prism multiplier. */
+	passiveLight = $derived<Record<ChromaticColor, number>>({
+		blue: (periodicManager.lampLight.blue + cosmosManager.skyLight.blue) * this.lightGain.blue,
+		green: (periodicManager.lampLight.green + cosmosManager.skyLight.green) * this.lightGain.green,
+		red: (periodicManager.lampLight.red + cosmosManager.skyLight.red) * this.lightGain.red,
 	});
 
 	powerUpDurationMultiplier = $derived(this.effects.value('power_up_duration', 1, this));
@@ -938,6 +945,7 @@ export class GameManager {
 		cosmosManager.tick(deltaTime);
 		periodicManager.tick(deltaTime);
 		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
+		for (const color of CHROMATIC_COLORS) currenciesManager.add(CHROMATIC[color].currency, this.passiveLight[color] * seconds);
 
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;

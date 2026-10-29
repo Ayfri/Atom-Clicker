@@ -10,9 +10,12 @@ import {
 	cosmosEffects,
 	IONIZE_FLASH_SECONDS,
 	ionizeStarlightMultiplier,
+	SKY_LIGHT,
+	SPECTROSCOPE_ID,
 	studyCost,
 } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
+import type { LightColor } from '#data/elements.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import type { CosmosState, EffectSource } from '#lib/types.js';
@@ -64,6 +67,15 @@ class CosmosManager {
 
 	starlightPerSecond = $derived(this.unlocked ? this.baseStarlight * this.starlightMultiplier : 0);
 
+	/** Light per second each color gets from the sky once the Spectroscope reads it, before the Light gain stat. */
+	skyLight = $derived.by((): Record<LightColor, number> => {
+		const rates: Record<LightColor, number> = { blue: 0, green: 0, red: 0 };
+		for (const object of this.objects) {
+			for (const [color, rate] of Object.entries(this.skyLightOf(object.id)) as [LightColor, number][]) rates[color] += rate;
+		}
+		return rates;
+	});
+
 	/** Folded into `gameManager.effects`, so the run bounds and the simulation read the Cosmos like any upgrade. */
 	effectSources = $derived.by((): EffectSource[] => {
 		if (!this.unlocked) return [];
@@ -79,6 +91,14 @@ class CosmosManager {
 		const object = COSMOS_OBJECTS_BY_ID[objectId];
 		if (!this.unlocked || !object || !this.objects.includes(object)) return 0;
 		return object.starlight * (1 + this.level(objectId)) * this.starlightMultiplier;
+	}
+
+	/** Light per second one object radiates in each color, empty until it is in the sky, the Cosmos is unlocked and the Spectroscope reads it. */
+	skyLightOf(objectId: string): Partial<Record<LightColor, number>> {
+		const object = COSMOS_OBJECTS_BY_ID[objectId];
+		if (!object?.light || !this.unlocked || !this.instruments.includes(SPECTROSCOPE_ID) || !this.objects.includes(object)) return {};
+		const level = 1 + this.level(objectId);
+		return Object.fromEntries(Object.entries(object.light).map(([color, weight]) => [color, SKY_LIGHT * weight * level]));
 	}
 
 	/** The naked eye is free, every other instrument has to be built. */
