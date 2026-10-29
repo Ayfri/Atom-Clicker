@@ -9,6 +9,7 @@ import { gameManager } from '#helpers/GameManager.svelte.js';
 import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import type { PowerUp } from '#lib/types.js';
 
+const MINUTE = 60_000;
 const HOUR = 3_600_000;
 
 const powerUp = (startTime: number, duration: number): PowerUp => ({ description: '', duration, id: `p${startTime}`, multiplier: 25, name: 'Boost', startTime });
@@ -71,6 +72,27 @@ test('each offline auto-buy builds a whole Bulk Assembly batch', () => {
 	expect(gameManager.catchUpOffline(3 * HOUR)).toBe(true);
 	expect(gameManager.offlineProgressSummary?.autoBuyCounts.molecule).toBe(10);
 	expect(gameManager.generators.molecule?.count).toBe(20);
+});
+
+test('Overdrive keeps draining bosons while away, doubles production until they run out and then stops', () => {
+	const now = Date.now();
+	gameManager.clock = () => now;
+	try {
+		gameManager.skillUpgrades = ['offlineProgress', 'higgsOverdrive'];
+		const rate = gameManager.atomsPerSecond;
+		currenciesManager.hardReset();
+		currenciesManager.add(CurrenciesTypes.HIGGS_BOSON, 3);
+		/** Paid until 5 minutes into the hour away, so renewals at 5, 10 and 15 minutes spend the 3 bosons and the one at 20 finds none. */
+		gameManager.overdrive = { molecule: { active: true, paidUntil: now - HOUR + 5 * MINUTE } };
+		expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+
+		expect(gameManager.offlineProgressSummary?.overdriveBosonsSpent).toBe(3);
+		expect(currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON)).toBe(0);
+		expect(gameManager.overdrive.molecule?.active).toBe(false);
+		expect(gameManager.atoms).toBeCloseTo(rate * 0.1 * (60 + 20) * 60);
+	} finally {
+		gameManager.clock = () => Date.now();
+	}
 });
 
 test('Decay events, lamp and sky Light are paid once for the time away and listed in the gains', () => {

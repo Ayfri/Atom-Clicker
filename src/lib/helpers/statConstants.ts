@@ -57,6 +57,7 @@ export const statsConfig = {
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
 	keptGenerators: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
+	overdrive: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	periodic: { defaultValue: { identified: [], sites: {}, tuning: 375 } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },

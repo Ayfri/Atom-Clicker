@@ -34,6 +34,7 @@ export type IconName =
 	| 'nanostructure'
 	| 'neutronStar'
 	| 'offline'
+	| 'overdrive'
 	| 'photon'
 	| 'planet'
 	| 'playTime'

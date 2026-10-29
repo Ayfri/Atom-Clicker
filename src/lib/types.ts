@@ -195,6 +195,8 @@ export interface GameState {
 	keptGenerators: Partial<Record<GeneratorType, number>>;
 	lastInteractionTime: number;
 	lastSave: number;
+	/** Generators under Overdrive, kept through the prestiges that keep generators. */
+	overdrive: Partial<Record<GeneratorType, OverdriveSlot>>;
 	periodic: PeriodicState;
 	photonUpgrades: Record<string, number>;
 	powerUpsCollected: number;
@@ -222,6 +224,12 @@ export interface GameState {
 	version: number;
 }
 
+export interface OverdriveSlot {
+	active: boolean;
+	/** `GameManager.clock()` time the Higgs Boson already spent covers, a slot turned back on before it is free. */
+	paidUntil: number;
+}
+
 export interface OfflineProgressSummary {
 	appliedMs: number;
 	atomAutoClickEnabled: boolean;
@@ -236,6 +244,7 @@ export interface OfflineProgressSummary {
 	currencyGains: CurrencyAmountMap;
 	incomeMultiplier: number;
 	levelsGained: number;
+	overdriveBosonsSpent: number;
 	photonAutoClickEnabled: boolean;
 	photonAutoClickFactor: number;
 	photonAutoClicks: number;

@@ -100,6 +100,11 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const offlineAutoUpgradeInterval = autoUpgradeEnabled ? manager.autoUpgradeInterval * OFFLINE_AUTO_FACTOR : 0;
 	let nextAutoUpgradeAt = offlineAutoUpgradeInterval;
 
+	/** Overdrive keeps draining Higgs Bosons at real time while away, `elapsed` counts from the start of the window it paid over. */
+	const windowStart = manager.clock() - awayMs;
+	const higgsBefore = currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON);
+	for (const type of manager.overdriveActive) manager.renewOverdrive(type, windowStart);
+
 	let elapsed = 0;
 	const epsilon = 0.0001;
 
@@ -124,6 +129,12 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 			}
 		}
 
+		const nextOverdrive = Math.min(...manager.overdriveActive.map(type => (manager.overdrive[type]?.paidUntil ?? Infinity) - windowStart));
+		if (nextOverdrive < nextEvent - epsilon) {
+			nextEvent = nextOverdrive;
+			nextAutoBuyTypes = [];
+		}
+
 		const step = Math.min(nextEvent, appliedMs) - elapsed;
 		if (step > 0) {
 			updateIncome(step);
@@ -131,6 +142,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		}
 
 		if (elapsed + epsilon >= appliedMs) break;
+
+		for (const type of manager.overdriveActive) manager.renewOverdrive(type, windowStart + elapsed + epsilon);
 
 		if (offlineAutoUpgradeInterval > 0 && nextAutoUpgradeAt > 0 && nextAutoUpgradeAt <= elapsed + epsilon) {
 			autoUpgradePurchases += manager.purchaseAffordableUpgrades().length;
@@ -225,6 +238,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		currencyGains,
 		incomeMultiplier: OFFLINE_INCOME_MULTIPLIER,
 		levelsGained,
+		overdriveBosonsSpent: higgsBefore - currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON),
 		photonAutoClickEnabled,
 		photonAutoClickFactor: OFFLINE_AUTO_FACTOR,
 		photonAutoClicks,

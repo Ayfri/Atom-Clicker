@@ -9,6 +9,7 @@ export const FeatureTypes = {
 	OFFLINE_AUTO_CLICK: 'offline_auto_click',
 	OFFLINE_AUTO_UPGRADE: 'offline_auto_upgrade',
 	OFFLINE_PROGRESS: 'offline_progress',
+	OVERDRIVE: 'overdrive',
 	PURPLE_REALM: 'purple_realm',
 	RADIATION_REALM: 'radiation_realm',
 	STABILITY_FIELD: 'stability_field',

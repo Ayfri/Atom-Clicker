@@ -91,6 +91,16 @@ export const HINTS: Hint[] = [
 		title: 'Upgrades',
 	},
 	{
+		done: () => gameManager.overdriveActive.length > 0,
+		id: 'atoms:overdrive',
+		placement: 'left',
+		realm: RealmTypes.ATOMS,
+		show: () => gameManager.features[FeatureTypes.OVERDRIVE],
+		targets: ['[data-hint="overdrive"]', '[data-hint="generators-tab"]'],
+		text: "Overdrive doubles a generator's output for 1 Higgs Boson every 5 minutes. It stays on while your Higgs Bosons last.",
+		title: 'Overdrive',
+	},
+	{
 		done: () => ui.activeModalId === 'protonise' || gameManager.totalProtonisesAllTime > 0,
 		id: 'atoms:protonise',
 		placement: 'right',

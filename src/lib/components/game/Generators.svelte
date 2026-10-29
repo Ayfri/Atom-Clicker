@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { FeatureTypes } from '#data/features.js';
 	import {
 		GENERATOR_LEVEL_MULTIPLIER,
 		GENERATOR_LEVEL_UP_COST,
@@ -10,14 +12,16 @@
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { GENERATOR_COST_MULTIPLIER } from '#lib/constants.js';
+	import { GENERATOR_COST_MULTIPLIER, OVERDRIVE_COST, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { AmbientField, ELECTRON_FLIGHT } from '#helpers/AmbientField.js';
 	import { AtomRenderer } from '#helpers/AtomRenderer.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
+	import OverdriveButton from '#components/game/OverdriveButton.svelte';
 	import AutoButton from '#components/ui/AutoButton.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -80,6 +84,12 @@
 	);
 
 	const totalProduction = $derived(GENERATOR_TYPES.reduce((sum, type) => sum + gameManager.generatorProductions[type], 0));
+
+	const overdriven = $derived(new Set(gameManager.overdriveActive));
+	/** Higgs Bosons per hour the running Overdrives cost. */
+	const overdriveDrain = $derived(overdriven.size * OVERDRIVE_COST * (3_600_000 / OVERDRIVE_PERIOD_MS));
+	const higgsBosons = $derived(currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON));
+	const overdriveHoursLeft = $derived(higgsBosons / overdriveDrain);
 
 	/** `count` and `level` are the generator's values from before the purchase. */
 	function playPurchase(type: GeneratorType, amount: number, count: number, level: number, origin: MouseEvent | { x: number; y: number }) {
@@ -176,6 +186,19 @@
 		{/if}
 	</div>
 
+	{#if gameManager.features[FeatureTypes.OVERDRIVE]}
+		<p class="flex flex-wrap items-center gap-x-1 text-xs text-white/50">
+			<Value class="font-medium text-white/70" currency={CurrenciesTypes.HIGGS_BOSON} value={higgsBosons} />
+			{#if overdriven.size > 0}
+				<span>
+					· {overdriven.size} overdriven · -{formatNumber(overdriveDrain, 0)}/h · ~{formatNumber(overdriveHoursLeft, overdriveHoursLeft < 10 ? 1 : 0)}h left
+				</span>
+			{:else}
+				<span>· No generator overdriven</span>
+			{/if}
+		</p>
+	{/if}
+
 	<div id="generators-list" class="flex flex-col gap-1.5 lg:overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each GENERATOR_TYPES as type (type)}
 			{const generator = $derived(GENERATORS[type])}
@@ -214,7 +237,7 @@
 					</div>
 				{/if}
 				<div class="flex items-center gap-2.5">
-					<div class="grid size-9 shrink-0 place-items-center rounded-md bg-black/20">
+					<div class="grid size-9 shrink-0 place-items-center rounded-md bg-black/20 {overdriven.has(type) ? 'ring-1 ring-amber-400/60' : ''}">
 						{#if obfuscated}
 							<span class="text-sm text-white/40">?</span>
 						{:else}
@@ -253,6 +276,16 @@
 							<span class="text-[10px] text-(--next-color)" style="--next-color: {nextColor};">
 								{GENERATOR_LEVEL_UP_COST - levelProgress} to Lv {level + 1}
 							</span>
+						{/if}
+						{#if gameManager.features[FeatureTypes.OVERDRIVE] && count > 0}
+							<OverdriveButton
+								active={overdriven.has(type)}
+								onClick={e => {
+									e.stopPropagation();
+									gameManager.toggleOverdrive(type);
+								}}
+								paidUntil={gameManager.overdrive[type]?.paidUntil}
+							/>
 						{/if}
 						{#if automatedByUpgrade.has(type)}
 							<AutoButton

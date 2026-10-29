@@ -3,6 +3,7 @@ import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type Chroma
 import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { bestTuning, decayCost, ELEMENTS } from '#data/elements.js';
+import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
@@ -15,6 +16,7 @@ import { gameManager } from '#helpers/GameManager.svelte.js';
 import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { connectDeriveds } from '#helpers/reactiveRoot.svelte.js';
+import { OVERDRIVE_COST, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 import { CosmosTracker } from './cosmos';
 import { MilestoneTracker } from './milestones';
 import { PurchasePlanner } from './purchases';
@@ -391,6 +393,17 @@ export class SimulationEngine {
 				gameManager.purchaseGenerator(generator, amount);
 				this.state.everPurchasedGenerators.add(generator);
 				this.record('generator', `${generator} x${amount}`, { apsDelta: gameManager.atomsPerSecond - apsBefore, isFirstPurchase });
+				actionsThisTick++;
+			}
+		}
+		// One more generator is overdriven once the bank covers an hour of drain for it on top of the ones already running.
+		if (canAct() && gameManager.features[FeatureTypes.OVERDRIVE]) {
+			const running = gameManager.overdriveActive;
+			const idle = GENERATOR_TYPES.filter(type => !running.includes(type) && (gameManager.generators[type]?.count ?? 0) > 0);
+			const best = idle.sort((a, b) => gameManager.generatorProductions[b] - gameManager.generatorProductions[a])[0];
+			const hourlyDrain = (HOUR_MS / OVERDRIVE_PERIOD_MS) * OVERDRIVE_COST;
+			if (best && currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON) >= hourlyDrain * (running.length + 1) && gameManager.toggleOverdrive(best)) {
+				this.record('overdrive', best);
 				actionsThisTick++;
 			}
 		}

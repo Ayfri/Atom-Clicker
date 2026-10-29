@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
@@ -34,7 +34,7 @@
 		: [];
 	const autoBuyTotal = autoBuys.reduce((total, { count }) => total + count, 0);
 	const hasActivity =
-		!!summary && (autoBuyTotal > 0 || summary.autoUpgradePurchases > 0 || summary.atomAutoClicks >= 1 || summary.photonAutoClicks >= 1 || summary.radiationActive);
+		!!summary && (autoBuyTotal > 0 || summary.autoUpgradePurchases > 0 || summary.atomAutoClicks >= 1 || summary.photonAutoClicks >= 1 || summary.radiationActive || summary.overdriveBosonsSpent > 0);
 
 	/** Drives every count-up and the storage bar at once, one rAF loop that stops when it lands. */
 	const reveal = new Tween(0, { duration: 1600, easing: cubicOut });
@@ -187,6 +187,12 @@
 								<b class="text-white">{formatNumber(Math.floor(summary.photonAutoClicks))}</b> photons caught,
 								{formatNumber(summary.photonClickExpectedTotal, 1)} each
 							</span>
+						</li>
+					{/if}
+					{#if summary.overdriveBosonsSpent > 0}
+						<li class="flex items-center gap-2">
+							<Currency class="shrink-0" name={CurrenciesTypes.HIGGS_BOSON} size={16} />
+							<span><b class="text-white">{formatNumber(summary.overdriveBosonsSpent)}</b> Higgs Bosons spent on Overdrive</span>
 						</li>
 					{/if}
 					{#if summary.radiationActive}

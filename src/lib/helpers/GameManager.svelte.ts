@@ -10,7 +10,18 @@ import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
-import { APP_PRODUCTION_MULTIPLIER, AUTO_BUY_BULK, ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
+import {
+	APP_PRODUCTION_MULTIPLIER,
+	AUTO_BUY_BULK,
+	ELECTRONS_PROTONS_REQUIRED,
+	GENERATOR_COST_MULTIPLIER,
+	MAX_BOOST_POINTS,
+	OVERDRIVE_COST,
+	OVERDRIVE_MULTIPLIER,
+	OVERDRIVE_PERIOD_MS,
+	PROTONS_ATOMS_REQUIRED,
+	XP_PER_ATOM,
+} from '#lib/constants.js';
 import type {
 	ChromaticState,
 	CosmosState,
@@ -20,6 +31,7 @@ import type {
 	GameState,
 	Generator,
 	OfflineProgressSummary,
+	OverdriveSlot,
 	PeriodicState,
 	PowerUp,
 	Price,
@@ -32,7 +44,7 @@ import { setItem } from '#lib/utils/safeLocalStorage.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { EffectTable } from '#helpers/effects.js';
+import { EffectTable, mul } from '#helpers/effects.js';
 import { applyOfflineProgress } from '#helpers/offlineProgress.js';
 import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { perfTracker } from '#helpers/perfTracker.js';
@@ -83,6 +95,7 @@ export class GameManager {
 	lastInteractionTime = $state(Date.now());
 	lastSave = $state(Date.now());
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
+	overdrive = $state.raw<Partial<Record<GeneratorType, OverdriveSlot>>>({});
 	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
 	/** Pushed in by QuarksManager, which GameManager never imports so the simulation worker stays free of fetch and auth code. */
@@ -206,6 +219,7 @@ export class GameManager {
 			...cosmosManager.effectSources,
 			...periodicManager.effectSources,
 			...this.quarkBoostSources,
+			{ effects: this.overdriveActive.map(type => mul('generator', OVERDRIVE_MULTIPLIER, type)), id: 'overdrive', name: 'Overdrive' },
 		];
 	});
 
@@ -298,6 +312,9 @@ export class GameManager {
 		}
 		return features;
 	});
+
+	/** Generators under Overdrive, empty without the skill so a state that carries slots gains nothing from them. */
+	overdriveActive = $derived(this.features[FeatureTypes.OVERDRIVE] ? GENERATOR_TYPES.filter(type => this.overdrive[type]?.active === true) : []);
 
 	generatorProductions = $derived.by(() => {
 		const productions = {} as Record<GeneratorType, number>;
@@ -560,6 +577,7 @@ export class GameManager {
 			keptGenerators: this.keptGenerators,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
+			overdrive: this.overdrive,
 			periodic: this.periodic,
 			photonUpgrades: this.photonUpgrades,
 			powerUpsCollected: this.powerUpsCollected,
@@ -773,11 +791,13 @@ export class GameManager {
 			return currency === CurrenciesTypes.PROTONS || currency === CurrenciesTypes.ELECTRONS;
 		});
 		const generators = this.keepsGenerators(layer) ? this.generators : null;
+		const { overdrive } = this;
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
 		if (generators) {
 			this.generators = generators;
+			this.overdrive = overdrive;
 			this.keptGenerators = Object.fromEntries(GENERATOR_TYPES.flatMap(type => ((generators[type]?.count ?? 0) > 0 ? [[type, generators[type]?.count]] : [])));
 		}
 		if (gain) currenciesManager.add(gain.currency, gain.amount);
@@ -859,6 +879,18 @@ export class GameManager {
 
 	removePowerUp(id: string) {
 		this.activePowerUps = this.activePowerUps.filter(p => p.id !== id);
+	}
+
+	/**
+	 * Pays the next period of an active Overdrive once `now` reaches the end of the paid one, and turns it off when the bank cannot pay.
+	 * A gap longer than a period (a frozen tab, time away) costs one Higgs Boson, never the periods it skipped.
+	 */
+	renewOverdrive(type: GeneratorType, now: number) {
+		const slot = this.overdrive[type];
+		if (!slot?.active || now < slot.paidUntil) return;
+		const paid = this.spendCurrency({ amount: OVERDRIVE_COST, currency: CurrenciesTypes.HIGGS_BOSON });
+		const paidUntil = (now - slot.paidUntil > OVERDRIVE_PERIOD_MS ? now : slot.paidUntil) + OVERDRIVE_PERIOD_MS;
+		this.overdrive = { ...this.overdrive, [type]: paid ? { active: true, paidUntil } : { ...slot, active: false } };
 	}
 
 	reset() {
@@ -982,6 +1014,7 @@ export class GameManager {
 		}
 
 		this.dropExpiredPowerUps();
+		for (const type of this.overdriveActive) this.renewOverdrive(type, this.tickTime);
 	}
 
 	toggleAutoClick() {
@@ -998,6 +1031,25 @@ export class GameManager {
 			automation.generators.includes(generatorType) ?
 				automation.generators.filter(type => type !== generatorType)
 			:	[...automation.generators, generatorType];
+	}
+
+	/** Turning a generator on pays its first period unless the last one is still running, turning it off keeps what was paid. Returns whether it changed. */
+	toggleOverdrive(type: GeneratorType): boolean {
+		const slot = this.overdrive[type];
+		if (slot?.active) {
+			this.overdrive = { ...this.overdrive, [type]: { ...slot, active: false } };
+			return true;
+		}
+		if (!this.features[FeatureTypes.OVERDRIVE] || (this.generators[type]?.count ?? 0) < 1) return false;
+
+		const now = this.clock();
+		let paidUntil = slot?.paidUntil ?? 0;
+		if (now >= paidUntil) {
+			if (!this.spendCurrency({ amount: OVERDRIVE_COST, currency: CurrenciesTypes.HIGGS_BOSON })) return false;
+			paidUntil = now + OVERDRIVE_PERIOD_MS;
+		}
+		this.overdrive = { ...this.overdrive, [type]: { active: true, paidUntil } };
+		return true;
 	}
 
 	toggleUpgradeAutomation() {

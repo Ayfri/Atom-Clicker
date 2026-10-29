@@ -17,6 +17,7 @@ import DecayEventIcon from '#components/icons/DecayEvent.svelte';
 import GitHubIcon from '#components/icons/GitHub.svelte';
 import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
 import IonizeIcon from '#components/icons/Ionize.svelte';
+import OverdriveIcon from '#components/icons/Overdrive.svelte';
 import PhotonIcon from '#components/icons/Photon.svelte';
 import ProtonIcon from '#components/icons/Proton.svelte';
 import QuarkIcon from '#components/icons/Quark.svelte';
@@ -97,6 +98,7 @@ export const ICONS = {
 	nanostructure: NanostructureIcon,
 	neutronStar: NeutronStarIcon,
 	offline: Hourglass,
+	overdrive: OverdriveIcon,
 	photon: PhotonIcon,
 	planet: PlanetIcon,
 	playTime: Clock,

@@ -203,6 +203,26 @@ describe('edited states', () => {
 	});
 });
 
+describe('Overdrive', () => {
+	const maxEarned = (entry: Capture) => (inspectScore(entry.state, context(entry.now)) as { maxEarnedRun: number }).maxEarnedRun;
+
+	test('slots only raise what the run could earn once the skill is owned', () => {
+		const entry = structuredClone(lateRun());
+		entry.state.skillUpgrades = entry.state.skillUpgrades.filter(id => id !== 'higgsOverdrive');
+		const plain = maxEarned(entry);
+		expect(plain).toBeGreaterThan(0);
+
+		entry.state.overdrive = Object.fromEntries(GENERATOR_TYPES.map(type => [type, { active: true, paidUntil: entry.now }]));
+		expect(maxEarned(entry)).toBe(plain);
+
+		entry.state.skillUpgrades = [...entry.state.skillUpgrades, 'higgsOverdrive'];
+		const doubled = maxEarned(entry);
+		expect(doubled).toBeGreaterThan(plain);
+		entry.state.overdrive = {};
+		expect(maxEarned(entry)).toBe(doubled);
+	});
+});
+
 describe('kept generators', () => {
 	const MATTER = 'electron_keep_generators';
 

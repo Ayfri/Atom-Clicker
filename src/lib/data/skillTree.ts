@@ -3,6 +3,7 @@ import { FeatureTypes } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 import { add, mul } from '#helpers/effects.js';
+import { OVERDRIVE_COST, OVERDRIVE_MULTIPLIER, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 import type { SkillBranch, SkillUpgrade } from '#lib/types.js';
 
 const SKILL_GRID = {
@@ -90,6 +91,19 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		name: 'Collider',
 		position: gridPos(0, -1.85),
 		requires: ['boostEvenSplit'],
+	},
+
+	higgsOverdrive: {
+		branch: 'boosts',
+		cost: { amount: 20, currency: CurrenciesTypes.HIGGS_BOSON },
+		description: `Overdrive any generator for ${OVERDRIVE_MULTIPLIER}x production, at ${OVERDRIVE_COST} Higgs Boson every ${OVERDRIVE_PERIOD_MS / 60_000} minutes each.`,
+		effects: [],
+		feature: FeatureTypes.OVERDRIVE,
+		icon: 'overdrive',
+		id: 'higgsOverdrive',
+		name: 'Higgs Overdrive',
+		position: gridPos(-0.7, -1.85),
+		requires: ['boostAssignAll'],
 	},
 
 	// REALMS (west)

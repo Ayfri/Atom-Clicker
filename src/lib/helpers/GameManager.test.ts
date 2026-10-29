@@ -8,7 +8,14 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { LAYERS } from '#helpers/statConstants.js';
-import { APP_PRODUCTION_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import {
+	APP_PRODUCTION_MULTIPLIER,
+	ELECTRONS_PROTONS_REQUIRED,
+	MAX_BOOST_POINTS,
+	OVERDRIVE_MULTIPLIER,
+	OVERDRIVE_PERIOD_MS,
+	PROTONS_ATOMS_REQUIRED,
+} from '#lib/constants.js';
 import type { GameState } from '#lib/types.js';
 
 const { ATOMS, ELECTRONS, EXCITED_PHOTONS, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
@@ -448,6 +455,110 @@ describe('generator retention', () => {
 		expect(deep.condition?.(gameManager)).toBe(true);
 		gameManager.totalIonizesAllTime = 4;
 		expect(deep.condition?.(gameManager)).toBe(false);
+	});
+});
+
+describe('Higgs Overdrive', () => {
+	const { HIGGS_BOSON } = CurrenciesTypes;
+	const T0 = 1_000_000_000_000;
+	const bosons = () => currenciesManager.getAmount(HIGGS_BOSON);
+	const at = (time: number) => {
+		gameManager.clock = () => time;
+		gameManager.tick(1000, true, true);
+	};
+
+	beforeEach(() => {
+		gameManager.clock = () => T0;
+		gameManager.skillUpgrades = ['higgsOverdrive'];
+		gameManager.generators = { crystal: { count: 5, level: 0, unlocked: true }, molecule: { count: 10, level: 0, unlocked: true } };
+		currenciesManager.add(HIGGS_BOSON, 10);
+	});
+
+	afterEach(() => {
+		gameManager.clock = () => Date.now();
+	});
+
+	test('turning a generator on charges one boson and doubles only that generator', () => {
+		const before = gameManager.generatorProductions;
+		expect(gameManager.toggleOverdrive(GeneratorTypes.MOLECULE)).toBe(true);
+		expect(bosons()).toBe(9);
+		expect(gameManager.overdrive.molecule).toEqual({ active: true, paidUntil: T0 + OVERDRIVE_PERIOD_MS });
+		expect(gameManager.generatorProductions.molecule).toBeCloseTo(before.molecule * OVERDRIVE_MULTIPLIER);
+		expect(gameManager.generatorProductions.crystal).toBeCloseTo(before.crystal);
+	});
+
+	test('is refused without the skill, a boson or a generator, and charges nothing', () => {
+		gameManager.skillUpgrades = [];
+		expect(gameManager.toggleOverdrive(GeneratorTypes.MOLECULE)).toBe(false);
+		gameManager.skillUpgrades = ['higgsOverdrive'];
+		expect(gameManager.toggleOverdrive(GeneratorTypes.ROCK)).toBe(false);
+		currenciesManager.remove(HIGGS_BOSON, 10);
+		expect(gameManager.toggleOverdrive(GeneratorTypes.MOLECULE)).toBe(false);
+		expect(gameManager.overdrive).toEqual({});
+		expect(bosons()).toBe(0);
+	});
+
+	test('slots saved without the skill give no production', () => {
+		const before = gameManager.generatorProductions.molecule;
+		gameManager.overdrive = { molecule: { active: true, paidUntil: T0 + OVERDRIVE_PERIOD_MS } };
+		gameManager.skillUpgrades = [];
+		expect(gameManager.generatorProductions.molecule).toBeCloseTo(before);
+	});
+
+	test('renews for one boson when the paid period ends and not before', () => {
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		at(T0 + OVERDRIVE_PERIOD_MS - 1000);
+		expect(bosons()).toBe(9);
+		at(T0 + OVERDRIVE_PERIOD_MS);
+		expect(bosons()).toBe(8);
+		expect(gameManager.overdrive.molecule?.paidUntil).toBe(T0 + 2 * OVERDRIVE_PERIOD_MS);
+	});
+
+	test('turns itself off when the bank cannot pay and keeps the paid time', () => {
+		currenciesManager.remove(HIGGS_BOSON, 9);
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		at(T0 + OVERDRIVE_PERIOD_MS);
+		expect(gameManager.overdrive.molecule).toEqual({ active: false, paidUntil: T0 + OVERDRIVE_PERIOD_MS });
+		expect(gameManager.overdriveActive).toEqual([]);
+	});
+
+	test('a gap of two hours costs one boson, never the periods it skipped', () => {
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		const later = T0 + OVERDRIVE_PERIOD_MS + 2 * 3_600_000;
+		at(later);
+		expect(bosons()).toBe(8);
+		expect(gameManager.overdrive.molecule?.paidUntil).toBe(later + OVERDRIVE_PERIOD_MS);
+	});
+
+	test('off then on again is free while the paid time lasts and costs a boson after it', () => {
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		expect(gameManager.overdriveActive).toEqual([]);
+		gameManager.clock = () => T0 + OVERDRIVE_PERIOD_MS / 2;
+		expect(gameManager.toggleOverdrive(GeneratorTypes.MOLECULE)).toBe(true);
+		expect(bosons()).toBe(9);
+		expect(gameManager.overdrive.molecule?.paidUntil).toBe(T0 + OVERDRIVE_PERIOD_MS);
+
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		gameManager.clock = () => T0 + OVERDRIVE_PERIOD_MS;
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		expect(bosons()).toBe(8);
+	});
+
+	test('Protonize clears it, Matter Retention keeps it with the generators', () => {
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		gameManager.protonise();
+		expect(gameManager.overdrive).toEqual({});
+		expect(bosons()).toBe(9);
+
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		gameManager.toggleOverdrive(GeneratorTypes.MOLECULE);
+		gameManager.upgrades = ['electron_keep_generators'];
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		gameManager.protonise();
+		expect(gameManager.overdrive.molecule?.active).toBe(true);
+		expect(gameManager.overdriveActive).toEqual([GeneratorTypes.MOLECULE]);
 	});
 });
 

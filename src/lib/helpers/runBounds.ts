@@ -1,4 +1,6 @@
 import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import { GENERATOR_TYPES } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -40,7 +42,7 @@ export interface RunBounds {
 
 /**
  * Best rates the loaded state can reach in a run of `seconds`: the whole boost pool on atoms, a full Stability Field, the reactor
- * at its CPM cap, the installed app bonus, auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
+ * at its CPM cap, the installed app bonus, Overdrive on every generator (when the skill is owned), auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
  * Protonize run these rates only grow and bound the whole run. Generators kept through a prestige count at their full rate from the
  * start of the run, which only loosens the bound.
  */
@@ -53,6 +55,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		installedApp: manager.installedApp,
 		lastInteractionTime: manager.lastInteractionTime,
 		mass: radiationManager.mass,
+		overdrive: manager.overdrive,
 		tickTime: manager.tickTime,
 		totalClicksRun: manager.totalClicksRun,
 	};
@@ -63,6 +66,9 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		manager.installedApp = true;
 		manager.lastInteractionTime = 0;
 		manager.tickTime = now;
+		if (manager.features[FeatureTypes.OVERDRIVE]) {
+			manager.overdrive = Object.fromEntries(GENERATOR_TYPES.map(type => [type, { active: true, paidUntil: Infinity }]));
+		}
 		manager.currencyBoosts = { ...saved.currencyBoosts, [CurrenciesTypes.ATOMS]: Math.min(MAX_BOOST_POINTS, manager.boostPointsTotal) };
 		manager.totalClicksRun = Math.min(saved.totalClicksRun, (manager.autoClicksPerSecond + MAX_CLICKS_PER_SECOND) * seconds);
 		if (radiationManager.unlocked) {
@@ -92,6 +98,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		manager.installedApp = saved.installedApp;
 		manager.lastInteractionTime = saved.lastInteractionTime;
 		manager.tickTime = saved.tickTime;
+		manager.overdrive = saved.overdrive;
 		manager.currencyBoosts = saved.currencyBoosts;
 		manager.totalClicksRun = saved.totalClicksRun;
 		radiationManager.mass = saved.mass;
