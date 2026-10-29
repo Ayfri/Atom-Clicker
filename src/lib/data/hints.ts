@@ -1,5 +1,6 @@
 import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { ELEMENTS } from '#data/elements.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { APP_REWARD_QUARKS } from '#data/quarks.js';
@@ -327,5 +328,15 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-forges"]'],
 		text: 'Each source in the sky makes its elements on its own, one after the other. Study a source with Starlight to make them faster.',
 		title: 'Synthesis',
+	},
+	{
+		done: () => periodicManager.identified.some(z => !ELEMENTS[z - 1].lines.length),
+		id: 'table:decay',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.ready.some(z => !ELEMENTS[z - 1].lines.length),
+		targets: ['[data-hint="table-decay"]'],
+		text: "Nobody has ever seen this element's light. It's identified by how it decays.",
+		title: 'Decay',
 	},
 ];

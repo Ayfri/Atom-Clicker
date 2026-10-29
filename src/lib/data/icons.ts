@@ -13,6 +13,7 @@ import NeutronStarIcon from '#components/icons/generators/NeutronStar.svelte';
 import PlanetIcon from '#components/icons/generators/Planet.svelte';
 import RockIcon from '#components/icons/generators/Rock.svelte';
 import StarIcon from '#components/icons/generators/Star.svelte';
+import DecayEventIcon from '#components/icons/DecayEvent.svelte';
 import GitHubIcon from '#components/icons/GitHub.svelte';
 import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
 import IonizeIcon from '#components/icons/Ionize.svelte';
@@ -76,6 +77,7 @@ export const ICONS = {
 	collider: Orbit,
 	crystal: CrystalIcon,
 	currencyBoost: Zap,
+	decayEvent: DecayEventIcon,
 	discord: DiscordIcon,
 	electron: ElectronIcon,
 	excitedPhoton: ExcitedPhotonIcon,

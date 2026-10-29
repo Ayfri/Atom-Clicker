@@ -2,12 +2,12 @@ import { ACHIEVEMENTS } from '#data/achievements.js';
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '#data/chromatic.js';
 import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import { ELEMENTS } from '#data/elements.js';
+import { decayCost, ELEMENTS } from '#data/elements.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { RealmTypes } from '#data/realms.js';
-import { siteStudyCost, type SiteId } from '#data/sites.js';
+import { DECAY_EVENTS_PER_SECOND, DECAY_SITES, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -545,18 +545,28 @@ export class SimulationEngine {
 
 	/**
 	 * The forging site with the longest wait left, when studying it saves more than an hour and leaves the Starlight saved for the next
-	 * discovery. A study level divides the wait by `(level + 2) / (level + 1)`.
+	 * discovery. A study level divides the wait by `(level + 2) / (level + 1)`. A decay site also counts while an element waits for Decay
+	 * events, ranked by the hours its study saves on that wait, scaled by `level + 2` to stand on the same scale as a forge `eta`.
 	 */
 	private bestSiteStudy(): SiteId | null {
 		const next = cosmosManager.nextDiscovery;
 		const reserve = next && !cosmosManager.canObserve ? cosmosManager.nextApertureCost : !next && !cosmosManager.research ? (cosmosManager.nextInstrument?.cost ?? 0) : 0;
 		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
+		const held = currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS);
+		const unaffordable = periodicManager.ready.map(z => decayCost(ELEMENTS[z - 1])).filter(cost => cost > held);
+		const deficit = unaffordable.length ? Math.min(...unaffordable) - held : 0;
+		const rate = periodicManager.decayEventsPerSecond;
 		let best: { eta: number; id: SiteId } | null = null;
 		for (const id of periodicManager.open) {
-			const eta = periodicManager.etaOf(id);
 			const level = periodicManager.forge(id).level;
-			if (!Number.isFinite(eta) || eta / (level + 2) < 3600 || starlight - siteStudyCost(level) < reserve) continue;
-			if (!best || eta > best.eta) best = { eta, id };
+			if (starlight - siteStudyCost(level) < reserve) continue;
+			let eta = periodicManager.etaOf(id);
+			if (!Number.isFinite(eta) || eta / (level + 2) < 3600) eta = 0;
+			if (DECAY_SITES.includes(id) && deficit > 0) {
+				const saving = rate > 0 ? deficit / rate - deficit / (rate + DECAY_EVENTS_PER_SECOND) : Infinity;
+				if (saving >= 3600) eta = Math.max(eta, saving * (level + 2));
+			}
+			if (eta > 0 && (!best || eta > best.eta)) best = { eta, id };
 		}
 		return best?.id ?? null;
 	}

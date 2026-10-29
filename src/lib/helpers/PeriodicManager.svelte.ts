@@ -1,6 +1,6 @@
 import { CurrenciesTypes } from '#data/currencies.js';
-import { ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, lightCost, type LightColor, SET_BONUS, zs } from '#data/elements.js';
-import { BASE_RATES, CHAINS, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
+import { decayCost, ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, lightCost, type LightColor, SET_BONUS, zs } from '#data/elements.js';
+import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { mul } from '#helpers/effects.js';
@@ -47,6 +47,9 @@ class PeriodicManager {
 
 	complete = $derived(this.identified.length === ELEMENT_COUNT);
 
+	/** Decay events per second, paid by `GameManager.tick` online and `applyOfflineProgress` offline, never by `tick` here. */
+	decayEventsPerSecond = $derived(DECAY_SITES.reduce((rate, id) => rate + (this.open.has(id) ? DECAY_EVENTS_PER_SECOND * (1 + this.forge(id).level) : 0), 0));
+
 	/** One source per family that has started, its bonus `1 + step% × members`, once more ×SET_BONUS when every member is identified. */
 	effectSources = $derived.by((): EffectSource[] =>
 		FAMILY_IDS.flatMap(family => {
@@ -82,15 +85,18 @@ class PeriodicManager {
 	}
 
 	canAfford(z: number): boolean {
-		const cost = lightCost(ELEMENTS[z - 1]);
-		return LIGHT_COLORS.every(color => currenciesManager.getAmount(LIGHT_CURRENCIES[color]) >= cost[color]);
+		const element = ELEMENTS[z - 1];
+		const cost = lightCost(element);
+		return currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS) >= decayCost(element) && LIGHT_COLORS.every(color => currenciesManager.getAmount(LIGHT_CURRENCIES[color]) >= cost[color]);
 	}
 
-	/** Pays the Light of a forged element's lines, which lights its cell and adds its family bonus. */
+	/** Pays the Light of a forged element's lines, or the Decay events of one nobody has measured, which lights its cell and adds its family bonus. */
 	identify(z: number): boolean {
 		if (!this.unlocked || !this.forged.has(z) || this.identifiedSet.has(z) || !this.canAfford(z)) return false;
-		const cost = lightCost(ELEMENTS[z - 1]);
+		const element = ELEMENTS[z - 1];
+		const cost = lightCost(element);
 		for (const color of LIGHT_COLORS) if (cost[color] > 0) currenciesManager.remove(LIGHT_CURRENCIES[color], cost[color]);
+		currenciesManager.remove(CurrenciesTypes.DECAY_EVENTS, decayCost(element));
 		this.identified = [...this.identified, z].sort((a, b) => a - b);
 		return true;
 	}

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { ELEMENTS, lightCost, SET_BONUS, zs } from '#data/elements.js';
-import { BASE_RATES, siteStudyCost } from '#data/sites.js';
+import { decayCost, ELEMENTS, lightCost, SET_BONUS, zs } from '#data/elements.js';
+import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, siteStudyCost, type SiteId } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -58,6 +58,46 @@ describe('table', () => {
 		expect(currenciesManager.getAmount(CurrenciesTypes.RED_LIGHT) + currenciesManager.getAmount(CurrenciesTypes.BLUE_LIGHT)).toBe(0);
 		expect(periodicManager.identify(1)).toBe(false);
 		expect(periodicManager.identify(3)).toBe(false);
+	});
+
+	test('an element nobody measured costs Decay events and no Light', () => {
+		const [md] = zs('Md');
+		gameManager.periodic = { identified: [], sites: { accelerator: { index: 1, level: 0, progress: 0 } } };
+		expect(periodicManager.ready).toEqual([md]);
+		expect(lightCost(ELEMENTS[md - 1])).toEqual({ blue: 0, green: 0, red: 0 });
+		const cost = decayCost(ELEMENTS[md - 1]);
+		expect(cost).toBeGreaterThan(0);
+
+		const lights = [CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT];
+		for (const light of lights) currenciesManager.add(light, 1e12);
+		expect(periodicManager.identify(md)).toBe(false);
+		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, cost - 1);
+		expect(periodicManager.canAfford(md)).toBe(false);
+		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, 1);
+		expect(periodicManager.identify(md)).toBe(true);
+		expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBe(0);
+		for (const light of lights) expect(currenciesManager.getAmount(light)).toBe(1e12);
+	});
+
+	test('Decay events come from the open decay sites, grow with their study and still pay once their chain is done', () => {
+		expect(periodicManager.decayEventsPerSecond).toBe(0);
+
+		const chain = (id: SiteId, level = 0) => ({ index: CHAINS[id].steps.length, level, progress: 0 });
+		gameManager.periodic = { identified: zs('U Th'), sites: { decay: { index: 0, level: 2, progress: 0 }, neutron: chain('neutron') } };
+		expect(periodicManager.decayEventsPerSecond).toBe(3 * DECAY_EVENTS_PER_SECOND);
+
+		gameManager.periodic = { identified: zs('U Th Fm'), sites: { decay: chain('decay', 2), neutron: chain('neutron'), reactor: chain('reactor') } };
+		expect(periodicManager.open.has('accelerator')).toBe(true);
+		expect(periodicManager.decayEventsPerSecond).toBe(4 * DECAY_EVENTS_PER_SECOND);
+
+		expect(periodicManager.statuses.decay.kind).toBe('done');
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, siteStudyCost(2));
+		expect(periodicManager.study('decay')).toBe(true);
+		expect(periodicManager.decayEventsPerSecond).toBe(5 * DECAY_EVENTS_PER_SECOND);
+
+		/** The browser's tick skips production, Decay events are not part of it. */
+		gameManager.tick(2000, true, true);
+		expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(10 * DECAY_EVENTS_PER_SECOND);
 	});
 
 	test('a full family multiplies its bonus once more', () => {

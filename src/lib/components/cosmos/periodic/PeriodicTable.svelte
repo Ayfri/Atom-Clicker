@@ -5,8 +5,9 @@
 	import { TableParticles, type Point } from '#components/cosmos/periodic/TableParticles.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import { COSMOS_OBJECTS_BY_ID } from '#data/cosmos.js';
-	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import {
+		decayCost,
 		ELEMENT_COUNT,
 		ELEMENTS,
 		elementStat,
@@ -22,7 +23,7 @@
 		STAT_LABELS,
 		wavelengthColor,
 	} from '#data/elements.js';
-	import { CHAINS, FORGED_BY, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
+	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 	import { particlesEnabled, pixelRatio } from '#helpers/CanvasLoop.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
@@ -112,6 +113,7 @@
 	let selected = $state(untrack(() => periodicManager.ready[0] ?? [...periodicManager.forged].at(-1) ?? 1));
 
 	const lights = $derived(Object.fromEntries(LIGHTS.map(([color, name]) => [color, currenciesManager.getAmount(name)])) as Record<LightColor, number>);
+	const decayEvents = $derived(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS));
 	const starlight = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT));
 	const sites = $derived(SITE_IDS.map(id => ({ id, site: SITES[id], status: periodicManager.statuses[id] })).toSorted((a, b) => RANK[a.status.kind] - RANK[b.status.kind]));
 	const lockedCount = $derived(sites.filter(({ status }) => status.kind === 'locked').length);
@@ -247,6 +249,14 @@
 		document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
 	}
 
+	function studyTitle(id: SiteId, kind: SiteStatus['kind']): string {
+		const gains = [
+			...(kind === 'done' ? [] : [`×${periodicManager.forge(id).level + 2} synthesis speed`]),
+			...(DECAY_SITES.includes(id) ? [`+${DECAY_EVENTS_PER_SECOND} Decay event/s`] : []),
+		];
+		return `Study it: ${gains.join(', ')}`;
+	}
+
 	/** Short enough for the strip under a source: `~40m`, `~5h`, `~3d`. */
 	function eta(seconds: number): string {
 		if (!Number.isFinite(seconds)) return 'stalled';
@@ -257,8 +267,13 @@
 
 	const bonusText = (target: Element) => `+${FAMILIES[target.family].step}% ${STAT_LABELS[elementStat(target)]}`;
 
-	/** Light flies from the counters into the held atom, each color as often as the element's lines call for it. */
+	/** Light flies from the counters into the held atom, each color as often as the element's lines call for it, Decay events for one without lines. */
 	function feed(target: Element, to: Point) {
+		if (decayCost(target) > 0) {
+			const from = centerOf('[data-light="decay"]');
+			if (from) particles?.comet(from, to, CURRENCIES[CurrenciesTypes.DECAY_EVENTS].color, -40);
+			return;
+		}
 		const cost = lightCost(target);
 		let pick = Math.random() * (cost.red + cost.green + cost.blue);
 		const [color] = LIGHTS.find(([candidate]) => (pick -= cost[candidate]) < 0) ?? LIGHTS[0];
@@ -337,13 +352,14 @@
 	);
 </script>
 
-{#snippet lightPill(color: LightColor | null, name: CurrencyName, amount: number, need?: number)}
+{#snippet lightPill(color: LightColor | 'decay' | null, name: CurrencyName, amount: number, need?: number)}
 	<span
 		class={[
 			'flex items-center gap-1.5 rounded-full font-semibold tabular-nums',
 			need === undefined ? 'bg-white/6 px-2.5 py-1 text-sm' : 'px-3 py-1.5 text-base',
 			need !== undefined && (amount >= need ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300'),
 		]}
+		data-hint={need === undefined && color === 'decay' ? 'table-decay' : undefined}
 		data-light={need === undefined ? color : undefined}
 	>
 		<Currency
@@ -461,18 +477,6 @@
 					<span class="text-[10px] text-white/55 tabular-nums">
 						{ELEMENTS[status.z - 1].symbol} · {eta(periodicManager.etaOf(id))}
 					</span>
-					<button
-						class="mt-0.5 flex items-center gap-1 rounded-full bg-accent-600/80 px-2 py-0.5 text-[10px] font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
-						disabled={starlight < siteStudyCost(forge.level)}
-						onclick={() => study(id)}
-						title="Study it: ×{forge.level + 2} synthesis speed"
-					>
-						<Currency
-							name={CurrenciesTypes.STARLIGHT}
-							size={12}
-						/>
-						{formatNumber(siteStudyCost(forge.level))}
-					</button>
 				{:else if status.kind === 'waiting'}
 					<span
 						class="line-clamp-2 text-[10px] leading-tight text-amber-200/80"
@@ -486,6 +490,21 @@
 					<span class="text-[10px] text-white/40">Complete</span>
 				{:else}
 					<span class="line-clamp-2 text-[10px] leading-tight text-white/40">{site.gate}</span>
+				{/if}
+				<!-- A decay site's chain ends early, its study also raises the Decay events it pays. -->
+				{#if status.kind === 'forging' || (status.kind !== 'locked' && DECAY_SITES.includes(id))}
+					<button
+						class="mt-0.5 flex items-center gap-1 rounded-full bg-accent-600/80 px-2 py-0.5 text-[10px] font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
+						disabled={starlight < siteStudyCost(forge.level)}
+						onclick={() => study(id)}
+						title={studyTitle(id, status.kind)}
+					>
+						<Currency
+							name={CurrenciesTypes.STARLIGHT}
+							size={12}
+						/>
+						{formatNumber(siteStudyCost(forge.level))}
+					</button>
 				{/if}
 			</div>
 		{/each}
@@ -581,6 +600,7 @@
 	{@const info = FAMILIES[element.family]}
 	{@const family = ELEMENTS.filter(other => other.family === element.family)}
 	{@const cost = lightCost(element)}
+	{@const decayNeed = decayCost(element)}
 	{@const siteId = FORGED_BY[element.z]}
 	{@const site = SITES[siteId]}
 	{@const lore = LORE[element.symbol]}
@@ -600,7 +620,7 @@
 					kind={stageKind}
 					onfeed={center => feed(element, center)}
 					onidentify={() => identify(element)}
-					onrefuse={() => toast('Not enough Light to read it yet', '#ff8a8a')}
+					onrefuse={() => toast(decayNeed > 0 ? 'Not enough Decay events yet' : 'Not enough Light to read it yet', '#ff8a8a')}
 					progress={fill && fill.status.kind === 'forging' ? fill.status.progress / element.need : 0}
 					siteColor={site.color}
 					z={element.z}
@@ -631,7 +651,7 @@
 					{:else if stageKind === 'reading'}
 						Reading its light…
 					{:else if stageKind === 'ready'}
-						{affordable ? 'Hold the atom to read its light' : 'Not enough Light yet'}
+						{affordable ? 'Hold the atom to read its light' : decayNeed > 0 ? 'Not enough Decay events yet' : 'Not enough Light yet'}
 					{:else if stageKind === 'forging'}
 						{site.glyph} Forging · {Math.floor((fill && fill.status.kind === 'forging' ? fill.status.progress / element.need : 0) * 100)}% ·
 						{eta(periodicManager.etaOf(siteId))}
@@ -649,6 +669,9 @@
 						{@render lightPill(null, name, lights[color], cost[color])}
 					{/if}
 				{/each}
+				{#if decayNeed > 0}
+					{@render lightPill(null, CurrenciesTypes.DECAY_EVENTS, decayEvents, decayNeed)}
+				{/if}
 			</div>
 		{/if}
 
@@ -699,7 +722,7 @@
 		{#if scienceOpen}
 			<div class="mt-2 space-y-3 text-left text-xs">
 				{#if !element.lines.length}
-					<p class="rounded bg-[#0b0f1c] px-2 py-1.5 text-white/50">No lab has measured its spectrum yet, so it costs the three Lights evenly.</p>
+					<p class="rounded bg-[#0b0f1c] px-2 py-1.5 text-white/50">No lab has ever seen its light: it was identified by how it decays, so it costs Decay events.</p>
 				{:else}
 					<div>
 						<div class="relative h-6 overflow-hidden rounded bg-[#0b0f1c]">
@@ -755,6 +778,9 @@
 			{#each LIGHTS as [color, name] (color)}
 				{@render lightPill(color, name, lights[color])}
 			{/each}
+			{#if periodicManager.decayEventsPerSecond > 0 || decayEvents > 0}
+				{@render lightPill('decay', CurrenciesTypes.DECAY_EVENTS, decayEvents)}
+			{/if}
 		</div>
 		<div class="ml-auto flex items-center gap-2">
 			{#if ready.length}

@@ -5,6 +5,7 @@
 	import LightIcon from '#components/icons/Light.svelte';
 	import WhiteLightIcon from '#components/icons/WhiteLight.svelte';
 	import AtomIcon from '#components/icons/Atom.svelte';
+	import DecayEventIcon from '#components/icons/DecayEvent.svelte';
 	import ElectronIcon from '#components/icons/Electron.svelte';
 	import ExcitedPhotonIcon from '#components/icons/ExcitedPhoton.svelte';
 	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
@@ -31,6 +32,8 @@
 {#if icon}
 	{#if currency.id === 'atom'}
 		<AtomIcon class="inline {className}" color={currency.color} {...rest} />
+	{:else if currency.id === 'decay-events'}
+		<DecayEventIcon class="inline {className}" color={currency.color} {...rest} />
 	{:else if currency.id === 'electron'}
 		<ElectronIcon class="inline {className}" color={currency.color} {...rest} />
 	{:else if currency.id === 'excited-photon'}

@@ -937,6 +937,7 @@ export class GameManager {
 		if (cosmosManager.starlightPerSecond > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + cosmosManager.starlightPerSecond * seconds;
 		cosmosManager.tick(deltaTime);
 		periodicManager.tick(deltaTime);
+		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
 
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;

@@ -14,6 +14,7 @@ export type IconName =
 	| 'collider'
 	| 'crystal'
 	| 'currencyBoost'
+	| 'decayEvent'
 	| 'discord'
 	| 'electron'
 	| 'excitedPhoton'
@@ -60,6 +61,7 @@ export type IconName =
 export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.ATOMS]: 'atom',
 	[CurrenciesTypes.BLUE_LIGHT]: 'blueLight',
+	[CurrenciesTypes.DECAY_EVENTS]: 'decayEvent',
 	[CurrenciesTypes.ELECTRONS]: 'electron',
 	[CurrenciesTypes.EXCITED_PHOTONS]: 'excitedPhoton',
 	[CurrenciesTypes.GREEN_LIGHT]: 'greenLight',

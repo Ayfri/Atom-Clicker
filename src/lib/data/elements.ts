@@ -325,13 +325,19 @@ export const lanthanideLight = (element: Element): LightColor => lightColorOf(el
 export const elementStat = (element: Element): EffectStat =>
 	element.family === 'lanthanide' ? LIGHT_STATS[lanthanideLight(element)] : FAMILIES[element.family].stat;
 
-/** Light per nucleus, split by the element's lines: Red ≥ 600 nm, Green 500 to 600, Blue under 500. Without a measured spectrum, evenly. */
+/** Light per nucleus, split by the element's lines: Red ≥ 600 nm, Green 500 to 600, Blue under 500. Without a measured spectrum, no Light: see `decayCost`. */
 export function lightCost(element: Element): Record<LightColor, number> {
+	if (!element.lines.length) return { blue: 0, green: 0, red: 0 };
 	const total = element.need / 50;
-	if (!element.lines.length) return { blue: Math.ceil(total / 3), green: Math.ceil(total / 3), red: Math.ceil(total / 3) };
 	const share = (color: LightColor) => Math.ceil((total * element.lines.filter(nm => lightColorOf(nm) === color).length) / element.lines.length);
 	return { blue: share('blue'), green: share('green'), red: share('red') };
 }
+
+/** Nuclei of an element's `need` that one Decay event stands for. */
+export const NEED_PER_DECAY_EVENT = 1e6;
+
+/** Decay events an element without a measured spectrum costs, identified by how it decays instead of by its light. */
+export const decayCost = (element: Element): number => (element.lines.length ? 0 : Math.ceil(element.need / NEED_PER_DECAY_EVENT));
 
 /** Dan Bruton's wavelength to RGB approximation, dimmed at the edges of vision. */
 export function wavelengthColor(nm: number): string {

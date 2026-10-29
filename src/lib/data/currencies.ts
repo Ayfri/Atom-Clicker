@@ -4,6 +4,7 @@ import type { Currency } from '#lib/types.js';
 export const CurrenciesTypes = {
 	ATOMS: 'Atoms',
 	BLUE_LIGHT: 'Blue Light',
+	DECAY_EVENTS: 'Decay Events',
 	ELECTRONS: 'Electrons',
 	EXCITED_PHOTONS: 'Excited Photons',
 	GREEN_LIGHT: 'Green Light',
@@ -33,6 +34,13 @@ export const CURRENCIES = {
 		layer: LAYERS.NEVER,
 		name: 'Blue Light',
 		stat: CurrenciesTypes.BLUE_LIGHT,
+	},
+	[CurrenciesTypes.DECAY_EVENTS]: {
+		color: '#c6f36b',
+		id: 'decay-events',
+		layer: LAYERS.NEVER,
+		name: 'Decay Events',
+		stat: CurrenciesTypes.DECAY_EVENTS,
 	},
 	[CurrenciesTypes.ELECTRONS]: {
 		color: '#45d945',

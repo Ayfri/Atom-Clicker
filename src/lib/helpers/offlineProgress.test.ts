@@ -1,7 +1,11 @@
 import { beforeEach, expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { zs } from '#data/elements.js';
+import { CHAINS, DECAY_EVENTS_PER_SECOND } from '#data/sites.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager, SPECTROSCOPE_ID } from '#helpers/PeriodicManager.svelte.js';
 import type { PowerUp } from '#lib/types.js';
 
 const HOUR = 3_600_000;
@@ -54,6 +58,19 @@ test('an expired power-up never multiplies the catch-up, a live one ran through 
 
 	gameManager.activePowerUps = [powerUp(Date.now() - HOUR - 60_000, 2 * HOUR)];
 	expect(catchUp(HOUR)).toBeCloseTo(base * 25);
+});
+
+test('Decay events are paid once for the time away and listed in the gains', () => {
+	gameManager.totalIonizesAllTime = 1;
+	cosmosManager.instruments = [SPECTROSCOPE_ID];
+	gameManager.periodic = { identified: zs('U Th'), sites: { decay: { index: 0, level: 1, progress: 0 }, neutron: { index: CHAINS.neutron.steps.length, level: 0, progress: 0 } } };
+	const rate = periodicManager.decayEventsPerSecond;
+	expect(rate).toBe(2 * DECAY_EVENTS_PER_SECOND);
+
+	currenciesManager.hardReset();
+	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+	expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(rate * 3600);
+	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.DECAY_EVENTS]).toBeCloseTo(rate * 3600);
 });
 
 test('offline purchases stay out of the daily quest counters', () => {

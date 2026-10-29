@@ -149,6 +149,8 @@
 	<div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-xs text-white/70">
 		<span class="text-white/45">Identified</span>
 		<span class="font-mono">{periodicManager.identified.length} / {periodicManager.forged.size} forged, {periodicManager.ready.length} ready</span>
+		<span class="text-white/45">Decay events</span>
+		<span class="font-mono">{formatNumber(periodicManager.decayEventsPerSecond)}/s</span>
 		{#each [...periodicManager.open] as id (id)}
 			<span class="text-white/45">{SITES[id].short}</span>
 			<span class="truncate font-mono">level {periodicManager.forge(id).level} · {periodicManager.statuses[id].kind} · {formatDuration(Math.min(periodicManager.etaOf(id), 1e9) * 1000)}</span>
