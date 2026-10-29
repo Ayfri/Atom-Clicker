@@ -55,6 +55,7 @@ export const statsConfig = {
 	highestAPSRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE },
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER },
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
+	keptGenerators: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
 	periodic: { defaultValue: { identified: [], sites: {}, tuning: 375 } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },

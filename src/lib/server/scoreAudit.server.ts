@@ -5,7 +5,7 @@ import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, type GeneratorTyp
 import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
-import { UPGRADES } from '#data/upgrades.js';
+import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
 import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { findImplausible } from '#helpers/plausibility.js';
@@ -50,6 +50,7 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	chromaticUpgrades: 'Chromatic upgrade levels out of range',
 	counters: 'Counters not whole numbers',
 	dates: 'Dates in the future',
+	keptGenerators: 'Kept generators out of range',
 	photonUpgrades: 'Photon upgrade levels out of range',
 	radiation: 'Control rod level out of range',
 	radiationUpgrades: 'Radiation upgrade levels out of range',
@@ -70,6 +71,8 @@ export interface ScoreSnapshot {
 	electronizes: number;
 	inGameTime: number;
 	ionizes: number;
+	/** Atoms the kept generators cost, absent from snapshots stored before retention existed. */
+	keptCost?: number;
 	protonises: number;
 	/** Run start the server credited, never earlier than the client's own claim allowed. */
 	runStartedAt: number;
@@ -145,6 +148,12 @@ function structureIssues(state: GameState, now: number): string[] {
 	for (const [name, levels, registry] of leveled) {
 		check(Object.entries(levels).every(([id, level]) => isCount(level) && level <= (registry[id]?.maxLevel ?? Infinity)), name);
 	}
+	const kept = Object.entries(state.keptGenerators);
+	check(
+		kept.every(([type, count]) => GENERATOR_TYPES.includes(type as GeneratorType) && isCount(count) && count <= (state.generators[type as GeneratorType]?.count ?? 0)) &&
+			(kept.length === 0 || KEEP_GENERATOR_UPGRADES.some(id => state.upgrades.includes(id))),
+		'keptGenerators',
+	);
 	check(COUNTERS.every(key => isCount(state[key])), 'counters');
 	check([state.totalXP, state.highestAPS, state.highestAPSRun, state.inGameTime, state.radiation.mass].every(isAmount), 'stats');
 	check(state.radiation.controlRodLevel >= 0 && state.radiation.controlRodLevel <= 1, 'radiation');
@@ -155,13 +164,25 @@ function structureIssues(state: GameState, now: number): string[] {
 	return issues;
 }
 
-/** Atoms the generators and atom-priced upgrades of the current run cost, both reset on every Protonize. */
+/** Atoms the generators from number `from` up to `to` cost, `Infinity` for counts past the float range and never NaN. */
+export function generatorSpend(type: GeneratorType, from: number, to: number): number {
+	if (to <= from) return 0;
+	const r = GENERATOR_COST_MULTIPLIER;
+	return (GENERATORS[type].cost.amount * r ** from * (r ** (to - from) - 1)) / (r - 1);
+}
+
+/** Atoms the kept generators cost, which earlier runs paid. */
+export function keptSpending(state: GameState): number {
+	return GENERATOR_TYPES.reduce((cost, type) => {
+		const count = state.keptGenerators[type];
+		return isCount(count) ? cost + generatorSpend(type, 0, count) : cost;
+	}, 0);
+}
+
+/** Atoms the generators and atom-priced upgrades bought in the current run cost, both reset on every Protonize unless retention kept the generators. */
 export function runSpending(state: GameState): number {
 	let cost = 0;
-	for (const type of GENERATOR_TYPES) {
-		const count = state.generators[type]?.count ?? 0;
-		cost += (GENERATORS[type].cost.amount * (GENERATOR_COST_MULTIPLIER ** count - 1)) / (GENERATOR_COST_MULTIPLIER - 1);
-	}
+	for (const type of GENERATOR_TYPES) cost += generatorSpend(type, state.keptGenerators[type] ?? 0, state.generators[type]?.count ?? 0);
 	for (const id of state.upgrades) {
 		const price = UPGRADES[id]?.cost;
 		if (price?.currency === CurrenciesTypes.ATOMS) cost += price.amount;
@@ -275,11 +296,22 @@ export function inspectScore(raw: unknown, context: AuditContext): ScoreInspecti
 		const spendingLimit = (atoms.earnedRun - atoms.amount) * RUN_BOUND_SLACK + 1e4;
 		if (spent > spendingLimit) fail('spending', spent, spendingLimit, 'Atoms spent this run vs earned minus held');
 	}
+	/** Generators carried in from earlier runs were paid with atoms earned before this one, so they fit what it did not earn. */
+	const keptCost = keptSpending(state);
+	if (keptCost > 0) {
+		const keptLimit = (atoms.earnedAllTime - atoms.earnedRun) * RUN_BOUND_SLACK + 1e4;
+		if (keptCost > keptLimit) fail('kept', keptCost, keptLimit, 'Kept generators vs atoms earned before this run');
+	}
 
 	if (sameRun) {
 		const growth = atoms.earnedRun - previousSnapshot.atomsEarnedRun;
 		const growthLimit = maxRunAtoms(bounds, sinceLast, state.totalClicksRun - previousSnapshot.clicksRun);
 		if (growth > growthLimit) fail('growth', growth, growthLimit, 'Atoms gained since the previous submission');
+		/** Within a run the kept generators only ever stay the same, so a rising cost means the client added to them. */
+		if (typeof previousSnapshot.keptCost === 'number') {
+			const keptGrowthLimit = previousSnapshot.keptCost * (1 + 1e-9) + 1;
+			if (keptCost > keptGrowthLimit) fail('kept', keptCost, keptGrowthLimit, 'Kept generators vs the previous submission');
+		}
 	}
 	if (sameLineage && sinceLast >= MIN_RATE_WINDOW_SECONDS) {
 		if (state.totalClicksAllTime - previousSnapshot.clicksAllTime > (bounds.autoClicksPerSecond + HUMAN_CLICKS_PER_SECOND) * sinceLast) warnings.push('clicks');
@@ -300,6 +332,7 @@ function emptyAudit(state: GameState): ScoreAudit {
 		electronizes: state.totalElectronizesAllTime,
 		inGameTime: state.inGameTime,
 		ionizes: state.totalIonizesAllTime,
+		keptCost: keptSpending(state),
 		protonises: state.totalProtonisesAllTime,
 		runStartedAt: state.runStartedAt,
 		startDate: state.startDate,

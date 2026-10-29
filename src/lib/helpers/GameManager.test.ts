@@ -6,9 +6,9 @@ import { RealmTypes } from '#data/realms.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { LAYERS } from '#helpers/statConstants.js';
-import { APP_PRODUCTION_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { APP_PRODUCTION_MULTIPLIER, ELECTRONS_PROTONS_REQUIRED, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import type { GameState } from '#lib/types.js';
 
 const { ATOMS, ELECTRONS, EXCITED_PHOTONS, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
@@ -376,6 +376,78 @@ describe('protonise', () => {
 		expect(gameManager.totalProtonisesAllTime).toBe(1);
 		expect(gameManager.totalProtonisesRun).toBe(1);
 		expect(gameManager.dailyStats.protonises).toBe(1);
+	});
+});
+
+describe('generator retention', () => {
+	const MATTER = 'electron_keep_generators';
+	const DEEP = 'electron_keep_generators_deep';
+	const owned = { crystal: { count: 30, level: 0, unlocked: true }, molecule: { count: 120, level: 1, unlocked: true } };
+
+	beforeEach(() => {
+		gameManager.generators = structuredClone(owned);
+	});
+
+	test('Protonize with Matter Retention keeps generators and levels, records them and still resets Atom upgrades', () => {
+		gameManager.upgrades = [MATTER, 'molecular_boost'];
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		expect(gameManager.protonise()).toBe(true);
+		expect(gameManager.generators).toEqual(owned);
+		expect(gameManager.keptGenerators).toEqual({ crystal: 30, molecule: 120 });
+		expect(gameManager.upgrades).toEqual([MATTER]);
+	});
+
+	test('a later Protonize records what the generators bought since as kept too', () => {
+		gameManager.upgrades = [MATTER];
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		gameManager.protonise();
+		currenciesManager.add(ATOMS, 1e12);
+		expect(gameManager.purchaseGenerator(GeneratorTypes.MOLECULE, 10)).toBe(true);
+		gameManager.protonise();
+		expect(gameManager.keptGenerators).toEqual({ crystal: 30, molecule: 130 });
+	});
+
+	test('without the upgrade a Protonize empties generators and the kept record', () => {
+		gameManager.keptGenerators = { molecule: 10 };
+		currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+		gameManager.protonise();
+		expect(gameManager.generators).toEqual({});
+		expect(gameManager.keptGenerators).toEqual({});
+	});
+
+	test('Electronize resets generators with Matter Retention alone and keeps them with Deep Retention', () => {
+		gameManager.upgrades = [MATTER];
+		gameManager.keptGenerators = { molecule: 120 };
+		currenciesManager.add(PROTONS, ELECTRONS_PROTONS_REQUIRED);
+		expect(gameManager.electronize()).toBe(true);
+		expect(gameManager.generators).toEqual({});
+		expect(gameManager.keptGenerators).toEqual({});
+
+		gameManager.generators = structuredClone(owned);
+		gameManager.upgrades = [MATTER, DEEP];
+		currenciesManager.add(PROTONS, ELECTRONS_PROTONS_REQUIRED);
+		expect(gameManager.electronize()).toBe(true);
+		expect(gameManager.generators).toEqual(owned);
+		expect(gameManager.keptGenerators).toEqual({ crystal: 30, molecule: 120 });
+	});
+
+	test('Ionize always resets the generators, even with both upgrades', () => {
+		gameManager.upgrades = [MATTER, DEEP];
+		gameManager.keptGenerators = { molecule: 120 };
+		radiationManager.ionizeHold = IONIZE_HOLD_SECONDS;
+		expect(gameManager.ionize()).toBe(true);
+		expect(gameManager.generators).toEqual({});
+		expect(gameManager.keptGenerators).toEqual({});
+	});
+
+	test('Deep Retention needs five Ionizes and Matter Retention', () => {
+		const deep = UPGRADES[DEEP];
+		gameManager.totalIonizesAllTime = 5;
+		expect(deep.condition?.(gameManager)).toBe(false);
+		gameManager.upgrades = [MATTER];
+		expect(deep.condition?.(gameManager)).toBe(true);
+		gameManager.totalIonizesAllTime = 4;
+		expect(deep.condition?.(gameManager)).toBe(false);
 	});
 });
 

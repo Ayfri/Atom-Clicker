@@ -9,7 +9,7 @@ import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.
 import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
-import { UPGRADES } from '#data/upgrades.js';
+import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
 import { APP_PRODUCTION_MULTIPLIER, AUTO_BUY_BULK, ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
 import type {
 	ChromaticState,
@@ -78,6 +78,8 @@ export class GameManager {
 	installedApp = $state(false);
 	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
 	integrityFlagged = $state(false);
+	/** Generator counts a retention upgrade carried into this run, the leaderboard audit leaves them out of what the run spent. */
+	keptGenerators = $state.raw<Partial<Record<GeneratorType, number>>>({});
 	lastInteractionTime = $state(Date.now());
 	lastSave = $state(Date.now());
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
@@ -555,6 +557,7 @@ export class GameManager {
 			highestAPSRun: this.highestAPSRun,
 			inGameTime: this.inGameTime,
 			integrityFlagged: this.integrityFlagged,
+			keptGenerators: this.keptGenerators,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
 			periodic: this.periodic,
@@ -756,15 +759,27 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
+	/** Whether a prestige of `layer` leaves the generators standing, Ionize always resets them. */
+	keepsGenerators(layer: LayerType): boolean {
+		const [protonize, electronize] = KEEP_GENERATOR_UPGRADES;
+		if (layer === LAYERS.PROTONIZER) return this.upgrades.includes(protonize) || this.upgrades.includes(electronize);
+		return layer === LAYERS.ELECTRONIZE && this.upgrades.includes(electronize);
+	}
+
 	/** Upgrades paid in protons or electrons survive every prestige, like photon upgrades and skills which never reset. */
 	private prestige(layer: LayerType, gain?: Price) {
 		const upgrades = this.upgrades.filter(id => {
 			const currency = UPGRADES[id]?.cost.currency;
 			return currency === CurrenciesTypes.PROTONS || currency === CurrenciesTypes.ELECTRONS;
 		});
+		const generators = this.keepsGenerators(layer) ? this.generators : null;
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
+		if (generators) {
+			this.generators = generators;
+			this.keptGenerators = Object.fromEntries(GENERATOR_TYPES.flatMap(type => ((generators[type]?.count ?? 0) > 0 ? [[type, generators[type]?.count]] : [])));
+		}
 		if (gain) currenciesManager.add(gain.currency, gain.amount);
 		this.lastInteractionTime = this.runStartedAt = this.clock();
 	}

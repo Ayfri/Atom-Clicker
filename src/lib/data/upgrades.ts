@@ -12,6 +12,9 @@ export const UPGRADE_CATEGORIES = ['Generators', 'Click', 'Production', 'Utility
 
 export type UpgradeCategory = (typeof UPGRADE_CATEGORIES)[number];
 
+/** Matter Retention keeps generators through Protonize, Deep Retention through Electronize too. */
+export const KEEP_GENERATOR_UPGRADES = ['electron_keep_generators', 'electron_keep_generators_deep'] as const;
+
 interface CreateUpgradesOptions {
 	category: UpgradeCategory;
 	/** Hides the upgrade while false. */
@@ -634,6 +637,25 @@ function createElectronUpgrades(): Upgrade[] {
 			icon: 'generator',
 			id: 'electron_cosmic_synergy',
 			name: 'Cosmic Synergy',
+		},
+		{
+			category: 'Utility',
+			cost: { amount: 10_000, currency: CurrenciesTypes.ELECTRONS },
+			description: 'Keep your generators when you Protonize',
+			effects: [],
+			icon: 'generator',
+			id: 'electron_keep_generators',
+			name: 'Matter Retention',
+		},
+		{
+			category: 'Utility',
+			condition: state => state.totalIonizesAllTime >= 5 && state.upgrades.includes('electron_keep_generators'),
+			cost: { amount: 1_000_000, currency: CurrenciesTypes.ELECTRONS },
+			description: 'Your generators also survive Electronize',
+			effects: [],
+			icon: 'generator',
+			id: 'electron_keep_generators_deep',
+			name: 'Deep Retention',
 		},
 	];
 }

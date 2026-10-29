@@ -1,7 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+import { UPGRADES } from '#data/upgrades.js';
+import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import { auditScore, type PreviousScore, type ScoreAudit } from '#lib/server/scoreAudit.server.js';
+import { GENERATOR_COST_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { auditScore, inspectScore, keptSpending, type PreviousScore, runSpending, type ScoreAudit } from '#lib/server/scoreAudit.server.js';
 import type { GameState } from '#lib/types.js';
 import { playHonestRun } from '../../../tests/simulatedRun.js';
 
@@ -196,6 +200,117 @@ describe('edited states', () => {
 		const result = audit(entry, previous);
 		expect(result.warnings).toContain('clicks');
 		expect(result.issues).toEqual([]);
+	});
+});
+
+describe('kept generators', () => {
+	const MATTER = 'electron_keep_generators';
+
+	/** The late state as it reads right after a Protonize that kept every generator: a fresh run holding earlier runs' machines. */
+	function retained(entry: Capture): Capture {
+		const copy = structuredClone(entry);
+		const { state } = copy;
+		const atoms = atomsOf(state);
+		state.keptGenerators = Object.fromEntries(GENERATOR_TYPES.flatMap(type => (state.generators[type]?.count ? [[type, state.generators[type].count]] : [])));
+		atoms.earnedAllTime += keptSpending(state);
+		atoms.amount = atoms.earnedRun = 0;
+		state.totalXP = 0;
+		state.upgrades = [...state.upgrades.filter(id => UPGRADES[id]?.cost.currency !== CurrenciesTypes.ATOMS), MATTER];
+		return copy;
+	}
+
+	test('a normal save reads exactly as before: no kept cost and the whole generator bill as run spending', () => {
+		const { state } = lateRun();
+		expect(audit(lateRun()).snapshot.keptCost).toBe(0);
+		const generators = GENERATOR_TYPES.reduce(
+			(sum, type) => sum + (GENERATORS[type].cost.amount * (GENERATOR_COST_MULTIPLIER ** (state.generators[type]?.count ?? 0) - 1)) / (GENERATOR_COST_MULTIPLIER - 1),
+			0,
+		);
+		const upgrades = state.upgrades.reduce((sum, id) => sum + (UPGRADES[id]?.cost.currency === CurrenciesTypes.ATOMS ? UPGRADES[id].cost.amount : 0), 0);
+		expect(runSpending(state) / (generators + upgrades)).toBeCloseTo(1, 12);
+	});
+
+	test('everything kept passes with the kept record and fails the spending check without it', () => {
+		const entry = retained(lateRun());
+		expect(audit(entry).issues).toEqual([]);
+
+		const unrecorded = structuredClone(entry);
+		unrecorded.state.keptGenerators = {};
+		expect(audit(unrecorded).issues).toContain('spending');
+	});
+
+	test('a run that keeps its generators passes end to end', () => {
+		let nowMs = 0;
+		gameManager.clock = () => nowMs;
+		try {
+			gameManager.startDate = 0;
+			gameManager.upgrades = [MATTER];
+			currenciesManager.add(CurrenciesTypes.ATOMS, 100);
+			/** Twelve hours of buying whatever half the bank pays for, then waiting for the Protonize threshold. */
+			for (let i = 0; i < 8640; i++) {
+				nowMs += 5000;
+				gameManager.tick(5000, true);
+				for (const type of GENERATOR_TYPES) {
+					while (gameManager.getGeneratorCost(type, 1) <= gameManager.atoms / 2) gameManager.purchaseGenerator(type);
+				}
+			}
+			while (gameManager.atoms < PROTONS_ATOMS_REQUIRED && nowMs < 300 * 3_600_000) {
+				nowMs += 10_000;
+				gameManager.tick(10_000, true);
+			}
+			expect(gameManager.protonise()).toBe(true);
+			expect(Object.keys(gameManager.keptGenerators).length).toBeGreaterThan(0);
+
+			for (let i = 0; i < 12; i++) {
+				nowMs += 5000;
+				gameManager.tick(5000, true);
+				for (const type of GENERATOR_TYPES) if (gameManager.getGeneratorCost(type, 1) <= gameManager.atoms) gameManager.purchaseGenerator(type);
+			}
+			const entry = capture();
+			expect(entry.state.keptGenerators).toEqual(gameManager.keptGenerators);
+			const result = audit(entry);
+			expect(result.issues).toEqual([]);
+			expect(result.snapshot.keptCost).toBeGreaterThan(0);
+		} finally {
+			gameManager.clock = () => Date.now();
+		}
+	});
+
+	test('generators costing more than the earlier runs earned are rejected', () => {
+		const entry = retained(lateRun());
+		atomsOf(entry.state).earnedAllTime = 0;
+		expect(audit(entry).issues).toContain('kept');
+	});
+
+	test('a kept record above the generators owned, or without a retention upgrade, is rejected', () => {
+		const above = retained(lateRun());
+		above.state.keptGenerators.molecule = (above.state.generators.molecule?.count ?? 0) + 1;
+		expect(audit(above).issues).toContain('keptGenerators');
+
+		const unowned = retained(lateRun());
+		unowned.state.upgrades = unowned.state.upgrades.filter(id => id !== MATTER);
+		expect(audit(unowned).issues).toContain('keptGenerators');
+	});
+
+	test('a million kept generators fail the kept check with an infinite cost, never NaN', () => {
+		const entry = retained(lateRun());
+		entry.state.generators.molecule = { count: 1_000_000, level: 10_000, unlocked: true };
+		entry.state.keptGenerators.molecule = 1_000_000;
+		const result = inspectScore(entry.state, context(entry.now));
+		if (typeof result === 'string') throw new Error(result);
+		const check = result.checks.find(({ id }) => id === 'kept');
+		expect(check?.value).toBe(Infinity);
+		expect(result.issues).toContain('kept');
+	});
+
+	test('a kept cost that grew since the previous submission of the same run is rejected', () => {
+		const entry = retained(lateRun());
+		const { snapshot } = audit(entry);
+		expect(snapshot.keptCost).toBeGreaterThan(0);
+		const receivedAt = entry.now - 60_000;
+		expect(audit(entry, { receivedAt, snapshot }).issues).toEqual([]);
+		expect(audit(entry, { receivedAt, snapshot: { ...snapshot, keptCost: snapshot.keptCost! / 2 } }).issues).toContain('kept');
+		expect(audit(entry, { receivedAt, snapshot: { ...snapshot, keptCost: undefined } }).issues).toEqual([]);
 	});
 });
 

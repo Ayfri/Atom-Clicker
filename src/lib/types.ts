@@ -191,6 +191,8 @@ export interface GameState {
 	highestAPSRun: number;
 	inGameTime: number;
 	integrityFlagged: boolean;
+	/** Generators carried into the current run by a retention upgrade, which this run never paid for. */
+	keptGenerators: Partial<Record<GeneratorType, number>>;
 	lastInteractionTime: number;
 	lastSave: number;
 	periodic: PeriodicState;

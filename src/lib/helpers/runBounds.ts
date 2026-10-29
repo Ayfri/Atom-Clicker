@@ -41,7 +41,8 @@ export interface RunBounds {
 /**
  * Best rates the loaded state can reach in a run of `seconds`: the whole boost pool on atoms, a full Stability Field, the reactor
  * at its CPM cap, the installed app bonus, auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
- * Protonize run these rates only grow and bound the whole run.
+ * Protonize run these rates only grow and bound the whole run. Generators kept through a prestige count at their full rate from the
+ * start of the run, which only loosens the bound.
  */
 export function measureRunBounds(manager: GameManager, now: number, seconds: number): RunBounds {
 	const saved = {
