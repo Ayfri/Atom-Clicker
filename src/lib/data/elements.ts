@@ -391,7 +391,7 @@ export const tuneX = (nm: number): number => ((Math.min(Math.max(nm, TUNING_RANG
 export const LAMP_PAYBACK_SECONDS = 25 * 86_400;
 
 /** Nuclei of an element's `need` that one Decay event stands for. */
-export const NEED_PER_DECAY_EVENT = 1e6;
+const NEED_PER_DECAY_EVENT = 1e6;
 
 /** Decay events an element without a measured spectrum costs, identified by how it decays instead of by its light. */
 export const decayCost = (element: Element): number => (element.lines.length ? 0 : Math.ceil(element.need / NEED_PER_DECAY_EVENT));

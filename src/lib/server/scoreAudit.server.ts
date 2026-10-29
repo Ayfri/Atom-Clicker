@@ -165,7 +165,7 @@ function structureIssues(state: GameState, now: number): string[] {
 }
 
 /** Atoms the generators from number `from` up to `to` cost, `Infinity` for counts past the float range and never NaN. */
-export function generatorSpend(type: GeneratorType, from: number, to: number): number {
+function generatorSpend(type: GeneratorType, from: number, to: number): number {
 	if (to <= from) return 0;
 	const r = GENERATOR_COST_MULTIPLIER;
 	return (GENERATORS[type].cost.amount * r ** from * (r ** (to - from) - 1)) / (r - 1);
