@@ -115,8 +115,8 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 			condition: isGeneratorUnlocked(generatorType),
 			// 30x per generator so the last masteries wait for later protonise runs instead of all landing at 5e14 atoms.
 			cost: { amount: 5_000_000 * 30 ** index, currency: CurrenciesTypes.ATOMS },
-			description: `+10% ${generator.name} production per 25 ${generator.name} levels`,
-			effects: [mul('generator', manager => 1 + Math.floor(levels(manager) / 25) * 0.1, generatorType)],
+			description: `+10% ${generator.name} production per ${generator.name} level`,
+			effects: [mul('generator', manager => 1 + levels(manager) * 0.1, generatorType)],
 			icon: 'generator',
 			id: `${id}_level_mastery`,
 			name: `${generator.name} Level Mastery`,
