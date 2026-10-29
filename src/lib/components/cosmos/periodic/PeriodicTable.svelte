@@ -10,7 +10,9 @@
 	import {
 		decayCost,
 		ELEMENT_COUNT,
+		ELEMENT_GENERATOR_PERCENT,
 		ELEMENTS,
+		elementGenerators,
 		elementStat,
 		FAMILIES,
 		FAMILY_IDS,
@@ -25,6 +27,9 @@
 		STAT_LABELS,
 		wavelengthColor,
 	} from '#data/elements.js';
+	import { GENERATORS } from '#data/generators.js';
+	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
 	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 	import { particlesEnabled, pixelRatio } from '#helpers/CanvasLoop.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -716,6 +721,16 @@
 					{/each}
 				</span>
 			{/if}
+			{#each elementGenerators(element.z) as type (type)}
+				{@const Icon = ICONS[GENERATOR_ICON_NAMES[type]]}
+				<span class={['flex items-center gap-1', stageKind === 'identified' ? 'text-white/80' : 'text-white/40']}>
+					<Icon
+						color="currentColor"
+						size={13}
+					/>
+					+{ELEMENT_GENERATOR_PERCENT}% {GENERATORS[type].name} output
+				</span>
+			{/each}
 			<span
 				class="flex max-w-60 flex-wrap justify-center gap-1"
 				title="{info.name}, a full family ×{SET_BONUS}"

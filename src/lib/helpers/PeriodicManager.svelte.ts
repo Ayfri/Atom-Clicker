@@ -1,6 +1,22 @@
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { decayCost, ELEMENT_COUNT, ELEMENTS, elementStat, FAMILIES, FAMILY_IDS, LAMP_PAYBACK_SECONDS, lightCost, type LightColor, SET_BONUS, TUNING, zs } from '#data/elements.js';
+import {
+	decayCost,
+	ELEMENT_COUNT,
+	ELEMENT_GENERATOR_PERCENT,
+	ELEMENTS,
+	elementStat,
+	FAMILIES,
+	FAMILY_IDS,
+	GENERATOR_ELEMENTS,
+	LAMP_PAYBACK_SECONDS,
+	lightCost,
+	type LightColor,
+	SET_BONUS,
+	TUNING,
+	zs,
+} from '#data/elements.js';
+import { GENERATOR_TYPES } from '#data/generators.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
@@ -67,9 +83,12 @@ class PeriodicManager {
 	/** Decay events per second, paid by `GameManager.tick` online and `applyOfflineProgress` offline, never by `tick` here. */
 	decayEventsPerSecond = $derived(DECAY_SITES.reduce((rate, id) => rate + (this.open.has(id) ? DECAY_EVENTS_PER_SECOND * (1 + this.forge(id).level) : 0), 0));
 
-	/** One source per family that has started, its bonus `1 + step% × members`, once more ×SET_BONUS when every member is identified. */
-	effectSources = $derived.by((): EffectSource[] =>
-		FAMILY_IDS.flatMap(family => {
+	/**
+	 * One source per family that has started, its bonus `1 + step% × members`, once more ×SET_BONUS when every member is identified,
+	 * and one for the element affinities: each generator gets `1 + 10% × identified related elements`.
+	 */
+	effectSources = $derived.by((): EffectSource[] => {
+		const families = FAMILY_IDS.flatMap((family): EffectSource[] => {
 			const lit = FAMILY_MEMBERS[family].filter(z => this.identifiedSet.has(z));
 			if (!lit.length) return [];
 			const set = lit.length === FAMILY_MEMBERS[family].length ? SET_BONUS : 1;
@@ -80,8 +99,13 @@ class PeriodicManager {
 			}
 			const { name, step } = FAMILIES[family];
 			return [{ effects: [...counts].map(([stat, count]) => mul(stat, (1 + (step / 100) * count) * set)), id: `periodic_${family}`, name }];
-		}),
-	);
+		});
+		const affinities = GENERATOR_TYPES.flatMap(type => {
+			const lit = GENERATOR_ELEMENTS[type]?.filter(z => this.identifiedSet.has(z)).length ?? 0;
+			return lit ? [mul('generator', 1 + (ELEMENT_GENERATOR_PERCENT / 100) * lit, type)] : [];
+		});
+		return affinities.length ? [...families, { effects: affinities, id: 'periodic_generators', name: 'Element affinities' }] : families;
+	});
 
 	forge(id: SiteId): SiteForge {
 		return this.sites[id] ?? { index: 0, level: 0, progress: 0 };

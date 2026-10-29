@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { bestTuning, decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, zs } from '#data/elements.js';
-import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, siteStudyCost, type SiteId } from '#data/sites.js';
+import { GENERATOR_TYPES } from '#data/generators.js';
+import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, SITE_IDS, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -173,6 +174,44 @@ describe('table', () => {
 		gameManager.periodic = { identified: nonmetals, sites: { bigbang: { index: 2, level: 0, progress: 0 }, lowmass: { index: 2, level: 0, progress: 0 }, massive: { index: 18, level: 0, progress: 0 } } };
 		expect(periodicManager.identified).toEqual(nonmetals.toSorted((a, b) => a - b));
 		expect(xp()).toBeCloseTo((1 + 0.02 * nonmetals.length) * SET_BONUS);
+	});
+
+	describe('element affinities', () => {
+		const output = () => Object.fromEntries(GENERATOR_TYPES.map(type => [type, gameManager.effects.value('generator', 1, gameManager, type)]));
+		/** Output of every generator once the elements are identified, every chain forged. */
+		const boosts = (identified: number[]) => {
+			const sites = Object.fromEntries(SITE_IDS.map(id => [id, { index: CHAINS[id].steps.length, level: 0, progress: 0 }]));
+			gameManager.periodic = { identified, sites };
+			return output();
+		};
+
+		test('Au boosts the Neutron Star by 10% and nothing else', () => {
+			const plain = boosts([]);
+			expect(boosts(zs('Au'))).toEqual({ ...plain, neutronStar: 1.1 });
+		});
+
+		test('C boosts Crystal, Micro-organism and Star, and each further related element adds 10% more', () => {
+			const plain = boosts([]);
+			expect(boosts(zs('C'))).toEqual({ ...plain, crystal: 1.1, microorganism: 1.1, star: 1.1 });
+			const both = boosts(zs('C N'));
+			expect(both.microorganism).toBeCloseTo(1.2);
+			expect(both.star).toBeCloseTo(1.2);
+			expect(both.molecule).toBeCloseTo(1.1);
+			expect(both.crystal).toBeCloseTo(1.1);
+		});
+
+		test('a Black Hole has no related element, and the source only exists once an element is identified', () => {
+			expect(boosts(ELEMENTS.map(element => element.z)).blackHole).toBe(1);
+			boosts([]);
+			expect(periodicManager.effectSources).toEqual([]);
+		});
+
+		test('the Alkaline earths bonus, untargeted, reaches the production of every generator', () => {
+			boosts([]);
+			const plain = { ...gameManager.generatorUnitProductions };
+			boosts(zs('Ba'));
+			for (const type of GENERATOR_TYPES) expect(gameManager.generatorUnitProductions[type] / plain[type]).toBeCloseTo(1.02);
+		});
 	});
 
 	test('a study adds the base forge rate again for Starlight', () => {

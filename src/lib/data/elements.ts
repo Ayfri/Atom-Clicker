@@ -1,3 +1,4 @@
+import type { GeneratorType } from '#data/generators.js';
 import type { SiteId } from '#data/sites.js';
 import type { EffectStat } from '#lib/types.js';
 
@@ -312,6 +313,25 @@ const BY_SYMBOL = Object.fromEntries(ELEMENTS.map(element => [element.symbol, el
 
 /** Atomic numbers of space-separated symbols: `zs('U Th')` → `[92, 90]`. */
 export const zs = (symbols: string) => symbols.split(' ').map(symbol => BY_SYMBOL[symbol].z);
+
+/** Percent each identified related element adds to a generator's output, on top of the family bonuses. */
+export const ELEMENT_GENERATOR_PERCENT = 10;
+
+/** The elements each generator is made of or lives among, a Black Hole has none. */
+export const GENERATOR_ELEMENTS: Partial<Record<GeneratorType, number[]>> = {
+	crystal: zs('Be B C Al Si Ca'),
+	microorganism: zs('C N O P S Mg'),
+	molecule: zs('H N O F S Cl'),
+	nanostructure: zs('Ti Zn Ga Ge Ag Cd'),
+	neutronStar: zs('Sr Eu Pt Au Th U'),
+	planet: zs('O Mg Si S Fe Ni'),
+	rock: zs('Mg Al Si Ca Fe Ni'),
+	star: zs('H He C N O Ne'),
+};
+
+/** The generators an element boosts. */
+export const elementGenerators = (z: number): GeneratorType[] =>
+	(Object.keys(GENERATOR_ELEMENTS) as GeneratorType[]).filter(type => GENERATOR_ELEMENTS[type]?.includes(z));
 
 export const elementBySymbol = (symbol: string): Element => BY_SYMBOL[symbol];
 
