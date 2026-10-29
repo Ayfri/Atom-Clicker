@@ -328,7 +328,8 @@ export class GameManager {
 		const commonMultiplier = this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
 		for (const type of GENERATOR_TYPES) {
 			const generator = this.generators[type];
-			const rate = this.effects.value('generator', GENERATORS[type].rate, this, type);
+			/** Untargeted `'generator'` effects (Alkaline earths, Cosmos objects) boost every generator, the targeted ones only theirs. */
+			const rate = this.effects.value('generator', this.effects.value('generator', GENERATORS[type].rate, this), this, type);
 			productions[type] = rate * getGeneratorLevelMultiplier(generator?.count ?? 0, generator?.level ?? 0) * commonMultiplier;
 		}
 		return productions;
