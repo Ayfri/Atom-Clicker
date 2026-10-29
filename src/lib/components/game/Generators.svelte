@@ -254,29 +254,29 @@
 								<span class="ml-auto text-base font-bold tabular-nums text-white/90">{formatNumber(count, 0)}</span>
 							{/if}
 						</div>
-						<p class="flex items-center gap-1 text-xs text-white/50">
+						<p class="flex items-center gap-1 whitespace-nowrap text-xs text-white/50">
 							{#if production > 0}
 								<Value class="font-medium text-accent-300" postfix="/s" value={production} />
 								<span>· {formatShare(production)}</span>
 							{:else if !obfuscated}
 								<Value class="text-accent-300" postfix="/s each" prefix="+" value={gameManager.generatorUnitProductions[type]} />
 							{/if}
+							{#if count > 0}
+								<span class="ml-auto shrink-0 whitespace-nowrap text-[10px] text-(--next-color)" style="--next-color: {nextColor};">
+									{GENERATOR_LEVEL_UP_COST - levelProgress} to Lv {level + 1}
+								</span>
+							{/if}
 						</p>
 					</div>
 				</div>
 				<div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
-					<span class="flex items-center gap-1 {affordable ? 'text-white' : 'text-white/70'}">
+					<span class="flex min-w-0 items-center gap-1 whitespace-nowrap {affordable ? 'text-white' : 'text-white/70'}">
 						<Value currency={generator.cost.currency} value={gameManager.getGeneratorCost(type, purchaseAmount || 1)} />
 						{#if selectedPurchaseMode !== 'x1' && purchaseAmount > 0}
 							<span class="text-[10px] text-white/50">×{purchaseAmount}</span>
 						{/if}
 					</span>
-					<span class="flex items-center gap-2">
-						{#if count > 0}
-							<span class="text-[10px] text-(--next-color)" style="--next-color: {nextColor};">
-								{GENERATOR_LEVEL_UP_COST - levelProgress} to Lv {level + 1}
-							</span>
-						{/if}
+					<span class="flex shrink-0 items-center gap-2">
 						{#if gameManager.features[FeatureTypes.OVERDRIVE] && count > 0}
 							<OverdriveButton
 								active={overdriven.has(type)}
