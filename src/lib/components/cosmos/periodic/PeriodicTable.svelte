@@ -26,6 +26,7 @@
 		spectrumGradient,
 		STAT_LABELS,
 		wavelengthColor,
+		wavelengthHex,
 	} from '#data/elements.js';
 	import { GENERATORS } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
@@ -141,7 +142,7 @@
 		for (const z of periodicManager.forged) {
 			const kind = reading.has(z) ? 'reading' : periodicManager.identifiedSet.has(z) ? 'identified' : 'ready';
 			const { family, lines } = ELEMENTS[z - 1];
-			map.set(z, { color: FAMILIES[family].color, ...(kind === 'identified' && lines.length > 0 && { glow: wavelengthColor(lines[0]) }), kind });
+			map.set(z, { color: FAMILIES[family].color, ...(kind === 'identified' && lines.length > 0 && { glow: wavelengthHex(lines[0]) }), kind });
 		}
 		return map;
 	});

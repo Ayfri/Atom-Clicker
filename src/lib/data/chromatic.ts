@@ -174,7 +174,7 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			baseCost: 20_000,
 			costMultiplier: 1,
 			currencies: ALL_LIGHTS,
-			description: () => `A ${TUNING.width} nm window: lines inside cost ×${TUNING.factorIn} Light, lines outside ×${TUNING.factorOut}`,
+			description: () => `A ${TUNING.width} nm window: lines inside cost ×${TUNING.factorIn} Light, lines outside ×${TUNING.factorOut}, never more than without it`,
 			id: 'prism_tuning',
 			maxLevel: 1,
 			name: 'Prism Tuning',

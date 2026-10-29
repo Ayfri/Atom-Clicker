@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { bestTuning, decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, zs } from '#data/elements.js';
+import { bestTuning, decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, TUNING, zs } from '#data/elements.js';
 import { GENERATOR_TYPES } from '#data/generators.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, SITE_IDS, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
@@ -123,7 +123,7 @@ describe('table', () => {
 		expect(Object.values(periodicManager.lampLight)).toEqual([0, 0, 0]);
 	});
 
-	test('the Prism tuning makes the lines inside its window cheaper and the others dearer, only once bought', () => {
+	test('the Prism tuning makes the lines inside its window cheaper and never dearer than the plain cost, only once bought', () => {
 		const fe = ELEMENTS[zs('Fe')[0] - 1];
 		const at = ELEMENTS[zs('At')[0] - 1];
 		const total = (cost: Record<'blue' | 'green' | 'red', number>) => cost.blue + cost.green + cost.red;
@@ -136,7 +136,7 @@ describe('table', () => {
 		/** All five Fe lines sit within 25 nm of each other, and the ceil adds at most 1 Light per color. */
 		expect(Math.abs(total(periodicManager.costOf(fe.z).light) - 0.2 * total(lightCost(fe)))).toBeLessThanOrEqual(1);
 		periodicManager.setTuning(800);
-		expect(Math.abs(total(periodicManager.costOf(fe.z).light) - 2 * total(lightCost(fe)))).toBeLessThanOrEqual(1);
+		expect(periodicManager.costOf(fe.z).light).toEqual(lightCost(fe));
 		/** At only has ultraviolet lines, the window never reaches them. */
 		expect(periodicManager.costOf(at.z).light).toEqual(lightCost(at));
 
@@ -148,6 +148,21 @@ describe('table', () => {
 		currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, 1);
 		expect(periodicManager.identify(fe.z)).toBe(true);
 		expect(currenciesManager.getAmount(CurrenciesTypes.BLUE_LIGHT)).toBe(0);
+	});
+
+	test('no tuning window ever makes an element cost more Light than without the Prism, even with spread lines', () => {
+		/** Six blue lines 20 nm apart: the best window holds 3, so the raw weights (3 × 0.2 + 3 × 2) would cost 10% more than plain. */
+		const spread = { ...ELEMENTS[zs('Fe')[0] - 1], lines: [380, 400, 420, 440, 460, 480] };
+		expect(lightCost(spread, bestTuning(spread.lines))).toEqual(lightCost(spread));
+		for (const element of [spread, ...ELEMENTS.filter(other => other.lines.length)]) {
+			const plain = lightCost(element);
+			for (let center = TUNING.min; center <= TUNING.max; center += 5) {
+				const tuned = lightCost(element, center);
+				for (const color of ['blue', 'green', 'red'] as const) expect(tuned[color]).toBeLessThanOrEqual(plain[color]);
+			}
+			const best = lightCost(element, bestTuning(element.lines));
+			for (const color of ['blue', 'green', 'red'] as const) expect(best[color]).toBeLessThanOrEqual(plain[color]);
+		}
 	});
 
 	test('the tuning window stays on the strip and a save only keeps a valid one', () => {

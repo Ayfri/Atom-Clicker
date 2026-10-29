@@ -358,21 +358,25 @@ const lineWeight = (nm: number, tuning: number | null): number =>
 
 /**
  * Light per nucleus, split by the element's lines: Red ≥ 600 nm, Green 500 to 600, Blue under 500. Without a measured spectrum, no Light: see
- * `decayCost`. A `tuning` center weighs each line by its distance to the window, `null` is the plain cost.
+ * `decayCost`. A `tuning` center weighs each line by its distance to the window, `null` is the plain cost, and a color never costs more
+ * than its plain cost: a window that misses most of a color's lines is worth nothing there, never a loss.
  */
 export function lightCost(element: Element, tuning: number | null = null): Record<LightColor, number> {
 	if (!element.lines.length) return { blue: 0, green: 0, red: 0 };
 	const total = element.need / 50;
-	const share = (color: LightColor) =>
-		Math.ceil(
-			(total * element.lines.filter(nm => lightColorOf(nm) === color).reduce((sum, nm) => sum + lineWeight(nm, tuning), 0)) / element.lines.length,
-		);
-	return { blue: share('blue'), green: share('green'), red: share('red') };
+	const share = (color: LightColor, center: number | null) =>
+		Math.ceil((total * element.lines.filter(nm => lightColorOf(nm) === color).reduce((sum, nm) => sum + lineWeight(nm, center), 0)) / element.lines.length);
+	const cost = (color: LightColor) => Math.min(share(color, tuning), share(color, null));
+	return { blue: cost('blue'), green: cost('green'), red: cost('red') };
 }
 
-/** The whole nm window center that covers the most of `lines`: a window edge as close as possible to one of them, kept inside the tuning range. */
+/** The whole nm window center that makes `lines` cheapest: a window edge as close as possible to one of them, kept inside the tuning range. */
 export function bestTuning(lines: number[]): number {
-	const weight = (center: number) => lines.reduce((sum, nm) => sum + lineWeight(nm, center), 0);
+	const weight = (center: number) =>
+		(['blue', 'green', 'red'] as const).reduce((sum, color) => {
+			const own = lines.filter(nm => lightColorOf(nm) === color);
+			return sum + Math.min(own.reduce((inner, nm) => inner + lineWeight(nm, center), 0), own.length);
+		}, 0);
 	let best: { center: number; total: number } | null = null;
 	for (const nm of lines) {
 		for (const edge of [Math.ceil(nm - TUNING.width / 2), Math.floor(nm + TUNING.width / 2)]) {
@@ -397,7 +401,7 @@ const NEED_PER_DECAY_EVENT = 1e6;
 export const decayCost = (element: Element): number => (element.lines.length ? 0 : Math.ceil(element.need / NEED_PER_DECAY_EVENT));
 
 /** Dan Bruton's wavelength to RGB approximation, dimmed at the edges of vision. */
-export function wavelengthColor(nm: number): string {
+function wavelengthRgb(nm: number): [number, number, number] {
 	const w = Math.min(Math.max(nm, 380), 780);
 	const [r, g, b] =
 		w < 440 ? [(440 - w) / 60, 0, 1]
@@ -407,8 +411,13 @@ export function wavelengthColor(nm: number): string {
 		: w < 645 ? [1, (645 - w) / 65, 0]
 		: [1, 0, 0];
 	const f = w < 420 ? 0.3 + (0.7 * (w - 380)) / 40 : w > 700 ? 0.3 + (0.7 * (780 - w)) / 80 : 1;
-	return `rgb(${Math.round(255 * r * f)} ${Math.round(255 * g * f)} ${Math.round(255 * b * f)})`;
+	return [Math.round(255 * r * f), Math.round(255 * g * f), Math.round(255 * b * f)];
 }
+
+export const wavelengthColor = (nm: number): string => `rgb(${wavelengthRgb(nm).join(' ')})`;
+
+/** Same color as hex, for canvas code that mixes colors through `parseHex`. */
+export const wavelengthHex = (nm: number): string => `#${wavelengthRgb(nm).map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
 
 /** Position of a wavelength on a 380 to 780 nm strip, in percent. */
 export const lineX = (nm: number) => ((Math.min(Math.max(nm, 380), 780) - 380) / 400) * 100;

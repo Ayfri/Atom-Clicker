@@ -19,16 +19,16 @@
 	const center = $derived(periodicManager.tuning);
 </script>
 
-<!-- The input is invisible on top of the strip and spans exactly the window's travel, so a finger or the arrow keys move it natively. -->
+<!-- The input is invisible on top of the strip, its window-sized thumb (iOS only drags a thumb) travels exactly the window's centers, so a finger or the arrow keys move it natively. -->
 <div
 	class="w-full max-w-60"
 	data-hint="table-tuning"
 >
 	<div class="relative h-8 rounded bg-[#0b0f1c]">
 		<input
-			class="peer absolute -top-2 z-10 h-12 cursor-pointer touch-pan-y appearance-none opacity-0 [&::-moz-range-thumb]:size-0 [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none"
-			style:left="{tuneX(TUNING.min)}%"
-			style:width="{tuneX(TUNING.max) - tuneX(TUNING.min)}%"
+			class="peer absolute -top-2 z-10 h-12 cursor-pointer touch-pan-y appearance-none opacity-0 [&::-moz-range-thumb]:h-12 [&::-moz-range-thumb]:w-6 [&::-webkit-slider-thumb]:h-12 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none"
+			style:left="calc({tuneX(TUNING.min)}% - 0.75rem)"
+			style:width="calc({tuneX(TUNING.max) - tuneX(TUNING.min)}% + 1.5rem)"
 			aria-label="Tuning window center in nanometers"
 			max={TUNING.max}
 			min={TUNING.min}
@@ -64,5 +64,5 @@
 			</span>
 		{/each}
 	</div>
-	<p class="text-center text-[10px] text-white/50">Lines inside ×{TUNING.factorIn}, outside ×{TUNING.factorOut}</p>
+	<p class="text-center text-[10px] text-white/50">Lines inside ×{TUNING.factorIn}, outside ×{TUNING.factorOut}, never above the plain cost</p>
 </div>
