@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 	import type { IconName } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
+	import Blueprint from '#components/cosmos/Blueprint.svelte';
+	import Iris from '#components/cosmos/Iris.svelte';
+	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import { tierIconStack } from '#helpers/iconStacks.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
@@ -15,8 +19,11 @@
 	const PAGE = 30;
 	const achievementStacks = Object.values(ACHIEVEMENTS).flatMap(({ iconStack, name }) => (iconStack ? [{ name, stack: iconStack }] : []));
 
+	let built = $state(0.5);
 	let color = $state('#ffffff');
 	let icon = $state<IconName>('molecule');
+	let irisMs = $state(0);
+	let irisRun = $state(0);
 	let label = $state('');
 	let overrideColor = $state(false);
 	let shown = $state(PAGE);
@@ -24,6 +31,12 @@
 
 	const toast = (type: 'error' | 'info' | 'success' | 'warning', infinite = false) =>
 		toastStore[type]({ duration: infinite ? 0 : undefined, message: `A ${infinite ? 'sticky ' : ''}${type} toast.`, title: `Test ${type}` });
+
+	function openIris() {
+		const run = ++irisRun;
+		irisMs = APERTURE_WIDEN_MS;
+		setTimeout(() => run === irisRun && (irisMs = 0), APERTURE_WIDEN_MS);
+	}
 </script>
 
 <Section title="Toasts and animations">
@@ -84,6 +97,35 @@
 	{#if shown < achievementStacks.length}
 		<button class="{btn} mt-2" onclick={() => (shown += PAGE)}>Show more</button>
 	{/if}
+</Section>
+
+<Section collapsed title="Cosmos">
+	<div class="mb-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
+		<span class="grid size-10 place-items-center rounded-lg bg-accent-500 text-white">
+			{#key irisRun}
+				<Iris durationMs={irisMs} size={28} />
+			{/key}
+		</span>
+		<button class={btn} onclick={openIris}>Widen {APERTURE_WIDEN_MS / 1000}s</button>
+		<input bind:value={built} class="ml-auto w-24 accent-accent-500" max="1" min="0" step="0.01" type="range" />
+		<span class="font-mono">{Math.round(built * 100)}% built</span>
+	</div>
+	<div class="mb-2 grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1">
+		{#each COSMOS_INSTRUMENTS.filter(instrument => instrument.cost > 0) as instrument (instrument.id)}
+			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={instrument.name}>
+				<Blueprint class="size-12" id={instrument.id} progress={built} />
+				<span class="w-full truncate text-center text-[10px] text-white/40">{instrument.name}</span>
+			</div>
+		{/each}
+	</div>
+	<div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1">
+		{#each COSMOS_OBJECTS as object (object.id)}
+			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={object.name}>
+				<SkyThumbnail color={object.color} id={object.id} small={!!object.orbits} />
+				<span class="w-full truncate text-center text-[10px] text-white/40">{object.name}</span>
+			</div>
+		{/each}
+	</div>
 </Section>
 
 <Section collapsed title="Icon registry ({ICON_NAMES.length})">
