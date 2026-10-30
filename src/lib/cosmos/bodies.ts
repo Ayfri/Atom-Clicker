@@ -441,8 +441,8 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 	 */
 	moon: {
 		build: globe({
-			/** Sunlight the Earth reflects onto the night side, lighting the half that faces it a faint blue grey. */
-			glow: color('#7d93b8').mul(saturate(dot(normalWorld, centerOf('earth').sub(positionWorld).normalize()))).mul(0.12),
+			/** Sunlight the Earth reflects onto the night side, lighting the half that faces it a faint grey with a hint of blue. */
+			glow: color('#8c96a6').mul(saturate(dot(normalWorld, centerOf('earth').sub(positionWorld).normalize()))).mul(0.08),
 			/** In the Earth's shadow it turns copper: the only light left is sunlight bent and reddened through the Earth's atmosphere. */
 			shade: mix(color('#b4532e').mul(0.45), vec3(1), eclipse(['earth'])),
 		}),
