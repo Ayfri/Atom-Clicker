@@ -3,6 +3,7 @@ import {
 	color,
 	dot,
 	float,
+	fwidth,
 	length,
 	max,
 	min,
@@ -17,6 +18,7 @@ import {
 	pow,
 	remapClamp,
 	saturate,
+	select,
 	smoothstep,
 	uniform,
 	vec3,
@@ -51,12 +53,17 @@ export const detail = uniform(1);
 
 /**
  * Diffuse sunlight of the realistic lighting. Airless dusty ground scatters light back toward the Sun (Lommel-Seeliger), blended
- * in by `regolith` like the lunar-Lambert model: a full Moon is a flat disc, not a shaded ball.
+ * in by `regolith` like the lunar-Lambert model: a full Moon is a flat disc, not a shaded ball. Both terms are averaged over the
+ * pixel, a crescent thinner than a pixel and the limb seen edge-on otherwise light single pixels that blink as the view moves.
  */
 export function diffuse(regolith = 0) {
-	const incidence = max(sunFacing, 0);
+	const width = max(fwidth(sunFacing), 1e-4);
+	const half = width.mul(0.5);
+	const incidence = select(sunFacing.greaterThan(half), sunFacing, pow(max(sunFacing.add(half), 0), 2).div(width.mul(2)));
 	if (!regolith) return incidence;
-	const emission = max(dot(normalWorld, cameraPosition.sub(positionWorld).normalize()), 0);
+	const toCamera = dot(normalWorld, cameraPosition.sub(positionWorld).normalize());
+	/** Held at the pixel's own spread, at the limb the backscatter ratio would spike toward 2 on a single pixel. */
+	const emission = max(toCamera, fwidth(toCamera));
 	return mix(incidence, incidence.mul(2).div(max(incidence.add(emission), 1e-3)), regolith);
 }
 
