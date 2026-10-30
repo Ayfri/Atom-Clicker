@@ -7,7 +7,8 @@
 	import { formatNumber } from '#lib/utils.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import { Globe, Orbit, X } from '@lucide/svelte';
+	import { ChevronDown, Globe, Orbit, X } from '@lucide/svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		id: string;
@@ -18,6 +19,9 @@
 	}
 
 	let { id, onClose, onHome, onStudy }: Props = $props();
+
+	/** Stays open from one object to the next, the panel is not remounted when `id` changes. */
+	let detailsOpen = $state(false);
 
 	const object = $derived(COSMOS_OBJECTS_BY_ID[id]);
 	const level = $derived(cosmosManager.level(id));
@@ -55,7 +59,28 @@
 		</button>
 	</header>
 
-	<p class="text-sm text-white/75">{object.fact}</p>
+	<div>
+		<p class="text-sm text-white/75">{object.fact}</p>
+		<button
+			class="-mb-1 flex min-h-8 items-center gap-1 text-xs text-accent-300 hover:text-accent-200"
+			aria-expanded={detailsOpen}
+			onclick={() => (detailsOpen = !detailsOpen)}
+		>
+			{detailsOpen ? 'Less' : `More about ${object.name}`}
+			<ChevronDown
+				class="transition-transform {detailsOpen ? 'rotate-180' : ''}"
+				size={14}
+			/>
+		</button>
+		{#if detailsOpen}
+			<p
+				class="max-h-40 overflow-y-auto overscroll-contain text-sm leading-relaxed text-white/70 md:max-h-56"
+				transition:slide={{ duration: 180 }}
+			>
+				{object.details}
+			</p>
+		{/if}
+	</div>
 
 	<dl class="grid grid-cols-2 gap-3 text-sm">
 		<div>

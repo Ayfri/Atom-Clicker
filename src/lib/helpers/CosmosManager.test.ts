@@ -170,6 +170,14 @@ describe('sky', () => {
 		}
 	});
 
+	test('every object has its own details text, free of dashes', () => {
+		for (const object of COSMOS_OBJECTS) {
+			expect(object.details.length, object.id).toBeGreaterThan(200);
+			expect(object.details, object.id).not.toBe(object.fact);
+			expect(object.details, object.id).not.toMatch(/[–—]/);
+		}
+	});
+
 	test('studies add the object rate again and raise its boost, which reaches the game stats', () => {
 		const globalBefore = gameManager.globalMultiplier;
 		const earth = COSMOS_OBJECTS_BY_ID.earth;
