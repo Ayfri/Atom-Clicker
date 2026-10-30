@@ -1,6 +1,19 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID, IONIZE_FLASH_SECONDS, ionizeStarlightMultiplier, SKY_LIGHT, SKY_SECTIONS, SPECTROSCOPE_ID, studyCost } from '#data/cosmos.js';
+import {
+	APERTURE_WIDEN_MS,
+	COSMOS_INSTRUMENTS,
+	COSMOS_OBJECTS,
+	COSMOS_OBJECTS_BY_ID,
+	IONIZE_FLASH_SECONDS,
+	ionizeStarlightMultiplier,
+	OBSERVE_APS_SECONDS,
+	SKY_LIGHT,
+	SKY_SECTIONS,
+	SPECTROSCOPE_ID,
+	studyCost,
+} from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { GeneratorTypes } from '#data/generators.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -68,6 +81,23 @@ describe('sky', () => {
 		expect(cosmosManager.skyLightOf('mira')).toEqual({});
 	});
 
+	test('an observation costs a minute of atom production to launch', () => {
+		currenciesManager.add(CurrenciesTypes.ATOMS, 1e6);
+		expect(gameManager.purchaseGenerator(GeneratorTypes.MOLECULE)).toBe(true);
+		const cost = gameManager.atomsPerSecond * OBSERVE_APS_SECONDS;
+		expect(cost).toBeGreaterThan(0);
+		expect(gameManager.observationCost).toBe(cost);
+		const atoms = currenciesManager.getAmount(CurrenciesTypes.ATOMS);
+		expect(gameManager.startObservation()).toBe(true);
+		expect(currenciesManager.getAmount(CurrenciesTypes.ATOMS)).toBeCloseTo(atoms - cost);
+
+		currenciesManager.remove(CurrenciesTypes.ATOMS, currenciesManager.getAmount(CurrenciesTypes.ATOMS) - cost / 2);
+		expect(gameManager.startObservation()).toBe(false);
+		currenciesManager.add(CurrenciesTypes.ATOMS, cost);
+		cosmosManager.discover('moon');
+		expect(gameManager.startObservation()).toBe(false);
+	});
+
 	test('discovers objects brightest first, once the Aperture reaches them and an owned instrument sees them', () => {
 		expect(cosmosManager.nextDiscovery?.id).toBe('moon');
 		expect(cosmosManager.discover('mars')).toBe(false);
@@ -104,6 +134,11 @@ describe('sky', () => {
 		expect(cosmosManager.nextDiscovery?.id).toBe('ganymede');
 		expect(cosmosManager.limit).toBe(4);
 		expect(cosmosManager.canObserve).toBe(false);
+
+		/** The next instrument waits until the Aperture reaches as far as the Refractor sees. */
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextInstrument!.cost);
+		expect(cosmosManager.apertureMaxed).toBe(false);
+		expect(cosmosManager.purchaseInstrument('reflector')).toBe(false);
 	});
 
 	test('a color boost raises the Light of that color only', () => {

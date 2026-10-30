@@ -72,7 +72,9 @@ export const IONIZE_FLASH_SECONDS = 600;
 /** Magnitudes one Aperture level adds to every instrument's limit. */
 export const APERTURE_STEP = 0.5;
 /** Time a paid Aperture level takes to widen, so each one is felt instead of clicked through. */
-export const APERTURE_WIDEN_MS = 5000;
+export const APERTURE_WIDEN_MS = 10_000;
+/** Launching an observation costs this many seconds of atom production, so atoms keep a use once the Cosmos is open. */
+export const OBSERVE_APS_SECONDS = 60;
 const APERTURE_BASE_COST = 90;
 /** Growth past the last instrument's first level, low because no later discovery raises the income that pays for them. */
 const APERTURE_LAST_GROWTH = 1.25;
@@ -100,7 +102,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: 'Antiquity',
 	},
 	{
-		cost: 650_000,
+		cost: 2_600_000,
 		description: 'Moons around Jupiter, rings around Saturn.',
 		era: CosmosEras.REFRACTOR,
 		id: 'refractor',
@@ -111,7 +113,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1609',
 	},
 	{
-		cost: 2_900_000_000,
+		cost: 9_800_000_000,
 		description: 'A mirror wide enough to tell a planet from a star.',
 		era: CosmosEras.REFLECTOR,
 		id: 'reflector',
@@ -122,7 +124,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1781',
 	},
 	{
-		cost: 24_000_000_000,
+		cost: 62_000_000_000,
 		description: 'Uranus strays from its path, something unseen pulls on it.',
 		era: CosmosEras.PREDICTION,
 		id: 'prediction',
@@ -133,7 +135,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1846',
 	},
 	{
-		cost: 36_000_000_000,
+		cost: 150_000_000_000,
 		description: "Kirchhoff and Bunsen's prism splits starlight into a rainbow crossed by dark lines, the fingerprints of the elements that made it.",
 		era: CosmosEras.SPECTROSCOPY,
 		id: 'spectroscope',
@@ -145,7 +147,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1859',
 	},
 	{
-		cost: 64_000_000_000,
+		cost: 180_000_000_000,
 		description: "The Naval Observatory's 26-inch lens, the largest in the world, sharp enough to pull tiny moons out of the glare of Mars.",
 		era: CosmosEras.GREAT_REFRACTOR,
 		id: 'great_refractor',
@@ -156,7 +158,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1877',
 	},
 	{
-		cost: 200_000_000_000,
+		cost: 660_000_000_000,
 		description: 'Electroscopes carried 5 km up in a hydrogen balloon, losing their charge faster the higher they fly.',
 		era: CosmosEras.BALLOON,
 		id: 'balloon',
@@ -167,7 +169,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1912',
 	},
 	{
-		cost: 900_000_000_000,
+		cost: 3_100_000_000_000,
 		description: 'Two photographs of the same stars, flipped back and forth until one dot jumps.',
 		era: CosmosEras.PHOTOGRAPHY,
 		id: 'blink_comparator',
@@ -178,7 +180,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1930',
 	},
 	{
-		cost: 1_600_000_000_000,
+		cost: 5_600_000_000_000,
 		description: 'A 15 m horn built to talk to satellites, so quiet that any hiss left in it had to come from the sky.',
 		era: CosmosEras.RADIO,
 		id: 'horn_antenna',
@@ -189,7 +191,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1965',
 	},
 	{
-		cost: 2_500_000_000_000,
+		cost: 10_000_000_000_000,
 		description: 'A telescope flying above the clouds, timing a star as Uranus slides in front of it.',
 		era: CosmosEras.OCCULTATION,
 		id: 'airborne_observatory',
@@ -200,7 +202,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '1977',
 	},
 	{
-		cost: 4_200_000_000_000,
+		cost: 16_000_000_000_000,
 		description: 'A wide camera sweeps the sky past Neptune night after night, hunting for anything that crawls between three photographs.',
 		era: CosmosEras.SURVEY,
 		id: 'sky_survey',
@@ -211,7 +213,7 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 		year: '2001',
 	},
 	{
-		cost: 7_000_000_000_000,
+		cost: 110_000_000_000_000,
 		description: 'Two 4 km laser arms in Louisiana and Washington and a third in Italy, feeling space itself stretch by a thousandth of a proton.',
 		era: CosmosEras.GRAVITATIONAL,
 		id: 'ligo',

@@ -129,10 +129,16 @@ class CosmosManager {
 		return true;
 	}
 
-	/** Pays for the next instrument, which is owned once its research time has passed. */
+	/** Pays for the next instrument, once the Aperture reaches as far as the current one sees. It is owned once its research time has passed. */
 	purchaseInstrument(instrumentId: string): boolean {
 		const instrument = this.nextInstrument;
-		if (!this.unlocked || this.research || instrument?.id !== instrumentId || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < instrument.cost)
+		if (
+			!this.unlocked ||
+			this.research ||
+			!this.apertureMaxed ||
+			instrument?.id !== instrumentId ||
+			currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < instrument.cost
+		)
 			return false;
 		currenciesManager.remove(CurrenciesTypes.STARLIGHT, instrument.cost);
 		this.research = { id: instrumentId, leftMs: instrument.researchMs };

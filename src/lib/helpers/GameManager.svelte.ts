@@ -1,6 +1,7 @@
 import { dev } from '$app/env';
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
 import { CHROMATIC, CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
+import { OBSERVE_APS_SECONDS } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats } from '#data/dailyQuests.js';
 import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
@@ -252,6 +253,8 @@ export class GameManager {
 		for (const production of Object.values(this.generatorProductions)) baseProduction += production;
 		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
+
+	observationCost = $derived(this.atomsPerSecond * OBSERVE_APS_SECONDS);
 
 	/** Generators one auto-buy purchase builds, `Infinity` for as many as the bank pays for. */
 	autoBuyAmount = $derived(AUTO_BUY_BULK[this.photonUpgrades.auto_buy_bulk ?? 0] ?? 1);
@@ -512,6 +515,11 @@ export class GameManager {
 			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
 			starlightPerSecond: cosmosManager.starlightPerSecond,
 		};
+	}
+
+	/** Pays the atoms that launch an observation of the next Cosmos signal, stopping the observation never refunds them. */
+	startObservation(): boolean {
+		return cosmosManager.canObserve && this.spendCurrency({ amount: this.observationCost, currency: CurrenciesTypes.ATOMS });
 	}
 
 	/** Studies a Cosmos object and counts the level toward the daily quest. */

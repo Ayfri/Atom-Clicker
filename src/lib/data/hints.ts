@@ -294,7 +294,8 @@ export const HINTS: Hint[] = [
 		id: 'cosmos:instrument',
 		placement: 'top',
 		realm: 'cosmos',
-		show: () => cosmosManager.nextInstrument !== null && currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
+		show: () =>
+			cosmosManager.apertureMaxed && cosmosManager.nextInstrument !== null && currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
 		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
 		text: 'A better instrument reveals a new batch of the sky, and a new way to observe it.',
 		title: 'Instruments',
@@ -304,7 +305,10 @@ export const HINTS: Hint[] = [
 		id: 'cosmos:spectroscope',
 		placement: 'top',
 		realm: 'cosmos',
-		show: () => cosmosManager.nextInstrument?.id === SPECTROSCOPE_ID && currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
+		show: () =>
+			cosmosManager.apertureMaxed &&
+			cosmosManager.nextInstrument?.id === SPECTROSCOPE_ID &&
+			currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
 		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
 		text: 'Starlight carries the fingerprint of what made it. A spectroscope can read it.',
 		title: 'Spectroscope',

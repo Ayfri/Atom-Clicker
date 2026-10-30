@@ -75,6 +75,7 @@ export class CosmosTracker {
 		if (cosmosManager.wideningMs > 0) return 'widening';
 		if (cosmosManager.nextDiscovery) return 'aperture';
 		if (cosmosManager.research) return 'research';
-		return cosmosManager.nextInstrument ? 'instrument' : null;
+		if (!cosmosManager.nextInstrument) return null;
+		return cosmosManager.apertureMaxed ? 'instrument' : 'aperture';
 	}
 }

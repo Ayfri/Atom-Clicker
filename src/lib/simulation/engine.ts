@@ -457,13 +457,14 @@ export class SimulationEngine {
 			const study = this.bestStudy();
 			const site = this.bestSiteStudy();
 			const instrument = cosmosManager.nextInstrument;
-			this.observedMs = next ? this.observedMs + this.config.tickRate : 0;
+			if (!next) this.observedMs = 0;
+			else if (this.observedMs > 0 || gameManager.startObservation()) this.observedMs += this.config.tickRate;
 			if (next && this.observedMs >= COSMOS_OBSERVE_MS && cosmosManager.discover(next.id)) {
 				this.observedMs = 0;
 				this.cosmos.log('discover', next.id);
 				this.record('cosmos', `discover ${next.id}`);
 				actionsThisTick++;
-			} else if (cosmosManager.nextDiscovery && !next && cosmosManager.purchaseAperture()) {
+			} else if (!next && (cosmosManager.nextDiscovery || (instrument && !cosmosManager.research)) && cosmosManager.purchaseAperture()) {
 				this.cosmos.log('aperture', `${cosmosManager.aperture + 1}`);
 				this.record('cosmos', `aperture ${cosmosManager.aperture + 1}`);
 				actionsThisTick++;
@@ -541,13 +542,20 @@ export class SimulationEngine {
 		for (const layer of layers) this.gainPlateaus[layer] = { gain: 0, since: gameManager.inGameTime };
 	}
 
+	/** Starlight kept for the Aperture level or the instrument the Cosmos waits on, the next instrument needs the Aperture maxed first. */
+	private cosmosReserve(): number {
+		if (cosmosManager.nextDiscovery) return cosmosManager.canObserve ? 0 : cosmosManager.nextApertureCost;
+		const instrument = cosmosManager.research ? null : cosmosManager.nextInstrument;
+		if (!instrument) return 0;
+		return cosmosManager.apertureMaxed ? instrument.cost : cosmosManager.nextApertureCost;
+	}
+
 	/**
 	 * A study pays back in a time set by its level alone, so the lowest level goes first. While saving for the Aperture level or the
 	 * instrument that unlocks the next discovery, a study is only bought when it pays itself back before that purchase was affordable.
 	 */
 	private bestStudy(): string | null {
-		const next = cosmosManager.nextDiscovery;
-		const reserve = next && !cosmosManager.canObserve ? cosmosManager.nextApertureCost : !next && !cosmosManager.research ? (cosmosManager.nextInstrument?.cost ?? 0) : 0;
+		const reserve = this.cosmosReserve();
 		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
 		let best: { cost: number; id: string; level: number } | null = null;
 		for (const object of cosmosManager.objects) {
@@ -568,8 +576,7 @@ export class SimulationEngine {
 	 * events, ranked by the hours its study saves on that wait, scaled by `level + 2` to stand on the same scale as a forge `eta`.
 	 */
 	private bestSiteStudy(): SiteId | null {
-		const next = cosmosManager.nextDiscovery;
-		const reserve = next && !cosmosManager.canObserve ? cosmosManager.nextApertureCost : !next && !cosmosManager.research ? (cosmosManager.nextInstrument?.cost ?? 0) : 0;
+		const reserve = this.cosmosReserve();
 		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
 		const held = currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS);
 		const unaffordable = periodicManager.ready.map(z => decayCost(ELEMENTS[z - 1])).filter(cost => cost > held);
