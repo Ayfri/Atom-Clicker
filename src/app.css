@@ -27,6 +27,12 @@
 	--color-realm-950: #2d1142;
 
 	--color-page: #1a1a1a;
+	--color-cosmos-hud: var(--color-accent-900);
+	--color-cosmos-reticle: #8ff5ff;
+	--color-cosmos-signal: var(--color-accent-400);
+	--color-cosmos-sky: #05070f;
+	--color-cosmos-starlight: #cfe8ff;
+	--color-cosmos-workshop: #ffd27a;
 	--color-radiation: #39ff14;
 }
 

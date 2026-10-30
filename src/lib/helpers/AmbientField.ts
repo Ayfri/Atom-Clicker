@@ -95,6 +95,8 @@ const SURGE_PROGRESS: readonly [number, number] = [0.1, 0.6];
 
 export type AmbientPreset = keyof typeof PRESETS;
 
+export type AmbientScope = RealmType | 'cosmos';
+
 type Point = { x: number; y: number };
 
 export interface AmbientBurst {
@@ -158,11 +160,12 @@ interface Mote {
 }
 
 /**
- * Background particles of the realm on screen: constant dust that thickens with progression, and bursts reacting to what the
- * player does. Only the selected realm mounts one, and each frame clears just the areas its motes covered on the previous one.
+ * Background particles of a scope: constant dust that thickens with progression, and bursts reacting to what the player does. The
+ * selected realm mounts one and the Cosmos another, and each frame clears just the areas its motes covered on the previous one.
  */
 export class AmbientField extends CanvasLoop {
-	private static current: AmbientField | null = null;
+	/** The realm under the Cosmos stays mounted, so each scope keeps its own field. */
+	private static readonly fields = new Map<AmbientScope, AmbientField>();
 
 	/** Default burst color, the realm accent. */
 	accent: string;
@@ -183,32 +186,32 @@ export class AmbientField extends CanvasLoop {
 
 	constructor(
 		canvas: HTMLCanvasElement,
-		private readonly realm: RealmType,
+		private readonly scope: AmbientScope,
 		accent: string,
 		ambience: Ambience,
 	) {
-		super(canvas, `canvas:ambient-${realm}`);
+		super(canvas, `canvas:ambient-${scope}`);
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new Error('Canvas2D is not available');
 		this.ctx = ctx;
 		this.accent = accent;
 		this.ambience = ambience;
-		AmbientField.current = this;
+		AmbientField.fields.set(scope, this);
 		// The field mounts while its realm swings in, a rect measured mid-transform is dropped once it settles.
 		this.settleTimeout = setTimeout(() => (this.rect = null), REALM_SWITCH_MS + 50);
 		this.observe();
 	}
 
-	/** Drops bursts for a realm or tab that is not on screen, so callers never have to check. */
-	static emit(realm: RealmType, preset: AmbientPreset, origin: Origin, burst: AmbientBurst = {}): number[] {
-		const field = AmbientField.current;
-		return field?.realm === realm && field.shown ? field.burst(preset, origin, burst) : [];
+	/** Drops bursts for a scope that is not on screen, so callers never have to check. */
+	static emit(scope: AmbientScope, preset: AmbientPreset, origin: Origin, burst: AmbientBurst = {}): number[] {
+		const field = AmbientField.fields.get(scope);
+		return field?.shown ? field.burst(preset, origin, burst) : [];
 	}
 
 	destroy() {
 		super.destroy();
 		clearTimeout(this.settleTimeout);
-		if (AmbientField.current === this) AmbientField.current = null;
+		if (AmbientField.fields.get(this.scope) === this) AmbientField.fields.delete(this.scope);
 	}
 
 	setAmbience(ambience: Ambience) {

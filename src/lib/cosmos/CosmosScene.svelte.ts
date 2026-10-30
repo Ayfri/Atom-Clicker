@@ -89,6 +89,9 @@ export interface CosmosTuning {
 export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'system';
 
 const DEFAULT_TUNING: CosmosTuning = { bloom: 0.5, bloomEvery: 2, idleCap: true, pixelRatio: 1.5 };
+const BLOOM_STRENGTH = 0.65;
+/** At the eyepiece the bloom only leaves a soft halo, at full strength the Sun would dazzle the player hunting a faint signal. */
+const OBSERVE_BLOOM_STRENGTH = 0.25;
 /** The realistic lighting also runs the clock twenty times slower: a day takes 13 minutes, a year 4 hours. */
 const REALISTIC_PACE = 0.05;
 /** Objects past the naked eye era are too faint to resolve with a wider field of view, the player has to zoom in on them. */
@@ -238,7 +241,7 @@ export class CosmosScene {
 		this.#scene.add(this.#sky.group, this.#markers.sprite, this.#signal);
 
 		const sceneColor = pass(this.#scene, this.#camera).getTextureNode('output');
-		this.#bloom = bloom(sceneColor, 0.65, 0.3, 1);
+		this.#bloom = bloom(sceneColor, BLOOM_STRENGTH, 0.3, 1);
 		this.#withoutBloom = sceneColor;
 		this.#withBloom = sceneColor.add(this.#bloom);
 		this.#pipeline = new RenderPipeline(renderer, this.#withBloom);
@@ -272,7 +275,7 @@ export class CosmosScene {
 			this.#camera.lookAt(this.#positionOf(focus)!);
 			this.#orbit(focus);
 			this.mode = 'overview';
-		} else this.replayIntro();
+		} else this.#playIntro();
 		this.#adaptExposure(1);
 		this.#adaptToGlare(1);
 	}
@@ -389,10 +392,14 @@ export class CosmosScene {
 		this.#render();
 	}
 
-	/** Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. */
-	observe(id: string) {
+	/**
+	 * Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. `pay` runs once the
+	 * scene accepts and can still refuse. The flight runs in intro mode, so the overview HUD can't start or redirect it.
+	 */
+	observe(id: string, pay: () => boolean): boolean {
 		const target = this.#bodies.get(id) ?? this.#sky.nebulae.get(id);
-		if (!target || target.discovered || this.mode !== 'overview') return;
+		if (!target || target.discovered || this.mode !== 'overview' || !pay()) return false;
+		this.mode = 'intro';
 		this.selected = null;
 		this.#gaze = null;
 		this.#target = target;
@@ -414,6 +421,7 @@ export class CosmosScene {
 			this.mode = 'observe';
 			this.#applyGlare();
 		});
+		return true;
 	}
 
 	/** Canvas pixel position of every object in the sky that is in front of the camera and inside the view. */
@@ -425,16 +433,6 @@ export class CosmosScene {
 			if (projected.z > 1 || Math.abs(projected.x) > 0.95 || Math.abs(projected.y) > 0.95) return [];
 			return [{ id, x: ((projected.x + 1) / 2) * clientWidth, y: ((1 - projected.y) / 2) * clientHeight }];
 		});
-	}
-
-	replayIntro() {
-		this.#gaze = null;
-		const away = this.#overviewPosition().sub(this.#earth.position).normalize();
-		this.#camera.position.copy(this.#earth.position).addScaledVector(away, EARTH_RADIUS * 1.35);
-		this.#camera.fov = 30;
-		this.#camera.lookAt(this.#earth.position);
-		this.mode = 'intro';
-		this.#flyTo(() => this.#overviewPosition(), () => this.#earth.position, 50, 4.5, () => this.#enterOverview());
 	}
 
 	setBuilding(building: boolean) {
@@ -542,17 +540,19 @@ export class CosmosScene {
 		glare.value = MathUtils.lerp(glare.value, Math.max(sun, body), ease);
 	}
 
-	/** Bloom and the corona, off in low quality and at the eyepiece, where the Sun would dazzle the player hunting a faint signal. */
+	/** Bloom and the corona, off in low quality, the eyepiece drops the corona and dims the bloom. */
 	#applyGlare() {
-		const bright = this.quality === 'high' && this.mode !== 'observe';
-		this.#sun.corona = bright && realism.value < 1;
-		const output = bright && this.#tuning.bloom > 0 ? this.#withBloom : this.#withoutBloom;
+		const high = this.quality === 'high';
+		const observing = this.mode === 'observe';
+		this.#sun.corona = high && !observing && realism.value < 1;
+		this.#bloom.strength.value = observing ? OBSERVE_BLOOM_STRENGTH : BLOOM_STRENGTH;
+		const output = high && this.#tuning.bloom > 0 ? this.#withBloom : this.#withoutBloom;
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
 		this.#pipeline.needsUpdate = true;
 		/**
 		 * The rebuild only registers the bloom for frame updates if its next render has it on: built on a skipped frame, it stayed
-		 * frozen on its last image, the Sun's glare from before the eyepiece.
+		 * frozen on its last image, a stale glare from before the switch.
 		 */
 		this.#renders = -1;
 	}
@@ -833,6 +833,16 @@ export class CosmosScene {
 	#pickable() {
 		const targets = [...this.#bodies.values(), ...this.#sky.nebulae.values()];
 		return ['sun', 'earth', ...targets.filter(target => target.discovered && target.revealTime < 0).map(target => target.object.id)];
+	}
+
+	#playIntro() {
+		this.#gaze = null;
+		const away = this.#overviewPosition().sub(this.#earth.position).normalize();
+		this.#camera.position.copy(this.#earth.position).addScaledVector(away, EARTH_RADIUS * 1.35);
+		this.#camera.fov = 30;
+		this.#camera.lookAt(this.#earth.position);
+		this.mode = 'intro';
+		this.#flyTo(() => this.#overviewPosition(), () => this.#earth.position, 50, 4.5, () => this.#enterOverview());
 	}
 
 	#placeBodies() {

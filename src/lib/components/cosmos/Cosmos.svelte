@@ -2,25 +2,32 @@
 	import { dev } from '$app/env';
 	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { AmbientField } from '#helpers/AmbientField.js';
+	import { particlesEnabled } from '#helpers/CanvasLoop.js';
+	import { cosmosFx } from '#helpers/cosmosFx.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { reveal } from '#helpers/reveals.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { ui } from '#stores/ui.svelte.js';
+	import ActionButton from '#components/cosmos/ActionButton.svelte';
+	import HudButton from '#components/cosmos/HudButton.svelte';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
 	import PeriodicTable from '#components/cosmos/periodic/PeriodicTable.svelte';
 	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
+	import { horizon, lookUp, rateFlash } from '#components/cosmos/transitions.js';
 	import Currency from '#components/ui/Currency.svelte';
-	import FillLine from '#components/ui/FillLine.svelte';
-	import { Aperture, ChevronDown, ChevronRight, Contrast, Grid3x3, List, Orbit, RotateCcw, Telescope, X } from '@lucide/svelte';
+	import Switch from '#components/ui/Switch.svelte';
+	import { Aperture, ChevronDown, ChevronRight, Contrast, Gauge, Grid3x3, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
-	import { cubicInOut } from 'svelte/easing';
+	import { cubicIn, cubicInOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { fly, scale } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 
 	interface Popup {
 		key: number;
@@ -43,9 +50,11 @@
 	let arrow = $state<HTMLElement>();
 	let canvas = $state<HTMLCanvasElement>();
 	let failure = $state('');
+	let fx = $state.raw<AmbientField>();
 	let popups = $state.raw<Popup[]>([]);
 	let progress = $state<HTMLElement>();
 	let scene = $state.raw<CosmosScene | null>(null);
+	let settingsOpen = $state(false);
 
 	$effect(() => {
 		if (!arrow || !canvas || !progress) return;
@@ -73,15 +82,29 @@
 			if (disposed) return instance.dispose();
 			created = instance;
 			scene = instance;
+			cosmosFx.canvas = target;
+			cosmosFx.scene = instance;
 			uninstall = tools?.installDevTools(instance);
 		})().catch((error: unknown) => (failure = error instanceof Error ? error.message : String(error)));
 		return () => {
 			disposed = true;
 			uninstall?.();
 			created?.dispose();
+			cosmosFx.canvas = null;
+			cosmosFx.scene = null;
 			scene = null;
 		};
 	});
+
+	function mountFx(target: HTMLCanvasElement) {
+		if (!particlesEnabled) return;
+		const instance = untrack(() => new AmbientField(target, 'cosmos', '#4a90e2', { colors: [], density: 0 }));
+		fx = instance;
+		return () => {
+			instance.destroy();
+			fx = undefined;
+		};
+	}
 
 	/** The realms behind stop drawing. */
 	$effect(() => ui.cover());
@@ -104,18 +127,29 @@
 	const mode = $derived(scene?.mode);
 	const next = $derived(cosmosManager.nextDiscovery);
 	const instrument = $derived(cosmosManager.nextInstrument);
+	const atoms = $derived(currenciesManager.getAmount(CurrenciesTypes.ATOMS));
 	const research = $derived(cosmosManager.research);
 	const starlight = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT));
 	const revealed = $derived(scene?.revealed ? COSMOS_OBJECTS_BY_ID[scene.revealed] : null);
 	const selected = $derived(mode === 'overview' ? scene?.selected : null);
 
-	let skyOpen = $state(false);
+	/** Open from the start where it fits beside the sky, on phones the sheet would cover the main action. */
+	let skyOpen = $state(wide.current);
 
 	/** The sky stops under a modal and under the Periodic Table, which both cover it. */
-	$effect(() => scene?.setPaused(ui.activeModal !== null || realmManager.tableOpen));
+	const actionable = $derived(ui.activeModal === null && !realmManager.tableOpen);
+	$effect(() => scene?.setPaused(!actionable));
+	$effect(() => fx?.setActive(actionable));
 	$effect(() => () => (realmManager.tableOpen = false));
 	$effect(() => scene?.setBuilding(research !== null));
 	$effect(() => scene?.setLimit(cosmosManager.limit));
+
+	let building: string | null = null;
+	$effect(() => {
+		const id = research?.id ?? null;
+		if (building && !id) cosmosFx.built();
+		building = id;
+	});
 
 	$effect(() => {
 		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
@@ -132,369 +166,414 @@
 	}
 </script>
 
-{#snippet starlightCost(amount: number)}
-	<span class="flex items-center gap-1 font-mono text-sm tabular-nums">
-		<Currency
-			name={CurrenciesTypes.STARLIGHT}
-			size={14}
-		/>
-		{formatNumber(amount)}
-	</span>
-{/snippet}
+<svelte:window
+	onkeydown={event => {
+		if (event.key === 'Escape') settingsOpen = false;
+	}}
+	onpointermove={event => (pointer = { x: event.clientX, y: event.clientY })}
+/>
 
-<svelte:window onpointermove={event => (pointer = { x: event.clientX, y: event.clientY })} />
-
-<!-- Slides down over the realms like a look up into the sky. The desktop side nav stays reachable on its left. -->
+<!-- Drops in over the realms like a look up into the sky, the 3D canvas lagging behind the frame for depth. The desktop side nav stays reachable on its left. -->
 <div
-	class="fixed inset-x-0 bottom-0 z-45 select-none overflow-hidden bg-[#05070f] text-white lg:left-18"
+	class="fixed inset-x-0 bottom-0 z-45 select-none bg-cosmos-sky text-white lg:left-18"
 	style:top="var(--banner-height)"
-	transition:fly|global={{ duration: 700, easing: cubicInOut, y: '-100%' }}
+	in:lookUp|global
+	out:lookUp|global={{ duration: 600, easing: cubicIn }}
 >
-	<canvas
-		bind:this={canvas}
-		class={['pointer-events-auto z-0 h-full w-full touch-none', hovered && 'cursor-pointer']}
-	></canvas>
-
-	{#if hovered}
-		<p
-			class="pointer-events-none fixed z-10 flex items-center gap-2 rounded-lg border border-white/10 bg-accent-900/95 px-2.5 py-1.5 text-xs shadow-lg"
-			style:left="{pointer.x + 14}px"
-			style:top="{pointer.y + 14}px"
-		>
-			<span
-				class="font-semibold"
-				style:color={hovered.color}>{hovered.name}</span
-			>
-			{#if cosmosManager.starlightOf(hovered.id) > 0}
-				<span class="flex items-center gap-1 font-mono tabular-nums text-[#cfe8ff]">
-					<Currency
-						name={CurrenciesTypes.STARLIGHT}
-						size={12}
-					/>
-					+{formatNumber(cosmosManager.starlightOf(hovered.id))}/s
-				</span>
-			{/if}
-		</p>
-	{/if}
-
-	{#each popups as popup (popup.key)}
-		<span
-			class="starlight-popup pointer-events-none absolute text-xs font-semibold tabular-nums text-[#cfe8ff] [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]"
-			style:left="{popup.x}px"
-			style:top="{popup.y}px"
-		>
-			{popup.text}
-		</span>
-	{/each}
-
-	<header class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
-		<div class="rounded-xl border border-white/10 bg-accent-900/80 px-3 py-2 backdrop-blur-xs">
-			<p class="flex items-center gap-1.5 font-semibold tabular-nums text-[#cfe8ff]">
-				<Currency
-					name={CurrenciesTypes.STARLIGHT}
-					size={18}
-				/>
-				{formatNumber(starlight)}
-				<span class="text-xs font-normal text-white/50">+{formatNumber(cosmosManager.starlightPerSecond)}/s</span>
-			</p>
-			{#if dev && scene}
-				<p class="text-[10px] text-white/35">{scene.backend} · {scene.fps} fps</p>
-			{/if}
-		</div>
-		{#if scene}
-			<!-- Wraps to a second row on narrow phones instead of pushing the Starlight counter off screen. -->
-			<div class="pointer-events-auto flex flex-wrap justify-end gap-2">
-				{#snippet viewToggle(on: boolean, label: string, toggle: () => void, Icon: typeof Orbit)}
-					<button
-						class={[
-							'grid size-9 place-items-center rounded-lg border border-accent-500/30 backdrop-blur-xs transition-colors hover:bg-accent-800',
-							on ? 'bg-accent-600 text-white' : 'bg-accent-900/80 text-accent-300',
-						]}
-						aria-label={label}
-						aria-pressed={on}
-						onclick={toggle}
-						title={label}
-					>
-						<Icon size={16} />
-					</button>
-				{/snippet}
-				{@render viewToggle(scene.orbits, 'Orbits', () => scene?.setOrbits(!scene.orbits), Orbit)}
-				{@render viewToggle(scene.realistic, 'Realistic lighting', () => scene?.setRealistic(!scene.realistic), Contrast)}
-				<button
-					class={[
-						'flex items-center gap-1.5 rounded-lg border border-accent-500/30 px-3 py-2 text-xs font-semibold backdrop-blur-xs transition-colors hover:bg-accent-800 disabled:opacity-40',
-						skyOpen ? 'bg-accent-600 text-white' : 'bg-accent-900/80 text-accent-300',
-					]}
-					data-hint="cosmos-sky"
-					disabled={mode !== 'overview'}
-					onclick={() => (skyOpen = !skyOpen)}
-				>
-					<List size={14} />
-					Sky
-				</button>
-				{#if periodicManager.unlocked}
-					<button
-						class="relative flex items-center gap-1.5 rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-2 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800"
-						data-hint="cosmos-table"
-						onclick={() => (realmManager.tableOpen = true)}
-						in:scale
-					>
-						<Grid3x3 size={14} />
-						Table
-						{#if periodicManager.ready.length}
-							<span class="absolute -top-1.5 -right-1.5 grid min-w-4 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-[#05070f]">
-								{periodicManager.ready.length}
-							</span>
-						{/if}
-					</button>
-				{/if}
-				<button
-					class="rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-2 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800"
-					onclick={() => scene?.setQuality(scene.quality === 'high' ? 'low' : 'high')}
-				>
-					{scene.quality === 'high' ? 'High' : 'Low'} quality
-				</button>
-				<button
-					class="grid size-9 place-items-center rounded-lg border border-accent-500/30 bg-accent-900/80 text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800 disabled:opacity-40"
-					aria-label="Replay the intro"
-					disabled={mode !== 'overview'}
-					onclick={() => scene?.replayIntro()}
-				>
-					<RotateCcw size={16} />
-				</button>
-			</div>
-		{/if}
-	</header>
-
-	<div class={['pointer-events-none absolute inset-0', mode !== 'observe' && 'hidden']}>
-		<div
-			class="absolute left-1/2 top-1/2 size-28 -translate-1/2 rounded-full border border-[#8ff5ff]/40"
-			data-hint="cosmos-reticle"
-		>
-			<span class="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-[#8ff5ff]/60"></span>
-			<span class="absolute bottom-0 left-1/2 h-3 w-px -translate-x-1/2 bg-[#8ff5ff]/60"></span>
-			<span class="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2 bg-[#8ff5ff]/60"></span>
-			<span class="absolute right-0 top-1/2 h-px w-3 -translate-y-1/2 bg-[#8ff5ff]/60"></span>
-		</div>
-		<!-- Fills clockwise from the top while the signal stays in the reticle, the photons' timer ring played backward. -->
-		<div
-			bind:this={progress}
-			class="absolute left-1/2 top-1/2 -ml-9 -mt-9 size-18 opacity-0"
-		>
-			<svg
-				class="size-full -rotate-90"
-				viewBox="0 0 72 72"
-			>
-				<circle
-					class="stroke-white/10"
-					cx="36"
-					cy="36"
-					fill="none"
-					r="32"
-					stroke-width="1.5"
-				/>
-				<circle
-					class="stroke-[#8ff5ff] [stroke-dashoffset:calc(1-var(--progress,0))]"
-					cx="36"
-					cy="36"
-					fill="none"
-					pathLength="1"
-					r="32"
-					stroke-dasharray="1"
-					stroke-linecap="round"
-					stroke-width="2"
-				/>
-			</svg>
-		</div>
-		<div
-			bind:this={arrow}
-			class="absolute left-1/2 top-1/2 -ml-4 -mt-4 text-[#8ff5ff] opacity-0 transition-opacity"
-		>
-			<ChevronRight size={32} />
-		</div>
-		<div class="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 px-16 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6">
-			<p class={['rounded-lg bg-accent-900/70 px-3 py-1.5 text-center text-xs backdrop-blur-xs', scene?.faint ? 'text-[#8ff5ff]' : 'text-white/70']}>
-				{#if scene?.faint}
-					Too faint at this zoom, pinch or scroll to zoom in on it.
-				{:else}
-					Keep the signal inside the reticle until the ring fills. Pinch or scroll to zoom.
-				{/if}
-			</p>
-			<button
-				class="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-accent-500/30 bg-accent-900/80 px-3 py-1.5 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800"
-				onclick={() => scene?.stopObserving()}
-			>
-				<X size={14} />
-				Stop observing
-			</button>
-		</div>
-	</div>
-
-	<!-- Icon only on phones, so it stays clear of the centered actions, and out of the way of the bottom sheets. -->
-	<button
-		class={[
-			'absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-4 z-10 flex size-11 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-accent-900/80 text-xs font-semibold text-accent-300 backdrop-blur-xs transition-colors hover:bg-accent-800 sm:w-auto sm:pl-2.5 sm:pr-3.5',
-			(selected || skyOpen || mode === 'discovery') && 'max-md:hidden',
-		]}
-		aria-label="Back to the realms"
-		onclick={() => (realmManager.cosmosOpen = false)}
-	>
-		<ChevronDown size={18} />
-		<span class="max-sm:hidden">Realms</span>
-	</button>
-
-	{#if failure}
-		<p class="absolute inset-x-0 top-1/2 px-6 text-center text-sm text-red-300">The 3D view failed to start: {failure}</p>
-	{:else if !scene}
-		<p class="absolute inset-x-0 top-1/2 text-center text-sm text-white/50">Loading the cosmos…</p>
-	{:else if mode === 'overview'}
-		{#if skyOpen}
-			<div
-				class="absolute inset-x-3 bottom-3 z-20 flex max-h-[55dvh] flex-col pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-auto md:left-4 md:top-24 md:max-h-[min(44rem,calc(100%-8rem))] md:w-[26rem]"
-			>
-				<SkyPanel
-					onBuyInstrument={id => cosmosManager.purchaseInstrument(id)}
-					onClose={() => (skyOpen = false)}
-					onFocus={focusFromList}
-					onStudy={id => gameManager.studyCosmosObject(id)}
-				/>
-			</div>
-		{/if}
-		{#if selected && (wide.current || !skyOpen)}
-			<div class="absolute inset-x-3 bottom-3 pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:right-4 md:top-20 md:bottom-auto md:w-80">
-				<ObjectPanel
-					id={selected}
-					onClose={() => scene && (scene.selected = null)}
-					onHome={scene.focused === 'earth' ? undefined : () => scene?.focus('earth')}
-					onStudy={() => gameManager.studyCosmosObject(selected)}
-				/>
-			</div>
-		{/if}
+	<div class="absolute inset-0 overflow-hidden">
+		<canvas
+			bind:this={canvas}
+			class={['pointer-events-auto z-0 h-full w-full touch-none', hovered && 'cursor-pointer']}
+			in:lookUp|global={{ lag: 0.35 }}
+			onpointerdown={() => (settingsOpen = false)}
+			out:lookUp|global={{ duration: 600, easing: cubicIn, lag: 0.35 }}
+		></canvas>
+		<canvas
+			class="z-0 size-full"
+			aria-hidden="true"
+			{@attach mountFx}
+		></canvas>
 		<div
 			class={[
-				'pointer-events-none absolute inset-x-0 bottom-0 flex-col items-center gap-2 px-16 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6 *:pointer-events-auto',
-				selected || skyOpen ? 'hidden md:flex' : 'flex',
+				'pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-[#24407a]/70 via-[#0e1a3a]/30 to-transparent transition-[opacity,visibility] duration-700',
+				scene ? 'invisible opacity-0' : 'opacity-100',
 			]}
-		>
-			{#if next && cosmosManager.canObserve}
-				<button
-					class="flex items-center gap-2 rounded-lg bg-accent-600 px-5 py-3 font-semibold text-white shadow-lg shadow-black/40 transition-colors hover:bg-accent-500"
-					data-hint="cosmos-observe"
-					onclick={() => scene?.observe(next.id)}
-				>
-					<Telescope size={18} />
-					Observe the sky
-				</button>
-				<p class="text-center text-xs text-white/50">A faint signal waits somewhere in the night sky. Tap an object to study it.</p>
-			{:else if next}
-				{const widening = $derived(cosmosManager.wideningMs > 0)}
-				<button
-					class={[
-						'relative flex items-center gap-3 overflow-hidden rounded-lg bg-accent-600 px-5 py-3 font-semibold text-white shadow-lg shadow-black/40 transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed',
-						!widening && 'disabled:opacity-50',
-					]}
-					data-hint="cosmos-aperture"
-					disabled={widening || starlight < cosmosManager.nextApertureCost}
-					onclick={() => cosmosManager.purchaseAperture()}
-				>
-					{#if widening}
-						<FillLine duration={APERTURE_WIDEN_MS} />
-					{/if}
-					<Aperture
-						class={widening ? 'animate-spin [animation-duration:3s]' : ''}
-						size={18}
-					/>
-					{widening ? 'Widening the aperture…' : 'Widen the aperture'}
-					{#if !widening}
-						{@render starlightCost(cosmosManager.nextApertureCost)}
-					{/if}
-				</button>
-				<p class="text-center text-xs text-white/50">
-					The next signal shines at magnitude {formatMagnitude(next.magnitude)}, your sight reaches {formatMagnitude(cosmosManager.limit)}.
-				</p>
-			{:else if research}
-				{const researched = $derived(COSMOS_INSTRUMENTS.find(item => item.id === research.id)!)}
-				{const progress = $derived(1 - research.leftMs / researched.researchMs)}
-				<div class="flex w-full max-w-sm flex-col gap-2.5 rounded-lg bg-accent-900/80 px-4 py-3 backdrop-blur-xs">
-					<div class="flex items-center gap-3">
-						<Telescope
-							class="shrink-0 text-[#ffd27a]"
-							size={20}
-						/>
-						<div class="min-w-0 flex-1">
-							<p class="text-[10px] font-semibold uppercase tracking-widest text-white/40">Building · {Math.floor(progress * 100)}%</p>
-							<p class="truncate text-sm font-semibold">{researched.name}</p>
-						</div>
-						<span class="shrink-0 whitespace-nowrap font-mono text-sm tabular-nums text-[#ffd27a]">{formatDuration(research.leftMs)}</span>
-					</div>
-					<div class="h-1.5 rounded-full bg-white/10">
-						<div
-							class="h-full origin-left rounded-full bg-linear-to-r from-[#b8792a] to-[#ffd27a] shadow-[0_0_8px_#ffd27a80] transition-transform duration-1000 ease-linear"
-							style:transform="scaleX({progress})"
-						></div>
-					</div>
-				</div>
-				<p class="text-center text-xs text-white/50">The workshop lights up on the Earth while it works. {researched.description}</p>
-			{:else if instrument}
-				<button
-					class="flex items-center gap-3 rounded-lg bg-accent-600 px-5 py-3 font-semibold text-white shadow-lg shadow-black/40 transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
-					data-hint="cosmos-instrument"
-					disabled={starlight < instrument.cost}
-					onclick={() => cosmosManager.purchaseInstrument(instrument.id)}
-				>
-					<Telescope size={18} />
-					{instrument.name}
-					{@render starlightCost(instrument.cost)}
-				</button>
-				<p class="text-center text-xs text-white/50">{instrument.tool ? '' : 'Your instruments have found everything they can. '}{instrument.description}</p>
-			{:else}
-				<p class="text-center text-sm text-white/70">Every object your instruments can see is in your sky.</p>
-			{/if}
-		</div>
-	{:else if mode === 'discovery' && revealed}
-		<div class="absolute inset-x-0 bottom-0 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
-			<article
-				class="discovery-card flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-white/10 bg-linear-to-br from-accent-900/95 to-accent-800/95 p-5 shadow-2xl backdrop-blur-xs"
+			aria-hidden="true"
+			out:horizon|global={{ duration: 600, easing: cubicIn }}
+		></div>
+
+		{#if hovered}
+			<p
+				class="pointer-events-none fixed z-10 flex items-center gap-2 rounded-md bg-cosmos-hud/95 px-2.5 py-1.5 text-xs shadow-lg ring-1 ring-white/10"
+				style:left="{pointer.x + 14}px"
+				style:top="{pointer.y + 14}px"
 			>
-				<div>
-					<p class="text-xs font-semibold uppercase tracking-widest text-[#8ff5ff]">New discovery</p>
-					<h2
-						class="text-2xl font-bold"
-						style:color={revealed.color}
-					>
-						{revealed.name}
-					</h2>
-					<p class="text-xs text-white/50">{revealed.year} · {revealed.discoverer}</p>
-				</div>
-				<p class="text-sm text-white/75">{revealed.fact}</p>
-				<p class="flex items-center justify-between gap-2 text-sm">
-					<span class="font-semibold text-white">+{Math.round(revealed.boost.amount * 100)}% {revealed.boost.label}</span>
-					<span class="flex items-center gap-1 font-mono tabular-nums text-[#cfe8ff]">
+				<span
+					class="font-semibold"
+					style:color={hovered.color}>{hovered.name}</span
+				>
+				{#if cosmosManager.starlightOf(hovered.id) > 0}
+					<span class="flex items-center gap-1 font-mono tabular-nums text-cosmos-starlight">
 						<Currency
 							name={CurrenciesTypes.STARLIGHT}
-							size={14}
+							size={12}
 						/>
-						+{formatNumber(cosmosManager.starlightOf(revealed.id))}/s
+						+{formatNumber(cosmosManager.starlightOf(hovered.id))}/s
 					</span>
-				</p>
-				<button
-					class="rounded-lg bg-accent-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-500"
-					onclick={() => scene?.continue()}
-				>
-					Continue
-				</button>
-			</article>
-		</div>
-	{/if}
+				{/if}
+			</p>
+		{/if}
 
-	{#if realmManager.tableOpen && periodicManager.unlocked}
-		<div
-			class="absolute inset-0 z-30"
-			transition:fly={{ duration: 400, easing: cubicInOut, y: '100%' }}
+		{#each popups as popup (popup.key)}
+			<span
+				class="starlight-popup pointer-events-none absolute text-xs font-semibold tabular-nums text-cosmos-starlight [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]"
+				style:left="{popup.x}px"
+				style:top="{popup.y}px"
+			>
+				{popup.text}
+			</span>
+		{/each}
+
+		<header
+			class="pointer-events-none absolute inset-x-0 top-0 z-25 flex flex-wrap items-start justify-between gap-x-3 gap-y-1 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))]"
+			in:fly|global={{ delay: 450, duration: 400, y: -12 }}
 		>
-			<PeriodicTable onClose={() => (realmManager.tableOpen = false)} />
+			{#if dev && scene}
+				<p class="font-mono text-[10px] text-white/35 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">{scene.backend} · {scene.fps} fps</p>
+			{/if}
+			<div
+				class="order-last flex w-full flex-col items-center text-center [text-shadow:0_1px_3px_rgb(0_0_0/0.8)] sm:absolute sm:inset-x-0 sm:top-0 sm:order-none sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))]"
+			>
+				<p class="flex items-center gap-2.5 text-3xl font-black tabular-nums text-cosmos-starlight sm:text-4xl [text-shadow:0_1px_3px_rgb(0_0_0/0.8),0_0_24px_rgb(207_232_255/0.35)]">
+					<Currency
+						class="shrink-0 max-sm:size-7"
+						name={CurrenciesTypes.STARLIGHT}
+						size={32}
+					/>
+					{formatNumber(starlight)}
+				</p>
+				<span class="text-[11px] font-bold uppercase tracking-[0.3em] text-white/50">Starlight</span>
+				{#key cosmosManager.starlightPerSecond}
+					<p
+						class="font-mono text-lg font-bold tabular-nums text-white/50"
+						in:rateFlash
+					>
+						+{formatNumber(cosmosManager.starlightPerSecond)}<span class="text-sm">/s</span>
+					</p>
+				{/key}
+			</div>
+			{#if scene}
+				<div class="pointer-events-auto relative ml-auto flex items-start gap-2">
+					<HudButton
+						active={skyOpen}
+						aria-pressed={skyOpen}
+						data-hint="cosmos-sky"
+						disabled={mode !== 'overview'}
+						icon={List}
+						label="Sky"
+						labelled="md"
+						onclick={() => {
+							skyOpen = !skyOpen;
+							settingsOpen = false;
+						}}
+					/>
+					{#if periodicManager.unlocked}
+						<span
+							class="relative inline-flex rounded-lg"
+							in:reveal
+						>
+							<HudButton
+								badge={periodicManager.ready.length}
+								data-hint="cosmos-table"
+								icon={Grid3x3}
+								label="Table"
+								labelled="md"
+								onclick={() => {
+									realmManager.tableOpen = true;
+									settingsOpen = false;
+								}}
+							/>
+						</span>
+					{/if}
+					<HudButton
+						active={settingsOpen}
+						aria-expanded={settingsOpen}
+						icon={Settings2}
+						label="View settings"
+						onclick={() => (settingsOpen = !settingsOpen)}
+					/>
+					{#if settingsOpen}
+						<div
+							class="absolute right-0 top-full mt-2 flex w-60 flex-col rounded-xl bg-cosmos-hud/95 p-1.5 shadow-2xl ring-1 ring-white/10"
+							transition:fly={{ duration: 150, y: -6 }}
+						>
+							<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
+								<Orbit
+									class="text-white/50"
+									size={16}
+								/>
+								<span class="flex-1 text-sm">Orbits</span>
+								<Switch
+									checked={scene.orbits}
+									label="Orbits"
+									onchange={on => scene?.setOrbits(on)}
+								/>
+							</label>
+							<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
+								<Contrast
+									class="text-white/50"
+									size={16}
+								/>
+								<span class="flex-1 text-sm">Realistic lighting</span>
+								<Switch
+									checked={scene.realistic}
+									label="Realistic lighting"
+									onchange={on => scene?.setRealistic(on)}
+								/>
+							</label>
+							<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
+								<Gauge
+									class="text-white/50"
+									size={16}
+								/>
+								<span class="flex-1 text-sm">High quality</span>
+								<Switch
+									checked={scene.quality === 'high'}
+									label="High quality"
+									onchange={on => scene?.setQuality(on ? 'high' : 'low')}
+								/>
+							</label>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</header>
+
+		<div class={['pointer-events-none absolute inset-0', mode !== 'observe' && 'hidden']}>
+			<div
+				class="absolute left-1/2 top-1/2 size-28 -translate-1/2 rounded-full border border-cosmos-reticle/40"
+				data-hint="cosmos-reticle"
+			>
+				<span class="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-cosmos-reticle/60"></span>
+				<span class="absolute bottom-0 left-1/2 h-3 w-px -translate-x-1/2 bg-cosmos-reticle/60"></span>
+				<span class="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2 bg-cosmos-reticle/60"></span>
+				<span class="absolute right-0 top-1/2 h-px w-3 -translate-y-1/2 bg-cosmos-reticle/60"></span>
+			</div>
+			<!-- Fills clockwise from the top while the signal stays in the reticle, the photons' timer ring played backward. -->
+			<div
+				bind:this={progress}
+				class="absolute left-1/2 top-1/2 -ml-9 -mt-9 size-18 opacity-0"
+			>
+				<svg
+					class="size-full -rotate-90"
+					viewBox="0 0 72 72"
+				>
+					<circle
+						class="stroke-white/10"
+						cx="36"
+						cy="36"
+						fill="none"
+						r="32"
+						stroke-width="1.5"
+					/>
+					<circle
+						class="stroke-cosmos-reticle [stroke-dashoffset:calc(1-var(--progress,0))]"
+						cx="36"
+						cy="36"
+						fill="none"
+						pathLength="1"
+						r="32"
+						stroke-dasharray="1"
+						stroke-linecap="round"
+						stroke-width="2"
+					/>
+				</svg>
+			</div>
+			<div
+				bind:this={arrow}
+				class="absolute left-1/2 top-1/2 -ml-4 -mt-4 text-cosmos-reticle opacity-0 transition-opacity"
+			>
+				<ChevronRight size={32} />
+			</div>
+			<div class="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 px-16 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6">
+				<p class={['max-w-sm text-center text-xs [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]', scene?.faint ? 'text-cosmos-reticle' : 'text-white/70']}>
+					{#if scene?.faint}
+						Too faint at this zoom, pinch or scroll to zoom in on it.
+					{:else}
+						Keep the signal inside the reticle until the ring fills. Pinch or scroll to zoom.
+					{/if}
+				</p>
+				<HudButton
+					class="pointer-events-auto"
+					icon={X}
+					label="Stop observing"
+					labelled="always"
+					onclick={() => scene?.stopObserving()}
+				/>
+			</div>
 		</div>
-	{/if}
+
+		<!-- Icon only on phones, so it stays clear of the centered actions, and out of the way of the bottom sheets. -->
+		<div
+			class={['absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-4 z-10', (selected || skyOpen || mode === 'discovery') && 'max-md:hidden']}
+			in:fly|global={{ delay: 500, duration: 400, y: 12 }}
+		>
+			<HudButton
+				icon={ChevronDown}
+				label="Realms"
+				labelled="md"
+				onclick={() => (realmManager.cosmosOpen = false)}
+			/>
+		</div>
+
+		{#if failure}
+			<p class="absolute inset-x-0 top-1/2 px-6 text-center text-sm text-red-300">The 3D view failed to start: {failure}</p>
+		{:else if !scene}
+			<p class="absolute inset-x-0 top-1/2 text-center text-sm text-white/50">Loading the cosmos…</p>
+		{:else if mode === 'overview'}
+			{#if skyOpen}
+				<div
+					class="absolute inset-x-3 bottom-3 z-20 flex max-h-[55dvh] flex-col pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-40 md:left-4 md:top-28 md:max-h-none md:w-[26rem]"
+				>
+					<SkyPanel
+						onBuyInstrument={(id, event) => cosmosManager.purchaseInstrument(id) && cosmosFx.instrument(event)}
+						onClose={() => (skyOpen = false)}
+						onFocus={focusFromList}
+						onStudy={(id, event) => gameManager.studyCosmosObject(id) && cosmosFx.study(event, id)}
+					/>
+				</div>
+			{/if}
+			{#if selected && (wide.current || !skyOpen)}
+				<div class="absolute inset-x-3 bottom-3 pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:w-80">
+					<ObjectPanel
+						id={selected}
+						onClose={() => scene && (scene.selected = null)}
+						onHome={scene.focused === 'earth' ? undefined : () => scene?.focus('earth')}
+						onStudy={event => gameManager.studyCosmosObject(selected) && cosmosFx.study(event, selected)}
+					/>
+				</div>
+			{/if}
+			<div
+				class={[
+					'pointer-events-none absolute inset-x-0 bottom-0 flex-col items-center gap-2 px-16 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6 *:pointer-events-auto',
+					selected || skyOpen ? 'hidden md:flex' : 'flex',
+				]}
+			>
+				{#if next && cosmosManager.canObserve}
+					{const observable = $derived(atoms >= gameManager.observationCost)}
+					<ActionButton
+						cost={{ affordable: observable, amount: gameManager.observationCost, currency: CurrenciesTypes.ATOMS }}
+						disabled={!observable}
+						hint="cosmos-observe"
+						icon={Telescope}
+						label="Observe the sky"
+						onclick={() => scene?.observe(next.id, () => gameManager.startObservation())}
+						pulse={actionable && observable}
+					/>
+					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">A faint signal waits somewhere in the night sky. Tap an object to study it.</p>
+				{:else if next || (instrument && !research && !cosmosManager.apertureMaxed)}
+					{const widening = $derived(cosmosManager.wideningMs > 0)}
+					{const widenable = $derived(starlight >= cosmosManager.nextApertureCost)}
+					<ActionButton
+						busyMs={widening ? APERTURE_WIDEN_MS : 0}
+						cost={widening ? undefined : { affordable: widenable, amount: cosmosManager.nextApertureCost, currency: CurrenciesTypes.STARLIGHT }}
+						disabled={widening || !widenable}
+						hint="cosmos-aperture"
+						icon={Aperture}
+						label={widening ? 'Widening the aperture…' : 'Widen the aperture'}
+						onclick={event => cosmosManager.purchaseAperture() && cosmosFx.aperture(event)}
+						pulse={actionable && !widening && widenable}
+					/>
+					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
+						{#if next}
+							The next signal shines at magnitude {formatMagnitude(next.magnitude)}, your sight reaches {formatMagnitude(cosmosManager.limit)}.
+						{:else}
+							{instrument?.name} needs your sight at magnitude {formatMagnitude(cosmosManager.instrument.reach)}, it reaches {formatMagnitude(cosmosManager.limit)}.
+						{/if}
+					</p>
+				{:else if research}
+					{const researched = $derived(COSMOS_INSTRUMENTS.find(item => item.id === research.id)!)}
+					{const progress = $derived(1 - research.leftMs / researched.researchMs)}
+					<div
+						class="relative flex h-14 w-full max-w-sm items-center gap-3 overflow-hidden rounded-xl bg-cosmos-hud/90 pl-2 pr-4 ring-1 ring-cosmos-workshop/40"
+						role="status"
+					>
+						<span class="grid size-10 shrink-0 place-items-center rounded-lg bg-cosmos-workshop text-cosmos-sky">
+							<Telescope size={20} />
+						</span>
+						<span class="flex min-w-0 flex-1 flex-col">
+							<span class="text-[10px] font-semibold uppercase tracking-widest text-white/40">Building · {Math.floor(progress * 100)}%</span>
+							<span class="truncate text-sm font-semibold">{researched.name}</span>
+						</span>
+						<span class="shrink-0 whitespace-nowrap font-mono text-sm tabular-nums text-cosmos-workshop">{formatDuration(research.leftMs)}</span>
+						<span
+							class="absolute inset-x-0 top-0 h-0.5 origin-left bg-cosmos-workshop transition-transform duration-1000 ease-linear"
+							style:transform="scaleX({progress})"
+						></span>
+					</div>
+					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">The workshop lights up on the Earth while it works. {researched.description}</p>
+				{:else if instrument}
+					{const buildable = $derived(starlight >= instrument.cost)}
+					<ActionButton
+						cost={{ affordable: buildable, amount: instrument.cost, currency: CurrenciesTypes.STARLIGHT }}
+						disabled={!buildable}
+						hint="cosmos-instrument"
+						icon={Telescope}
+						label={instrument.name}
+						onclick={event => cosmosManager.purchaseInstrument(instrument.id) && cosmosFx.instrument(event)}
+						pulse={actionable && buildable}
+					/>
+					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">{instrument.tool ? '' : 'Your instruments have found everything they can. '}{instrument.description}</p>
+				{:else}
+					<p class="max-w-md text-center text-sm text-white/70 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">Every object your instruments can see is in your sky.</p>
+				{/if}
+			</div>
+		{:else if mode === 'discovery' && revealed}
+			<div class="absolute inset-x-0 bottom-0 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+				<article
+					class="discovery-card flex w-full max-w-sm flex-col gap-3 rounded-xl bg-cosmos-hud/95 p-5 shadow-2xl ring-1 ring-white/10"
+					onanimationstart={event => cosmosFx.discovery(event.currentTarget, revealed.color)}
+				>
+					<div>
+						<p class="text-[10px] font-semibold uppercase tracking-widest text-cosmos-signal">New discovery</p>
+						<h2
+							class="text-2xl font-bold"
+							style:color={revealed.color}
+						>
+							{revealed.name}
+						</h2>
+						<p class="text-xs text-white/50">{revealed.year} · {revealed.discoverer}</p>
+					</div>
+					<p class="text-sm text-white/75">{revealed.fact}</p>
+					<p class="flex items-center justify-between gap-2 text-sm">
+						<span class="font-semibold text-white">+{Math.round(revealed.boost.amount * 100)}% {revealed.boost.label}</span>
+						<span class="flex items-center gap-1 font-mono tabular-nums text-cosmos-starlight">
+							<Currency
+								name={CurrenciesTypes.STARLIGHT}
+								size={14}
+							/>
+							+{formatNumber(cosmosManager.starlightOf(revealed.id))}/s
+						</span>
+					</p>
+					<ActionButton
+						class="w-full"
+						icon={ChevronRight}
+						label="Continue"
+						onclick={() => scene?.continue()}
+					/>
+				</article>
+			</div>
+		{/if}
+
+		{#if realmManager.tableOpen && periodicManager.unlocked}
+			<div
+				class="absolute inset-0 z-30"
+				transition:fly={{ duration: 400, easing: cubicInOut, y: '100%' }}
+			>
+				<PeriodicTable onClose={() => (realmManager.tableOpen = false)} />
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>

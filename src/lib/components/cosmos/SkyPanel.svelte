@@ -10,22 +10,25 @@
 		studyCost,
 	} from '#data/cosmos.js';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { cosmosFx } from '#helpers/cosmosFx.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { reveal } from '#helpers/reveals.svelte.js';
 	import type { EffectStat } from '#lib/types.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import FillLine from '#components/ui/FillLine.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
-	import { Aperture, Check, ChevronsUp, Cog, Factory, Lock, MousePointerClick, Orbit, Shield, ShieldPlus, Telescope, Timer, X, Zap } from '@lucide/svelte';
+	import { Aperture, Check, ChevronsUp, Cog, Factory, Lock, MousePointerClick, Orbit, Shield, ShieldHalf, ShieldPlus, Telescope, Timer, X, Zap } from '@lucide/svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
-		onBuyInstrument: (id: string) => void;
+		onBuyInstrument: (id: string, event: MouseEvent) => void;
 		onClose: () => void;
 		onFocus: (id: string) => void;
-		onStudy: (id: string) => void;
+		onStudy: (id: string, event: MouseEvent) => void;
 	}
 
 	let { onBuyInstrument, onClose, onFocus, onStudy }: Props = $props();
@@ -34,6 +37,9 @@
 		{ icon: Orbit, id: 'objects', label: 'Objects' },
 		{ icon: Telescope, id: 'instruments', label: 'Instruments' },
 	] as const;
+
+	const CHIP =
+		'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-white/6 px-2.5 py-1.5 ring-1 ring-cosmos-signal/30 transition-colors enabled:hover:bg-cosmos-signal/15 disabled:cursor-not-allowed disabled:ring-white/8';
 
 	let tab = $state<(typeof TABS)[number]['id']>('objects');
 
@@ -44,6 +50,7 @@
 		blue_light_gain: CurrenciesTypes.BLUE_LIGHT,
 		click: MousePointerClick,
 		electron_gain: CurrenciesTypes.ELECTRONS,
+		excited_photon_chance: CurrenciesTypes.EXCITED_PHOTONS,
 		generator: Cog,
 		global: Factory,
 		green_light_gain: CurrenciesTypes.GREEN_LIGHT,
@@ -54,6 +61,7 @@
 		red_light_gain: CurrenciesTypes.RED_LIGHT,
 		stability_boost: ShieldPlus,
 		stability_capacity: Shield,
+		stability_speed: ShieldHalf,
 		xp_gain: ChevronsUp,
 	};
 
@@ -72,8 +80,8 @@
 	);
 </script>
 
-{#snippet starlightAmount(amount: number)}
-	<span class="flex items-center gap-1 font-mono text-xs tabular-nums">
+{#snippet starlightAmount(amount: number, affordable: boolean)}
+	<span class={['flex items-center gap-1 font-mono text-xs tabular-nums', !affordable && 'text-red-300']}>
 		<Currency
 			name={CurrenciesTypes.STARLIGHT}
 			size={12}
@@ -88,51 +96,54 @@
 	{const icon = $derived(BOOST_ICONS[object.boost.stat])}
 	<div class="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/5">
 		<button
-			class="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+			class="flex min-w-0 flex-1 items-center gap-2.5 text-left"
 			onclick={() => onFocus(object.id)}
 		>
-			<span class="flex min-w-0 items-center gap-2">
-				<span
-					class="size-2.5 shrink-0 rounded-full"
-					style:background-color={object.color}
-				></span>
-				<span class="truncate text-sm font-semibold text-white">{object.name}</span>
-				<span class="shrink-0 font-mono text-[0.7rem] tabular-nums text-[#cfe8ff]/60">{formatNumber(cosmosManager.starlightOf(object.id))}/s</span>
-			</span>
-			<span class="flex min-w-0 items-center gap-1 pl-4.5 text-xs text-white/60">
-				{#if typeof icon === 'string'}
-					<Currency
-						name={icon}
-						size={13}
-					/>
-				{:else if icon}
-					{const Icon = $derived(icon)}
-					<Icon
-						class="shrink-0 text-accent-300"
-						size={13}
-					/>
-				{/if}
-				<span class="font-mono tabular-nums text-white/85">+{Math.round(object.boost.amount * (level + 1) * 100)}%</span>
-				<span class="truncate">{object.boost.label}</span>
+			<SkyThumbnail
+				color={object.color}
+				id={object.id}
+				small={!!object.orbits}
+			/>
+			<span class="flex min-w-0 flex-col gap-0.5">
+				<span class="flex min-w-0 items-center gap-2">
+					<span class="truncate text-sm font-semibold text-white">{object.name}</span>
+					<span class="shrink-0 font-mono text-[0.7rem] tabular-nums text-cosmos-starlight/60">{formatNumber(cosmosManager.starlightOf(object.id))}/s</span>
+				</span>
+				<span class="flex min-w-0 items-center gap-1 text-xs text-white/60">
+					{#if typeof icon === 'string'}
+						<Currency
+							name={icon}
+							size={13}
+						/>
+					{:else if icon}
+						{const Icon = $derived(icon)}
+						<Icon
+							class="shrink-0 text-accent-300"
+							size={13}
+						/>
+					{/if}
+					<span class="font-mono tabular-nums text-white/85">+{Math.round(object.boost.amount * (level + 1) * 100)}%</span>
+					<span class="truncate">{object.boost.label}</span>
+				</span>
 			</span>
 		</button>
 		<button
-			class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-accent-600 px-2.5 py-1.5 text-white transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-40"
+			class={[CHIP, !cosmosManager.unlocked && 'opacity-40']}
 			aria-label="Study {object.name}"
 			data-hint="cosmos-study"
 			disabled={!cosmosManager.unlocked || starlight < cost}
-			onclick={() => onStudy(object.id)}
+			onclick={event => onStudy(object.id, event)}
 		>
 			<span class="text-[0.65rem] text-white/60">Lv {level}</span>
-			{@render starlightAmount(cost)}
+			{@render starlightAmount(cost, starlight >= cost)}
 		</button>
 	</div>
 {/snippet}
 
 <!-- Slides in from the left edge like a drawer, the sky stays visible and clickable beside it. -->
 <section
-	class="flex max-h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-accent-900/95 shadow-2xl backdrop-blur-xs"
-	transition:fly={{ duration: 300, easing: cubicOut, x: '-110%' }}
+	class="flex max-h-full min-h-0 flex-col rounded-xl bg-cosmos-hud/95 shadow-2xl ring-1 ring-white/10"
+	transition:fly|global={{ duration: 300, easing: cubicOut, x: '-110%' }}
 >
 	<header class="flex items-center gap-2 p-2">
 		<Tabs
@@ -181,7 +192,7 @@
 					size={18}
 				/>
 				<div class="min-w-0 flex-1">
-					<p class="text-sm font-semibold text-white">Aperture <span class="text-xs font-normal text-white/40">Lv {cosmosManager.aperture}</span></p>
+					<p class="text-sm font-semibold text-white">Aperture <span class="ml-1 text-xs font-normal text-white/40">Lv {cosmosManager.aperture}</span></p>
 					<p class="text-xs text-white/50">
 						{#if cosmosManager.apertureMaxed}
 							Your sight reaches magnitude {formatMagnitude(cosmosManager.limit)}, as far as {cosmosManager.instrument.name} goes.
@@ -198,18 +209,15 @@
 					/>
 				{:else}
 					<button
-						class={[
-							'relative shrink-0 overflow-hidden whitespace-nowrap rounded-lg bg-accent-600 px-2.5 py-1.5 text-white transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed',
-							!widening && 'disabled:opacity-40',
-						]}
+						class={[CHIP, 'relative overflow-hidden', !cosmosManager.unlocked && 'opacity-40']}
 						disabled={!cosmosManager.unlocked || widening || starlight < cosmosManager.nextApertureCost}
-						onclick={() => cosmosManager.purchaseAperture()}
+						onclick={event => cosmosManager.purchaseAperture() && cosmosFx.aperture(event)}
 					>
 						{#if widening}
 							<FillLine duration={APERTURE_WIDEN_MS} />
 							<span class="text-xs">Widening…</span>
 						{:else}
-							{@render starlightAmount(cosmosManager.nextApertureCost)}
+							{@render starlightAmount(cosmosManager.nextApertureCost, starlight >= cosmosManager.nextApertureCost)}
 						{/if}
 					</button>
 				{/if}
@@ -221,9 +229,12 @@
 					<div class="min-w-0 flex-1">
 						{#if owned || next}
 							<p class="text-sm font-semibold text-white">
-								{instrument.name} <span class="text-xs font-normal text-white/40">{instrument.year}</span>
+								{instrument.name} <span class="ml-1 text-xs font-normal text-white/40">{instrument.year}</span>
 							</p>
 							<p class="text-xs text-white/50">{instrument.description}</p>
+							{#if next && !cosmosManager.apertureMaxed && !cosmosManager.research}
+								<p class="mt-0.5 text-xs text-accent-300">Widen your sight to magnitude {formatMagnitude(cosmosManager.instrument.reach)} to build it.</p>
+							{/if}
 						{:else}
 							<p class="text-sm font-semibold text-white">????</p>
 							<p class="text-xs text-white/50">????</p>
@@ -239,18 +250,19 @@
 							<span class="font-mono text-xs tabular-nums text-white/60">{formatDuration(cosmosManager.research.leftMs)}</span>
 							<span class="h-1 w-full overflow-hidden rounded-full bg-white/10">
 								<span
-									class="block h-full origin-left bg-[#ffd27a] transition-transform duration-1000 ease-linear"
+									class="block h-full origin-left bg-cosmos-workshop transition-transform duration-1000 ease-linear"
 									style:transform="scaleX({1 - cosmosManager.research.leftMs / instrument.researchMs})"
 								></span>
 							</span>
 						</span>
-					{:else if next}
+					{:else if next && cosmosManager.apertureMaxed}
 						<button
-							class="shrink-0 rounded-lg bg-accent-600 px-2.5 py-1.5 text-white transition-colors enabled:hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-40"
+							class={[CHIP, !cosmosManager.unlocked && 'opacity-40']}
 							disabled={!cosmosManager.unlocked || starlight < instrument.cost}
-							onclick={() => onBuyInstrument(instrument.id)}
+							in:reveal
+							onclick={event => onBuyInstrument(instrument.id, event)}
 						>
-							{@render starlightAmount(instrument.cost)}
+							{@render starlightAmount(instrument.cost, starlight >= instrument.cost)}
 						</button>
 					{:else}
 						<Lock
