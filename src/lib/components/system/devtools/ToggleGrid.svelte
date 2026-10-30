@@ -3,7 +3,11 @@
 
 	interface Item {
 		description: string;
+		/** Puts the item in this group instead of the one parsed from its id. */
+		group?: string;
 		id: string;
+		/** Chip text, defaults to the id's tier part. */
+		label?: string;
 		name: string;
 	}
 
@@ -27,9 +31,9 @@
 		const byKey = new Map<string, Chip[]>();
 		for (const item of items) {
 			const parts = item.id.split('_');
-			const key = parts.filter(part => !TIER.test(part)).join(' ');
+			const key = item.group ?? parts.filter(part => !TIER.test(part)).join(' ');
 			const chips = byKey.get(key) ?? [];
-			chips.push({ item, label: parts.filter(part => TIER.test(part)).join('.') });
+			chips.push({ item, label: item.label ?? parts.filter(part => TIER.test(part)).join('.') });
 			byKey.set(key, chips);
 		}
 		const misc: Chip[] = [];

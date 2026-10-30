@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS, formatMagnitude, studyCost } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
-	import { SITES } from '#data/sites.js';
+	import { ELEMENTS, FAMILIES } from '#data/elements.js';
+	import { CHAINS, FORGED_BY, SITES } from '#data/sites.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
@@ -35,6 +36,14 @@
 		name: object.name,
 	}));
 
+	const elementItems = ELEMENTS.map(element => ({
+		description: `Z ${element.z} · ${FAMILIES[element.family].name} · forged by ${SITES[FORGED_BY[element.z]].short}`,
+		group: FAMILIES[element.family].name,
+		id: String(element.z),
+		label: element.symbol,
+		name: element.name,
+	}));
+
 	let benchRuns = $state(10);
 	let benching = $state(false);
 
@@ -51,6 +60,20 @@
 
 	/** Keeps the data order, `nextDiscovery` walks the objects in it. */
 	const setDiscovered = (ids: string[]) => (cosmosManager.discovered = COSMOS_OBJECTS.filter(object => ids.includes(object.id)).map(object => object.id));
+
+	/** An identified element must be forged, so its site's chain moves past it, which forges the steps before it too. */
+	function setIdentified(ids: string[]) {
+		const zs = ids.map(Number);
+		let sites = periodicManager.sites;
+		for (const z of zs) {
+			if (periodicManager.forged.has(z)) continue;
+			const site = FORGED_BY[z];
+			const forge = sites[site] ?? periodicManager.forge(site);
+			sites = { ...sites, [site]: { ...forge, index: Math.max(forge.index, CHAINS[site].steps.indexOf(z) + 1), progress: 0 } };
+		}
+		periodicManager.sites = sites;
+		periodicManager.identified = ELEMENTS.filter(element => zs.includes(element.z)).map(element => element.z);
+	}
 
 	/** Owning an instrument means owning every one before it, the game buys them in order. */
 	function setInstrument(index: number) {
@@ -165,6 +188,10 @@
 	{#if !periodicManager.unlocked}
 		<p class="mt-2 text-[12px] text-white/35">Opens with the Spectroscope instrument.</p>
 	{/if}
+</Section>
+
+<Section collapsed title="Elements">
+	<ToggleGrid items={elementItems} onChange={setIdentified} owned={periodicManager.identified.map(String)} />
 </Section>
 
 {#snippet sceneTools(scene: CosmosScene)}
