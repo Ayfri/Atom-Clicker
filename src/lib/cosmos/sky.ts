@@ -210,6 +210,9 @@ function zoomStars(pixel: Node<'float'>, band: Node<'float'>) {
 	}, vec3(0));
 }
 
+/** The Milky Way rises out of the dark from 30% of the sight, slowly at first. */
+const milkyGlow = (limit: number) => Math.max(0, (skySight(limit) - 0.3) / 0.7) ** 2;
+
 /**
  * Everything past the Solar System, centered on the camera: the Milky Way dome, the deep-sky objects, the two star fields and the
  * zoom stars. A wider sight eases in so a new Aperture level visibly fills the sky.
@@ -225,6 +228,8 @@ export class Sky {
 	/** Limiting magnitude, eased toward `#goal`. */
 	readonly #limit = uniform(0);
 	#goal: number;
+	/** Milky Way brightness, eased far slower than the limit: a new instrument raises the limit by several magnitudes at once. */
+	readonly #milky = uniform(0);
 	/** Angle one CSS pixel covers, the zoom stars size their layers with it. */
 	readonly #pixel = uniform(1);
 	/** Share of the bright field and Milky Way shown at the eased limit, see `skySight`. */
@@ -237,10 +242,10 @@ export class Sky {
 	constructor(albedo: (id: string) => Node<'vec3'>, limit: number, discovered: readonly string[]) {
 		this.#limit.value = this.#goal = limit;
 		this.#sight.value = skySight(limit);
+		this.#milky.value = milkyGlow(limit);
 		const milkyWay = albedo('sky');
-		/** The Milky Way rises out of the dark in the second half of the sight. */
 		const material = new MeshBasicNodeMaterial({ depthWrite: false, side: BackSide });
-		material.colorNode = milkyWay.mul(smoothstep(0.3, 1, this.#sight)).mul(darkSky);
+		material.colorNode = milkyWay.mul(this.#milky).mul(darkSky);
 		this.#dome = new Mesh(new SphereGeometry(SKY_DISTANCE, 64, 32), material);
 		this.#dome.renderOrder = -1;
 		/** Past the naked eye only, they are the faint stars a telescope adds. */
@@ -282,6 +287,9 @@ export class Sky {
 	}
 
 	update(dt: number) {
+		const glow = milkyGlow(this.#goal);
+		const left = glow - this.#milky.value;
+		if (left !== 0) this.#milky.value = Math.abs(left) < 1e-3 ? glow : this.#milky.value + left * Math.min(1, dt * 0.25);
 		if (this.#limit.value === this.#goal) return;
 		const gap = this.#goal - this.#limit.value;
 		this.#limit.value = Math.abs(gap) < 1e-3 ? this.#goal : this.#limit.value + gap * Math.min(1, dt * 1.2);
