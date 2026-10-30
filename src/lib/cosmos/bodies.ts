@@ -80,14 +80,14 @@ const NOWHERE = new Vector3(1e7, 1e7, 1e7);
 
 /**
  * Ring opacity at a distance from Saturn's center in Saturn radii, with the real ring radii: the faint C ring, the dense B ring, the
- * Cassini Division and the A ring split by the Encke Gap. The gaps and the ringlets only show once `resolved` reaches 1.
+ * Cassini Division and the A ring split by the Encke Gap. Unresolved, they are a single soft band, Galileo's blur.
  */
 function ringDensity(radius: Node<'float'>, resolved: Node<'float'>) {
 	const band = (from: number, to: number, soft = 0.012) => smoothstep(from - soft, from + soft, radius).mul(oneMinus(smoothstep(to - soft, to + soft, radius)));
-	const ringlets = mix(1, mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.25).add(0.75), resolved);
-	const gap = (at: number, width: number) => mix(1, smoothstep(width * 0.5, width, radius.sub(at).abs()), resolved);
-	const rings = band(1.24, 1.53).mul(0.22).add(band(1.53, 1.95).mul(0.97)).add(band(1.95, 2.03, 0.01).mul(mix(0.6, 0.08, resolved))).add(band(2.03, 2.27).mul(0.8));
-	return rings.mul(ringlets).mul(gap(2.214, 0.008));
+	const ringlets = mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.25).add(0.75);
+	const gap = smoothstep(0.004, 0.008, radius.sub(2.214).abs());
+	const rings = band(1.24, 1.53).mul(0.22).add(band(1.53, 1.95).mul(0.97)).add(band(1.95, 2.03, 0.01).mul(0.08)).add(band(2.03, 2.27).mul(0.8));
+	return mix(band(1.4, 2.2, 0.15).mul(0.75), rings.mul(ringlets).mul(gap), resolved);
 }
 
 /** 1 where the ring's planet, centered on the ring mesh, hides the Sun. */
@@ -140,7 +140,7 @@ function ringMaterial(reveal: Node<'float'>) {
 	const shadow = planetShadow(RADII.saturn);
 	const ringlets = mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.5).add(0.5);
 	/** Water ice, a light grey with a faint warm cast, the dusty C ring darker than the bright B ring. */
-	const ice = mix(color('#a9a59d'), color('#e2dfd8'), mix(0.5, ringlets, reveal)).mul(mix(0.7, 1, smoothstep(1.45, 1.6, radius)));
+	const ice = mix(color('#a9a59d'), color('#e2dfd8'), mix(0.5, ringlets, reveal)).mul(mix(1, mix(0.7, 1, smoothstep(1.45, 1.6, radius)), reveal));
 	/** Seen from the side away from the Sun, the rings only pass the light filtering through them and turn dark. */
 	const normal = saturnRingNormal();
 	const sunSide = step(0, dot(toSun, normal).mul(dot(cameraPosition.sub(positionWorld), normal)));
