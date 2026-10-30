@@ -16,14 +16,16 @@
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
+	import Blueprint from '#components/cosmos/Blueprint.svelte';
 	import HudButton from '#components/cosmos/HudButton.svelte';
+	import Iris from '#components/cosmos/Iris.svelte';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
 	import PeriodicTable from '#components/cosmos/periodic/PeriodicTable.svelte';
 	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
 	import { horizon, lookUp, rateFlash } from '#components/cosmos/transitions.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import Switch from '#components/ui/Switch.svelte';
-	import { Aperture, ChevronDown, ChevronRight, Contrast, Gauge, Grid3x3, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
+	import { ChevronDown, ChevronRight, Contrast, Gauge, Grid3x3, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { cubicIn, cubicInOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -479,11 +481,18 @@
 						cost={widening ? undefined : { affordable: widenable, amount: cosmosManager.nextApertureCost, currency: CurrenciesTypes.STARLIGHT }}
 						disabled={widening || !widenable}
 						hint="cosmos-aperture"
-						icon={Aperture}
 						label={widening ? 'Widening the aperture…' : 'Widen the aperture'}
 						onclick={event => cosmosManager.purchaseAperture() && cosmosFx.aperture(event)}
 						pulse={actionable && !widening && widenable}
-					/>
+					>
+						{#snippet tile()}
+							<Iris
+								durationMs={widening ? APERTURE_WIDEN_MS : 0}
+								progress={1 - cosmosManager.wideningMs / APERTURE_WIDEN_MS}
+								size={28}
+							/>
+						{/snippet}
+					</ActionButton>
 					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
 						{#if next}
 							The next signal shines at magnitude {formatMagnitude(next.magnitude)}, your sight reaches {formatMagnitude(cosmosManager.limit)}.
@@ -495,12 +504,14 @@
 					{const researched = $derived(COSMOS_INSTRUMENTS.find(item => item.id === research.id)!)}
 					{const progress = $derived(1 - research.leftMs / researched.researchMs)}
 					<div
-						class="relative flex h-14 w-full max-w-sm items-center gap-3 overflow-hidden rounded-xl bg-cosmos-hud/90 pl-2 pr-4 ring-1 ring-cosmos-workshop/40"
+						class="relative flex h-16 w-full max-w-sm items-center gap-3 overflow-hidden rounded-xl bg-cosmos-hud/90 pl-2 pr-4 ring-1 ring-cosmos-workshop/40"
 						role="status"
 					>
-						<span class="grid size-10 shrink-0 place-items-center rounded-lg bg-cosmos-workshop text-cosmos-sky">
-							<Telescope size={20} />
-						</span>
+						<Blueprint
+							class="size-12"
+							id={researched.id}
+							{progress}
+						/>
 						<span class="flex min-w-0 flex-1 flex-col">
 							<span class="text-[10px] font-semibold uppercase tracking-widest text-white/40">Building · {Math.floor(progress * 100)}%</span>
 							<span class="truncate text-sm font-semibold">{researched.name}</span>

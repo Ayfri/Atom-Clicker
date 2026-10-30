@@ -16,6 +16,8 @@
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import type { EffectStat } from '#lib/types.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import Blueprint from '#components/cosmos/Blueprint.svelte';
+	import Iris from '#components/cosmos/Iris.svelte';
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import FillLine from '#components/ui/FillLine.svelte';
@@ -215,6 +217,12 @@
 					>
 						{#if widening}
 							<FillLine duration={APERTURE_WIDEN_MS} />
+							<Iris
+								class="text-accent-300"
+								durationMs={APERTURE_WIDEN_MS}
+								progress={1 - cosmosManager.wideningMs / APERTURE_WIDEN_MS}
+								size={16}
+							/>
 							<span class="text-xs">Widening…</span>
 						{:else}
 							{@render starlightAmount(cosmosManager.nextApertureCost, starlight >= cosmosManager.nextApertureCost)}
@@ -246,15 +254,12 @@
 							size={18}
 						/>
 					{:else if cosmosManager.research?.id === instrument.id}
-						<span class="flex w-24 shrink-0 flex-col items-end gap-1">
-							<span class="font-mono text-xs tabular-nums text-white/60">{formatDuration(cosmosManager.research.leftMs)}</span>
-							<span class="h-1 w-full overflow-hidden rounded-full bg-white/10">
-								<span
-									class="block h-full origin-left bg-cosmos-workshop transition-transform duration-1000 ease-linear"
-									style:transform="scaleX({1 - cosmosManager.research.leftMs / instrument.researchMs})"
-								></span>
-							</span>
-						</span>
+						<Blueprint
+							class="size-8"
+							id={instrument.id}
+							progress={1 - cosmosManager.research.leftMs / instrument.researchMs}
+						/>
+						<span class="w-14 shrink-0 text-right font-mono text-xs tabular-nums text-white/60">{formatDuration(cosmosManager.research.leftMs)}</span>
 					{:else if next && cosmosManager.apertureMaxed}
 						<button
 							class={[CHIP, !cosmosManager.unlocked && 'opacity-40']}

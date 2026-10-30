@@ -4,6 +4,7 @@
 	import Currency from '#components/ui/Currency.svelte';
 	import FillLine from '#components/ui/FillLine.svelte';
 	import type { Telescope } from '@lucide/svelte';
+	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
 
 	interface Props {
@@ -12,14 +13,15 @@
 		cost?: { affordable: boolean; amount: number; currency: CurrencyName };
 		disabled?: boolean;
 		hint?: string;
-		icon: typeof Telescope;
+		icon?: typeof Telescope;
 		label: string;
 		onclick: (event: MouseEvent) => void;
 		pulse?: boolean;
 		sub?: string;
+		tile?: Snippet;
 	}
 
-	let { busyMs = 0, class: className, cost, disabled = false, hint, icon: Icon, label, onclick, pulse = false, sub }: Props = $props();
+	let { busyMs = 0, class: className, cost, disabled = false, hint, icon: Icon, label, onclick, pulse = false, sub, tile }: Props = $props();
 
 	const muted = $derived(disabled && !busyMs);
 </script>
@@ -45,10 +47,11 @@
 		></span>
 	{/if}
 	<span class={['grid size-10 shrink-0 place-items-center rounded-lg', muted ? 'bg-white/8 text-white/40' : 'bg-accent-500 text-white']}>
-		<Icon
-			class={busyMs > 0 ? 'animate-spin [animation-duration:3s]' : ''}
-			size={20}
-		/>
+		{#if tile}
+			{@render tile()}
+		{:else if Icon}
+			<Icon size={20} />
+		{/if}
 	</span>
 	<span class="flex min-w-0 flex-col">
 		<span class={['truncate text-sm font-semibold', muted ? 'text-white/60' : 'text-white']}>{label}</span>
