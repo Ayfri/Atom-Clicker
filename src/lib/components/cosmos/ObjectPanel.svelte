@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
-	import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
+	import { COSMOS_OBJECTS_BY_ID, STUDY_MS, studyCost } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -14,7 +14,7 @@
 	interface Props {
 		id: string;
 		onClose: () => void;
-		onStudy: (event: MouseEvent) => void;
+		onStudy: () => void;
 	}
 
 	let { id, onClose, onStudy }: Props = $props();
@@ -27,6 +27,8 @@
 	const cost = $derived(studyCost(object, level));
 	const skyLight = $derived(cosmosManager.skyLightOf(id));
 	const affordable = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cost);
+	const studying = $derived(cosmosManager.studying?.id === id);
+	const otherStudying = $derived(cosmosManager.studying !== null && !studying);
 </script>
 
 <article class="flex flex-col gap-3 rounded-xl bg-cosmos-hud/95 p-4 shadow-2xl ring-1 ring-white/10">
@@ -112,13 +114,16 @@
 	/>
 
 	<ActionButton
+		busyMs={studying ? STUDY_MS : 0}
 		class="w-full"
-		cost={{ affordable, amount: cost, currency: CurrenciesTypes.STARLIGHT }}
-		disabled={!affordable || !cosmosManager.unlocked}
+		cost={studying ? undefined : { affordable, amount: cost, currency: CurrenciesTypes.STARLIGHT }}
+		disabled={!affordable || !cosmosManager.unlocked || otherStudying}
+		elapsedMs={STUDY_MS - (cosmosManager.studying?.leftMs ?? STUDY_MS)}
 		hint="cosmos-study"
 		icon={Orbit}
-		label="Study"
+		label={studying ? 'Studying…' : 'Study'}
 		onclick={onStudy}
 		sub="Lv {level}"
+		title={otherStudying ? 'Another object is being studied.' : undefined}
 	/>
 </article>

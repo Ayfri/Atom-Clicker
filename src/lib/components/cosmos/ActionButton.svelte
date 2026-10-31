@@ -12,6 +12,8 @@
 		class?: ClassValue;
 		cost?: { affordable: boolean; amount: number; currency: CurrencyName };
 		disabled?: boolean;
+		/** Part of `busyMs` already run when the button mounts the progress line. */
+		elapsedMs?: number;
 		hint?: string;
 		icon?: typeof Telescope;
 		label: string;
@@ -19,9 +21,10 @@
 		pulse?: boolean;
 		sub?: string;
 		tile?: Snippet;
+		title?: string;
 	}
 
-	let { busyMs = 0, class: className, cost, disabled = false, hint, icon: Icon, label, onclick, pulse = false, sub, tile }: Props = $props();
+	let { busyMs = 0, class: className, cost, disabled = false, elapsedMs = 0, hint, icon: Icon, label, onclick, pulse = false, sub, tile, title }: Props = $props();
 
 	const muted = $derived(disabled && !busyMs);
 </script>
@@ -36,9 +39,13 @@
 	data-hint={hint}
 	disabled={disabled || busyMs > 0}
 	{onclick}
+	{title}
 >
 	{#if busyMs > 0}
-		<FillLine duration={busyMs} />
+		<FillLine
+			duration={busyMs}
+			elapsed={elapsedMs}
+		/>
 	{/if}
 	{#if pulse}
 		<span

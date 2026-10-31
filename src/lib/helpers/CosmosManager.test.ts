@@ -10,6 +10,7 @@ import {
 	SKY_LIGHT,
 	SKY_SECTIONS,
 	SPECTROSCOPE_ID,
+	STUDY_MS,
 	studyCost,
 } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
@@ -196,12 +197,62 @@ describe('sky', () => {
 		const earth = COSMOS_OBJECTS_BY_ID.earth;
 		currenciesManager.add(CurrenciesTypes.STARLIGHT, studyCost(earth, 0) + studyCost(earth, 1));
 		expect(cosmosManager.study('earth')).toBe(true);
+		cosmosManager.advance(STUDY_MS);
 		expect(cosmosManager.study('earth')).toBe(true);
+		cosmosManager.advance(STUDY_MS);
 		expect(cosmosManager.study('earth')).toBe(false);
 		expect(cosmosManager.study('mars')).toBe(false);
 		expect(starlight()).toBeCloseTo(0);
 		expect(cosmosManager.starlightPerSecond).toBe((1 + 3) * ionizeStarlightMultiplier(1));
 		expect(gameManager.globalMultiplier / globalBefore).toBeCloseTo((1 + earth.boost.amount * 3) / (1 + earth.boost.amount));
+	});
+
+	describe('a study', () => {
+		const earth = COSMOS_OBJECTS_BY_ID.earth;
+
+		beforeEach(() => {
+			currenciesManager.add(CurrenciesTypes.STARLIGHT, 10 * (studyCost(earth, 0) + studyCost(COSMOS_OBJECTS_BY_ID.sun, 0)));
+		});
+
+		test('runs one at a time and only raises the level and its boosts when it ends', () => {
+			const boosts = cosmosManager.starlightPerSecond;
+			const before = starlight();
+			expect(cosmosManager.study('earth')).toBe(true);
+			expect(before - starlight()).toBeCloseTo(studyCost(earth, 0));
+			expect(cosmosManager.study('sun')).toBe(false);
+			expect(cosmosManager.study('earth')).toBe(false);
+
+			cosmosManager.advance(STUDY_MS - 1);
+			expect(cosmosManager.studying).toEqual({ id: 'earth', leftMs: 1 });
+			expect(cosmosManager.level('earth')).toBe(0);
+			expect(cosmosManager.starlightPerSecond).toBe(boosts);
+
+			cosmosManager.tick(1);
+			expect(cosmosManager.studying).toBeNull();
+			expect(cosmosManager.level('earth')).toBe(1);
+			expect(cosmosManager.starlightPerSecond).toBeGreaterThan(boosts);
+			expect(cosmosManager.study('sun')).toBe(true);
+		});
+
+		test('is finished by the offline catch-up, however long the player was away', () => {
+			cosmosManager.study('earth');
+			cosmosManager.advance(24 * 3_600_000);
+			expect(cosmosManager.studying).toBeNull();
+			expect(cosmosManager.studies).toEqual({ earth: 1 });
+		});
+
+		test('is saved as done, and a reload neither loses nor repeats it', () => {
+			cosmosManager.study('earth');
+			cosmosManager.advance(STUDY_MS / 2);
+			const saved = cosmosManager.getState();
+			expect(saved.studies).toEqual({ earth: 1 });
+			expect(cosmosManager.studies).toEqual({});
+
+			cosmosManager.loadState(saved);
+			expect(cosmosManager.studying).toBeNull();
+			cosmosManager.advance(STUDY_MS);
+			expect(cosmosManager.studies).toEqual({ earth: 1 });
+		});
 	});
 
 	test('survives every prestige and drops unknown ids from a save', () => {

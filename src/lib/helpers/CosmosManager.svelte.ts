@@ -12,6 +12,7 @@ import {
 	ionizeStarlightMultiplier,
 	SKY_LIGHT,
 	SPECTROSCOPE_ID,
+	STUDY_MS,
 	studyCost,
 } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
@@ -30,6 +31,8 @@ class CosmosManager {
 	/** Instrument paid for and still being built, owned once `leftMs` runs out. */
 	research = $state.raw<CosmosState['research']>(null);
 	studies = $state.raw<Record<string, number>>({});
+	/** The one study being run, paid for and raising its object's level once `leftMs` runs out. */
+	studying = $state.raw<{ id: string; leftMs: number } | null>(null);
 	/** 0 when no paid Aperture level is widening. */
 	wideningMs = $state(0);
 	/** Reads the Starlight currency boost live, GameManager sets it since this module never imports it. */
@@ -139,11 +142,19 @@ class CosmosManager {
 		return true;
 	}
 
-	/** Online ticks and offline catch-up both widen the Aperture and build the instrument. */
+	/** Online ticks and offline catch-up both widen the Aperture, finish the study and build the instrument. */
 	advance(deltaMs: number) {
 		if (this.wideningMs > 0) {
 			this.wideningMs = Math.max(0, this.wideningMs - deltaMs);
 			if (this.wideningMs === 0) this.aperture++;
+		}
+		if (this.studying) {
+			const { id, leftMs } = this.studying;
+			if (leftMs > deltaMs) this.studying = { id, leftMs: leftMs - deltaMs };
+			else {
+				this.studies = { ...this.studies, [id]: this.level(id) + 1 };
+				this.studying = null;
+			}
 		}
 		if (!this.research) return;
 		const leftMs = this.research.leftMs - deltaMs;
@@ -177,12 +188,11 @@ class CosmosManager {
 
 	study(objectId: string): boolean {
 		const object = COSMOS_OBJECTS_BY_ID[objectId];
-		if (!this.unlocked || !object || !this.objects.includes(object)) return false;
-		const level = this.level(objectId);
-		const cost = studyCost(object, level);
+		if (!this.unlocked || this.studying || !object || !this.objects.includes(object)) return false;
+		const cost = studyCost(object, this.level(objectId));
 		if (currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < cost) return false;
 		currenciesManager.remove(CurrenciesTypes.STARLIGHT, cost);
-		this.studies = { ...this.studies, [objectId]: level + 1 };
+		this.studying = { id: objectId, leftMs: STUDY_MS };
 		return true;
 	}
 
@@ -191,15 +201,17 @@ class CosmosManager {
 		this.advance(deltaMs);
 	}
 
-	/** A level still widening is saved as done, a reload only skips its last seconds. */
+	/** A level still widening and a study still running are saved as done, a reload only skips their last seconds. */
 	getState(): CosmosState {
-		return { aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0), discovered: this.discovered, instruments: this.instruments, research: this.research, studies: this.studies };
+		const studies = this.studying ? { ...this.studies, [this.studying.id]: this.level(this.studying.id) + 1 } : this.studies;
+		return { aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0), discovered: this.discovered, instruments: this.instruments, research: this.research, studies };
 	}
 
 	/** Unknown ids from a tampered or future save are dropped, they would count toward the boosts. */
 	loadState(state: CosmosState) {
 		this.aperture = Number.isInteger(state.aperture) && state.aperture > 0 ? state.aperture : 0;
 		this.wideningMs = 0;
+		this.studying = null;
 		this.discovered = (state.discovered ?? []).filter(id => id in COSMOS_OBJECTS_BY_ID);
 		this.instruments = (state.instruments ?? []).filter(id => COSMOS_INSTRUMENTS.some(instrument => instrument.id === id));
 		const research = state.research;

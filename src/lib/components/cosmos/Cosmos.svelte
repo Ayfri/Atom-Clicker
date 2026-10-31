@@ -156,6 +156,15 @@
 		building = id;
 	});
 
+	const studyingId = $derived(cosmosManager.studying?.id ?? null);
+
+	/** The burst plays when the study ends, a loaded save drops the pending one without a level. */
+	let studied: { id: string; level: number } | null = null;
+	$effect(() => {
+		if (studied && !studyingId && cosmosManager.level(studied.id) > studied.level) cosmosFx.study(studied.id);
+		studied = studyingId ? { id: studyingId, level: untrack(() => cosmosManager.level(studyingId)) } : null;
+	});
+
 	$effect(() => {
 		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
 	});
@@ -429,7 +438,7 @@
 						onBuyInstrument={(id, event) => cosmosManager.purchaseInstrument(id) && cosmosFx.instrument(event)}
 						onClose={() => (skyOpen = false)}
 						onFocus={focusFromList}
-						onStudy={(id, event) => gameManager.studyCosmosObject(id) && cosmosFx.study(event, id)}
+						onStudy={id => gameManager.studyCosmosObject(id)}
 					/>
 				</div>
 			{/if}
@@ -438,7 +447,7 @@
 					<ObjectPanel
 						id={selected}
 						onClose={() => scene && (scene.selected = null)}
-						onStudy={event => gameManager.studyCosmosObject(selected) && cosmosFx.study(event, selected)}
+						onStudy={() => gameManager.studyCosmosObject(selected)}
 					/>
 				</div>
 			{/if}

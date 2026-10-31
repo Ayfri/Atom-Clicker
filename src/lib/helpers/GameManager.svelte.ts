@@ -522,7 +522,7 @@ export class GameManager {
 		return cosmosManager.canObserve && this.spendCurrency({ amount: this.observationCost, currency: CurrenciesTypes.ATOMS });
 	}
 
-	/** Studies a Cosmos object and counts the level toward the daily quest. */
+	/** Starts studying a Cosmos object and counts the level toward the daily quest as soon as it is paid. */
 	studyCosmosObject(objectId: string): boolean {
 		if (!cosmosManager.study(objectId)) return false;
 		this.dailyStats.cosmosStudies = (this.dailyStats.cosmosStudies ?? 0) + 1;

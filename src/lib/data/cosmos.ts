@@ -65,6 +65,7 @@ export const IONIZE_STARLIGHT_STEP = 0.15;
 export const IONIZE_FLASH_SECONDS = 600;
 export const APERTURE_STEP = 0.5;
 export const APERTURE_WIDEN_MS = 10_000;
+export const STUDY_MS = 10_000;
 /** Seconds of atom production an observation costs, so atoms keep a use once the Cosmos is open. */
 export const OBSERVE_APS_SECONDS = 60;
 const APERTURE_BASE_COST = 90;

@@ -39,8 +39,10 @@ class CosmosFx {
 		return { x: left + spot.x, y: top + spot.y };
 	}
 
-	study(origin: MouseEvent, id: string) {
-		AmbientField.emit('cosmos', 'bloom', origin, { color: COSMOS_OBJECTS_BY_ID[id].color, surge: 4, target: this.spot(id) });
+	/** Blooms on the object once its study ends, nothing when it is off screen. */
+	study(id: string) {
+		const spot = this.spot(id);
+		if (spot) AmbientField.emit('cosmos', 'bloom', spot, { color: COSMOS_OBJECTS_BY_ID[id].color, surge: 4 });
 	}
 }
 

@@ -48,7 +48,7 @@
 	let benching = $state(false);
 
 	const next = $derived(cosmosManager.nextDiscovery);
-	const timersLeft = $derived(Math.max(cosmosManager.wideningMs, cosmosManager.research?.leftMs ?? 0));
+	const timersLeft = $derived(Math.max(cosmosManager.wideningMs, cosmosManager.research?.leftMs ?? 0, cosmosManager.studying?.leftMs ?? 0));
 	const readouts = $derived([
 		['Starlight/s', formatNumber(cosmosManager.starlightPerSecond)],
 		['Ionize ×', `x${cosmosManager.starlightMultiplier.toFixed(2)}`],

@@ -7,6 +7,7 @@
 		type CosmosObject,
 		formatMagnitude,
 		SKY_SECTIONS,
+		STUDY_MS,
 		studyCost,
 	} from '#data/cosmos.js';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
@@ -31,7 +32,7 @@
 		onBuyInstrument: (id: string, event: MouseEvent) => void;
 		onClose: () => void;
 		onFocus: (id: string) => void;
-		onStudy: (id: string, event: MouseEvent) => void;
+		onStudy: (id: string) => void;
 	}
 
 	let { onBuyInstrument, onClose, onFocus, onStudy }: Props = $props();
@@ -95,6 +96,8 @@
 	{const level = $derived(cosmosManager.level(object.id))}
 	{const cost = $derived(studyCost(object, level))}
 	{const icon = $derived(BOOST_ICONS[object.boost.stat])}
+	{const busy = $derived(cosmosManager.studying !== null)}
+	{const studying = $derived(cosmosManager.studying?.id === object.id)}
 	<div class="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/5">
 		<button
 			class="flex min-w-0 flex-1 items-center gap-2.5 text-left"
@@ -129,14 +132,23 @@
 			</span>
 		</button>
 		<button
-			class={[CHIP, !cosmosManager.unlocked && 'opacity-40']}
+			class={[CHIP, 'relative overflow-hidden', !cosmosManager.unlocked && 'opacity-40']}
 			aria-label="Study {object.name}"
 			data-hint="cosmos-study"
-			disabled={!cosmosManager.unlocked || starlight < cost}
-			onclick={event => onStudy(object.id, event)}
+			disabled={!cosmosManager.unlocked || busy || starlight < cost}
+			onclick={() => onStudy(object.id)}
+			title={busy && !studying ? 'Another object is being studied.' : undefined}
 		>
-			<span class="text-[0.65rem] text-white/60">Lv {level}</span>
-			{@render starlightAmount(cost, starlight >= cost)}
+			{#if studying}
+				<FillLine
+					duration={STUDY_MS}
+					elapsed={STUDY_MS - (cosmosManager.studying?.leftMs ?? STUDY_MS)}
+				/>
+				<span class="text-xs">Studying…</span>
+			{:else}
+				<span class="text-[0.65rem] text-white/60">Lv {level}</span>
+				{@render starlightAmount(cost, starlight >= cost)}
+			{/if}
 		</button>
 	</div>
 {/snippet}
