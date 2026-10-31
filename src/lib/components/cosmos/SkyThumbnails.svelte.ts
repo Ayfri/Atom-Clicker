@@ -1,7 +1,8 @@
 import { pixelRatio } from '#helpers/CanvasLoop.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
-import { autoLevel, type GlobeLut, globeLut, MAP_HEIGHT, MAP_WIDTH, shadeGlobe } from '#components/cosmos/skyGlobe.js';
+import { autoLevel, type GlobeLut, globeLut, MAP_HEIGHT, MAP_WIDTH, rockLut, shadeGlobe } from '#components/cosmos/skyGlobe.js';
+import { ROCK_SHAPES } from '#lib/cosmos/rockShapes.js';
 import { ui } from '#stores/ui.svelte.js';
 import { prefersReducedMotion } from 'svelte/motion';
 
@@ -126,11 +127,12 @@ class SkyThumbnails {
 		if (!ctx) return () => {};
 
 		const pixels = Math.round(size * pixelRatio());
+		const rock = kind === 'globe' ? ROCK_SHAPES[id] : undefined;
 		canvas.width = canvas.height = pixels;
 		const entry: Entry = {
 			ctx,
 			image: new ImageData(pixels, pixels),
-			lut: kind === 'globe' ? globeLut(pixels, (radius * pixels) / size) : null,
+			lut: kind === 'globe' && !rock ? globeLut(pixels, (radius * pixels) / size) : null,
 			onReady,
 			source: null,
 			visible: false,
@@ -141,6 +143,8 @@ class SkyThumbnails {
 		loadSource(id, kind, pixels).then(source => {
 			if (!source || this.#entries.get(canvas) !== entry) return;
 
+			/** Ray marching costs a few ms per rock, it runs here so a list of rocks builds one after the other as their maps decode. */
+			if (rock) entry.lut = rockLut(pixels, (radius * pixels) / size, rock);
 			entry.source = source;
 			this.#draw(entry);
 			entry.onReady();

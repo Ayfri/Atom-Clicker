@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { autoLevel, globeLut, MAP_HEIGHT, MAP_WIDTH, shadeGlobe } from './skyGlobe.js';
+import { ROCK_SHAPES } from '#lib/cosmos/rockShapes.js';
+import { autoLevel, globeLut, MAP_HEIGHT, MAP_WIDTH, rockLut, shadeGlobe } from './skyGlobe.js';
 
 const SIZE = 32;
 
@@ -35,6 +36,39 @@ describe('shadeGlobe', () => {
 
 	test('the corners outside the disc stay transparent', () => {
 		expect(frame(3).slice(0, 4)).toEqual(new Uint8ClampedArray(4));
+	});
+});
+
+describe('rockLut', () => {
+	const bounds = (lut: ReturnType<typeof rockLut>) => {
+		const xs = Array.from(lut.pixel, pixel => pixel % lut.size);
+		const ys = Array.from(lut.pixel, pixel => Math.floor(pixel / lut.size));
+		return { height: Math.max(...ys) - Math.min(...ys) + 1, width: Math.max(...xs) - Math.min(...xs) + 1 };
+	};
+
+	test('every rock stays inside its box and reads valid map cells', () => {
+		for (const shape of Object.values(ROCK_SHAPES)) {
+			const lut = rockLut(64, 32, shape);
+			const { width } = bounds(lut);
+			expect(width).toBeLessThanOrEqual(64);
+			expect(width).toBeGreaterThan(56);
+			expect(lut.row.every(row => row < MAP_HEIGHT)).toBe(true);
+			expect(lut.column.every(column => Math.abs(column) <= MAP_WIDTH / 2)).toBe(true);
+			expect(lut.shade.every(light => light >= 0.07 && light <= 1)).toBe(true);
+		}
+	});
+
+	test('a peanut like Eros is drawn much wider than tall, a round-ish potato is not', () => {
+		const eros = bounds(rockLut(64, 32, ROCK_SHAPES.eros));
+		const deimos = bounds(rockLut(64, 32, ROCK_SHAPES.deimos));
+		expect(eros.width / eros.height).toBeGreaterThan(2);
+		expect(deimos.width / deimos.height).toBeLessThan(1.8);
+	});
+
+	test('the corner stays transparent and the outline is anti-aliased', () => {
+		const lut = rockLut(64, 32, ROCK_SHAPES.eros);
+		expect(lut.pixel.includes(0)).toBe(false);
+		expect(lut.alpha.some(alpha => alpha > 0 && alpha < 255)).toBe(true);
 	});
 });
 

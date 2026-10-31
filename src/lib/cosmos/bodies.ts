@@ -51,6 +51,7 @@ import {
 } from 'three/webgpu';
 import type { CosmosObject } from '#data/cosmos.js';
 import { type Orbit, OrbitLine, orbitNormal, orbitPoint, solarOrbit, startLongitude, trueAnomaly } from './orbits.js';
+import { ROCK_SHAPES, type RockShape, rockLumps } from './rockShapes.js';
 import { bodyMaterial, centerOf, condense, darkSky, eclipse, type Finish, hazeShell, realism, type Rim, sphere, sunlight, toSun } from './shading.js';
 import { EARTH_DAY, EARTH_ORBIT, EARTH_YEAR, ecliptic, RADII, type RoundBody, TURN, UP } from './space.js';
 import { glowSprite } from './sprites.js';
@@ -189,13 +190,13 @@ function asteroidBelt(reveal: Node<'float'>) {
 }
 
 /** Potato-shaped rock: a sphere stretched to its three axes and dented by low waves. */
-function lumpyGeometry(radius: number, [x, y, z]: readonly [number, number, number], seed: number) {
+function lumpyGeometry(radius: number, [x, y, z]: RockShape['axes'], seed: number) {
 	const geometry = new SphereGeometry(radius, 48, 32);
 	const position = geometry.getAttribute('position');
 	const point = new Vector3();
 	for (let i = 0; i < position.count; i++) {
 		point.fromBufferAttribute(position, i).normalize();
-		const lumps = 1 + 0.08 * Math.sin(point.x * 3.1 + seed) * Math.sin(point.y * 2.7 + seed * 2) + 0.05 * Math.sin(point.z * 5.3 + seed * 3);
+		const lumps = rockLumps(point.x, point.y, point.z, seed);
 		position.setXYZ(i, point.x * x * radius * lumps, point.y * y * radius * lumps, point.z * z * radius * lumps);
 	}
 	geometry.computeVertexNormals();
@@ -281,7 +282,7 @@ const globe =
 
 /** Rocks drawn 5 to 25 times larger than life, `axes` set their real proportions with the longest reaching the look's radius. */
 const rock =
-	(axes: readonly [number, number, number], seed: number, shade?: Node<'vec3'>): BodyLook['build'] =>
+	({ axes, seed }: RockShape, shade?: Node<'vec3'>): BodyLook['build'] =>
 	(reveal, albedo, radius) =>
 		new Mesh(lumpyGeometry(radius / Math.max(...axes), axes, seed), bodyMaterial(reveal, albedo, { shade }));
 
@@ -296,7 +297,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 	/** The signal and the close-up are Astraea, found in 1845, its belt fills the gap around it. */
 	asteroid_belt: {
 		...solarOrbit(2.577, 4.137, 0.1876, [181.62, 5.36, 141.447, 140.823]),
-		build: rock([1.15, 0.9, 0.95], 4),
+		build: rock(ROCK_SHAPES.asteroid_belt),
 		orbit: asteroidBelt,
 		radius: 0.07 * 1.15,
 		spin: EARTH_DAY * 0.7,
@@ -321,7 +322,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		surface: ceresSurface,
 	},
 	deimos: {
-		build: rock([1.17, 0.95, 0.86], 9, shadowOf('mars')),
+		build: rock(ROCK_SHAPES.deimos, shadowOf('mars')),
 		distance: RADII.mars * 6.92,
 		inclination: MathUtils.degToRad(1.79),
 		/** 1.23 Mars days, slower than the planet turns, unlike Phobos. */
@@ -341,7 +342,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 	/** A 34 km long peanut, drawn about as large as Phobos. */
 	eros: {
 		...solarOrbit(1.458244, 1.761, 0.22288, [181.469, 10.829, 304.268, 123.186]),
-		build: rock([1.5, 0.52, 0.5], 17),
+		build: rock(ROCK_SHAPES.eros),
 		pole: ecliptic(17.24, 11.34),
 		radius: 0.0625 * 1.5,
 		spin: EARTH_DAY * 0.22,
@@ -368,7 +369,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 	/** The nucleus, 15 km long and darker than coal, on a backward orbit tilted 162°. */
 	halley: {
 		...solarOrbit(17.929, 75.915, 0.96794, [237.231, 162.191, 59.099, 171.34]),
-		build: rock([1.2, 0.66, 0.66], 13),
+		build: rock(ROCK_SHAPES.halley),
 		comet: true,
 		radius: 0.04 * 1.2,
 		spin: EARTH_DAY * 2.2,
@@ -439,7 +440,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	/** Its real distance, at 2.76 Mars radii, and its real pace against the planet's day: it laps Mars three times a day. */
 	phobos: {
-		build: rock([1.2, 0.98, 0.82], 2, shadowOf('mars')),
+		build: rock(ROCK_SHAPES.phobos, shadowOf('mars')),
 		distance: RADII.mars * 2.76,
 		eccentricity: 0.0151,
 		inclination: MathUtils.degToRad(1.08),
