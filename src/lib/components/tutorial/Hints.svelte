@@ -18,6 +18,9 @@
 
 	const unseen = $derived(tutorial.state.enabled ? HINTS.filter(hint => !tutorial.hasSeen(hint.id)) : []);
 
+	/** A replayed hint shows even if its action is done, its target being on screen is the only condition left. */
+	const inTour = (hint: Hint) => tutorial.tour !== null && hint.id.startsWith(tutorial.tour);
+
 	/** Hints for the realm on screen, changes only on the poll so atom commits never rebuild it. */
 	let pending = $state.raw<Hint[]>([]);
 
@@ -26,8 +29,9 @@
 		const start = performance.now();
 		const next: Hint[] = [];
 		for (const hint of unseen) {
-			if (hint.done?.()) tutorial.markSeen(hint.id);
-			else if (hint.realm === realm && (!hint.show || hint.show())) next.push(hint);
+			const touring = inTour(hint);
+			if (!touring && hint.done?.()) tutorial.markSeen(hint.id);
+			else if (hint.realm === realm && (touring || !hint.show || hint.show())) next.push(hint);
 		}
 		if (next.length !== pending.length || next.some((hint, i) => hint !== pending[i])) pending = next;
 		perfTracker.track('hints:evaluate', start);
@@ -66,10 +70,17 @@
 			if (hint.targets && !rect) continue;
 			current = hint;
 			targetRect = rect;
+			endTour();
 			return;
 		}
 		current = null;
 		targetRect = null;
+		endTour();
+	}
+
+	/** The replay ends once none of its hints can show, the ones left unseen then follow their usual rules. */
+	function endTour() {
+		if (tutorial.tour !== null && !(current && inTour(current))) tutorial.tour = null;
 	}
 
 	$effect(() => {
@@ -174,12 +185,12 @@
 				>
 					{hint.action.label}
 				</button>
-			{:else if !hint.done}
+			{:else if !hint.done || inTour(hint)}
 				<button
 					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
 					onclick={() => tutorial.markSeen(hint.id)}
 				>
-					Got it
+					{inTour(hint) ? 'Next' : 'Got it'}
 				</button>
 			{/if}
 		</div>
