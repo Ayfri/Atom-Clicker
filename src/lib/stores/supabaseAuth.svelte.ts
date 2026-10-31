@@ -81,17 +81,7 @@ class SupabaseAuth {
 			});
 
 			window.addEventListener('beforeunload', () => {
-				if (this.currentSession?.access_token) {
-					fetch('/api/auth/status', {
-						method: 'POST',
-						headers: {
-							'Authorization': `Bearer ${this.currentSession.access_token}`,
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify({ is_online: false }),
-						keepalive: true,
-					});
-				}
+				if (this.currentSession?.access_token) void this.sendPresence(false, this.currentSession.access_token).catch(() => {});
 			});
 		} catch (err) {
 			console.error('Supabase auth initialization error:', err);
@@ -159,18 +149,28 @@ class SupabaseAuth {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
 			/** supabase-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
-			const headers = await this.authHeaders();
-			if (!('Authorization' in headers)) return;
-			try {
-				await fetch('/api/auth/status', {
-					body: JSON.stringify({ is_online: true }),
-					headers: { ...headers, 'Content-Type': 'application/json' },
-					method: 'POST',
-				});
-			} catch (err) {
-				console.error('Heartbeat failed:', err);
-			}
+			const accessToken = await this.getAccessToken();
+			if (accessToken) this.sendPresence(true, accessToken).catch(err => console.error('Heartbeat failed:', err));
 		}, 45_000);
+	}
+
+	/**
+	 * Writes the presence columns straight to PostgREST, which the column grant allows, so the heartbeat of every signed-in tab never
+	 * costs a Worker request. A raw call because supabase-js can't set `keepalive`, which lets the offline write outlive a closing tab.
+	 */
+	private async sendPresence(isOnline: boolean, accessToken: string) {
+		if (!this.user) return;
+		const response = await fetch(`${PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${this.user.id}`, {
+			body: JSON.stringify({ is_online: isOnline, updated_at: new Date().toISOString() }),
+			headers: {
+				'apikey': PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+				'Authorization': `Bearer ${accessToken}`,
+				'Content-Type': 'application/json',
+			},
+			keepalive: true,
+			method: 'PATCH',
+		});
+		if (!response.ok) throw new Error(`Presence update failed: ${response.status}`);
 	}
 
 	private stopHeartbeat() {
