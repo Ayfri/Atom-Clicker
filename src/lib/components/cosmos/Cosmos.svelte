@@ -2,6 +2,7 @@
 	import { dev } from '$app/env';
 	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { instrumentReadyMessage } from '#data/tableLinks.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { particlesEnabled } from '#helpers/CanvasLoop.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
@@ -14,6 +15,7 @@
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
@@ -22,6 +24,7 @@
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
 	import SiteLine from '#components/cosmos/SiteLine.svelte';
 	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
+	import TableLink from '#components/cosmos/TableLink.svelte';
 	import { horizon, lookUp, rateFlash } from '#components/cosmos/transitions.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import Switch from '#components/ui/Switch.svelte';
@@ -45,6 +48,7 @@
 
 	const FOCUS_KEY = 'cosmos-focus';
 	const VIEW_KEY = 'cosmos-view';
+	const TABLE_LINK = 'max-w-md justify-center text-center [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]';
 	const wide = new MediaQuery('(min-width: 768px)');
 
 	let arrow = $state<HTMLElement>();
@@ -150,7 +154,10 @@
 	let building: string | null = null;
 	$effect(() => {
 		const id = research?.id ?? null;
-		if (building && !id) cosmosFx.built();
+		if (building && !id) {
+			cosmosFx.built();
+			announceTableLinks(building);
+		}
 		building = id;
 	});
 
@@ -161,6 +168,13 @@
 	$effect(() => {
 		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
 	});
+
+	/** Sources stay unspoiled until the Spectroscope opens the Table, which plays its own introduction. */
+	function announceTableLinks(id: string) {
+		const built = COSMOS_INSTRUMENTS.find(item => item.id === id);
+		const message = built && untrack(() => periodicManager.unlocked && cosmosManager.owns(built)) ? instrumentReadyMessage(built) : null;
+		if (message) toastStore.info({ icon: FlaskRound, message, title: `${built!.name} is ready` });
+	}
 
 	function focusFromList(id: string) {
 		if (!wide.current) skyOpen = false;
@@ -485,6 +499,12 @@
 							{instrument?.name} needs your sight at magnitude {formatMagnitude(cosmosManager.instrument.reach)}, it reaches {formatMagnitude(cosmosManager.limit)}.
 						{/if}
 					</p>
+					{#if !next && instrument}
+						<TableLink
+							class={TABLE_LINK}
+							instrumentId={instrument.id}
+						/>
+					{/if}
 				{:else if research}
 					{const researched = $derived(COSMOS_INSTRUMENTS.find(item => item.id === research.id)!)}
 					{const progress = $derived(1 - research.leftMs / researched.researchMs)}
@@ -508,6 +528,10 @@
 						></span>
 					</div>
 					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">The workshop lights up on the Earth while it works. {researched.description}</p>
+					<TableLink
+						class={TABLE_LINK}
+						instrumentId={researched.id}
+					/>
 				{:else if instrument}
 					{const buildable = $derived(starlight >= instrument.cost)}
 					<ActionButton
@@ -520,6 +544,10 @@
 						pulse={actionable && buildable}
 					/>
 					<p class="max-w-md text-center text-xs text-white/55 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">{instrument.tool ? '' : 'Your instruments have found everything they can. '}{instrument.description}</p>
+					<TableLink
+						class={TABLE_LINK}
+						instrumentId={instrument.id}
+					/>
 				{:else}
 					<p class="max-w-md text-center text-sm text-white/70 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">Every object your instruments can see is in your sky.</p>
 				{/if}

@@ -106,7 +106,10 @@
 		</div>
 	</dl>
 
-	<SiteLine objectId={id} />
+	<SiteLine
+		compact
+		objectId={id}
+	/>
 
 	<ActionButton
 		class="w-full"

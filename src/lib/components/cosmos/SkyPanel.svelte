@@ -19,6 +19,7 @@
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
 	import Iris from '#components/cosmos/Iris.svelte';
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
+	import TableLink from '#components/cosmos/TableLink.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import FillLine from '#components/ui/FillLine.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -236,6 +237,12 @@
 								{instrument.name} <span class="ml-1 text-xs font-normal text-white/40">{instrument.year}</span>
 							</p>
 							<p class="text-xs text-white/50">{instrument.description}</p>
+							{#if next}
+								<TableLink
+									class="mt-0.5"
+									instrumentId={instrument.id}
+								/>
+							{/if}
 							{#if next && !cosmosManager.apertureMaxed && !cosmosManager.research}
 								<p class="mt-0.5 text-xs text-accent-300">Widen your sight to magnitude {formatMagnitude(cosmosManager.instrument.reach)} to build it.</p>
 							{/if}
