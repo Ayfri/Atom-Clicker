@@ -474,13 +474,10 @@
 	{/if}
 {/snippet}
 
-{#snippet studyButton(id: SiteId, block = false)}
+{#snippet studyButton(id: SiteId)}
 	{@const cost = siteStudyCost(periodicManager.forge(id).level)}
 	<button
-		class={[
-			'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-accent-600/80 text-center text-xs font-bold whitespace-nowrap transition-colors enabled:hover:bg-accent-500 disabled:opacity-35',
-			block ? 'w-full' : 'max-w-full px-3',
-		]}
+		class="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-full bg-accent-600/80 text-center text-xs font-bold whitespace-nowrap transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
 		disabled={starlight < cost}
 		onclick={() => study(id)}
 		title="Study it: {studyGains(id, periodicManager.statuses[id].kind)}"
@@ -500,7 +497,7 @@
 			<span class="font-bold whitespace-nowrap text-white/70">Study · Lv {periodicManager.forge(id).level}</span>
 			<span class="text-right text-white/55">{effect}</span>
 		</p>
-		{@render studyButton(id, true)}
+		{@render studyButton(id)}
 	</div>
 {/snippet}
 
@@ -622,12 +619,12 @@
 		{#each sites.filter(({ status }) => showLocked || status.kind !== 'locked') as { id, site, status } (id)}
 			{@const level = periodicManager.forge(id).level}
 			<div
-				class="flex w-26 shrink-0 flex-col items-center gap-0.5 text-center lg:w-28"
+				class="flex w-24 shrink-0 flex-col items-center gap-0.5 text-center lg:w-26"
 				in:revealIn
 			>
 				<button
 					class={[
-						'relative grid size-20 shrink-0 cursor-pointer place-items-center rounded-full lg:size-24',
+						'relative grid size-16 shrink-0 cursor-pointer place-items-center rounded-full lg:size-20',
 						selection.kind === 'site' && selection.id === id && 'outline-2 outline-offset-1 outline-white/80',
 					]}
 					data-forge={id}
@@ -653,9 +650,9 @@
 						{@const fraction = status.progress / ELEMENTS[status.z - 1].need}
 						{@render progressRing(site.color, fraction, status.z)}
 						{#if shownNucleons(status.z, fraction) > 0}
-							<span class="absolute -right-1 -bottom-1 size-9 rounded-full bg-[#05070f] ring-1 ring-white/15">
+							<span class="absolute -right-1 -bottom-1 size-7 rounded-full bg-[#05070f] ring-1 ring-white/15">
 								<canvas
-									class="inset-0.5 size-8"
+									class="inset-0.5 size-6"
 									{@attach forgeNucleus(status.z, fraction, site.color)}
 								></canvas>
 							</span>
@@ -691,55 +688,54 @@
 					{/if}
 				</button>
 				<span
-					class="mt-1 h-4 text-xs leading-tight font-bold whitespace-nowrap lg:h-5 lg:text-sm"
+					class="h-4 text-xs leading-4 font-bold whitespace-nowrap lg:text-[13px]"
 					style:color={status.kind === 'locked' ? 'rgb(255 255 255 / 0.4)' : site.color}
 					style:opacity={status.kind === 'idle' ? 0.6 : undefined}
 				>
 					{site.short}
 				</span>
-				<!-- Slots have a fixed height so the band is as tall in every state: two text lines (a waiting or locked source) and a study button. -->
-				<div class="h-7 w-full lg:h-7.5">
+				<!-- One line at a fixed height so the band is as tall in every state, long texts are cut and complete in the title. -->
+				<div class="h-4 w-full">
 					{#if status.kind === 'forging'}
-						<span class="text-[11px] text-white/55 tabular-nums lg:text-xs">
+						<span class="block truncate text-[11px] leading-4 text-white/55 tabular-nums lg:text-xs">
 							{ELEMENTS[status.z - 1].symbol} · {eta(periodicManager.etaOf(id))}
 						</span>
 					{:else if status.kind === 'waiting'}
+						{@const need = status.missing.length ? `Needs ${status.missing.map(z => ELEMENTS[z - 1].symbol).join(', ')}` : `Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
 						<span
-							class="line-clamp-2 text-[11px] leading-tight text-amber-200/80 lg:text-xs"
-							title={CHAINS[id].seeds[status.z]?.why}
+							class="block truncate text-[11px] leading-4 text-amber-200/80 lg:text-xs"
+							title={CHAINS[id].seeds[status.z]?.why ?? need}
 						>
-							{status.missing.length ?
-								`Needs ${status.missing.map(z => ELEMENTS[z - 1].symbol).join(', ')}`
-							:	`Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
+							{need}
 						</span>
 					{:else if status.kind === 'idle'}
-						<span class="text-[11px] text-white/45 lg:text-xs">Idle</span>
+						<span class="block truncate text-[11px] leading-4 text-white/45 lg:text-xs">Idle</span>
 					{:else if status.kind === 'done'}
-						<span class="text-[11px] text-white/40 lg:text-xs">Complete</span>
+						<span class="block truncate text-[11px] leading-4 text-white/40 lg:text-xs">Complete</span>
 					{:else}
-						<span class="line-clamp-2 text-[11px] leading-tight text-white/40 lg:text-xs">{site.gate}</span>
-					{/if}
-				</div>
-				<div class="mt-1 flex h-8 items-center justify-center">
-					{#if canStudy(id, status.kind)}
-						{@render studyButton(id)}
+						<span
+							class="block truncate text-[11px] leading-4 text-white/40 lg:text-xs"
+							title={site.gate}
+						>
+							{site.gate}
+						</span>
 					{/if}
 				</div>
 			</div>
 		{/each}
 		{#if lockedCount && found}
 			<div
-				class="flex w-26 shrink-0 flex-col items-center gap-0.5 text-center lg:w-28"
+				class="flex w-24 shrink-0 flex-col items-center gap-0.5 text-center lg:w-26"
 				in:revealIn
 			>
 				<button
-					class="grid size-20 place-items-center rounded-full border border-dashed border-white/15 text-base font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-24"
+					class="grid size-16 place-items-center rounded-full border border-dashed border-white/15 text-base font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-20"
 					data-hint="table-locked"
 					onclick={() => (showLocked = !showLocked)}
 				>
 					{showLocked ? '−' : `+${lockedCount}`}
 				</button>
-				<span class="mt-1 text-xs leading-tight text-white/40 lg:text-sm">{showLocked ? 'Hide' : 'To find'}</span>
+				<span class="h-4 text-xs leading-4 text-white/40 lg:text-[13px]">{showLocked ? 'Hide' : 'To find'}</span>
 			</div>
 		{/if}
 	</div>
@@ -979,7 +975,7 @@
 				<p
 					class={[
 						'mt-1 text-sm font-bold',
-						stageKind === 'ready' && (affordable ? 'hold-call text-white' : 'text-red-300'),
+						stageKind === 'ready' && (affordable ? 'text-white' : 'text-red-300'),
 						stageKind === 'reading' && 'text-white/70',
 						stageKind === 'waiting' && 'text-amber-200/80',
 					]}
@@ -1235,10 +1231,10 @@
 		</div>
 	</header>
 
-	<!-- Fixed heights so nothing that grows over a run adds a scrollbar. On desktop the sources are a band over both columns, the table and the card share the area below. -->
+	<!-- Fixed heights so nothing that grows over a run adds a scrollbar. On desktop the sources are a short band over both columns, the table and the card share the area below. -->
 	<main class="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-5 lg:px-4 lg:pt-2 lg:pb-4">
 		<div class="shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:col-span-2 lg:row-start-1 lg:px-0 lg:pt-0">
-			<div class="mb-1 flex h-8.5 flex-col items-center justify-center gap-1 text-[10px] leading-none lg:h-5 lg:flex-row lg:gap-x-4">
+			<div class="mb-1 flex h-8.5 flex-col items-center justify-center gap-1 text-[10px] leading-none lg:mb-0 lg:h-5 lg:flex-row lg:gap-x-4">
 				<p class="flex items-baseline gap-2">
 					<span class="font-bold tracking-[0.3em] text-white/55 uppercase">Sources</span>
 					<span class="text-white/40">where elements are forged</span>
@@ -1273,8 +1269,8 @@
 					{/if}
 				</div>
 			</div>
-			<!-- The top padding is room for a source's bounce (scale 1.25) and its ring, the scroller clips both axes. -->
-			<div class="overflow-x-auto pt-3.5 pb-1 [scrollbar-width:none] lg:pt-4">
+			<!-- The top padding is room for a source's bounce (scale 1.25 of a 64 or 80px disc, plus its outline), the scroller clips both axes. -->
+			<div class="overflow-x-auto pt-3 [scrollbar-width:none]">
 				{@render sky()}
 			</div>
 		</div>
@@ -1445,21 +1441,11 @@
 		.breathe {
 			animation: breathe 3.2s ease-in-out infinite;
 		}
-
-		.hold-call {
-			animation: hold-call 1.6s ease-in-out infinite;
-		}
 	}
 
 	@keyframes breathe {
 		50% {
 			transform: scale(1.07);
-		}
-	}
-
-	@keyframes hold-call {
-		50% {
-			opacity: 0.55;
 		}
 	}
 

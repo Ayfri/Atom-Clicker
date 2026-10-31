@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { ELEMENTS } from '#data/elements.js';
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/AtomRenderer.js';
+	import { Hand } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { nucleonsOf, partialShells, shellsOf, type StageKind } from './atoms.js';
 	import type { Point } from './TableParticles.js';
@@ -100,8 +102,8 @@
 		});
 	}
 
-	function press(event: PointerEvent) {
-		if (event.button !== 0 || kind !== 'ready') return;
+	function press(x: number, y: number) {
+		if (kind !== 'ready') return;
 		if (!affordable) {
 			onrefuse();
 			host?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }], { duration: 260 });
@@ -111,8 +113,17 @@
 		lastPress = performance.now();
 		charging = { value: Math.min(0.99, charge + TAP_CHARGE), z };
 		const rect = host!.getBoundingClientRect();
-		renderer?.pulse(event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2);
+		renderer?.pulse(x - rect.left - rect.width / 2, y - rect.top - rect.height / 2);
 		if (!frame) step(lastPress);
+	}
+
+	/** Holding Space or Enter charges like holding the pointer, the pulse starts at the atom's center. */
+	function keyPress(event: KeyboardEvent) {
+		if (event.key !== ' ' && event.key !== 'Enter') return;
+		event.preventDefault();
+		if (event.repeat) return;
+		const { x, y } = center();
+		press(x, y);
 	}
 
 	const release = () => (holding = false);
@@ -120,12 +131,22 @@
 
 <button
 	bind:this={host}
-	class={['stage relative flex items-center justify-center bg-transparent', kind === 'ready' && 'cursor-pointer', className]}
-	aria-label={kind === 'ready' ? 'Hold to identify' : 'Element atom'}
+	class={[
+		'stage group relative flex items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+		kind === 'ready' && 'cursor-pointer',
+		kind === 'ready' && affordable && 'transition-transform hover:scale-105',
+		className,
+	]}
+	aria-disabled={kind === 'ready' && !affordable ? true : undefined}
+	aria-label={kind === 'ready' ? `Hold to read ${ELEMENTS[z - 1].name}` : 'Element atom'}
+	onblur={release}
+	onkeydown={keyPress}
+	onkeyup={release}
 	onlostpointercapture={release}
 	onpointercancel={release}
 	onpointerdown={event => {
-		press(event);
+		if (event.button !== 0) return;
+		press(event.clientX, event.clientY);
 		host?.setPointerCapture(event.pointerId);
 	}}
 	onpointerup={release}
@@ -143,7 +164,7 @@
 		<span class="absolute inset-[22%] rounded-full border-2 border-dashed border-amber-300/40"></span>
 		<span class="pointer-events-none text-4xl font-black text-amber-200/70 lg:text-7xl">?</span>
 	{:else if kind === 'ready'}
-		<span class={['absolute inset-[6%] rounded-full', affordable && charge === 0 ? 'calling border-2 border-white/40' : 'border border-white/10']}></span>
+		<span class={['absolute inset-[6%] rounded-full', affordable && charge === 0 ? 'calling border-2 border-white/40 group-hover:border-white/80' : 'border border-white/10']}></span>
 		<svg
 			class="absolute inset-[6%] -rotate-90"
 			viewBox="0 0 100 100"
@@ -160,6 +181,17 @@
 				stroke-width="1.5"
 			/>
 		</svg>
+		{#if charge === 0}
+			<span
+				class={[
+					'pointer-events-none absolute bottom-[3%] left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#05070f]/85 px-2.5 py-1 text-xs font-bold whitespace-nowrap ring-1 ring-white/20',
+					affordable ? 'text-white group-hover:ring-white/60' : 'text-white/45',
+				]}
+			>
+				<Hand size={12} />
+				Hold to read
+			</span>
+		{/if}
 	{/if}
 </button>
 
