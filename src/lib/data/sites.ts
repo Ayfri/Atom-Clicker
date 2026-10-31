@@ -3,6 +3,8 @@ import { ELEMENTS, elementBySymbol, LORE, zs, type Element } from '#data/element
 export type SiteId = 'accelerator' | 'bigbang' | 'cosmic' | 'decay' | 'lowmass' | 'massive' | 'neutron' | 'reactor' | 'whitedwarf';
 
 export interface Site {
+	/** One sentence on what the source really is, shown on its card. */
+	blurb: string;
 	color: string;
 	/** Shown while it is locked. */
 	gate: string;
@@ -30,15 +32,86 @@ export interface Chain {
 }
 
 export const SITES: Record<SiteId, Site> = {
-	accelerator: { color: '#8a93a6', gate: 'Identify fermium', glyph: '⊕', name: 'Accelerator', opensWith: 'Fm', short: 'Accelerator' },
-	bigbang: { color: '#9db8ff', gate: 'Given', glyph: '☀', name: 'Big Bang', short: 'Big Bang' },
-	cosmic: { color: '#6ff0c4', gate: 'Find the cosmic rays', glyph: '⇶', name: 'Cosmic rays', object: 'cosmic_rays', short: 'Cosmic rays' },
-	decay: { color: '#c6f36b', gate: 'Identify uranium and thorium', glyph: '☢', name: 'Radioactive decay', opensWith: 'U Th', short: 'Decay' },
-	lowmass: { color: '#ffb36b', gate: 'Discover Mira', glyph: '⬤', name: 'Dying low-mass stars', object: 'mira', short: 'Red giants' },
-	massive: { color: '#ff6b8b', gate: 'Discover the Crab Nebula', glyph: '✸', name: 'Exploding massive stars', object: 'crab_nebula', short: 'Supernovae' },
-	neutron: { color: '#b98aff', gate: 'Detect the GW170817 kilonova', glyph: '✺', name: 'Merging neutron stars', object: 'kilonova', short: 'Kilonova' },
-	reactor: { color: '#8a93a6', gate: 'Identify uranium', glyph: '⚛', name: 'Reactor', opensWith: 'U', short: 'Reactor' },
-	whitedwarf: { color: '#e6ecff', gate: "Discover Tycho's Supernova", glyph: '◎', name: 'Exploding white dwarfs', object: 'tycho', short: 'White dwarfs' },
+	accelerator: {
+		blurb: 'Particle accelerators fuse a beam and a target into superheavy elements, a few atoms at a time.',
+		color: '#8a93a6',
+		gate: 'Identify fermium',
+		glyph: '⊕',
+		name: 'Accelerator',
+		opensWith: 'Fm',
+		short: 'Accelerator',
+	},
+	bigbang: {
+		blurb: 'The first minutes of the universe made hydrogen, helium and a trace of lithium.',
+		color: '#9db8ff',
+		gate: 'Given',
+		glyph: '☀',
+		name: 'Big Bang',
+		short: 'Big Bang',
+	},
+	cosmic: {
+		blurb: 'Fast nuclei from space chip carbon, nitrogen and oxygen into lighter beryllium and boron.',
+		color: '#6ff0c4',
+		gate: 'Find the cosmic rays',
+		glyph: '⇶',
+		name: 'Cosmic rays',
+		object: 'cosmic_rays',
+		short: 'Cosmic rays',
+	},
+	decay: {
+		blurb: 'Uranium and thorium decay through a chain of short-lived radioactive elements.',
+		color: '#c6f36b',
+		gate: 'Identify uranium and thorium',
+		glyph: '☢',
+		name: 'Radioactive decay',
+		opensWith: 'U Th',
+		short: 'Decay',
+	},
+	lowmass: {
+		blurb: 'Stars like the Sun swell into red giants and slowly build heavier elements by catching neutrons.',
+		color: '#ffb36b',
+		gate: 'Discover Mira',
+		glyph: '⬤',
+		name: 'Dying low-mass stars',
+		object: 'mira',
+		short: 'Red giants',
+	},
+	massive: {
+		blurb: 'Stars over eight times the Sun end as supernovae that forge and scatter everything up to iron and beyond.',
+		color: '#ff6b8b',
+		gate: 'Discover the Crab Nebula',
+		glyph: '✸',
+		name: 'Exploding massive stars',
+		object: 'crab_nebula',
+		short: 'Supernovae',
+	},
+	neutron: {
+		blurb: 'Two neutron stars colliding throw out gold, platinum and the heaviest elements in a flash of rapid neutron capture.',
+		color: '#b98aff',
+		gate: 'Detect the GW170817 kilonova',
+		glyph: '✺',
+		name: 'Merging neutron stars',
+		object: 'kilonova',
+		short: 'Kilonova',
+	},
+	reactor: {
+		blurb: 'Your reactor bombards uranium into elements nature barely leaves on Earth.',
+		color: '#8a93a6',
+		gate: 'Identify uranium',
+		glyph: '⚛',
+		name: 'Reactor',
+		opensWith: 'U',
+		short: 'Reactor',
+	},
+	whitedwarf: {
+		blurb: 'A white dwarf that grows too heavy detonates, making most of the iron in the universe.',
+		color: '#e6ecff',
+		gate: "Discover Tycho's Supernova",
+		glyph: '◎',
+		name: 'Exploding white dwarfs',
+		object: 'tycho',
+		short: 'White dwarfs',
+	},
 };
 
 export const SITE_IDS = Object.keys(SITES) as SiteId[];

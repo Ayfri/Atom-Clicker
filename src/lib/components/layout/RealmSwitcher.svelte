@@ -255,11 +255,12 @@
 	{/if}
 {:else if realms.length > 1}
 	<!-- Phones dock it above the nav, where `#realm-bar` adds its height to `--mobile-nav-height`, desktop keeps a
-	     click-through column at the top right where only the tabs take clicks. Over the Periodic Table (z-47) it moves to z-48. -->
+	     click-through column at the top right where only the tabs take clicks. The Periodic Table (z-47) covers it, phones
+	     included, where the Table ends at the nav. -->
 	<div
 		class={desktop ?
-			['pointer-events-none fixed right-4 top-[calc(var(--banner-height)+5rem)] rounded-xl border border-white/10 bg-accent-950/80 p-1', realmManager.tableOpen ? 'z-48' : 'z-30']
-		:	['fixed inset-x-0 bottom-(--mobile-dock-height) flex h-(--realm-bar-height) border-t border-white/10 bg-accent-950/95 px-2 py-1', realmManager.tableOpen ? 'z-48' : 'z-40']}
+			'pointer-events-none fixed right-4 top-[calc(var(--banner-height)+5rem)] z-30 rounded-xl border border-white/10 bg-accent-950/80 p-1'
+		:	'fixed inset-x-0 bottom-(--mobile-dock-height) z-40 flex h-(--realm-bar-height) border-t border-white/10 bg-accent-950/95 px-2 py-1'}
 		id={desktop ? undefined : 'realm-bar'}
 		in:receive|global={{ key: SWITCHER_KEY }}
 		out:send|global={{ key: SWITCHER_KEY }}

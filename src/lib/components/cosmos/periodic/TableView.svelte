@@ -8,9 +8,9 @@
 	$effect(() => ui.cover());
 </script>
 
-<!-- Above the Cosmos (z-45) and its realm dock (z-46), below the realm bar (z-48, kept over the Table) and the modals (z-50). Phones end it above the realm bar. -->
+<!-- Above the Cosmos (z-45), the realm switcher and its dock (z-46), below the modals (z-50). Phones end it above the nav, over the realm bar. -->
 <div
-	class="fixed inset-x-0 bottom-[var(--mobile-nav-height,0px)] z-47 select-none bg-cosmos-sky text-white lg:left-18"
+	class="fixed inset-x-0 bottom-[var(--mobile-dock-height,0px)] z-47 select-none bg-cosmos-sky text-white lg:left-18"
 	style:top="var(--banner-height)"
 	transition:fly|global={{ duration: 400, easing: cubicInOut, y: '100%' }}
 >
