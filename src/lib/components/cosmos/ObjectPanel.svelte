@@ -6,6 +6,7 @@
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
+	import SiteLine from '#components/cosmos/SiteLine.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import { ChevronDown, Orbit, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
@@ -104,6 +105,8 @@
 			<dd class="font-semibold text-white">+{Math.round(object.boost.amount * (level + 1) * 100)}% {object.boost.label}</dd>
 		</div>
 	</dl>
+
+	<SiteLine objectId={id} />
 
 	<ActionButton
 		class="w-full"

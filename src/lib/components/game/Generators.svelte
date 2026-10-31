@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { ELEMENT_GENERATOR_PERCENT, ELEMENTS, FAMILIES, GENERATOR_ELEMENTS } from '#data/elements.js';
 	import { FeatureTypes } from '#data/features.js';
 	import {
 		GENERATOR_LEVEL_MULTIPLIER,
@@ -18,6 +19,7 @@
 	import { AtomRenderer } from '#helpers/AtomRenderer.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
@@ -206,6 +208,7 @@
 			{const count = $derived(saveData?.count ?? 0)}
 			{const affordable = $derived(affordableGenerators.has(type))}
 			{const obfuscated = $derived(obfuscatedGenerators.has(type))}
+			{const affinities = $derived(periodicManager.unlocked && !obfuscated ? GENERATOR_ELEMENTS[type] : undefined)}
 			{const level = $derived(saveData?.level ?? 0)}
 			{const color = $derived(getGeneratorColor(level))}
 			{const nextColor = $derived(getGeneratorColor(level + 1))}
@@ -254,7 +257,24 @@
 								<span class="ml-auto text-base font-bold tabular-nums text-white/90">{formatNumber(count, 0)}</span>
 							{/if}
 						</div>
-						<p class="flex items-center gap-1 whitespace-nowrap text-xs text-white/50">
+						{#if affinities}
+								{const lit = $derived(affinities.filter(z => periodicManager.identifiedSet.has(z)).length)}
+								<p
+									class="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold leading-snug"
+									data-hint="generator-elements"
+									title="Each identified element adds +{ELEMENT_GENERATOR_PERCENT}% to this generator"
+								>
+									{#each affinities as z (z)}
+										{const element = ELEMENTS[z - 1]}
+										{const identified = $derived(periodicManager.identifiedSet.has(z))}
+										<span class={identified ? '' : 'text-white/20'} style:color={identified ? FAMILIES[element.family].color : undefined}>{element.symbol}</span>
+									{/each}
+									{#if lit > 0}
+										<span class="text-white/50">+{lit * ELEMENT_GENERATOR_PERCENT}%</span>
+									{/if}
+								</p>
+							{/if}
+							<p class="flex items-center gap-1 whitespace-nowrap text-xs text-white/50">
 							{#if production > 0}
 								<Value class="font-medium text-accent-300" postfix="/s" value={production} />
 								<span>· {formatShare(production)}</span>

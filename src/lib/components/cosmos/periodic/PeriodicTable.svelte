@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AtomStage from '#components/cosmos/periodic/AtomStage.svelte';
 	import { MINI_NUCLEONS, nucleonsOf, paintNucleus, type StageKind } from '#components/cosmos/periodic/atoms.js';
+	import { SKY, SPECTRUM } from '#components/cosmos/periodic/sky.js';
 	import { TableAtoms, type CellLook } from '#components/cosmos/periodic/TableAtoms.js';
 	import { TableParticles, type Point } from '#components/cosmos/periodic/TableParticles.js';
 	import TuningStrip from '#components/cosmos/periodic/TuningStrip.svelte';
@@ -37,10 +38,11 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
 	import { periodicManager, type SiteStatus } from '#helpers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { EffectStat } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { mobile } from '#stores/window.svelte.js';
-	import { ChevronDown, ChevronsUp, Cog, Factory, Lock, MousePointerClick, Shield, Star, X, Zap } from '@lucide/svelte';
+	import { ChevronDown, ChevronsUp, CircleHelp, Cog, Factory, Lock, MousePointerClick, Shield, Star, X, Zap } from '@lucide/svelte';
 	import { tick, untrack, type Component } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { fade, fly, scale } from 'svelte/transition';
@@ -73,23 +75,6 @@
 		['blue', CurrenciesTypes.BLUE_LIGHT],
 	] as const satisfies [LightColor, CurrencyName][];
 	const LIGHT_HEX: Record<LightColor, string> = { blue: '#4d8dff', green: '#2ee6a0', red: '#ff4d5e' };
-	const SKY: Record<SiteId, string> = {
-		accelerator:
-			'radial-gradient(circle, #e6ecff 0 4%, transparent 7%), radial-gradient(circle, transparent 52%, #8a93a6 55%, #5b6375 58%, transparent 61%), radial-gradient(circle, #1a2030, #0b0f1c)',
-		bigbang:
-			'radial-gradient(circle at 30% 35%, #ffcf9a88 0, transparent 30%), radial-gradient(circle at 68% 62%, #8fb4ff99 0, transparent 34%), radial-gradient(circle at 62% 26%, #ff9f8a66 0, transparent 24%), radial-gradient(circle at 34% 72%, #9db8ff77 0, transparent 26%), radial-gradient(circle, #2c2350, #0b0f1c)',
-		cosmic:
-			'repeating-linear-gradient(118deg, transparent 0 7px, #6ff0c477 7px 8px, transparent 8px 15px), radial-gradient(circle at 50% 135%, #3d8bd6 0 52%, #9fd3ff 54%, transparent 57%), radial-gradient(circle, #10283a, #0b0f1c)',
-		decay: 'radial-gradient(circle, #e9ffb0 0 7%, #c6f36b 14%, #c6f36b55 32%, transparent 60%), radial-gradient(circle at 60% 70%, #3a3a2a, #0b0f1c)',
-		lowmass: 'radial-gradient(circle, #fff3d6 0 8%, #ffb36b 20%, #ff7a3d 36%, #ff7a3d33 52%, transparent 70%), #0b0f1c',
-		massive:
-			'radial-gradient(circle, #ffffff 0 4%, #ffb3c3 10%, transparent 22%), conic-gradient(from 10deg, #ff6b8b55, transparent 8%, #ff6b8b44 18%, transparent 27%, #ffa06b55 40%, transparent 50%, #ff6b8b55 63%, transparent 72%, #b98aff44 85%, transparent 94%), radial-gradient(circle, #3a1730, #0b0f1c 72%)',
-		neutron:
-			'radial-gradient(circle at 42% 50%, #ffffff 0 5%, transparent 8%), radial-gradient(circle at 58% 50%, #ffffff 0 5%, transparent 8%), radial-gradient(ellipse 70% 35%, #e5d6ff 0 12%, #b98aff88 30%, transparent 62%), radial-gradient(circle, #1f1636, #0b0f1c)',
-		reactor: 'radial-gradient(circle, #e8f7ff 0 6%, #7fc8ff 18%, #3b6cff 36%, #3b6cff33 56%, transparent 72%), #0b0f1c',
-		whitedwarf:
-			'radial-gradient(circle, #ffffff 0 5%, #e6ecff55 9%, transparent 14%), radial-gradient(circle, transparent 40%, #e6ecff66 47%, #9db8ff33 53%, transparent 60%), radial-gradient(circle, #141a2e, #0b0f1c)',
-	};
 	/** 56px is the bonus line's height under the table, 16px leaves room for a selected cell's outline. */
 	const TABLE_WIDTH = 'min(100cqw - 16px, (100cqh - 56px) * 1.68 - 16px)';
 	const CELL = 44;
@@ -98,7 +83,6 @@
 	const RANK: Record<SiteStatus['kind'], number> = { done: 2, forging: 0, locked: 3, waiting: 1 };
 	const REVEAL_LINES_AT = 700;
 	const REVEAL_LINE_STEP = 140;
-	const SPECTRUM = `linear-gradient(90deg, ${[380, 420, 450, 480, 510, 550, 580, 610, 650, 700, 780].map(wavelengthColor).join(', ')})`;
 	const BOUNCE: Keyframe[] = [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }];
 
 	/** Elements whose spectrum reveal still plays: identified only once its comets land. */
@@ -112,7 +96,7 @@
 	let showLocked = $state(false);
 	let toasts = $state<{ color: string; id: number; text: string }[]>([]);
 	let toastId = 0;
-	let selected = $state(untrack(() => periodicManager.ready[0] ?? [...periodicManager.forged].at(-1) ?? 1));
+	let selected = $state(untrack(() => realmManager.tableFocus ?? periodicManager.ready[0] ?? [...periodicManager.forged].at(-1) ?? 1));
 
 	const lights = $derived(Object.fromEntries(LIGHTS.map(([color, name]) => [color, currenciesManager.getAmount(name)])) as Record<LightColor, number>);
 	const decayEvents = $derived(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS));
@@ -141,6 +125,14 @@
 	const forgingOf = (z: number) => sites.find(({ status }) => status.kind === 'forging' && status.z === z);
 
 	$effect(() => atoms?.set(looks));
+
+	/** A focus asked while the Table is already open lands here too, one that opened it was already read by `selected`. */
+	$effect(() => {
+		const focus = realmManager.tableFocus;
+		if (focus === null) return;
+		selected = focus;
+		realmManager.tableFocus = null;
+	});
 
 	$effect(() => {
 		if (!particlesEnabled) return;
@@ -817,8 +809,18 @@
 				</button>
 			{/if}
 			<button
+				class="grid size-9 place-items-center rounded-lg text-white/45 transition-colors hover:bg-white/8 hover:text-white"
+				aria-label="Replay the introduction"
+				onclick={() => {
+					onClose();
+					realmManager.playIntro();
+				}}
+			>
+				<CircleHelp size={16} />
+			</button>
+			<button
 				class="grid size-9 place-items-center rounded-lg border border-accent-500/30 bg-accent-900/80 text-accent-300 transition-colors hover:bg-accent-800"
-				aria-label="Back to the sky"
+				aria-label="Close the Periodic Table"
 				onclick={onClose}
 			>
 				<X size={16} />
@@ -957,7 +959,7 @@
 		{/key}
 	{/if}
 
-	<div class="pointer-events-none fixed bottom-4 left-1/2 z-55 flex -translate-x-1/2 flex-col items-center gap-1.5 max-lg:bottom-[calc(44dvh+1rem)]">
+	<div class="pointer-events-none fixed bottom-4 left-1/2 z-55 flex -translate-x-1/2 flex-col items-center gap-1.5 max-lg:bottom-[calc(44dvh+var(--mobile-dock-height,0px)+1rem)]">
 		{#each toasts as item (item.id)}
 			<p
 				class="rounded-full border border-white/10 bg-accent-950/95 px-3 py-1.5 text-xs font-semibold whitespace-nowrap shadow-xl"

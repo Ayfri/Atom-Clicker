@@ -5,6 +5,7 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { perfMonitor } from '#helpers/PerfMonitor.js';
 	import { perfTracker } from '#helpers/perfTracker.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
@@ -34,6 +35,7 @@
 	import PhotonRealm from '#components/prestige/PhotonRealm.svelte';
 	import RadiationRealm from '#components/prestige/RadiationRealm.svelte';
 	import AutoSaveIndicator from '#components/system/AutoSaveIndicator.svelte';
+	import PeriodicWatcher from '#components/system/PeriodicWatcher.svelte';
 	import { onMount, untrack, type Component } from 'svelte';
 
 	const realmComponents: Record<string, Component> = {
@@ -240,6 +242,7 @@
 	<NavBar />
 	<Toaster />
 	<AutoSaveIndicator />
+	<PeriodicWatcher />
 	<Canvas />
 	<RealmSwitcher />
 
@@ -293,6 +296,20 @@
 			<!-- Its chunk and Three.js only load once the player opens it. -->
 			{#await import('#components/cosmos/Cosmos.svelte') then { default: Cosmos }}
 				<Cosmos />
+			{/await}
+		{/if}
+
+		{#if realmManager.tableOpen && periodicManager.unlocked}
+			<!-- A page-level view like the Cosmos, its chunk only loads once the player opens it. -->
+			{#await import('#components/cosmos/periodic/TableView.svelte') then { default: TableView }}
+				<TableView />
+			{/await}
+		{/if}
+
+		{#if realmManager.introPlaying && periodicManager.unlocked}
+			<!-- Plays over the Cosmos or the Table, its chunk loads with the first play. -->
+			{#await import('#components/cosmos/periodic/TableIntro.svelte') then { default: TableIntro }}
+				<TableIntro />
 			{/await}
 		{/if}
 

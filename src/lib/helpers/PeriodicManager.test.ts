@@ -183,6 +183,16 @@ describe('table', () => {
 		expect(periodicManager.getState().tuning).toBe(640);
 	});
 
+	test('the introduction counts as unseen in saves without the field and survives a round trip', () => {
+		gameManager.periodic = { identified: [], sites: {} };
+		expect(periodicManager.introSeen).toBe(false);
+		gameManager.periodic = { identified: [], introSeen: 'yes' as never, sites: {} };
+		expect(periodicManager.introSeen).toBe(false);
+		periodicManager.introSeen = true;
+		gameManager.periodic = JSON.parse(JSON.stringify(periodicManager.getState()));
+		expect(periodicManager.introSeen).toBe(true);
+	});
+
 	test('a full family multiplies its bonus once more', () => {
 		const nonmetals = zs('H C N O P S Se');
 		gameManager.periodic = { identified: nonmetals, sites: { bigbang: { index: 2, level: 0, progress: 0 }, lowmass: { index: 2, level: 0, progress: 0 }, massive: { index: 18, level: 0, progress: 0 } } };

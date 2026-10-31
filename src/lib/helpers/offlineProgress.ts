@@ -192,7 +192,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	addCurrency(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * (appliedMs / 1000));
 	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * (appliedMs / 1000));
 	cosmosManager.advance(appliedMs);
-	periodicManager.tick(appliedMs);
+	const forged = periodicManager.tick(appliedMs);
 
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;
@@ -236,6 +236,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		awayMs,
 		capMs,
 		currencyGains,
+		forged,
 		incomeMultiplier: OFFLINE_INCOME_MULTIPLIER,
 		levelsGained,
 		overdriveBosonsSpent: higgsBefore - currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON),

@@ -91,7 +91,7 @@
 		};
 	});
 
-	const visible = $derived(current && pending.includes(current) && !ui.activeModal ? current : null);
+	const visible = $derived(current && pending.includes(current) && !ui.activeModal && !realmManager.introPlaying ? current : null);
 
 	/** Space between the target and its halo, a round halo breathes further out. */
 	const pad = $derived(visible?.round ? 14 : 4);

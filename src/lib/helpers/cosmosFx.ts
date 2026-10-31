@@ -18,7 +18,7 @@ class CosmosFx {
 	}
 
 	built() {
-		const earth = this.#spot('earth');
+		const earth = this.spot('earth');
 		if (earth) AmbientField.emit('cosmos', 'bloom', earth, { color: WORKSHOP, count: 16, surge: 6 });
 	}
 
@@ -28,18 +28,19 @@ class CosmosFx {
 	}
 
 	instrument(origin: MouseEvent) {
-		AmbientField.emit('cosmos', 'embers', origin, { color: WORKSHOP, surge: 4, target: this.#spot('earth') });
+		AmbientField.emit('cosmos', 'embers', origin, { color: WORKSHOP, surge: 4, target: this.spot('earth') });
 	}
 
-	study(origin: MouseEvent, id: string) {
-		AmbientField.emit('cosmos', 'bloom', origin, { color: COSMOS_OBJECTS_BY_ID[id].color, surge: 4, target: this.#spot(id) });
-	}
-
-	#spot(id: string): Point | undefined {
+	/** Screen position of a Cosmos object, `undefined` when it is off screen or the Cosmos is closed. */
+	spot(id: string): Point | undefined {
 		const spot = this.scene?.onScreen().find(object => object.id === id);
 		if (!spot || !this.canvas) return undefined;
 		const { left, top } = this.canvas.getBoundingClientRect();
 		return { x: left + spot.x, y: top + spot.y };
+	}
+
+	study(origin: MouseEvent, id: string) {
+		AmbientField.emit('cosmos', 'bloom', origin, { color: COSMOS_OBJECTS_BY_ID[id].color, surge: 4, target: this.spot(id) });
 	}
 }
 

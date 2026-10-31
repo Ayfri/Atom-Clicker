@@ -20,14 +20,14 @@
 	import HudButton from '#components/cosmos/HudButton.svelte';
 	import Iris from '#components/cosmos/Iris.svelte';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
-	import PeriodicTable from '#components/cosmos/periodic/PeriodicTable.svelte';
+	import SiteLine from '#components/cosmos/SiteLine.svelte';
 	import SkyPanel from '#components/cosmos/SkyPanel.svelte';
 	import { horizon, lookUp, rateFlash } from '#components/cosmos/transitions.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import Switch from '#components/ui/Switch.svelte';
-	import { ChevronRight, Contrast, Gauge, Grid3x3, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
+	import { ChevronRight, Contrast, FlaskRound, Gauge, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
-	import { cubicIn, cubicInOut } from 'svelte/easing';
+	import { cubicIn } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 
@@ -135,10 +135,15 @@
 	/** Closed on phones, the sheet would cover the main action. */
 	let skyOpen = $state(wide.current);
 
-	const actionable = $derived(ui.activeModal === null && !realmManager.tableOpen);
+	const actionable = $derived(ui.activeModal === null && !realmManager.tableOpen && !realmManager.introPlaying);
+
+	/** The Periodic Table's introduction plays once, at the first calm moment on the sky after the Spectroscope. */
+	$effect(() => {
+		if (periodicManager.unlocked && !periodicManager.introSeen && scene?.mode === 'overview' && ui.activeModal === null && !realmManager.tableOpen && !realmManager.introPlaying)
+			realmManager.playIntro();
+	});
 	$effect(() => scene?.setPaused(!actionable));
 	$effect(() => fx?.setActive(actionable));
-	$effect(() => () => (realmManager.tableOpen = false));
 	$effect(() => scene?.setBuilding(research !== null));
 	$effect(() => scene?.setLimit(cosmosManager.limit));
 
@@ -282,11 +287,11 @@
 							<HudButton
 								badge={periodicManager.ready.length}
 								data-hint="cosmos-table"
-								icon={Grid3x3}
+								icon={FlaskRound}
 								label="Table"
 								labelled="md"
 								onclick={() => {
-									realmManager.tableOpen = true;
+									realmManager.openTable();
 									settingsOpen = false;
 								}}
 							/>
@@ -546,6 +551,7 @@
 							+{formatNumber(cosmosManager.starlightOf(revealed.id))}/s
 						</span>
 					</p>
+					<SiteLine objectId={revealed.id} />
 					<ActionButton
 						class="w-full"
 						icon={ChevronRight}
@@ -553,15 +559,6 @@
 						onclick={() => scene?.continue()}
 					/>
 				</article>
-			</div>
-		{/if}
-
-		{#if realmManager.tableOpen && periodicManager.unlocked}
-			<div
-				class="absolute inset-0 z-30"
-				transition:fly={{ duration: 400, easing: cubicInOut, y: '100%' }}
-			>
-				<PeriodicTable onClose={() => (realmManager.tableOpen = false)} />
 			</div>
 		{/if}
 	</div>

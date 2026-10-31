@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { Orbit } from '@lucide/svelte';
+	import type { Component } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	interface Props extends HTMLButtonAttributes {
 		active?: boolean;
 		badge?: number;
-		icon: typeof Orbit;
+		icon: Component<{ class?: string; size?: number }>;
 		label: string;
 		labelled?: 'always' | 'md';
 	}

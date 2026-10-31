@@ -41,6 +41,10 @@ const FAMILY_MEMBERS = Object.fromEntries(FAMILY_IDS.map(family => [family, ELEM
 /** Everything here is kept through every prestige. */
 class PeriodicManager {
 	identified = $state.raw<number[]>([]);
+	/** Set once the introduction played, whether the player opened the Table from it or not. */
+	introSeen = $state(false);
+	/** Counts the saves loaded, so a watcher tells a replaced state from forging that happened. */
+	loads = $state(0);
 	sites = $state.raw<Partial<Record<SiteId, SiteForge>>>({});
 	/** Center in nm of the Prism's tuning window, only read once the Prism Tuning upgrade is bought. */
 	tuning = $state(TUNING_DEFAULT);
@@ -174,7 +178,7 @@ class PeriodicManager {
 	}
 
 	getState(): PeriodicState {
-		return { identified: this.identified, sites: this.sites, tuning: this.tuning };
+		return { identified: this.identified, introSeen: this.introSeen, sites: this.sites, tuning: this.tuning };
 	}
 
 	/** Drops unknown sites and Z from a tampered or future save, and identified elements the chain never forged. */
@@ -192,6 +196,8 @@ class PeriodicManager {
 		const { tuning } = state;
 		this.tuning = typeof tuning === 'number' && tuning >= TUNING.min && tuning <= TUNING.max ? tuning : TUNING_DEFAULT;
 		this.identified = [...new Set(state.identified ?? [])].filter(z => this.forged.has(z)).sort((a, b) => a - b);
+		this.introSeen = state.introSeen === true;
+		this.loads++;
 	}
 
 	private isOpen(id: SiteId): boolean {

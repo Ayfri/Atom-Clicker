@@ -149,6 +149,8 @@ export type CurrencyBoosts = Partial<Record<CurrencyName, number>>;
 export interface PeriodicState {
 	/** Atomic numbers, ascending. */
 	identified: number[];
+	/** Whether the player has seen the Periodic Table's introduction, missing in saves from before it. */
+	introSeen?: boolean;
 	sites: Partial<Record<SiteId, SiteForge>>;
 	/** Center in nm of the Prism's tuning window over the spectrum, missing in saves from before it. */
 	tuning?: number;
@@ -242,6 +244,8 @@ export interface OfflineProgressSummary {
 	awayMs: number;
 	capMs: number;
 	currencyGains: CurrencyAmountMap;
+	/** Atomic numbers the Periodic Table forged while away. */
+	forged: number[];
 	incomeMultiplier: number;
 	levelsGained: number;
 	overdriveBosonsSpent: number;

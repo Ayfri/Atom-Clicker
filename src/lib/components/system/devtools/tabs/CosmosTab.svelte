@@ -167,7 +167,7 @@
 
 <Section title="Periodic Table">
 	{#snippet actions()}
-		<button class={btnAccent} disabled={!periodicManager.unlocked} onclick={() => (realmManager.cosmosOpen = realmManager.tableOpen = true)}>Open</button>
+		<button class={btnAccent} disabled={!periodicManager.unlocked} onclick={() => realmManager.openTable()}>Open</button>
 	{/snippet}
 	<div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-xs text-white/70">
 		<span class="text-white/45">Identified</span>

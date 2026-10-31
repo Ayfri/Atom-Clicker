@@ -120,6 +120,15 @@ test('Decay events, lamp and sky Light are paid once for the time away and liste
 	}
 });
 
+test('the summary lists the elements forged while away, in the order they finished', () => {
+	gameManager.totalIonizesAllTime = 1;
+	cosmosManager.instruments = [SPECTROSCOPE_ID];
+	gameManager.periodic = { identified: [], sites: {} };
+
+	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+	expect(gameManager.offlineProgressSummary?.forged).toEqual(zs('H He'));
+});
+
 test('offline purchases stay out of the daily quest counters', () => {
 	currenciesManager.add(CurrenciesTypes.ATOMS, 1e6);
 	gameManager.applyingOfflineProgress = true;

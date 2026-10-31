@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { ELEMENTS } from '#data/elements.js';
 	import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
@@ -8,7 +9,7 @@
 	import PhotonIcon from '#components/icons/Photon.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { ArrowBigUp, CircleArrowUp, Factory, Hourglass, MousePointerClick, Radiation, Sparkles } from '@lucide/svelte';
+	import { ArrowBigUp, CircleArrowUp, Factory, FlaskRound, Hourglass, MousePointerClick, Radiation, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion, Tween } from 'svelte/motion';
@@ -19,6 +20,7 @@
 
 	let { onClose }: Props = $props();
 
+	const MAX_FORGED_SHOWN = 12;
 	const XP_COLOR = '#facc15';
 
 	/** A snapshot, so the content stays through the fade-out after `close()` clears the manager's summary. */
@@ -33,8 +35,16 @@
 		? GENERATOR_TYPES.flatMap(type => ((summary.autoBuyCounts[type] ?? 0) > 0 ? [{ count: summary.autoBuyCounts[type] ?? 0, type }] : []))
 		: [];
 	const autoBuyTotal = autoBuys.reduce((total, { count }) => total + count, 0);
+	const forgedSymbols = summary?.forged.map(z => ELEMENTS[z - 1].symbol) ?? [];
 	const hasActivity =
-		!!summary && (autoBuyTotal > 0 || summary.autoUpgradePurchases > 0 || summary.atomAutoClicks >= 1 || summary.photonAutoClicks >= 1 || summary.radiationActive || summary.overdriveBosonsSpent > 0);
+		!!summary &&
+		(autoBuyTotal > 0 ||
+			summary.autoUpgradePurchases > 0 ||
+			summary.atomAutoClicks >= 1 ||
+			summary.photonAutoClicks >= 1 ||
+			summary.radiationActive ||
+			summary.overdriveBosonsSpent > 0 ||
+			forgedSymbols.length > 0);
 
 	/** Drives every count-up and the storage bar at once, one rAF loop that stops when it lands. */
 	const reveal = new Tween(0, { duration: 1600, easing: cubicOut });
@@ -195,7 +205,17 @@
 							<span><b class="text-white">{formatNumber(summary.overdriveBosonsSpent)}</b> Higgs Bosons spent on Overdrive</span>
 						</li>
 					{/if}
-					{#if summary.radiationActive}
+					{#if forgedSymbols.length > 0}
+							<li class="flex items-center gap-2">
+								<FlaskRound class="shrink-0 text-accent-300" size={16} />
+								<span>
+									Forged while away: <b class="text-white">{forgedSymbols.slice(0, MAX_FORGED_SHOWN).join(', ')}</b>{forgedSymbols.length > MAX_FORGED_SHOWN
+										? ` and ${forgedSymbols.length - MAX_FORGED_SHOWN} more`
+										: ''}
+								</span>
+							</li>
+						{/if}
+						{#if summary.radiationActive}
 						<li class="flex items-center gap-2">
 							<Radiation class="shrink-0 text-radiation" size={16} />
 							<span>
