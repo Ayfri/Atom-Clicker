@@ -1,11 +1,12 @@
 import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { ELEMENTS } from '#data/elements.js';
+import { ELEMENT_GENERATOR_PERCENT, ELEMENTS, FAMILY_IDS, GENERATOR_ELEMENTS, SET_BONUS } from '#data/elements.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
+import { SITE_IDS } from '#data/sites.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
@@ -46,6 +47,11 @@ export interface Hint {
 /** In-game time before the install hint shows up, an hour in means the player came to stay. */
 const INSTALL_HINT_PLAY_MS = 3_600_000;
 const SKILL_TREE_ROOTS = Object.values(SKILL_UPGRADES).filter(skill => !skill.requires || skill.requires.length === 0);
+const AFFINITY_ELEMENTS = [...new Set(Object.values(GENERATOR_ELEMENTS).flat())];
+const FAMILY_MEMBERS = FAMILY_IDS.map(family => ELEMENTS.filter(element => element.family === family).map(element => element.z));
+
+/** Identified members of each family. */
+const familyProgress = () => FAMILY_MEMBERS.map(members => ({ lit: members.filter(z => periodicManager.identifiedSet.has(z)).length, size: members.length }));
 
 const realmHint = (realm: RealmType, title: string): Hint => ({
 	done: () => realmManager.selectedRealmId === realm,
@@ -149,6 +155,25 @@ export const HINTS: Hint[] = [
 		targets: ['#nav-electronize'],
 		text: 'A deeper reset: trade your Protons for Electrons and their own upgrades.',
 		title: 'Electronize',
+	},
+	{
+		done: () => realmManager.tableOpen,
+		id: 'atoms:table',
+		placement: 'right',
+		realm: RealmTypes.ATOMS,
+		show: () => periodicManager.introSeen && periodicManager.ready.length > 0,
+		targets: ['#nav-periodic-table'],
+		text: 'An element is ready in the Periodic Table. Open it from here, whatever realm you are in.',
+		title: 'An element is ready',
+	},
+	{
+		id: 'atoms:affinity',
+		placement: 'left',
+		realm: RealmTypes.ATOMS,
+		show: () => periodicManager.unlocked && AFFINITY_ELEMENTS.some(z => periodicManager.identifiedSet.has(z)),
+		targets: ['[data-hint="generator-elements"]'],
+		text: `Every element you identify boosts the generators made of it, +${ELEMENT_GENERATOR_PERCENT}% each.`,
+		title: 'Element affinities',
 	},
 	{
 		action: { label: 'Show me', run: () => ui.openSettings('install') },
@@ -318,9 +343,9 @@ export const HINTS: Hint[] = [
 		id: 'cosmos:table',
 		placement: 'bottom',
 		realm: 'cosmos',
-		show: () => periodicManager.unlocked,
+		show: () => periodicManager.introSeen,
 		targets: ['[data-hint="cosmos-table"]'],
-		text: 'Every element was forged somewhere in the sky. Open the Periodic Table to read them.',
+		text: 'The Periodic Table lives here and in the menu. Open it whenever an element is ready.',
 		title: 'The Periodic Table',
 	},
 	{
@@ -345,6 +370,15 @@ export const HINTS: Hint[] = [
 		title: 'Synthesis',
 	},
 	{
+		id: 'table:waiting',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => Object.values(periodicManager.statuses).some(status => status.kind === 'waiting' && status.missing.length > 0),
+		targets: ['[data-hint="table-waiting"]'],
+		text: 'This source needs an element another source makes first. It resumes on its own.',
+		title: 'Waiting on another source',
+	},
+	{
 		done: () => periodicManager.identified.length >= 5,
 		id: 'table:lamp',
 		placement: 'bottom',
@@ -353,6 +387,25 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-lights"]'],
 		text: 'An element you can read, you can also make glow. Each identified element now adds its own Light.',
 		title: 'Lamps',
+	},
+	{
+		done: () => familyProgress().some(({ lit, size }) => lit === size),
+		id: 'table:families',
+		placement: 'top',
+		realm: 'table',
+		show: () => familyProgress().some(({ lit }) => lit >= 2),
+		targets: ['[data-hint="table-family"]'],
+		text: `Elements of a family add up their bonus. Read the whole family to multiply it by ${SET_BONUS}.`,
+		title: 'Families',
+	},
+	{
+		id: 'table:sources',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.identified.length >= 5 && SITE_IDS.some(id => !periodicManager.open.has(id)),
+		targets: ['[data-hint="table-locked"]'],
+		text: 'More sources hide in the sky. Each one opens when you discover the object that makes it, or identify the elements it is built from.',
+		title: 'Sources to find',
 	},
 	{
 		done: () => periodicManager.tuning !== TUNING_DEFAULT,
