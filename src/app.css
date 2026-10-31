@@ -58,10 +58,11 @@
 	}
 
 	/* Phone nav dock plus the realm bar, kept while the bar is docked in the Cosmos so the realm behind never resizes.
-	   `--cosmos-dock-height` is what the dock covers at the bottom of the Cosmos. Mirrors MOBILE_QUERY. */
+	   The Cosmos and the Periodic Table end above the nav dock, `--cosmos-dock-height` is what the realm dock covers at the
+	   bottom of the Cosmos. Mirrors MOBILE_QUERY. */
 	@media (width < 64rem) {
 		:root {
-			--cosmos-dock-height: calc(3.25rem + env(safe-area-inset-bottom));
+			--cosmos-dock-height: 3.25rem;
 			--mobile-dock-height: 3.5rem;
 			--mobile-nav-height: calc(var(--mobile-dock-height) + var(--realm-bar-height, 0rem));
 		}

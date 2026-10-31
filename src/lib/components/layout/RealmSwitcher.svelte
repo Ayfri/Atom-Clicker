@@ -234,14 +234,14 @@
 	{#if !realmManager.tableOpen}
 		<nav
 			aria-label="Realms"
-			class={desktop ? 'pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-46' : 'fixed inset-x-0 bottom-0 z-46'}
+			class={desktop ? 'pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-46' : 'fixed inset-x-0 bottom-(--mobile-dock-height) z-46'}
 			id={desktop ? undefined : 'realm-dock'}
 			transition:fade={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 		>
 			<div
 				class={desktop ?
 					'pointer-events-auto rounded-xl border border-white/10 bg-accent-950/90 p-1'
-				:	'flex h-(--cosmos-dock-height) w-full border-t border-white/10 bg-accent-950/95 px-2 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]'}
+				:	'flex h-(--realm-bar-height) w-full border-t border-white/10 bg-accent-950/95 px-2 py-1'}
 				in:receive|global={{ key: SWITCHER_KEY }}
 				out:send|global={{ key: SWITCHER_KEY }}
 			>

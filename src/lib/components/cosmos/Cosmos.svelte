@@ -172,7 +172,7 @@
 
 <!-- The desktop side nav stays reachable on the left. -->
 <div
-	class="fixed inset-x-0 bottom-0 z-45 select-none bg-cosmos-sky text-white lg:left-18"
+	class="fixed inset-x-0 bottom-[var(--mobile-dock-height,0px)] z-45 select-none bg-cosmos-sky text-white lg:left-18"
 	style:top="var(--banner-height)"
 	in:lookUp|global
 	out:lookUp|global={{ duration: 600, easing: cubicIn }}
