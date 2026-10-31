@@ -8,6 +8,8 @@
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import { tierIconStack } from '#helpers/iconStacks.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { btn, field } from '../shared.svelte';
@@ -49,6 +51,12 @@
 		<button class="{btn} ml-auto" onclick={() => prestigeStore.trigger('protonise')}>Protonise anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('electronize')}>Electronize anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('ionize')}>Ionize anim</button>
+		<button
+			class={btn}
+			disabled={!periodicManager.unlocked || realmManager.introPlaying}
+			onclick={() => realmManager.playIntro()}
+			title={periodicManager.unlocked ? 'Plays over everything but this panel, close it with ² / `' : 'Needs the Spectroscope'}>Periodic Table intro</button
+		>
 	</div>
 </Section>
 
