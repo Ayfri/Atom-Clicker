@@ -26,7 +26,7 @@ class CosmosManager {
 	aperture = $state(0);
 	discovered = $state.raw<string[]>([]);
 	instruments = $state.raw<string[]>([]);
-	/** Counts the saves loaded, so a watcher tells a replaced state from an instrument that was built. */
+	/** Counts the saves loaded and the offline catch-ups, so a watcher tells a replaced state from an instrument that was built. */
 	loads = $state(0);
 	/** Instrument paid for and still being built, owned once `leftMs` runs out. */
 	research = $state.raw<CosmosState['research']>(null);
@@ -36,7 +36,7 @@ class CosmosManager {
 	/** 0 when no paid Aperture level is widening. */
 	wideningMs = $state(0);
 	/** Reads the Starlight currency boost live, GameManager sets it since this module never imports it. */
-	currencyBoost: () => number = () => 1;
+	currencyBoost = $state.raw<() => number>(() => 1);
 
 	unlocked = $derived(radiationManager.ionizes > 0);
 
@@ -69,7 +69,10 @@ class CosmosManager {
 	/** Also counted while locked so the first Ionize can size its flash. */
 	baseStarlight = $derived(this.objects.reduce((rate, object) => rate + object.starlight * (1 + this.level(object.id)), 0));
 
-	starlightPerSecond = $derived(this.unlocked ? this.baseStarlight * this.starlightMultiplier * this.starlightBoost : 0);
+	/** Without the currency boost, which boost points can add and remove for free. */
+	unboostedStarlightPerSecond = $derived(this.unlocked ? this.baseStarlight * this.starlightMultiplier : 0);
+
+	starlightPerSecond = $derived(this.unboostedStarlightPerSecond * this.starlightBoost);
 
 	/** Before the Light gain stat. */
 	skyLight = $derived.by((): Record<LightColor, number> => {

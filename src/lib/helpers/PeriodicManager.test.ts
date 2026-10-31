@@ -329,6 +329,29 @@ describe('table', () => {
 			expect(periodicManager.assign('cosmic')).toBe(false);
 		});
 
+		test('a tick gives the same result whatever order the sources were assigned in, a step waiting on another source starting when its element is made', () => {
+			const [h, he, c] = zs('H He C');
+			const heSeconds = (ELEMENTS[h - 1].need + ELEMENTS[he - 1].need) / BASE_RATES.bigbang;
+			cosmosManager.discovered = ['mira'];
+			periodicManager.forges = 2;
+
+			const run = (active: SiteId[], deltaMs: number) => {
+				gameManager.periodic = { identified: [], sites: {} };
+				periodicManager.active = active;
+				periodicManager.tick(deltaMs);
+				return { forged: [...periodicManager.forged].toSorted((a, b) => a - b), lowmass: periodicManager.forge('lowmass') };
+			};
+
+			const long = run(['lowmass', 'bigbang'], DAY_MS);
+			expect(long.forged).toEqual(expect.arrayContaining([h, he, c]));
+			expect(run(['bigbang', 'lowmass'], DAY_MS)).toEqual(long);
+
+			const short = run(['lowmass', 'bigbang'], (heSeconds + 1) * 1000);
+			expect(short.forged).toEqual([h, he]);
+			expect(short.lowmass.progress).toBeCloseTo(BASE_RATES.lowmass, 6);
+			expect(run(['bigbang', 'lowmass'], (heSeconds + 1) * 1000)).toEqual(short);
+		});
+
 		test('the next forge unlocks at each milestone and the last one is the cap', () => {
 			for (const [i, milestone] of FORGE_MILESTONES.entries()) {
 				periodicManager.forges = i + 1;
@@ -348,6 +371,11 @@ describe('table', () => {
 			const cost = () => Math.ceil(2 * ionizeStarlightMultiplier(gameManager.totalIonizesAllTime) * FORGE_COST_SECONDS);
 			expect(periodicManager.forgeCost).toBe(cost());
 			gameManager.totalIonizesAllTime = 5;
+			expect(periodicManager.forgeCost).toBe(cost());
+
+			/** Boost points move for free, so the price ignores them. */
+			gameManager.currencyBoosts = { [CurrenciesTypes.STARLIGHT]: 20 };
+			expect(cosmosManager.starlightPerSecond).toBeGreaterThan(cosmosManager.unboostedStarlightPerSecond);
 			expect(periodicManager.forgeCost).toBe(cost());
 
 			currenciesManager.add(CurrenciesTypes.STARLIGHT, cost());

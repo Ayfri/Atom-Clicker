@@ -61,7 +61,7 @@ class PeriodicManager {
 	identified = $state.raw<number[]>([]);
 	/** Set once the introduction played, whether the player opened the Table from it or not. */
 	introSeen = $state(false);
-	/** Counts the saves loaded, so a watcher tells a replaced state from forging that happened. */
+	/** Counts the saves loaded and the offline catch-ups, so a watcher tells a replaced state from forging that happened. */
 	loads = $state(0);
 	sites = $state.raw<Partial<Record<SiteId, SiteForge>>>({});
 	/** Center in nm of the Prism's tuning window, only read once the Prism Tuning upgrade is bought. */
@@ -80,8 +80,8 @@ class PeriodicManager {
 	/** The next forge is buyable once enough elements are identified. */
 	nextForgeUnlocked = $derived(this.forges < MAX_FORGES && this.identified.length >= FORGE_MILESTONES[this.forges - 1]);
 
-	/** About `FORGE_COST_SECONDS` of Starlight production right now, never free. */
-	forgeCost = $derived(Math.max(1, Math.ceil(cosmosManager.starlightPerSecond * FORGE_COST_SECONDS)));
+	/** About `FORGE_COST_SECONDS` of Starlight production right now without the currency boost, never free. */
+	forgeCost = $derived(Math.max(1, Math.ceil(cosmosManager.unboostedStarlightPerSecond * FORGE_COST_SECONDS)));
 
 	/** `tick` rewrites `sites` every second for the progress, a key of the chain indices only changes when an element is finished. */
 	#chainKey = $derived(SITE_IDS.map(id => this.forge(id).index).join());
@@ -205,32 +205,44 @@ class PeriodicManager {
 		return true;
 	}
 
-	/** Online ticks and offline catch-up both land here, a long gap can finish several elements of a chain. A finished chain frees its forge. Returns the elements forged. */
+	/**
+	 * Online ticks and offline catch-up both land here, a long gap can finish several elements of a chain. A finished chain frees its forge. Returns the elements forged.
+	 * Each source runs on its own clock and passes repeat while one finishes an element, so a step waiting on another source starts when that element is made, whatever the order of `active`.
+	 */
 	tick(deltaMs: number): number[] {
 		if (!this.unlocked) return [];
 		const made: number[] = [];
-		const finished = new Set<SiteId>();
-		let sites = this.sites;
-		for (const id of this.active) {
-			let budget = (this.rateOf(id) * deltaMs) / 1000;
-			const forge = { ...this.forge(id) };
-			while (budget > 0) {
-				const status = this.statusOf(id, forge.index, made);
-				if (status.kind !== 'forging') break;
-				const left = ELEMENTS[status.z - 1].need - forge.progress;
-				if (budget < left) {
-					forge.progress += budget;
-					break;
+		const madeAt = new Map<number, number>();
+		const total = deltaMs / 1000;
+		const runs = this.active.map(id => ({ clock: 0, forge: { ...this.forge(id) }, id, rate: this.rateOf(id) }));
+		let progressed = true;
+		while (progressed) {
+			progressed = false;
+			for (const run of runs) {
+				const { forge, id, rate } = run;
+				while (rate > 0 && run.clock < total) {
+					const status = this.statusOf(id, forge.index, made);
+					if (status.kind !== 'forging') break;
+					const start = Math.max(run.clock, ...(CHAINS[id].seeds[status.z]?.needs ?? []).map(z => madeAt.get(z) ?? 0));
+					const left = ELEMENTS[status.z - 1].need - forge.progress;
+					const budget = Math.max(0, rate * (total - start));
+					run.clock = start;
+					if (budget < left) {
+						forge.progress += budget;
+						run.clock = total;
+						break;
+					}
+					run.clock += left / rate;
+					made.push(status.z);
+					madeAt.set(status.z, run.clock);
+					forge.index++;
+					forge.progress = 0;
+					progressed = true;
 				}
-				budget -= left;
-				made.push(status.z);
-				forge.index++;
-				forge.progress = 0;
 			}
-			if (forge.index >= CHAINS[id].steps.length) finished.add(id);
-			sites = { ...sites, [id]: forge };
 		}
-		this.sites = sites;
+		const finished = new Set(runs.filter(({ forge, id }) => forge.index >= CHAINS[id].steps.length).map(({ id }) => id));
+		this.sites = { ...this.sites, ...Object.fromEntries(runs.map(({ forge, id }) => [id, forge])) };
 		if (finished.size) this.active = this.active.filter(id => !finished.has(id));
 		return made;
 	}
