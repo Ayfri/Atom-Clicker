@@ -18,6 +18,16 @@ export const CurrenciesTypes = {
 
 export type CurrencyName = typeof CurrenciesTypes[keyof typeof CurrenciesTypes];
 
+/** Currencies that take generator-level boost points, in the order the Currency Boosts menu lists them. */
+export const BOOSTABLE_CURRENCIES: readonly CurrencyName[] = [
+	CurrenciesTypes.ATOMS,
+	CurrenciesTypes.PROTONS,
+	CurrenciesTypes.ELECTRONS,
+	CurrenciesTypes.PHOTONS,
+	CurrenciesTypes.EXCITED_PHOTONS,
+	CurrenciesTypes.STARLIGHT,
+];
+
 export const CURRENCIES = {
 	[CurrenciesTypes.ATOMS]: {
 		achievementTiers: [100, 10_000, 1_000_000, 1_000_000_000, 1e12, 1e18, 1e25, 1e35, 1e50, 1e65, 1e80, 1e100],

@@ -120,10 +120,22 @@ test('Decay events, lamp and sky Light are paid once for the time away and liste
 	}
 });
 
+test('the Starlight boost multiplies the Starlight paid while away', () => {
+	gameManager.totalIonizesAllTime = 1;
+	const rate = cosmosManager.starlightPerSecond;
+	gameManager.currencyBoosts = { [CurrenciesTypes.STARLIGHT]: 10 };
+	expect(cosmosManager.starlightPerSecond).toBeCloseTo(rate * 2);
+
+	currenciesManager.hardReset();
+	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+	expect(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT)).toBeCloseTo(rate * 2 * 3600);
+	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.STARLIGHT]).toBeCloseTo(rate * 2 * 3600);
+});
+
 test('the summary lists the elements forged while away, in the order they finished', () => {
 	gameManager.totalIonizesAllTime = 1;
 	cosmosManager.instruments = [SPECTROSCOPE_ID];
-	gameManager.periodic = { identified: [], sites: {} };
+	gameManager.periodic = { active: ['bigbang'], identified: [], sites: {} };
 
 	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
 	expect(gameManager.offlineProgressSummary?.forged).toEqual(zs('H He'));

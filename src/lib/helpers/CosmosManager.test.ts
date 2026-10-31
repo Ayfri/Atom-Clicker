@@ -63,6 +63,21 @@ describe('sky', () => {
 		expect(starlight()).toBeCloseTo(8 * ionizeStarlightMultiplier(1));
 	});
 
+	test('a Starlight boost multiplies the rate shown, the tick and the Ionize flash, and other boosts leave it alone', () => {
+		const rate = cosmosManager.starlightPerSecond;
+		const flash = cosmosManager.flashFor(2, 1, 2);
+		gameManager.currencyBoosts = { [CurrenciesTypes.ATOMS]: 20 };
+		expect(cosmosManager.starlightPerSecond).toBe(rate);
+
+		gameManager.currencyBoosts = { [CurrenciesTypes.STARLIGHT]: 5 };
+		expect(cosmosManager.starlightPerSecond).toBeCloseTo(rate * 1.5);
+		expect(cosmosManager.starlightOf('earth')).toBeCloseTo(COSMOS_OBJECTS_BY_ID.earth.starlight * ionizeStarlightMultiplier(1) * 1.5);
+		expect(cosmosManager.flashFor(2, 1, 2)).toBeCloseTo(flash * 1.5);
+		gameManager.tick(4000, true);
+		expect(starlight()).toBeCloseTo(rate * 1.5 * 4);
+		expect(gameManager.dailyStats.starlightEarned).toBeCloseTo(starlight());
+	});
+
 	test('radiates its own Light once the Spectroscope reads it, each study level adding it again', () => {
 		cosmosManager.discovered = ['mira'];
 		cosmosManager.studies = { mira: 2 };

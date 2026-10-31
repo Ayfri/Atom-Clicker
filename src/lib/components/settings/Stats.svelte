@@ -8,7 +8,7 @@
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
 	import { CHROMATIC, CHROMATIC_COLORS, KILLS_PER_SPECTRUM_LEVEL } from '#data/chromatic.js';
-	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { BOOSTABLE_CURRENCIES, CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { REALMS } from '#data/realms.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
@@ -48,7 +48,7 @@
 			{ label: 'Stability Field', pinned: gameManager.features[FeatureTypes.STABILITY_FIELD], value: gameManager.stabilityMultiplier },
 			{ label: 'Power-up duration', value: gameManager.powerUpDurationMultiplier },
 			{ label: 'Power-up effect', value: gameManager.powerUpEffectMultiplier },
-			...[CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS].map(type => ({
+			...BOOSTABLE_CURRENCIES.map(type => ({
 				label: `${type} boost`,
 				value: gameManager.getCurrencyBoostMultiplier(type),
 			})),

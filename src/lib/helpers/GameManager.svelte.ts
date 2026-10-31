@@ -975,7 +975,7 @@ export class GameManager {
 	}
 
 	/** Reassigns every point round-robin over the given currencies so they end up within one point of each other. */
-	splitCurrencyBoostsEvenly(currencies: CurrencyName[]) {
+	splitCurrencyBoostsEvenly(currencies: readonly CurrencyName[]) {
 		if (currencies.length === 0) return;
 		const boosts: CurrencyBoosts = {};
 		let remaining = this.boostPointsTotal;
@@ -1094,4 +1094,5 @@ export class GameManager {
 }
 
 export const gameManager = new GameManager();
+cosmosManager.currencyBoost = () => gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.STARLIGHT);
 numberNotation.read = () => gameManager.settings.display.notation;

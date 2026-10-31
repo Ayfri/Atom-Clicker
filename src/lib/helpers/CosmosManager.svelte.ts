@@ -30,6 +30,8 @@ class CosmosManager {
 	studies = $state.raw<Record<string, number>>({});
 	/** 0 when no paid Aperture level is widening. */
 	wideningMs = $state(0);
+	/** Reads the Starlight currency boost live, GameManager sets it since this module never imports it. */
+	currencyBoost: () => number = () => 1;
 
 	unlocked = $derived(radiationManager.ionizes > 0);
 
@@ -56,10 +58,13 @@ class CosmosManager {
 
 	starlightMultiplier = $derived(ionizeStarlightMultiplier(radiationManager.ionizes));
 
+	/** The Starlight currency boost, applied to every Starlight credit: the online tick, offline catch-up and the Ionize flash. */
+	starlightBoost = $derived(this.currencyBoost());
+
 	/** Also counted while locked so the first Ionize can size its flash. */
 	baseStarlight = $derived(this.objects.reduce((rate, object) => rate + object.starlight * (1 + this.level(object.id)), 0));
 
-	starlightPerSecond = $derived(this.unlocked ? this.baseStarlight * this.starlightMultiplier : 0);
+	starlightPerSecond = $derived(this.unlocked ? this.baseStarlight * this.starlightMultiplier * this.starlightBoost : 0);
 
 	/** Before the Light gain stat. */
 	skyLight = $derived.by((): Record<LightColor, number> => {
@@ -83,7 +88,7 @@ class CosmosManager {
 	starlightOf(objectId: string): number {
 		const object = COSMOS_OBJECTS_BY_ID[objectId];
 		if (!this.unlocked || !object || !this.objects.includes(object)) return 0;
-		return object.starlight * (1 + this.level(objectId)) * this.starlightMultiplier;
+		return object.starlight * (1 + this.level(objectId)) * this.starlightMultiplier * this.starlightBoost;
 	}
 
 	skyLightOf(objectId: string): Partial<Record<LightColor, number>> {
@@ -103,9 +108,9 @@ class CosmosManager {
 		return true;
 	}
 
-	/** IONIZE_FLASH_SECONDS of Starlight times the squared ratio of the run's peak CPM to the ionization line, at the new Ionize count. */
+	/** IONIZE_FLASH_SECONDS of Starlight times the squared ratio of the run's peak CPM to the ionization line, at the new Ionize count and the current boost. */
 	flashFor(peakCpm: number, ionizeCpm: number, ionizes: number): number {
-		return this.baseStarlight * ionizeStarlightMultiplier(ionizes) * IONIZE_FLASH_SECONDS * (peakCpm / ionizeCpm) ** 2;
+		return this.baseStarlight * ionizeStarlightMultiplier(ionizes) * this.starlightBoost * IONIZE_FLASH_SECONDS * (peakCpm / ionizeCpm) ** 2;
 	}
 
 	purchaseAperture(): boolean {
