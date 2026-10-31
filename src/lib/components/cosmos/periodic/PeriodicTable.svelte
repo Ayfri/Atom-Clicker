@@ -169,7 +169,7 @@
 	/** 1 while nothing is ready to read, 2 once something is. */
 	const goalStep = $derived(periodicManager.ready.length ? 2 : 1);
 	/** Tall desktop screens stack the atom above its name, shorter ones keep it beside it so the card never needs a scrollbar. */
-	const tall = new MediaQuery('(min-height: 700px)');
+	const tall = new MediaQuery('(min-height: 860px)');
 	const stacked = $derived(!mobile.current && tall.current);
 
 	$effect(() => atoms?.set(looks));
@@ -474,22 +474,34 @@
 	{/if}
 {/snippet}
 
-{#snippet studyButton(id: SiteId, label?: string)}
+{#snippet studyButton(id: SiteId, block = false)}
 	{@const cost = siteStudyCost(periodicManager.forge(id).level)}
 	<button
-		class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-accent-600/80 px-3 text-center text-xs font-bold whitespace-nowrap transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
+		class={[
+			'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-accent-600/80 text-center text-xs font-bold whitespace-nowrap transition-colors enabled:hover:bg-accent-500 disabled:opacity-35',
+			block ? 'w-full' : 'max-w-full px-3',
+		]}
 		disabled={starlight < cost}
 		onclick={() => study(id)}
 		title="Study it: {studyGains(id, periodicManager.statuses[id].kind)}"
 		in:revealIn
 	>
-		{#if label}<span class="truncate">{label}</span>{/if}
 		<Currency
 			name={CurrenciesTypes.STARLIGHT}
 			size={14}
 		/>
 		{formatNumber(cost)}
 	</button>
+{/snippet}
+
+{#snippet studyBlock(id: SiteId, effect: string)}
+	<div class="flex w-full flex-col gap-1 text-xs">
+		<p class="flex items-baseline justify-between gap-3">
+			<span class="font-bold whitespace-nowrap text-white/70">Study · Lv {periodicManager.forge(id).level}</span>
+			<span class="text-right text-white/55">{effect}</span>
+		</p>
+		{@render studyButton(id, true)}
+	</div>
 {/snippet}
 
 {#snippet assignControl(id: SiteId)}
@@ -604,10 +616,11 @@
 
 {#snippet sky()}
 	<div
-		class="mx-auto flex w-max gap-1 lg:gap-3"
+		class="mx-auto flex w-max gap-1 px-2 lg:gap-3"
 		data-hint="table-forges"
 	>
 		{#each sites.filter(({ status }) => showLocked || status.kind !== 'locked') as { id, site, status } (id)}
+			{@const level = periodicManager.forge(id).level}
 			<div
 				class="flex w-26 shrink-0 flex-col items-center gap-0.5 text-center lg:w-28"
 				in:revealIn
@@ -668,39 +681,50 @@
 							size={16}
 						/>
 					{/if}
+					{#if level > 0}
+						<span
+							class="absolute top-0 right-0 rounded-full bg-[#05070f] px-1.5 text-[10px] leading-4 font-bold tabular-nums ring-1 ring-white/15"
+							style:color={site.color}
+						>
+							Lv {level}
+						</span>
+					{/if}
 				</button>
 				<span
-					class="mt-1 text-xs leading-tight font-bold whitespace-nowrap lg:text-sm"
+					class="mt-1 h-4 text-xs leading-tight font-bold whitespace-nowrap lg:h-5 lg:text-sm"
 					style:color={status.kind === 'locked' ? 'rgb(255 255 255 / 0.4)' : site.color}
 					style:opacity={status.kind === 'idle' ? 0.6 : undefined}
 				>
 					{site.short}
 				</span>
-				{#if status.kind === 'forging'}
-					<span class="text-[11px] text-white/55 tabular-nums lg:text-xs">
-						{ELEMENTS[status.z - 1].symbol} · {eta(periodicManager.etaOf(id))}
-					</span>
-				{:else if status.kind === 'waiting'}
-					<span
-						class="line-clamp-2 text-[11px] leading-tight text-amber-200/80 lg:text-xs"
-						title={CHAINS[id].seeds[status.z]?.why}
-					>
-						{status.missing.length ?
-							`Needs ${status.missing.map(z => ELEMENTS[z - 1].symbol).join(', ')}`
-						:	`Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
-					</span>
-				{:else if status.kind === 'idle'}
-					<span class="text-[11px] text-white/45 lg:text-xs">Idle</span>
-				{:else if status.kind === 'done'}
-					<span class="text-[11px] text-white/40 lg:text-xs">Complete</span>
-				{:else}
-					<span class="line-clamp-2 text-[11px] leading-tight text-white/40 lg:text-xs">{site.gate}</span>
-				{/if}
-				{#if canStudy(id, status.kind)}
-					<div class="mt-1">
+				<!-- Slots have a fixed height so the band is as tall in every state: two text lines (a waiting or locked source) and a study button. -->
+				<div class="h-7 w-full lg:h-7.5">
+					{#if status.kind === 'forging'}
+						<span class="text-[11px] text-white/55 tabular-nums lg:text-xs">
+							{ELEMENTS[status.z - 1].symbol} · {eta(periodicManager.etaOf(id))}
+						</span>
+					{:else if status.kind === 'waiting'}
+						<span
+							class="line-clamp-2 text-[11px] leading-tight text-amber-200/80 lg:text-xs"
+							title={CHAINS[id].seeds[status.z]?.why}
+						>
+							{status.missing.length ?
+								`Needs ${status.missing.map(z => ELEMENTS[z - 1].symbol).join(', ')}`
+							:	`Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
+						</span>
+					{:else if status.kind === 'idle'}
+						<span class="text-[11px] text-white/45 lg:text-xs">Idle</span>
+					{:else if status.kind === 'done'}
+						<span class="text-[11px] text-white/40 lg:text-xs">Complete</span>
+					{:else}
+						<span class="line-clamp-2 text-[11px] leading-tight text-white/40 lg:text-xs">{site.gate}</span>
+					{/if}
+				</div>
+				<div class="mt-1 flex h-8 items-center justify-center">
+					{#if canStudy(id, status.kind)}
 						{@render studyButton(id)}
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
 		{/each}
 		{#if lockedCount && found}
@@ -890,11 +914,11 @@
 		{/each}
 	</div>
 	{#if status.kind !== 'locked'}
-		<div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-			<span class="text-white/45">Study level {level}</span>
+		<div class="mt-3">
 			{#if canStudy(id, status.kind)}
-				{@render studyButton(id, 'Study')}
-				<span class="text-white/55">{studyGains(id, status.kind)}</span>
+				{@render studyBlock(id, studyGains(id, status.kind))}
+			{:else}
+				<p class="text-xs text-white/45">Study · Lv {level}</p>
 			{/if}
 		</div>
 	{/if}
@@ -929,7 +953,7 @@
 				data-hint="table-stage"
 			>
 				<AtomStage
-					class={stacked ? 'size-[clamp(8rem,calc(100dvh-var(--banner-height)-600px),13rem)]' : 'size-28 lg:size-32'}
+					class={stacked ? 'size-[clamp(6rem,calc(100cqh-400px),13rem)]' : 'size-28 lg:size-[clamp(6rem,calc(100cqh-320px),8rem)]'}
 					{affordable}
 					color={info.color}
 					kind={stageKind}
@@ -989,7 +1013,7 @@
 		{:else if stageKind === 'forging'}
 			<div class={['mt-3 flex flex-col gap-2', stacked ? 'items-center' : 'items-start']}>
 				{#if hasForged}
-					{@render studyButton(siteId, `Speed up ${speedUp(siteId)}`)}
+					{@render studyBlock(siteId, `Speed up ${speedUp(siteId)}`)}
 				{/if}
 				<div class="flex flex-wrap items-center gap-1.5 text-xs text-white/45">
 					Reading costs
@@ -1211,10 +1235,10 @@
 		</div>
 	</header>
 
-	<!-- Fixed heights so nothing that grows over a run adds a scrollbar. On desktop the card is a right column that hangs from the header, over the sources and the table rows. -->
+	<!-- Fixed heights so nothing that grows over a run adds a scrollbar. On desktop the sources are a band over both columns, the table and the card share the area below. -->
 	<main class="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-5 lg:px-4 lg:pt-2 lg:pb-4">
-		<div class="shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:col-start-1 lg:px-0 lg:pt-0">
-			<div class="mb-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] leading-none">
+		<div class="shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:col-span-2 lg:row-start-1 lg:px-0 lg:pt-0">
+			<div class="mb-1 flex h-8.5 flex-col items-center justify-center gap-1 text-[10px] leading-none lg:h-5 lg:flex-row lg:gap-x-4">
 				<p class="flex items-baseline gap-2">
 					<span class="font-bold tracking-[0.3em] text-white/55 uppercase">Sources</span>
 					<span class="text-white/40">where elements are forged</span>
@@ -1249,7 +1273,8 @@
 					{/if}
 				</div>
 			</div>
-			<div class="overflow-x-auto py-1 [scrollbar-width:none]">
+			<!-- The top padding is room for a source's bounce (scale 1.25) and its ring, the scroller clips both axes. -->
+			<div class="overflow-x-auto pt-3.5 pb-1 [scrollbar-width:none] lg:pt-4">
 				{@render sky()}
 			</div>
 		</div>
@@ -1309,11 +1334,14 @@
 		</section>
 
 		<!-- Bottom sheet on phones so it never covers the selected cell. -->
-		<aside
-			class="max-h-[44dvh] shrink-0 overflow-y-auto rounded-t-2xl border-t border-white/10 bg-linear-to-b from-[#0d1226]/95 to-[#070a16]/95 p-4 shadow-2xl lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-full lg:self-center lg:rounded-2xl lg:border"
-		>
-			{@render card()}
-		</aside>
+		<!-- On desktop the wrapper is the size container the atom scales with, and the card is centered in it. -->
+		<div class="shrink-0 lg:col-start-2 lg:row-start-2 lg:flex lg:min-h-0 lg:flex-col lg:justify-center lg:[container-type:size]">
+			<aside
+				class="max-h-[44dvh] shrink-0 overflow-y-auto rounded-t-2xl border-t border-white/10 bg-linear-to-b from-[#0d1226]/95 to-[#070a16]/95 p-4 shadow-2xl lg:max-h-full lg:rounded-2xl lg:border"
+			>
+				{@render card()}
+			</aside>
+		</div>
 	</main>
 
 	{#if reveal}
