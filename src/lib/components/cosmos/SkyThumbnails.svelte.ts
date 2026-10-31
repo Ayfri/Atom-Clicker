@@ -181,7 +181,7 @@ class SkyThumbnails {
 		document.addEventListener('visibilitychange', this.#onVisibility);
 		this.#stopTracking = $effect.root(() => {
 			$effect(() => {
-				this.#active = ui.activeModal === null && !realmManager.tableOpen;
+				this.#active = ui.activeModal === null && !realmManager.tableOpen && !realmManager.introPlaying;
 				this.#update();
 			});
 		});

@@ -38,7 +38,7 @@ import {
 	type SpikeEvent,
 } from './types';
 
-const BOOST_PRIORITY: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS];
+const BOOST_PRIORITY: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.STARLIGHT];
 const HOUR_MS = 3_600_000;
 const IDLE_GAP_MIN_MS = 60_000;
 const PROGRESS_CHECK_TICKS = 500;
@@ -445,9 +445,15 @@ export class SimulationEngine {
 				}
 			}
 		}
-		// Every forge stays busy: a source that waits on another one gives its forge back, so the source it waits for can take it.
+		/** Every forge stays busy: a source that waits on another one gives its forge back, so the source it waits for can take it. */
 		if (periodicManager.unlocked) {
-			for (const id of periodicManager.active) if (periodicManager.statuses[id].kind === 'waiting') periodicManager.release(id);
+			for (const id of periodicManager.active) {
+				if (!canAct()) break;
+				if (periodicManager.statuses[id].kind === 'waiting' && periodicManager.release(id)) {
+					this.record('periodic', `release ${id}`);
+					actionsThisTick++;
+				}
+			}
 			if (canAct() && periodicManager.buyForge()) {
 				this.record('periodic', `forge ${periodicManager.forges}`);
 				actionsThisTick++;

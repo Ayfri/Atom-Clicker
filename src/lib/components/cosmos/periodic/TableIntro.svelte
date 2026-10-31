@@ -42,7 +42,7 @@
 	/** A line only drops if the element's data has one this close to the solar one. */
 	const LINE_TOLERANCE_NM = 15;
 	/** Where each part starts, in ms. */
-	const AT = { band: 900, fade: 3200, final: 5600, lines: 1800, prism: 800, sources: 4600 } as const;
+	const AT = { band: 900, final: 5600, lines: 1800, prism: 800, sources: 4600 } as const;
 	const ENTRIES = ['#nav-periodic-table', '[data-hint="cosmos-table"]'];
 	const FLY_MS = 900;
 	const FLY_STEP_MS = 90;
@@ -112,10 +112,12 @@
 		};
 
 		sources.forEach(({ id, status }, i) => {
-			if (status.kind !== 'forging') return;
+			/** Nothing is forging at the first play, so a source that could start shows the element it would make first. */
+			const starts = status.kind === 'forging' || (status.kind === 'idle' && !status.missing.length && !status.object);
+			if (!starts) return;
 			const { color } = SITES[id];
 			const launchAt = AT.sources + i * SOURCE_STEP_MS + LAUNCH_DELAY_MS;
-			const progress = status.progress / ELEMENTS[status.z - 1].need;
+			const progress = status.kind === 'forging' ? status.progress / ELEMENTS[status.z - 1].need : 0;
 			instance.ring(status.z, color, progress, launchAt + 900);
 			if (reduced) return;
 			timers.push(
