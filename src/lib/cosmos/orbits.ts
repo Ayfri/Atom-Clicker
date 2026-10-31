@@ -27,10 +27,8 @@ export interface Orbit {
 	phase: number;
 }
 
-/** Point of an orbit at a true anomaly, in its reference frame. */
 export function orbitPoint({ distance, eccentricity = 0, inclination = 0, node = 0, perihelion = 0 }: Orbit, anomaly: number, out: Vector3) {
 	const reach = (distance * (1 - eccentricity ** 2)) / (1 + eccentricity * Math.cos(anomaly));
-	/** Angle from the ascending node along the orbit. */
 	const fromNode = anomaly + perihelion - node;
 	const [x, y] = [Math.cos(fromNode) * reach, Math.sin(fromNode) * reach * Math.cos(inclination)];
 	return out.set(Math.cos(node) * x - Math.sin(node) * y, Math.sin(fromNode) * reach * Math.sin(inclination), -(Math.sin(node) * x + Math.cos(node) * y));
@@ -42,10 +40,7 @@ export const orbitNormal = ({ inclination = 0, node = 0 }: Orbit) =>
 const eccentricToTrue = (eccentricity: number, eccentric: number) =>
 	2 * Math.atan2(Math.sqrt(1 + eccentricity) * Math.sin(eccentric / 2), Math.sqrt(1 - eccentricity) * Math.cos(eccentric / 2));
 
-/**
- * True anomaly at a mean longitude, Kepler's equation by Newton's method: fast near the Sun, slow far out. Started from the mean
- * anomaly, Newton can stall near perihelion on Halley's 0.97 eccentricity, Danby's starting guess converges in a few steps.
- */
+/** True anomaly at a mean longitude, Kepler's equation by Newton's method. Danby's starting guess converges where the mean anomaly stalls (Halley, 0.97). */
 export function trueAnomaly({ eccentricity = 0, perihelion = 0 }: Orbit, meanLongitude: number) {
 	const mean = MathUtils.euclideanModulo(meanLongitude - perihelion + Math.PI, TURN) - Math.PI;
 	if (!eccentricity) return mean;
@@ -61,10 +56,7 @@ export function trueAnomaly({ eccentricity = 0, perihelion = 0 }: Orbit, meanLon
 /** Mean longitude when the scene opens: the real one of today for an orbit with its real period. */
 export const startLongitude = ({ days, phase }: Orbit, sinceJ2000: number) => phase + (days ? (TURN * sinceJ2000) / days : 0);
 
-/**
- * Orbits in AU and years scale with the Earth's, so the planets keep their real spacing and pace. Then JPL's J2000 elements in
- * degrees: mean longitude, inclination, ascending node and perihelion longitude.
- */
+/** Orbit in AU and years scaled with the Earth's, from JPL's J2000 elements in degrees: mean longitude, inclination, node, perihelion. */
 export const solarOrbit = (au: number, years: number, eccentricity: number, elements: readonly [number, number, number, number]): Orbit => {
 	const [phase, inclination, node, perihelion] = elements.map(MathUtils.degToRad);
 	return { days: years * 365.25, distance: EARTH_ORBIT * au, eccentricity, inclination, node, period: EARTH_YEAR * years, perihelion, phase };
@@ -72,13 +64,9 @@ export const solarOrbit = (au: number, years: number, eccentricity: number, elem
 
 export const EARTH_PATH = solarOrbit(1, 1, 0.0167, [100.464, 0, 0, 102.937]);
 
-/** Fades every orbit line in and out with the orbits switch. */
 export const orbitFade = uniform(1);
 
-/**
- * An ellipse with its parent at a focus, sampled evenly in eccentric anomaly so a stretched orbit keeps its points spread along it.
- * The segments double until the chords stray under 0.02 from the curve, at a fixed 256 the line missed Pluto by twice its radius.
- */
+/** An ellipse with its parent at a focus. Segments double until the chords stray under 0.02, a fixed 256 missed Pluto by twice its radius. */
 export class OrbitLine extends Line<BufferGeometry, LineBasicNodeMaterial> {
 	readonly #anchor = new Vector3();
 	/** The vertices in double precision, around the parent. */
@@ -112,10 +100,7 @@ export class OrbitLine extends Line<BufferGeometry, LineBasicNodeMaterial> {
 		this.#points = points;
 	}
 
-	/**
-	 * Moves the vertices' origin to a point of the orbit once the body is 50 units from the last one, and returns it. Thousands of
-	 * units out, float32 vertices are a thousandth off and the line shook beside a close-up Pluto.
-	 */
+	/** Moves the vertices' origin to a point of the orbit once the body is 50 units from the last one, and returns it: far float32 vertices shook. */
 	anchor(point: Vector3) {
 		if (point.distanceTo(this.#anchor) < 50) return this.#anchor;
 		const { x, y, z } = this.#anchor.copy(point);

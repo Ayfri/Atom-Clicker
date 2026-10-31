@@ -42,7 +42,6 @@ import { darkSky, realism } from './shading.js';
 import { DEEP_SKY_DISTANCE, EARTH_POLE, galactic, ORIGIN, SKY_DISTANCE, STAR_DISTANCE } from './space.js';
 
 const STAR_COUNT = 3500;
-/** Faint stars past the naked eye's reach, one dot each, they fill in one magnitude at a time past the bright field. */
 const FAINT_STAR_COUNT = 14_000;
 const FAINT_STAR_MAGNITUDES = [8, 17] as const;
 
@@ -57,7 +56,7 @@ const instancedSprite = (material: PointsNodeMaterial, count: number) => {
 	return sprite;
 };
 
-/** The bright field, `sight` runs from 0, only the brightest stars, to 1, the whole field. One instanced draw call for every star. */
+/** The bright field in one instanced draw call, `sight` runs from 0 (brightest stars only) to 1 (whole field). */
 function starField(sight: Node<'float'>) {
 	const data = new Float32Array(STAR_COUNT * 4);
 	const tints = new Float32Array(STAR_COUNT * 3);
@@ -74,12 +73,9 @@ function starField(sight: Node<'float'>) {
 	}
 	const star = instancedBufferAttribute<'vec4'>(new InstancedBufferAttribute(data, 4), 'vec4');
 	const tint = instancedBufferAttribute<'vec3'>(new InstancedBufferAttribute(tints, 3), 'vec3');
-	/** Twinkling is the Earth's air bending starlight, out in space the realistic lighting holds them steady. */
+	/** Twinkling comes from the Earth's air, the realistic lighting holds stars steady. */
 	const twinkle = mix(sin(time.mul(star.w.mul(1.3).add(0.5)).add(star.x.mul(0.37))).mul(0.2).add(0.85), 0.85, realism);
-	/**
-	 * The ~2% brightest stars get a bigger sprite with a faint four-point sparkle, the rest stay round dots. In the realistic lighting
-	 * every star is a pinpoint without spikes, they only differ by brightness.
-	 */
+	/** The ~2% brightest stars get a bigger sprite with a faint four-point sparkle, in the realistic lighting every star is a plain pinpoint. */
 	const sparkle = smoothstep(3.2, 3.4, star.w).mul(oneMinus(realism));
 	const offset = uv().sub(0.5);
 	const disc = oneMinus(smoothstep(0.08, 0.18, length(offset).mul(mix(1, 3, sparkle))));
@@ -88,7 +84,7 @@ function starField(sight: Node<'float'>) {
 	const material = new PointsNodeMaterial({ blending: AdditiveBlending, depthWrite: false, sizeAttenuation: false, transparent: true });
 	material.positionNode = star.xyz;
 	material.sizeNode = star.w.mul(mix(mix(1.8, 6, sparkle), 1.3, realism));
-	/** A star shows once the sight reaches its brightness: the brightest ~8% from the start, the faint majority last. */
+	/** A star shows once the sight reaches its brightness, the faint majority last. */
 	const seen = smoothstep(mix(2.5, 0.7, sight), mix(2.8, 1, sight), star.w);
 	/** Real brightness spreads far wider than the cartoon's: a handful stand out, most are barely there. */
 	const brightness = mix(star.w.mul(0.3).add(0.35), pow(star.w.div(3.6), 3).mul(1.6), realism);
@@ -97,10 +93,7 @@ function starField(sight: Node<'float'>) {
 	return instancedSprite(material, STAR_COUNT);
 }
 
-/**
- * Faint stars, plain dots without the bright field's sparkle, each one showing once the limit passes its magnitude. Their count
- * triples with every magnitude like real star counts, and the faintest crowd the Milky Way's band.
- */
+/** Faint stars, plain dots each showing once the limit passes its magnitude. Counts triple per magnitude, the faintest crowd the Milky Way. */
 function faintStars(limit: Node<'float'>) {
 	const [brightest, faintest] = FAINT_STAR_MAGNITUDES;
 	const data = new Float32Array(FAINT_STAR_COUNT * 4);
@@ -157,10 +150,7 @@ export class Nebula {
 	}
 }
 
-/**
- * One flat glow per deep-sky object, facing the center of the sky, faded in by the eased limiting magnitude and out toward a round
- * edge. A discoverable one is a smudge until its discovery resolves it, flaring cyan halfway like Saturn's rings.
- */
+/** One flat glow per deep-sky object, faded by the eased limit. A discoverable one is a smudge until resolved, flaring cyan halfway like Saturn's rings. */
 function deepSky(limit: Node<'float'>, discovered: readonly string[], albedo: (id: string) => Node<'vec3'>) {
 	return DEEP_SKY.map(({ angle, at, discovery, id, magnitude, size }) => {
 		const p = uv().sub(0.5).mul(2);
@@ -190,9 +180,8 @@ const ZOOM_STAR_LAYERS = [400, 1200, 3600, 10_800] as const;
 const ZOOM_STAR_CELL = [5, 14] as const;
 
 /**
- * Stars far too many to store, drawn from the view direction alone: one candidate per cell of a 3D grid, a few of them lit, in layers
- * whose cells shrink threefold. A layer fades in once its cells span a few pixels, so zooming in keeps turning up fainter stars,
- * crowded along the Milky Way's `band`. `pixel` is the angle a CSS pixel covers.
+ * Stars too many to store, drawn from the view direction alone: one candidate per cell of a 3D grid, a few lit, in layers whose cells
+ * shrink threefold and fade in once they span a few pixels. Crowded along the Milky Way's `band`, `pixel` is the angle a CSS pixel covers.
  */
 function zoomStars(pixel: Node<'float'>, band: Node<'float'>) {
 	const direction = positionLocal.normalize();
@@ -213,13 +202,9 @@ function zoomStars(pixel: Node<'float'>, band: Node<'float'>) {
 /** The Milky Way rises out of the dark from 30% of the sight, slowly at first. */
 const milkyGlow = (limit: number) => Math.max(0, (skySight(limit) - 0.3) / 0.7) ** 2;
 
-/**
- * Everything past the Solar System, centered on the camera: the Milky Way dome, the deep-sky objects, the two star fields and the
- * zoom stars. A wider sight eases in so a new Aperture level visibly fills the sky.
- */
+/** Everything past the Solar System, centered on the camera. A wider sight eases in so a new Aperture level visibly fills the sky. */
 export class Sky {
 	readonly group = new Group();
-	/** The deep-sky objects to discover, by Cosmos object id. */
 	readonly nebulae: ReadonlyMap<string, Nebula>;
 	readonly #deepSky: ReturnType<typeof deepSky>;
 	readonly #dome: Mesh;
@@ -230,7 +215,6 @@ export class Sky {
 	#goal: number;
 	/** Milky Way brightness, eased far slower than the limit: a new instrument raises the limit by several magnitudes at once. */
 	readonly #milky = uniform(0);
-	/** Angle one CSS pixel covers, the zoom stars size their layers with it. */
 	readonly #pixel = uniform(1);
 	/** Share of the bright field and Milky Way shown at the eased limit, see `skySight`. */
 	readonly #sight = uniform(0);

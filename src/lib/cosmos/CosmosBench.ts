@@ -40,10 +40,7 @@ const EXPERIMENTS: readonly BenchExperiment[] = [
 
 const DEFAULT_OPTIONS: BenchOptions = { experiments: [...EXPERIMENTS.map(({ name }) => name), 'idle'], frames: 40, idleSeconds: 3, rounds: 6, scale: 1, warmup: 20 };
 
-/**
- * Chrome floors GPU timestamps to 65.5 µs steps unless WebGPU developer features are on. The floor lands at a random phase, so the
- * mean of many frames stays exact while the median snaps to steps: compare means.
- */
+/** Chrome floors GPU timestamps to 65.5 µs steps without WebGPU developer features: the median snaps to steps, the mean stays exact. */
 interface Stats {
 	/** Half width of the mean's 95% confidence interval. */
 	ci: number;
@@ -54,7 +51,6 @@ interface Stats {
 }
 
 interface Comparison extends Stats {
-	/** Mean change against the baseline, in percent. */
 	delta: number;
 	/** Rounds where the variant's mean beat the baseline's: a real gain wins nearly all of them. */
 	wins: string;
@@ -65,7 +61,7 @@ interface BenchRow {
 	cpu: Comparison;
 	experiment: string;
 	gpu: Comparison;
-	/** Mean GPU time of each render pass in the order three issues them: the output pass, the scene, then the bloom passes. */
+	/** Mean GPU time of each render pass in call order: output, scene, then bloom. */
 	passes: number[];
 	scenario: string;
 	variant: string;
@@ -86,7 +82,7 @@ interface TimestampBackend {
 	timestampQueryPool: { render?: { timestamps: Map<string, number> } };
 }
 
-/** GPU time of each pass of every frame rendered since the last call, frames in order and passes in call order. */
+/** GPU time of each pass of every frame rendered since the last call. */
 async function gpuFrames(renderer: WebGPURenderer) {
 	await renderer.resolveTimestampsAsync('render');
 	const pool = (renderer.backend as unknown as TimestampBackend).timestampQueryPool.render;
@@ -102,8 +98,8 @@ async function gpuFrames(renderer: WebGPURenderer) {
 }
 
 /**
- * Renders on the display's own pacing, so the GPU runs at the clocks players get, and returns each frame's CPU time. Chrome
- * throttles an occluded window to ~1 fps while it still reports it visible, the GPU then idles at low clocks and inflates every time.
+ * Renders on the display's own pacing so the GPU runs at player clocks, and returns each frame's CPU time.
+ * Chrome throttles an occluded window to ~1 fps while reporting it visible, which inflates every time.
  */
 function renderFrames({ render, renderer }: BenchTarget, count: number) {
 	return new Promise<number[]>(resolve => {

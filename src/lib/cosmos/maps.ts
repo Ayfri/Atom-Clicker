@@ -18,16 +18,10 @@ import { BODY_LOOKS } from './bodies.js';
 import { DEEP_SKY } from './nebulae.js';
 import { cloudCover, earthSurface, milkyWay, sunMasks } from './surfaces.js';
 
-/**
- * Suffix of a body's double width map, loaded in high quality for the followed body only: every body at that size would take ~200 MB
- * of GPU memory, more than phones have to spare.
- */
+/** Suffix of a body's double width map, loaded in high quality for the followed body only: every body at that size would take ~200 MB of GPU memory. */
 export const SHARP = '_hd';
 
-/**
- * Every baked surface with its texture size, the height half the width unless set: the bodies, the Earth's day colors, masks and
- * clouds, the Sun, the sky and the deep-sky objects, the ones to discover sharper since the player zooms in on them.
- */
+/** Every baked surface with its texture size, the height half the width unless set. Discoverable deep-sky objects are baked sharper, players zoom in on them. */
 const BAKED_SURFACES: Record<string, { height?: number; lossless?: boolean; node: () => Node<'vec3'>; width: number }> = {
 	clouds: { node: () => vec3(cloudCover()), width: 2048 },
 	earth: { node: () => earthSurface().day, width: 2048 },
@@ -67,10 +61,7 @@ export async function loadSurface(id: string) {
 	return map;
 }
 
-/**
- * Loads every baked surface, the ones in `live` are left out and drawn from their shaders instead. A missing file (a body added
- * since the last bake) falls back to its shader too.
- */
+/** Loads every baked surface except those in `live`, drawn from their shaders like any whose file is missing (a body added since the last bake). */
 export async function loadSurfaces(live: readonly string[]) {
 	const entries = await Promise.all(
 		Object.keys(BAKED_SURFACES)
@@ -80,12 +71,11 @@ export async function loadSurfaces(live: readonly string[]) {
 	return new Map(entries.filter(entry => entry !== null));
 }
 
-/** Linear to sRGB, the exact piecewise curve an sRGB texture decodes. */
 const encodeSrgb = (linear: Node<'vec3'>) => mix(linear.mul(12.92), pow(linear, vec3(1 / 2.4)).mul(1.055).sub(0.055), step(0.0031308, linear));
 
 /**
- * Renders every surface into its equirectangular map, as WebP files for `static/cosmos/`. Each vertex of a sphere is moved to where
- * its UV points in the map, so its fragments evaluate the surface at the matching spot.
+ * Renders every surface into its equirectangular map as WebP files for `static/cosmos/`: each sphere vertex moves to where its UV points
+ * in the map, so fragments evaluate the surface at that spot.
  */
 export async function bakeSurfaces(renderer: WebGPURenderer) {
 	const camera = new PerspectiveCamera();

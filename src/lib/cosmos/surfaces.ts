@@ -34,23 +34,20 @@ export function earthSurface() {
 	const dryBelt = oneMinus(smoothstep(0.02, 0.2, abs(latitude.sub(0.3))));
 	const dry = edge(0.26, mx_fractal_noise_float(surfacePoint.mul(3).add(11), 2, 2, 0.5).add(dryBelt.mul(0.35)), 0.1);
 	const ground = mix(mix(color('#4d9a45'), color('#3a7a3b'), edge(0.17, height, 0.08)), color('#c9a86a'), dry);
-	/**
-	 * Rare fold ranges shaped like spindles: east-west lines along wobbling latitudes, whose width follows small sparse blobs so
-	 * each range tapers to a point at both ends and swells in the middle, with lumps along the spine. Snow on the thickest part.
-	 */
+	/** Rare spindle-shaped fold ranges: east-west lines along wobbling latitudes, tapering at both ends where sparse blobs thin them. Snow on the thickest part. */
 	const rugged = mx_fractal_noise_float(surfacePoint.mul(22), 3, 2, 0.5).mul(0.5).add(0.5);
 	const wobbledLatitude = surfacePoint.y.add(mx_noise_float(surfacePoint.mul(3).add(13)).mul(0.07));
 	const foldDistance = abs(fract(wobbledLatitude.mul(4).add(0.3)).sub(0.5));
 	const spindle = smoothstep(0.2, 0.5, mx_noise_float(surfacePoint.mul(vec3(2.6, 6, 2.6)).add(57))).mul(smoothstep(0.06, 0.14, height));
 	const lumps = mx_noise_float(surfacePoint.mul(14).add(3)).mul(0.35).add(0.85);
-	/** A power under 1 bulges the width profile, the ends stay pointed but the body is rounded instead of a diamond. */
+	/** A power under 1 bulges the width profile, rounding the body instead of a diamond. */
 	const halfWidth = pow(spindle, 0.55).mul(lumps).mul(0.16).add(1e-3);
 	const ranges = oneMinus(smoothstep(halfWidth.mul(0.4), halfWidth, foldDistance.add(rugged.mul(0.012))));
 	const rock = smoothstep(0.2, 0.55, ranges.mul(rugged.mul(0.5).add(0.6)));
 	const snow = smoothstep(0.75, 0.9, ranges.mul(spindle).mul(rugged.mul(0.5).add(0.6)));
 	const terrain = mix(mix(ground, mix(color('#6e5f4f'), color('#9a8a76'), rugged), rock), color('#f2f4f7'), snow.mul(0.85));
 	const ice = edge(0.87, latitude.add(height.mul(0.12)), 0.03);
-	/** Fine points grouped in urban regions, a high frequency keeps them from reading as flat yellow blobs up close. */
+	/** A high frequency keeps the cities from reading as flat yellow blobs up close. */
 	const urban = smoothstep(0.1, 0.4, mx_fractal_noise_float(surfacePoint.mul(5).add(23), 3, 2, 0.5)).mul(land).mul(oneMinus(ice));
 	const cities = smoothstep(0.62, 0.72, mx_noise_float(surfacePoint.mul(180))).mul(urban);
 	return { day: mix(mix(ocean, terrain, land), color('#eef3f8'), ice), masks: vec3(land, cities, max(ice, snow)) };
@@ -103,7 +100,7 @@ const spots = (list: readonly Spot[], wobble: Node<'float'>) =>
 		return max(cover, oneMinus(smoothstep(size * 0.7, size * 1.1, angleTo(latitude, longitude).add(wobble.mul(size)))));
 	}, float(0));
 
-/** The near side's seas at their real places, the Moon is tidally locked so the same "face" always looks at the Earth. */
+/** The near side's seas at their real places. */
 const MARIA: Spot[] = [
 	[32.8, -15.6, 17],
 	[28, 17.5, 10],
@@ -137,7 +134,7 @@ export function moonSurface() {
 	const crater = mx_worley_noise_float(surfacePoint.mul(9).add(3));
 	/** The seas are younger lava plains, with far fewer craters than the highlands. */
 	const pits = oneMinus(edge(0.13, crater, 0.03)).mul(oneMinus(maria).mul(0.7).add(0.3));
-	/** Rays are noise read along the direction away from each crater, so they streak out radially and fade with distance. */
+	/** Rays are noise read along the direction away from each crater, so they streak radially and fade with distance. */
 	const rays = RAY_CRATERS.reduce<Node<'float'>>((glow, [latitude, longitude, reach]) => {
 		const away = surfacePoint.sub(surfaceDirection(latitude, longitude));
 		const distance = length(away);
@@ -174,7 +171,7 @@ export function marsSurface() {
 	const hellas = angleTo(-42.4, 70.5).add(wobble.mul(0.05));
 	const basin = oneMinus(smoothstep(0.24, 0.3, hellas));
 	const basinRim = oneMinus(smoothstep(0.02, 0.06, abs(hellas.sub(0.31))));
-	/** Valles Marineris: a 4000 km rift east of the volcanoes, widest in the middle and tapering at both ends, with a northern branch. */
+	/** Valles Marineris: a 4000 km rift east of the volcanoes, tapering at both ends, with a northern branch. */
 	const along = longitudeDegrees.add(98).div(56);
 	const taper = smoothstep(0, 0.15, along).mul(oneMinus(smoothstep(0.85, 1, along)));
 	const rift = latitudeDegrees.add(9).add(sin(along.mul(Math.PI)).mul(4)).add(mx_noise_float(surfacePoint.mul(14)).mul(0.6));
@@ -209,7 +206,6 @@ const JUPITER_BELTS = [
 	[-0.23, 0.11, 1],
 	[-0.505, 0.05, 0.6],
 ] as const;
-/** The Great Red Spot sits on the southern edge of the South Equatorial Belt, about 22°S. */
 const RED_SPOT_LATITUDE = MathUtils.degToRad(-22);
 
 export function jupiterSurface() {
@@ -222,7 +218,7 @@ export function jupiterSurface() {
 	const streaks = mx_noise_float(surfacePoint.mul(vec3(3, 40, 3)).add(swirl)).mul(0.5).add(0.5);
 	const zones = mix(color('#f1e4c8'), color('#e8c99c'), oneMinus(smoothstep(0.05, 0.11, abs(latitude))));
 	const banded = mix(mix(zones, mix(color('#a46c45'), color('#c08a5e'), streaks), belts), color('#9c8c80'), smoothstep(0.62, 0.85, abs(latitude)).mul(0.7));
-	/** An oval in longitude and latitude, ringed by the pale "hollow" it carves in the belt, its swirl turns counterclockwise. */
+	/** The Great Red Spot: an oval ringed by the pale "hollow" it carves in the belt, swirling counterclockwise. */
 	const offset = vec2(atan(surfacePoint.z.negate(), surfacePoint.x).mul(Math.cos(RED_SPOT_LATITUDE)).div(0.13), asin(surfacePoint.y).sub(RED_SPOT_LATITUDE).div(0.075));
 	const spot = length(offset);
 	const spiral = sin(atan(offset.y, offset.x).add(spot.mul(5))).mul(0.5).add(0.5);
@@ -232,7 +228,7 @@ export function jupiterSurface() {
 	return mix(mix(banded, color('#f3e8d4'), hollow.mul(0.85)), mix(color('#bf5a3a'), color('#dc8a62'), spiral.mul(spot)), core).mul(0.9);
 }
 
-/** Io has no impact craters, its volcanoes repave it: sulfur plains with faint green patches, dark calderas and Pele's great red ring. */
+/** Io has no impact craters, its volcanoes repave it: sulfur plains, dark calderas and Pele's red ring. */
 export function ioSurface() {
 	const flows = mx_fractal_noise_float(surfacePoint.mul(3).add(23), 3, 2, 0.5);
 	const greens = edge(0.25, mx_fractal_noise_float(surfacePoint.mul(2.2).add(61), 2, 2, 0.5), 0.15);
@@ -249,13 +245,12 @@ export function ioSurface() {
 	return mix(deposits, color('#2e2219'), max(calderas, oneMinus(smoothstep(0.03, 0.05, pele))));
 }
 
-/** Europa's young ice shell: almost no craters, crossed by long reddish cracks (lineae) and patches of brown chaos terrain. */
+/** Europa's young ice shell: almost no craters, crossed by reddish cracks (lineae) and patches of brown chaos terrain. */
 export function europaSurface() {
 	const ice = mix(color('#d3d6dc'), color('#bfc4cc'), edge(0.1, mx_fractal_noise_float(surfacePoint.mul(2.5).add(29), 3, 2, 0.5), 0.2));
 	/**
-	 * Sets of bent stripes at scattered angles, cut into segments and confined to their own regions, so they read as broken scratches,
-	 * crowded in places and absent in others. Every set mixes the same four noise fields with its own weights: a noise call per set
-	 * per mask made the shader heavy enough to time the GPU out.
+	 * Sets of bent, segmented stripes at scattered angles, confined to regions. Every set mixes the same four noise fields with its own
+	 * weights: a noise call per set per mask timed the GPU out.
 	 */
 	const fields = [0.9, 1.6, 3.5, 4].map((scale, i) => mx_noise_float(surfacePoint.mul(scale).add(29 + i * 17)));
 	/** Fixed-seed generator, Europa looks the same on every load. */
@@ -279,10 +274,7 @@ export function europaSurface() {
 	return mix(mix(ice, color('#d8ab86'), tint.mul(0.55)), color('#b48e7b'), lineae.mul(0.65)).mul(0.88);
 }
 
-/**
- * Saturn's haze mutes its bands into soft butterscotch stripes, with a pale equator, a blue-grey north pole and the hexagon: a
- * six-sided jet stream around the north pole at 78°N, with a dark vortex at its center.
- */
+/** Saturn's haze mutes its bands into butterscotch stripes, with a pale equator, a blue-grey north pole and the hexagon at 78°N around a dark vortex. */
 export function saturnSurface() {
 	const swirl = mx_fractal_noise_float(surfacePoint.mul(vec3(2, 12, 2)), 3, 2, 0.5);
 	const latitude = surfacePoint.y.add(swirl.mul(0.012));
@@ -292,7 +284,7 @@ export function saturnSurface() {
 	const equator = mix(banded, color('#efe1bb'), oneMinus(smoothstep(0.06, 0.16, abs(latitude))));
 	const north = smoothstep(0.9, 0.97, surfacePoint.y);
 	const poles = mix(mix(equator, color('#b9a37a'), smoothstep(0.75, 0.95, abs(latitude)).mul(0.6)), color('#a3a796'), north.mul(0.55));
-	/** Max of the distances along three directions 60° apart traces a hexagon, its sides at cos(78°) from the axis, a smooth max rounds its corners. */
+	/** The max of the distances along three directions 60° apart traces a hexagon, a smooth max rounds its corners. */
 	const polar = surfacePoint.xz;
 	const smoothMax = (a: Node<'float'>, b: Node<'float'>, k = 0.05) => {
 		const blend = max(float(k).sub(abs(a.sub(b))), 0).div(k);
@@ -306,7 +298,7 @@ export function saturnSurface() {
 	return mix(mix(mix(poles, color('#8a989b'), inside.mul(0.35)), color('#76858b'), jet.mul(0.3)), color('#5d6a70'), eye.mul(0.5)).mul(0.88);
 }
 
-/** Dark grey rock, and the bright salt of Occator crater's faculae, the spots Dawn flew toward in 2015. */
+/** Dark grey rock, and the bright salt of Occator crater's faculae. */
 export function ceresSurface() {
 	const salt = spots(
 		[
@@ -318,7 +310,7 @@ export function ceresSurface() {
 	return mix(rockySurface('#8c8780', '#67635d', 8, 53), color('#f4f2ee'), salt);
 }
 
-/** Phobos: craters, the long parallel grooves left by debris of old impacts, and Stickney, a crater almost half as wide as the moon. */
+/** Phobos: craters, long parallel grooves and Stickney, a crater almost half as wide as the moon. */
 export function phobosSurface() {
 	const stickney = angleTo(-1, -49);
 	const floor = oneMinus(smoothstep(0.3, 0.38, stickney));
@@ -332,18 +324,17 @@ export function phobosSurface() {
 	return mix(rockySurface('#857669', '#5e534a', 10, 61).mul(oneMinus(grooves)), color('#4f463e'), floor.mul(0.5)).add(rim.mul(0.08));
 }
 
-/** A pink nitrogen frost cap over the south, streaked by the dark plumes of its geysers, and the dimpled "cantaloupe terrain" up north. */
+/** Triton: a pink nitrogen frost cap over the south streaked by geyser plumes, dimpled "cantaloupe terrain" up north. */
 export function tritonSurface() {
 	const cap = oneMinus(smoothstep(-0.35, -0.05, surfacePoint.y.add(mx_noise_float(surfacePoint.mul(4)).mul(0.1))));
 	const dimples = smoothstep(0.08, 0.3, mx_worley_noise_float(surfacePoint.mul(16).add(7)));
 	const ground = mix(color('#8f907f'), color('#b4b39f'), dimples);
 	const frost = mix(color('#e3cbc2'), color('#f1e2da'), edge(0.1, mx_fractal_noise_float(surfacePoint.mul(3).add(5), 2, 2, 0.5), 0.2));
-	/** Short streaks: noise squeezed along one direction, kept only where a second noise allows. */
 	const streaks = smoothstep(0.3, 0.55, mx_noise_float(surfacePoint.mul(vec3(28, 5, 5)).add(5))).mul(smoothstep(0, 0.3, mx_noise_float(surfacePoint.mul(6).add(17))));
 	return mix(mix(ground, frost, cap), color('#6f5650'), streaks.mul(cap).mul(0.65));
 }
 
-/** Pluto as New Horizons saw it in 2015: tan plains, the dark red Cthulhu belt along the equator, the pale heart of Tombaugh Regio. */
+/** Pluto as New Horizons saw it: the pale heart of Tombaugh Regio and the dark red Cthulhu belt along the equator. */
 const PLUTO_HEART: Spot[] = [
 	[25, 177, 16],
 	[12, 162, 10],
@@ -363,16 +354,13 @@ export function plutoSurface() {
 	const tan = mix(color('#c49a74'), color('#d9b994'), edge(0.05, mx_fractal_noise_float(surfacePoint.mul(3).add(41), 3, 2, 0.5), 0.2));
 	const north = smoothstep(0.55, 0.85, surfacePoint.y);
 	const heart = spots(PLUTO_HEART, wobble);
-	/** Sputnik Planitia's nitrogen ice churns in slow convection cells, their edges show as a faint polygon net. */
+	/** Sputnik Planitia's convection cells show as a faint polygon net. */
 	const cells = oneMinus(smoothstep(0.02, 0.06, mx_worley_noise_float(surfacePoint.mul(40)))).mul(oneMinus(smoothstep(0.15, 0.3, angleTo(25, 177))));
 	const plains = mix(mix(tan, color('#a59a92'), north.mul(0.6)), color('#5a2f22'), spots(CTHULHU, wobble.mul(1.5)).mul(0.85));
 	return mix(plains, color('#f1e6d8'), heart).mul(oneMinus(cells.mul(0.12)));
 }
 
-/**
- * Neptune as Voyager 2 saw it in 1989: the Great Dark Spot at 22°S edged by bright methane clouds, the small white "Scooter" below
- * it, and the second dark spot with a bright core further south.
- */
+/** Neptune as Voyager 2 saw it: the Great Dark Spot at 22°S edged by bright clouds, the white "Scooter" below it, a second dark spot further south. */
 export function neptuneSurface() {
 	const wobble = mx_noise_float(surfacePoint.mul(9).add(27)).mul(0.15);
 	/** Oval in arc degrees around a latitude and longitude, its half sizes along and across the latitude line. */

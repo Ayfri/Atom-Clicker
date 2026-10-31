@@ -37,7 +37,6 @@ import {
 import { edge, fresnel, realism, surfacePoint } from './shading.js';
 import { SUN_RADIUS } from './space.js';
 
-/** How far the corona reaches, in solar radii from the Sun's center. */
 const CORONA_REACH = 2.8;
 
 /** `masks` reads the baked flow and cells, two reads drifting apart in longitude stand in for the live noise moving through the surface. */
@@ -50,25 +49,19 @@ function sunMaterial(masks: Texture | null, gain: Node<'float'>) {
 			];
 	const surface = mix(mix(color('#fff4dc'), color('#fffdf6'), flow), color('#ffe4ad'), blobs.mul(0.35));
 	const material = new MeshBasicNodeMaterial();
-	/** Near white with a warm limb, past ~2x the neutral tone mapping washes the disc out, the glow comes from the corona and bloom instead. */
+	/** Near white with a warm limb, past ~2x the neutral tone mapping washes the disc out, the glow comes from the corona and bloom. */
 	material.colorNode = mix(surface, color('#ffc88a'), smoothstep(0.6, 0.98, fresnel)).mul(gain);
 	return material;
 }
 
-/**
- * Cartoon corona on one camera-facing sprite: a bright inner corona hugging the limb, streamers of the solar wind fanning out of it
- * and slowly drifting outward, and one thin halo ring.
- */
+/** Cartoon corona on one camera-facing sprite: an inner corona hugging the limb, drifting solar wind streamers and a thin halo ring. */
 function coronaSprite(right: Node<'vec3'>, up: Node<'vec3'>, rays: Node<'float'>) {
 	const offset = uv().sub(0.5).mul(2);
 	const radius = length(offset).mul(CORONA_REACH);
 	const above = max(radius.sub(1), 0);
-	/** Each pixel's direction from the Sun in the world: the rays belong to the Sun and reshape as the camera moves, read on the screen they stuck to it. */
+	/** Each pixel's direction from the Sun in the world, so the rays reshape as the camera moves, read on the screen they stuck to it. */
 	const direction = right.mul(offset.x).add(up.mul(offset.y)).div(max(length(offset), 1e-4));
-	/**
-	 * Rays from plane waves across the directions, bent by slower waves drifting in time so they keep reshaping, and pulses running
-	 * outward along them. Far cheaper than noise, the sprite can cover the whole screen.
-	 */
+	/** Rays from plane waves bent by slower drifting waves, with pulses running outward. Far cheaper than noise, the sprite can cover the screen. */
 	const along = (x: number, y: number, z: number) => dot(direction, vec3(new Vector3(x, y, z).normalize()));
 	const wave = (rays: Node<'float'>, bend: Node<'float'>, drift: number) => sin(rays.add(sin(bend.add(time.mul(drift))).mul(1.6))).mul(0.5).add(0.5);
 	const wide = smoothstep(0.3, 1, wave(along(1, 0.3, -0.5).mul(10), along(-0.2, 1, 0.4).mul(3), 0.11));
@@ -80,7 +73,7 @@ function coronaSprite(right: Node<'vec3'>, up: Node<'vec3'>, rays: Node<'float'>
 	const ring = oneMinus(smoothstep(0, max(fwidth(radius).mul(1.5), 0.05), radius.sub(1.35).abs())).mul(0.12);
 	const fade = oneMinus(smoothstep(CORONA_REACH * 0.7, CORONA_REACH, radius));
 	const material = new SpriteNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
-	/** The corona only shows during a total eclipse in truth, the realistic lighting fades it out. */
+	/** A real corona only shows in a total eclipse, the realistic lighting fades it out. */
 	material.colorNode = mix(color('#ffe6bd'), color('#fff8ec'), inner)
 		.mul(inner.mul(0.55).add(streamers.mul(0.22)).add(ring))
 		.mul(fade)
@@ -100,7 +93,6 @@ function sunGlowSprite(strength: Node<'float'>) {
 	return sprite;
 }
 
-/** The Sun's disc, corona and glow at the origin. */
 export class Sun {
 	readonly group = new Group();
 	/** The camera's right and up axes in the world, the corona's rays are laid out with them. */
@@ -124,9 +116,9 @@ export class Sun {
 	}
 
 	/**
-	 * A Sun a few pixels wide flickered through the half resolution bloom as it slid across pixels: under ~16 px it dims below the
-	 * bloom threshold and the glow sprite, smooth at any size, takes over. Without bloom the sprite is the whole glow. Returns whether
-	 * the Sun's size on screen changed since the last frame, while it does the bloom has to be redrawn or a stale halo pulses around it.
+	 * A Sun a few pixels wide flickered through the half resolution bloom as it slid across pixels: under ~16 px it dims below the bloom
+	 * threshold and the smooth glow sprite takes over. Returns whether the Sun's size changed since the last frame, the bloom has to be
+	 * redrawn meanwhile or a stale halo pulses.
 	 */
 	fit(camera: PerspectiveCamera, height: number, bloom: boolean) {
 		this.#cameraRight.value.setFromMatrixColumn(camera.matrixWorld, 0);

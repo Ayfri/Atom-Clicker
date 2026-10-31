@@ -40,7 +40,6 @@ export function signalSprite() {
 export class PlanetMarkers {
 	readonly sprite: Sprite;
 	readonly #bodies: readonly Body[];
-	/** Position and opacity of each body's dot. */
 	readonly #markers: InstancedBufferAttribute;
 
 	constructor(bodies: readonly Body[]) {
@@ -58,10 +57,7 @@ export class PlanetMarkers {
 		this.sprite.frustumCulled = false;
 	}
 
-	/**
-	 * Fades each dot in as its planet shrinks from 4 to 1.5 px. Hidden at the eyepiece, it would point at what the player hunts, and in
-	 * the realistic lighting, where a far planet is a faint speck or nothing.
-	 */
+	/** Fades each dot in as its planet shrinks from 4 to 1.5 px. Hidden at the eyepiece, where it would point at the target, and in realistic lighting. */
 	update(camera: PerspectiveCamera, height: number, observing: boolean) {
 		const shown = 1 - realism.value;
 		this.sprite.visible = !observing && shown > 0;

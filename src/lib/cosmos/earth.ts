@@ -29,14 +29,13 @@ import { EARTH_DAY, EARTH_POLE, EARTH_RADIUS, EARTH_YEAR, TURN, UP } from './spa
 import { beaconSprite } from './sprites.js';
 import { cloudCover } from './surfaces.js';
 
-/** Blue by day, gold then orange going past the terminator, a tight ramp so the sunlit limb stays blue. */
+/** Blue by day, gold then orange past the terminator, a tight ramp so the sunlit limb stays blue. */
 const atmosphereTint = (facing: Node<'float'>) =>
 	mix(mix(color('#ff8a2a'), color('#ffc46b'), smoothstep(-0.3, -0.08, facing)), color('#4db2ff'), smoothstep(-0.08, 0.15, facing));
 
-/** Softens the sunset part of the atmosphere, the orange stays a hint along the terminator instead of a bright ring. */
+/** Keeps the orange a hint along the terminator instead of a bright ring. */
 const sunsetDimming = (facing: Node<'float'>) => mix(0.4, 1, smoothstep(-0.08, 0.15, facing));
 
-/** Lights the baked or live Earth surface: sea glint, night side with city lights, dusk greying and the atmosphere's limb. */
 function earthMaterial(surface: Node<'vec3'>, masks: Node<'vec3'>) {
 	const [land, cities, frozen] = [masks.x, masks.y, masks.z];
 	/** Divided by a clamped length: with the Sun right behind the Earth the sum is near zero and `normalize` returned NaN pixels. */
@@ -45,10 +44,7 @@ function earthMaterial(surface: Node<'vec3'>, masks: Node<'vec3'>) {
 	const highlight = edge(0.985, dot(normalWorld, halfway), 0.01).mul(oneMinus(land)).mul(0.35);
 	const cartoon = surface.mul(smoothstep(-0.1, 0.55, sunFacing).mul(0.7).add(0.3)).add(highlight);
 	const day = mix(cartoon, surface.mul(diffuse()).add(highlight).mul(sunlight), realism);
-	/**
-	 * Day and night are two palettes cross-faded on the Sun angle, like three.js' `webgpu_tsl_earth` example: scaling the day
-	 * colors down instead turned green coasts black and sand yellow on the night side.
-	 */
+	/** Day and night are two palettes cross-faded on the Sun angle, as in three.js' `webgpu_tsl_earth`: dimming the day colors turned coasts black. */
 	const night = mix(mix(color('#020306'), color('#0e0f12'), land), color('#1f2227'), frozen).add(color('#ffcf73').mul(cities).mul(0.9));
 	/** Colors drain toward a neutral grey as the light fades, dim sand and grass otherwise read as a brown-yellow band at dusk. */
 	const dusk = mix(color('#8c9099').mul(luminance(day)), day, smoothstep(0, 0.35, sunFacing));
@@ -85,7 +81,6 @@ function cloudMaterial(cover: (offset: Node<'vec2'>) => Node<'float'>) {
 	return material;
 }
 
-/** The Earth with its clouds, atmosphere and instrument beacon, carried along its orbit. */
 export class Earth {
 	/** Lit while an instrument is being built. */
 	readonly beacon = beaconSprite();
@@ -94,7 +89,6 @@ export class Earth {
 	readonly #atmosphere = new Mesh(new SphereGeometry(EARTH_RADIUS * 1.04, 96, 64), atmosphereMaterial());
 	readonly #clouds: Mesh;
 	readonly #globe: Mesh;
-	/** Mean longitude when the scene opened. */
 	readonly #start: number;
 
 	constructor(day: Node<'vec3'>, masks: Node<'vec3'>, clouds: Texture | undefined, sinceJ2000: number) {
@@ -126,7 +120,6 @@ export class Earth {
 		centerOf('earth').value.copy(this.group.position);
 	}
 
-	/** Low quality drops the clouds and the atmosphere shell. */
 	setQuality(high: boolean) {
 		this.#atmosphere.visible = this.#clouds.visible = high;
 	}

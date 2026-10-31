@@ -12,10 +12,7 @@ interface StartupBench {
 const pendingStartupBench = () => JSON.parse(sessionStorage.getItem(STARTUP_BENCH_KEY) ?? 'null') as StartupBench | null;
 const startupVariant = ({ runs, variants }: StartupBench) => Object.keys(variants)[runs.length % Object.keys(variants).length];
 
-/**
- * Surfaces drawn from their shaders instead of their baked maps: the running startup benchmark's variant, else the followed object,
- * so an edit shows on reload without baking. The Earth is too slow to compile live.
- */
+/** Surfaces drawn from their shaders: the startup benchmark's variant, else the followed object so an edit shows on reload. Never the Earth, too slow to compile. */
 export function liveSurfaces(focus: string | undefined): string[] {
 	const bench = pendingStartupBench();
 	if (bench) return bench.variants[startupVariant(bench)];

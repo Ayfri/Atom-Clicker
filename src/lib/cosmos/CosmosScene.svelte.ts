@@ -32,13 +32,12 @@ import { Sun } from './sun.js';
 
 type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
 type CosmosQuality = 'high' | 'low';
-/** Anything the signal can sit on. */
 type Target = Body | Nebula;
 
 interface CosmosHud {
 	/** Chevron at the screen edge pointing at the signal while it is outside the reticle. */
 	arrow: HTMLElement;
-	/** Ring centered on the signal, filled through its `--progress` variable. Written directly because it changes every frame. */
+	/** Ring on the signal, filled through its `--progress` variable and written directly because it changes every frame. */
 	progress: HTMLElement;
 }
 
@@ -48,15 +47,12 @@ interface CosmosOptions {
 	/** Object to start on, skipping the intro, so a reload lands back where the player was. */
 	focus?: string;
 	hud: CosmosHud;
-	/** Starting limiting magnitude, see `setLimit`. */
 	limit: number;
 	/** Surfaces drawn from their shaders instead of their baked maps, to see edits without baking. */
 	live?: readonly string[];
 	/** Called once the signal is fully resolved, as the object starts condensing. */
 	onDiscover: (id: string) => void;
-	/** Starts with the orbit lines drawn, see `setOrbits`. */
 	orbits: boolean;
-	/** Starts in the realistic lighting, see `setRealistic`. */
 	realistic: boolean;
 	/** Records the GPU time of every render pass, which the benchmark reads. */
 	timestamps?: boolean;
@@ -90,15 +86,15 @@ export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'sys
 
 const DEFAULT_TUNING: CosmosTuning = { bloom: 0.5, bloomEvery: 2, idleCap: true, pixelRatio: 1.5 };
 const BLOOM_STRENGTH = 0.65;
-/** At the eyepiece the bloom only leaves a soft halo, at full strength the Sun would dazzle the player hunting a faint signal. */
+/** At the eyepiece the bloom stays a soft halo, the Sun would dazzle the player hunting a faint signal. */
 const OBSERVE_BLOOM_STRENGTH = 0.25;
-/** The realistic lighting also runs the clock twenty times slower: a day takes 13 minutes, a year 4 hours. */
+/** Clock factor in realistic lighting: a day takes 13 minutes, a year 4 hours. */
 const REALISTIC_PACE = 0.05;
-/** Objects past the naked eye era are too faint to resolve with a wider field of view, the player has to zoom in on them. */
+/** Objects past the naked eye era only resolve below this field of view. */
 const REFRACTOR_FOV = 25;
 /** Smallest angle between a target and the Sun, closer ones are waited out so the player never observes into the glare. */
 const MIN_ELONGATION = MathUtils.degToRad(35);
-/** Observation zoom range, wider than the default view stretched the sky like a fisheye. */
+/** Observation zoom range, a wider view stretches the sky like a fisheye. */
 const FOV_RANGE = [12, 55] as const;
 /** Looking at a nebula zooms further, the Crab is a third of a degree wide. */
 const GAZE_FOV_RANGE = [2, 55] as const;
@@ -112,7 +108,6 @@ const SIGNAL_SIZE = 44;
 const ZOOM_EASE = 9;
 /** OrbitControls' damping keeps the view moving for about this long after the last input. */
 const INPUT_SETTLE = 1500;
-/** Seconds the orbit lines take to fade in or out. */
 const ORBIT_FADE = 0.2;
 const IDLE_FRAME = 1000 / 30;
 
@@ -128,17 +123,13 @@ export class CosmosScene {
 	backend = $state('');
 	/** The signal is in the reticle but needs a narrower field of view to resolve. */
 	faint = $state(false);
-	/** Object the camera orbits and follows. */
 	focused = $state('earth');
 	fps = $state(0);
-	/** Object under the mouse in the overview, for its tooltip. */
 	hovered = $state<string | null>(null);
 	mode = $state<CosmosMode>('intro');
 	orbits = $state(true);
 	quality = $state<CosmosQuality>('high');
-	/** Real sunlight instead of the cartoon lighting, see `setRealistic`. */
 	realistic = $state(false);
-	/** Id of the object of the last discovery, shown by the discovery card. */
 	revealed = $state<string | null>(null);
 	/** Object whose info panel is open, the view clears it to close the panel. */
 	selected = $state<string | null>(null);
@@ -283,10 +274,7 @@ export class CosmosScene {
 	/** Startup phases land in the performance timeline as `cosmos:*` measures, the startup benchmark reads them. */
 	static async create(canvas: HTMLCanvasElement, options: CosmosOptions) {
 		const start = performance.now();
-		/**
-		 * Reversed float depth keeps its precision out to the far plane, ~50 000 units with Pluto's orbit. The default one resolved
-		 * hundreds of units that far out, and the Sun's glow sprites flickered through its disc.
-		 */
+		/** Reversed float depth keeps its precision out to ~50 000 units (Pluto's orbit), the default one flickered the Sun's glow sprites through its disc. */
 		const renderer = new WebGPURenderer({ antialias: true, canvas, reversedDepthBuffer: true, trackTimestamp: options.timestamps });
 		/** Neutral keeps the flat cartoon colors as picked, ACES shifted them toward brown and desaturated the highlights. */
 		renderer.toneMapping = NeutralToneMapping;
@@ -393,8 +381,8 @@ export class CosmosScene {
 	}
 
 	/**
-	 * Moves the camera next to the Earth and hands the view to the player, the signal sits on the object to discover. `pay` runs once the
-	 * scene accepts and can still refuse. The flight runs in intro mode, so the overview HUD can't start or redirect it.
+	 * Flies next to the Earth and hands the view to the player, `pay` runs once accepted and can still refuse.
+	 * Runs in intro mode so the overview HUD can't redirect it.
 	 */
 	observe(id: string, pay: () => boolean): boolean {
 		const target = this.#bodies.get(id) ?? this.#sky.nebulae.get(id);
@@ -424,7 +412,6 @@ export class CosmosScene {
 		return true;
 	}
 
-	/** Canvas pixel position of every object in the sky that is in front of the camera and inside the view. */
 	onScreen(): { id: string; x: number; y: number }[] {
 		if (this.mode === 'observe' || this.mode === 'intro') return [];
 		const { clientHeight, clientWidth } = this.#canvas;
@@ -439,7 +426,7 @@ export class CosmosScene {
 		this.#earth.beacon.visible = building;
 	}
 
-	/** Eases the sky toward a limiting magnitude: the bright field and the Milky Way, then the deep-sky objects and the faint stars past them. */
+	/** Eases the sky toward a limiting magnitude, the bright field and Milky Way first, then deep-sky objects and faint stars. */
 	setLimit(limit: number) {
 		this.#sky.limit = limit;
 	}
@@ -457,10 +444,7 @@ export class CosmosScene {
 		this.#onVisibility();
 	}
 
-	/**
-	 * Low drops bloom, the Milky Way dome, the clouds, the atmosphere shell, the thin hazes and the corona, the limb darkening, the earthshine
-	 * and the sharp maps, and keeps a quarter of the stars.
-	 */
+	/** Low drops bloom, the Milky Way dome, clouds, atmosphere, hazes, corona, limb darkening, earthshine and sharp maps, and keeps 1/4 of the stars. */
 	setQuality(quality: CosmosQuality) {
 		const high = quality === 'high';
 		this.quality = quality;
@@ -475,9 +459,8 @@ export class CosmosScene {
 	}
 
 	/**
-	 * Cross-fades to sunlight as it is: plain diffuse light dimming with the square of the distance from the Sun under an exposure
-	 * that adapts to the viewed body, black night sides, no drawn limbs, no corona outside an eclipse and steady stars. The clock slows
-	 * down to `REALISTIC_PACE`.
+	 * Cross-fades to real sunlight: inverse-square falloff under an exposure that adapts to the viewed body, black night sides, no drawn
+	 * limbs, no corona outside an eclipse, steady stars. The clock slows to `REALISTIC_PACE`.
 	 */
 	setRealistic(realistic: boolean) {
 		this.realistic = realistic;
@@ -503,8 +486,8 @@ export class CosmosScene {
 	}
 
 	/**
-	 * Eases the exposure toward the viewed body's distance from the Sun, like eyes adapting, `ease` 1 jumps there. The followed body
-	 * outside flights, else the camera, never closer than a few solar radii.
+	 * Eases the exposure toward the followed body's distance from the Sun (the camera's outside the overview), never under 3 solar radii.
+	 * `ease` 1 jumps there.
 	 */
 	#adaptExposure(ease: number) {
 		const viewed = this.#flight || this.#gaze || this.mode === 'intro' || this.mode === 'observe' ? this.#camera.position : this.#controls.target;
@@ -513,9 +496,8 @@ export class CosmosScene {
 	}
 
 	/**
-	 * Eases `glare` toward how much the view is dazzled, like eyes adapting, `ease` 1 jumps there: the Sun from just outside the frame
-	 * unless the followed body hides it, and the followed body once it fills a good part of the frame. Its night side only dims the
-	 * sky partly, from the shadow of a planet the stars come back, like astronauts see them.
+	 * Eases `glare` toward how dazzled the view is, `ease` 1 jumps there: the Sun from just outside the frame unless the followed body hides
+	 * it, and the followed body once it fills a good part of the frame. Its night side only dims the sky partly, so stars come back in its shadow.
 	 */
 	#adaptToGlare(ease: number) {
 		const camera = this.#camera;
@@ -550,17 +532,11 @@ export class CosmosScene {
 		if (this.#pipeline.outputNode === output) return;
 		this.#pipeline.outputNode = output;
 		this.#pipeline.needsUpdate = true;
-		/**
-		 * The rebuild only registers the bloom for frame updates if its next render has it on: built on a skipped frame, it stayed
-		 * frozen on its last image, a stale glare from before the switch.
-		 */
+		/** The rebuild registers the bloom for frame updates only if its next render has it on, built on a skipped frame it froze on a stale glare. */
 		this.#renders = -1;
 	}
 
-	/**
-	 * Earliest sky clock within a year where the target sits far enough from the Sun as seen from the Earth: MIN_ELONGATION, or 90% of
-	 * the widest angle an inner planet ever reaches, Mercury never strays past ~23°.
-	 */
+	/** Earliest sky clock within a year where the target is `MIN_ELONGATION` from the Sun, or 90% of an inner planet's widest angle (Mercury ~23°). */
 	#clearOfSun(target: Target) {
 		const inner = target instanceof Body && target.around === 'sun' && target.look.distance < EARTH_ORBIT;
 		const widest = inner ? Math.asin(target.look.distance / EARTH_ORBIT) * 0.9 : Infinity;
@@ -613,7 +589,7 @@ export class CosmosScene {
 		this.#camera.updateProjectionMatrix();
 	}
 
-	/** The farther the discoveries reach from the Sun, the farther the view pulls back, the sky grows with the player's knowledge. */
+	/** The farther the discoveries reach from the Sun, the farther the view pulls back. */
 	#fitZoomRange() {
 		const reach = Math.max(
 			EARTH_ORBIT,
@@ -738,10 +714,7 @@ export class CosmosScene {
 		return best?.id ?? null;
 	}
 
-	/**
-	 * Just above the side of the Earth facing the target, the day side for Mercury and Venus, so the Earth stays behind the
-	 * observer instead of hiding the target when the search swings around.
-	 */
+	/** Just above the side of the Earth facing the target (the day side for Mercury and Venus), so the Earth never hides it while searching. */
 	#observerPosition() {
 		const earth = this.#earth.position;
 		const aimed = this.#target ?? this.#gaze;
@@ -766,7 +739,6 @@ export class CosmosScene {
 		const previous = this.#pointers.get(event.pointerId);
 		if (!previous || (this.mode !== 'observe' && !this.#gaze)) return;
 		if (this.#pointers.size === 1) {
-			/** One screen pixel of drag moves the sky by one pixel, whatever the zoom. */
 			const perPixel = MathUtils.degToRad(this.#camera.fov / this.#canvas.clientHeight);
 			this.#yaw += (event.clientX - previous.x) * perPixel;
 			this.#pitch = MathUtils.clamp(this.#pitch + (event.clientY - previous.y) * perPixel, -1.45, 1.45);
@@ -809,7 +781,7 @@ export class CosmosScene {
 		this.#distanceGoal = MathUtils.clamp(current * factor, this.#controls.minDistance, this.#controls.maxDistance);
 	};
 
-	/** Hands the camera to the orbit controls around an object, which then carry the camera along its orbit. */
+	/** Hands the camera to the orbit controls around an object, which then follow it along its orbit. */
 	#orbit(id: string) {
 		const position = this.#positionOf(id)!;
 		this.focused = id;

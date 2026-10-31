@@ -78,10 +78,7 @@ const RING_OUTER = RADII.saturn * 2.27;
 const JOVIAN_SPREAD = 0.41;
 const NOWHERE = new Vector3(1e7, 1e7, 1e7);
 
-/**
- * Ring opacity at a distance from Saturn's center in Saturn radii, with the real ring radii: the faint C ring, the dense B ring, the
- * Cassini Division and the A ring split by the Encke Gap. Unresolved, they are a single soft band, Galileo's blur.
- */
+/** Ring opacity at a distance from Saturn's center in Saturn radii, with the Cassini Division and Encke Gap. Unresolved, one soft band, Galileo's blur. */
 function ringDensity(radius: Node<'float'>, resolved: Node<'float'>) {
 	const band = (from: number, to: number, soft = 0.012) => smoothstep(from - soft, from + soft, radius).mul(oneMinus(smoothstep(to - soft, to + soft, radius)));
 	const ringlets = mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.25).add(0.75);
@@ -110,10 +107,7 @@ const URANUS_RINGS = [
 	[2.001, 0.012],
 ] as const;
 
-/**
- * Hairlines a few times wider than life, true to size they vanish under a pixel. Below a pixel the line keeps a pixel's width and
- * fades by the same ratio, so it stays as faint as it should without flickering.
- */
+/** Hairlines wider than life: under a pixel a line keeps a pixel's width and fades by the same ratio, so it stays faint without flickering. */
 function uranusRingMaterial(reveal: Node<'float'>) {
 	const radius = length(positionLocal.xy).div(RADII.uranus);
 	const pixel = fwidth(radius);
@@ -122,7 +116,7 @@ function uranusRingMaterial(reveal: Node<'float'>) {
 		return max(cover, oneMinus(smoothstep(width.mul(0.5), width, radius.sub(at).abs())).mul(float(half).div(width)));
 	}, float(0));
 	const material = new MeshBasicNodeMaterial({ depthWrite: false, side: DoubleSide, transparent: true });
-	/** Darker than coal in truth, lifted to a dim grey so they read against space at all, a darker one in the realistic lighting. */
+	/** Darker than coal in truth, lifted to a dim grey so they read against space, darker again in the realistic lighting. */
 	const light = oneMinus(planetShadow(RADII.uranus).mul(0.85)).mul(mix(1, sunlight.mul(0.35), realism));
 	material.colorNode = condense(color('#a3a9b2').mul(light), reveal);
 	material.opacityNode = rings.mul(0.85);
@@ -131,15 +125,12 @@ function uranusRingMaterial(reveal: Node<'float'>) {
 
 const saturnRingNormal = () => vec3(SATURN_POLE.x, SATURN_POLE.y, SATURN_POLE.z);
 
-/**
- * Saturn's rings, drawn with the planet from the start as the soft blur Galileo saw. Their discovery is Huygens resolving them: the
- * reveal sharpens the ringlets and the Cassini Division, and the planet's shadow falls across them.
- */
+/** Saturn's rings, a soft blur from the start. Their discovery is Huygens resolving them: the reveal sharpens the ringlets and the Cassini Division. */
 function ringMaterial(reveal: Node<'float'>) {
 	const radius = length(positionLocal.xy).div(RADII.saturn);
 	const shadow = planetShadow(RADII.saturn);
 	const ringlets = mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.5).add(0.5);
-	/** Water ice, a light grey with a faint warm cast, the dusty C ring darker than the bright B ring. */
+	/** Water ice, the dusty C ring darker than the bright B ring. */
 	const ice = mix(color('#a9a59d'), color('#e2dfd8'), mix(0.5, ringlets, reveal)).mul(mix(1, mix(0.7, 1, smoothstep(1.45, 1.6, radius)), reveal));
 	/** Seen from the side away from the Sun, the rings only pass the light filtering through them and turn dark. */
 	const normal = saturnRingNormal();
@@ -171,7 +162,7 @@ const KIRKWOOD_GAPS = [
 	[2.95, 0.02],
 ] as const;
 
-/** Thousands of rocks on their own Kepler orbits, the inner ones faster, between 2.1 AU and the 2:1 resonance at 3.27 AU. */
+/** Rocks on their own Kepler orbits between 2.1 AU and the 2:1 resonance at 3.27 AU. */
 function asteroidBelt(reveal: Node<'float'>) {
 	const orbits = new Float32Array(BELT_ROCKS * 4);
 	for (let i = 0; i < BELT_ROCKS; ) {
@@ -186,7 +177,7 @@ function asteroidBelt(reveal: Node<'float'>) {
 	const rock = vec3(cos(angle).mul(radius), sin(angle.sub(orbit.w)).mul(sin(orbit.z)).mul(radius), sin(angle).mul(radius));
 	material.positionNode = rock;
 	material.sizeNode = float(2);
-	/** Dots keep their pixel size at any distance, so far away they would pile up into a bright band: they dim to half instead. */
+	/** Dots keep their pixel size at any distance and would pile up into a bright band far away, so they dim to half. */
 	const distant = smoothstep(EARTH_ORBIT, EARTH_ORBIT * 6, length(rock.sub(cameraPosition)));
 	/** Single rocks are far too small to see in truth, the realistic lighting keeps them as a faint dust. */
 	material.colorNode = color('#a4a4a8').mul(mix(0.45, 0.22, distant)).mul(mix(1, 0.5, realism)).mul(darkSky).mul(reveal);
@@ -197,7 +188,7 @@ function asteroidBelt(reveal: Node<'float'>) {
 	return belt;
 }
 
-/** Potato-shaped rock: a sphere stretched to its three axes and dented by a few low waves, too small for its gravity to round it. */
+/** Potato-shaped rock: a sphere stretched to its three axes and dented by low waves. */
 function lumpyGeometry(radius: number, [x, y, z]: readonly [number, number, number], seed: number) {
 	const geometry = new SphereGeometry(radius, 48, 32);
 	const position = geometry.getAttribute('position');
@@ -214,16 +205,10 @@ function lumpyGeometry(radius: number, [x, y, z]: readonly [number, number, numb
 /** Tail length in scene units at its fullest, about 0.1 AU like Halley's in 1986. */
 const TAIL_LENGTH = 30;
 
-/**
- * Unit tail profile, a paraboloid with its apex on the nucleus so the tail springs from the rock and rounds off around it like a
- * coma. Points crowd near the head where the curve bends most.
- */
+/** Unit tail profile, a paraboloid with its apex on the nucleus, points crowding near the head where the curve bends most. */
 const TAIL_PROFILE = Array.from({ length: 24 }, (_, i) => new Vector2(0.1 * (i / 23), (i / 23) ** 2));
 
-/**
- * A comet's tail, its gas and dust blown straight away from the Sun by sunlight and the solar wind: a soft paraboloid out of the
- * nucleus, fading along its length and toward its edges, around a coma glowing over the nucleus.
- */
+/** A comet's tail, blown straight away from the Sun: a paraboloid fading along its length and toward its edges, around a coma. */
 class CometTail extends Group {
 	readonly #away = new Vector3();
 	readonly #coma: Sprite;
@@ -241,8 +226,8 @@ class CometTail extends Group {
 	}
 
 	/**
-	 * Turns away from the Sun and grows as the nucleus at `position` nears it, its ice only boils off within a few AU. In truth there
-	 * is no tail past Jupiter, the cartoon lighting keeps a short one so a far comet still reads as one. `unturn` undoes the parent's rotation.
+	 * Turns away from the Sun and grows as the nucleus at `position` nears it, its ice only boils off within a few AU. Real comets have no
+	 * tail past Jupiter, the cartoon lighting keeps a short one so a far comet still reads as one. `unturn` undoes the parent's rotation.
 	 */
 	update(position: Vector3, unturn: Quaternion) {
 		const activity = Math.min(1, (3 * EARTH_ORBIT) ** 2 / position.lengthSq());
@@ -257,14 +242,10 @@ class CometTail extends Group {
 interface BodyLook extends Orbit {
 	/** `albedo` is the baked texture or the live `surface`, `radius` the look's own. */
 	build: (reveal: Node<'float'>, albedo: Node<'vec3'>, radius: number) => Mesh;
-	/** Grows a tail pointing away from the Sun. */
 	comet?: boolean;
 	/** Drawn instead of the orbit line once discovered, centered on the parent. */
 	orbit?: (reveal: Node<'float'>) => Object3D;
-	/**
-	 * The pole the body spins counterclockwise around, which is also the plane its moons orbit in. Venus', Uranus' and Pluto's point
-	 * below their orbits, they spin backward.
-	 */
+	/** The pole the body spins counterclockwise around, also its moons' orbit plane. Venus', Uranus' and Pluto's point below their orbits. */
 	pole?: Vector3;
 	/** Frames the discovery close-up and the pointer picking, the outer edge for the rings. */
 	radius: number;
@@ -277,7 +258,7 @@ interface BodyLook extends Orbit {
 }
 
 interface GlobeOptions extends Finish {
-	/** Fast spinning giants bulge at the equator, Saturn's poles sit 10% closer to its center than its equator. */
+	/** Fast spinning giants bulge at the equator. */
 	flattening?: number;
 	/** A thin haze `thickness` radii above the surface, drawn in high quality only. */
 	haze?: readonly [tint: string, thickness: number, strength: number];
@@ -298,10 +279,7 @@ const globe =
 		return body;
 	};
 
-/**
- * Rocks a few dozen km wide, drawn 5 to 25 times larger than life: true to size Phobos would be a speck beside Mars. `axes` stretch
- * them to their real proportions, the longest one reaching the look's radius.
- */
+/** Rocks drawn 5 to 25 times larger than life, `axes` set their real proportions with the longest reaching the look's radius. */
 const rock =
 	(axes: readonly [number, number, number], seed: number, shade?: Node<'vec3'>): BodyLook['build'] =>
 	(reveal, albedo, radius) =>
@@ -313,12 +291,9 @@ const GASEOUS: Finish = { limb: 0.35 };
 /** Rings sit on their planet, the orbit fields only place them at its center. */
 const ON_PARENT = { distance: 0, period: 1, phase: 0 } as const;
 
-/**
- * Scene side of the objects in `#data/cosmos.js`. Moon distances are compressed apart from Mars' moons, each system keeps its real
- * spacing, and the Galilean moons their 1:2:4 resonance so they visibly race around Jupiter and have to be tracked.
- */
+/** Scene side of `#data/cosmos.js`. Moon distances are compressed except Mars' moons, the Galilean moons keep their 1:2:4 resonance. */
 export const BODY_LOOKS: Record<string, BodyLook> = {
-	/** The signal and the close-up are Astraea, the rock whose find in 1845 opened the flood, its belt fills the gap around it. */
+	/** The signal and the close-up are Astraea, found in 1845, its belt fills the gap around it. */
 	asteroid_belt: {
 		...solarOrbit(2.577, 4.137, 0.1876, [181.62, 5.36, 141.447, 140.823]),
 		build: rock([1.15, 0.9, 0.95], 4),
@@ -336,7 +311,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 'locked',
 		surface: () => rockySurface('#6f675e', '#4a443e', 9, 41),
 	},
-	/** Its real size, a fifth of the Moon, sharing the belt with the rocks found after it. */
+	/** Its real size, a fifth of the Moon. */
 	ceres: {
 		...solarOrbit(2.766, 4.599, 0.0797, [158.74, 10.588, 80.249, 153.543]),
 		build: globe({ segments: 48 }),
@@ -356,7 +331,6 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 'locked',
 		surface: () => rockySurface('#b0a394', '#8f8476', 5, 71),
 	},
-	/** Its tilted, stretched orbit swings it from 38 to 98 AU from the Sun, it is near the far end now. */
 	eris: {
 		...solarOrbit(67.934, 559.94, 0.43824, [21.578, 43.926, 36.005, 186.8]),
 		build: globe(),
@@ -391,7 +365,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: 'locked',
 		surface: () => rockySurface('#9c8f80', '#6b6157', 5, 37),
 	},
-	/** The nucleus, 15 km long and darker than coal. Its orbit is tilted 162°, it goes around the Sun backward. */
+	/** The nucleus, 15 km long and darker than coal, on a backward orbit tilted 162°. */
 	halley: {
 		...solarOrbit(17.929, 75.915, 0.96794, [237.231, 162.191, 59.099, 171.34]),
 		build: rock([1.2, 0.66, 0.66], 13),
@@ -411,7 +385,7 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 	},
 	jupiter: {
 		...solarOrbit(5.203, 11.862, 0.0484, [34.396, 1.304, 100.474, 14.728]),
-		/** The moons' shadows cross its clouds as black dots, a sight small telescopes catch every few days. */
+		/** The moons' shadows cross its clouds as black dots. */
 		build: globe({ ...GASEOUS, flattening: 0.0649, rim: ['#f3e6d0', '#3e2a52', 0.25], segments: 96, shade: shadowOf('io', 'europa', 'ganymede', 'callisto') }),
 		pole: ecliptic(247.82, 87.78),
 		radius: RADII.jupiter,
@@ -435,13 +409,10 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		spin: (EARTH_YEAR * 0.2408 * 2) / 3,
 		surface: () => rockySurface('#a39a90', '#7b736b', 7, 13),
 	},
-	/**
-	 * Starts where it really is, so it shows tonight's phase. Its orbit is tilted 5°, so it only crosses the Earth's shadow, or casts its
-	 * own, during the two eclipse seasons of the year.
-	 */
+	/** Starts where it really is, so it shows tonight's phase. Its orbit is tilted 5°, so eclipses only happen in the two eclipse seasons of the year. */
 	moon: {
 		build: globe({
-			/** Sunlight the Earth reflects onto the night side, lighting the half that faces it a faint grey with a hint of blue. */
+			/** Earthshine: sunlight the Earth reflects onto the night side. */
 			glow: color('#8c96a6').mul(saturate(dot(normalWorld, centerOf('earth').sub(positionWorld).normalize()))).mul(0.08),
 			/** In the Earth's shadow it turns copper: the only light left is sunlight bent and reddened through the Earth's atmosphere. */
 			shade: mix(color('#b4532e').mul(0.45), vec3(1), eclipse(['earth'])),
@@ -507,7 +478,6 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 		shownWith: 'saturn',
 		spin: 0,
 	},
-	/** Near its closest now, 76 AU out in 2076, then off on an orbit reaching past 900 AU. */
 	sedna: {
 		...solarOrbit(543.72, 12678.6, 0.85988, [93.45, 11.925, 144.506, 95.605]),
 		build: globe(),
@@ -571,8 +541,8 @@ export const BODY_LOOKS: Record<string, BodyLook> = {
 };
 
 /**
- * Model-view matrices multiplied on the CPU in double precision, for the bodies and orbits past Saturn: in the shader, in float32,
- * 10 000 units from the Sun cancel down to a thousandth and Pluto shook at full zoom. On every object it cost 0.1 ms of GPU a frame.
+ * Model-view matrices multiplied on the CPU in double precision, past Saturn only: in float32, 10 000 units from the Sun cancel down to a
+ * thousandth and Pluto shook. On every object it costs 0.1 ms of GPU a frame.
  */
 const PRECISE = context({ modelViewMatrix: highpModelViewMatrix });
 const PRECISE_BEYOND = EARTH_ORBIT * 12;
@@ -594,7 +564,6 @@ export class Body {
 	/** Rotation from the orbit's reference plane, the ecliptic or the parent's equator, to the scene. */
 	readonly #frame = new Quaternion();
 	#grows = false;
-	/** Position in the orbit's reference frame, around the parent. */
 	readonly #local = new Vector3();
 	readonly #start: number;
 	readonly #tail: CometTail | null;

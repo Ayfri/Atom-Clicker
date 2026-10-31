@@ -14,11 +14,10 @@ export interface DeepSkyObject {
 	id: string;
 	/** Integrated apparent magnitude, the object fades in as the sight passes it. */
 	magnitude: number;
-	/** Width and height in degrees. */
 	size: readonly [number, number];
 }
 
-/** Hydrogen alpha, the red-pink of every emission nebula, and doubly ionized oxygen, the teal of the hottest gas around young stars. */
+/** Hydrogen alpha, the red-pink of emission nebulae, and doubly ionized oxygen, the teal of the hottest gas. */
 const HYDROGEN = '#ff4d70';
 const OXYGEN = '#7fe6d4';
 
@@ -49,17 +48,10 @@ const cluster = (p: Node<'vec2'>, scale: number, seed: number, size: number) => 
 const stars = (p: Node<'vec2'>, list: readonly (readonly [number, number, number])[], stretch: readonly [number, number], size: number) =>
 	list.reduce<Node<'float'>>((sum, [x, y, brightness]) => sum.add(blob(p, [x, y], stretch, 1 / size ** 2).mul(brightness)), float(0));
 
-/**
- * The brightest galaxy and nebulae, at their real places in the galactic frame of the Milky Way dome, colored as long exposures show
- * them. The small ones are drawn a few times larger than life, at true size the Crab and the Ring would be a few pixels even at the
- * narrowest zoom.
- */
+/** The brightest galaxy and nebulae at their real places in the galactic frame, the small ones drawn a few times larger than life: true to size the Crab is a few pixels. */
 export const DEEP_SKY: DeepSkyObject[] = [
 	{
-		/**
-		 * Andromeda, 2.5 million light years away and tilted 77° to us: a warm bulge, a cooler disc whose spiral arms read as rings of
-		 * dust, darker on the near side, dotted with pink star-forming knots, and its companions M32 and M110.
-		 */
+		/** Andromeda tilted 77° to us: a warm bulge, a cooler disc with dust-ring arms darker on the near side, pink knots, M32 and M110. */
 		angle: 215,
 		at: [121.17, -21.57],
 		discovery: ['andromeda', '#d6d4ea'],
@@ -90,10 +82,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [4.2, 1.4],
 	},
 	{
-		/**
-		 * The Orion Nebula, +x north and +y east: hydrogen wings fanning south around the teal, near white Huygens region the four
-		 * Trapezium stars light, the dark Fish's Mouth reaching in from the east, and M43, a smaller glow around its own star to the north.
-		 */
+		/** The Orion Nebula, +x north and +y east: hydrogen wings around the teal Huygens region, the dark Fish's Mouth from the east, M43 north. */
 		angle: 0,
 		at: [209.01, -19.38],
 		discovery: ['orion_nebula', '#d7b8d8'],
@@ -138,7 +127,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [1.4, 1.4],
 	},
 	{
-		/** The Lagoon Nebula, named after the dark lane of dust that crosses its glow, with the bright Hourglass west of the lane and the young cluster NGC 6530 east of it. */
+		/** The Lagoon Nebula: a dark dust lane crossing the glow, the bright Hourglass west of it and the young cluster NGC 6530 east. */
 		angle: 90,
 		at: [6.05, -1.2],
 		draw: p => {
@@ -159,10 +148,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [1.6, 0.8],
 	},
 	{
-		/**
-		 * The Eagle Nebula, with the Pillars of Creation: three columns of dust rising into the glow, the left one the tallest, tapering
-		 * toward their heads, whose rims glow where the stars of NGC 6611 above them boil their surface away.
-		 */
+		/** The Eagle Nebula's Pillars of Creation: three dust columns, the left one tallest, rims glowing where NGC 6611's stars boil them away. */
 		angle: 225,
 		at: [16.95, 0.79],
 		draw: p => {
@@ -197,10 +183,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [1, 1],
 	},
 	{
-		/**
-		 * The Crab Nebula, what is left of the supernova of 1054: a lumpy oval cage of red and yellow filaments around the blue glow
-		 * its pulsar's wind of electrons gives off, brightest toward the middle.
-		 */
+		/** The Crab Nebula, what is left of the supernova of 1054: a lumpy cage of red and yellow filaments around the blue glow of its pulsar's wind. */
 		angle: 125,
 		at: [184.56, -5.78],
 		discovery: ['crab_nebula', '#c9c4d8'],
@@ -221,7 +204,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [0.42, 0.3],
 	},
 	{
-		/** The Ring Nebula, a dying star's shell of gas: a clumpy ring, teal inside, red at its rim, a faint red halo, the white dwarf a dot at its center. */
+		/** The Ring Nebula, a dying star's gas shell: a clumpy ring, teal inside and red at the rim, a faint red halo, the white dwarf at its center. */
 		angle: 60,
 		at: [63.17, 13.98],
 		draw: p => {
@@ -241,10 +224,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [0.25, 0.2],
 	},
 	{
-		/**
-		 * Tycho's Supernova remnant as X-rays show it: a round shell of hot ejecta, red and gold knots inside a thin blue rim where the
-		 * blast wave runs into the gas around it. Shown from the start, the supernova outshone Venus.
-		 */
+		/** Tycho's Supernova remnant as X-rays show it: red and gold knots inside a thin blue rim where the blast wave meets the surrounding gas. */
 		angle: 0,
 		at: [120.09, 1.42],
 		discovery: ['tycho', '#e6e8f6'],
@@ -262,7 +242,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [0.4, 0.4],
 	},
 	{
-		/** Mira, a red giant racing through space and shedding a 13 light year tail of gas behind it, as ultraviolet images found it in 2007. */
+		/** Mira, a red giant shedding a 13 light year tail of gas as it races through space, as ultraviolet images found it in 2007. */
 		angle: 0,
 		at: [167.76, -57.97],
 		discovery: ['mira', '#ffb08a'],
@@ -281,7 +261,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [0.9, 0.3],
 	},
 	{
-		/** Cosmic rays falling out of the Milky Way toward Cygnus: streaks of particles crossing the sky in the same slant, like rain. */
+		/** Cosmic rays falling toward Cygnus: streaks crossing the sky in the same slant, like rain. */
 		angle: 0,
 		at: [80, 1],
 		discovery: ['cosmic_rays', '#a8f2da'],
@@ -296,7 +276,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [5, 5],
 	},
 	{
-		/** The cosmic microwave background as Planck mapped it: the Big Bang's afterglow, warmer and cooler by a few parts in 100,000, in its false colors. */
+		/** The cosmic microwave background as Planck mapped it, in false colors: warmer and cooler by a few parts in 100,000. */
 		angle: 0,
 		at: [264, 48],
 		discovery: ['cmb', '#ffcf9a'],
@@ -306,7 +286,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 		size: [36, 24],
 	},
 	{
-		/** NGC 4993, the elliptical galaxy around the GW170817 kilonova, with the kilonova's violet flash off its core as it was in August 2017. */
+		/** NGC 4993, the galaxy around the GW170817 kilonova, with its violet flash off the core as in August 2017. */
 		angle: 0,
 		at: [308.37, 39.3],
 		discovery: ['kilonova', '#d9c4ff'],
