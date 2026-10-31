@@ -4,9 +4,9 @@
 
 	interface Props {
 		class?: ClassValue;
-		/** Time the blades take to open, 0 shows the iris at rest, wide open. */
+		/** 0 shows the iris at rest, wide open. */
 		durationMs?: number;
-		/** Share of `durationMs` already elapsed when the opening starts, read once so a remount resumes mid-way. */
+		/** Share of `durationMs` already elapsed, read once so a remount resumes mid-way. */
 		progress?: number;
 		size?: number;
 	}
@@ -68,7 +68,6 @@
 </span>
 
 <style>
-	/** Each blade pivots on the rim, its edge sweeps from nearly shut to the rest angle (the end of the animation). */
 	.blade {
 		rotate: 36deg;
 		transform-origin: 34px 20px;

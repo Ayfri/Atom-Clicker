@@ -8,7 +8,7 @@ const WORKSHOP = '#ffd27a';
 
 type Point = { x: number; y: number };
 
-/** Bursts of the Cosmos HUD, called from click handlers and drawn on the Cosmos' own ambient field. Imported by components only. */
+/** Bursts of the Cosmos HUD, drawn on the Cosmos' own ambient field. Imported by components only. */
 class CosmosFx {
 	canvas: HTMLCanvasElement | null = null;
 	scene: CosmosScene | null = null;
@@ -35,7 +35,6 @@ class CosmosFx {
 		AmbientField.emit('cosmos', 'bloom', origin, { color: COSMOS_OBJECTS_BY_ID[id].color, surge: 4, target: this.#spot(id) });
 	}
 
-	/** Client position of an object, from the scene's canvas coordinates. */
 	#spot(id: string): Point | undefined {
 		const spot = this.scene?.onScreen().find(object => object.id === id);
 		if (!spot || !this.canvas) return undefined;

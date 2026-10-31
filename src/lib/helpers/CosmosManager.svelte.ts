@@ -20,19 +20,17 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import type { CosmosState, EffectSource } from '#lib/types.js';
 
-/** The sky above the realms: discovered objects radiate Starlight and boost the rest of the game, all kept through every prestige. */
+/** Everything here is kept through every prestige. */
 class CosmosManager {
-	/** Aperture levels, each one pushes every instrument's limit `APERTURE_STEP` magnitudes fainter. */
 	aperture = $state(0);
 	discovered = $state.raw<string[]>([]);
 	instruments = $state.raw<string[]>([]);
 	/** Instrument paid for and still being built, owned once `leftMs` runs out. */
 	research = $state.raw<CosmosState['research']>(null);
 	studies = $state.raw<Record<string, number>>({});
-	/** Time left before the paid Aperture level counts, 0 when none is widening. */
+	/** 0 when no paid Aperture level is widening. */
 	wideningMs = $state(0);
 
-	/** The first Ionize opens the Cosmos, and every Ionize after it raises Starlight. */
 	unlocked = $derived(radiationManager.ionizes > 0);
 
 	objects = $derived(COSMOS_OBJECTS.filter(object => object.given || this.discovered.includes(object.id)));
@@ -46,28 +44,24 @@ class CosmosManager {
 	/** Latest owned instrument that sees further, the one the player looks through. */
 	instrument = $derived(COSMOS_INSTRUMENTS.findLast(instrument => !instrument.tool && this.owns(instrument))!);
 
-	/** Faintest magnitude the instrument reaches at the current Aperture, never past its reach. */
 	limit = $derived(Math.min(this.instrument.reach, this.instrument.limit + APERTURE_STEP * this.aperture));
 
-	/** The Aperture is as wide as the instrument allows, only the next instrument sees further. */
 	apertureMaxed = $derived(this.limit >= this.instrument.reach);
 
-	/** The next object is bright enough for the instrument, its signal can be observed. */
 	canObserve = $derived(this.nextDiscovery !== null && this.nextDiscovery.magnitude <= this.limit);
 
 	nextApertureCost = $derived(apertureCost(this.aperture));
 
-	/** The instrument being built, else the next one to buy. */
 	nextInstrument = $derived(COSMOS_INSTRUMENTS.find(instrument => instrument.cost > 0 && !this.instruments.includes(instrument.id)) ?? null);
 
 	starlightMultiplier = $derived(ionizeStarlightMultiplier(radiationManager.ionizes));
 
-	/** Before the Ionize multiplier, and also counted while locked so the first Ionize can size its flash. */
+	/** Also counted while locked so the first Ionize can size its flash. */
 	baseStarlight = $derived(this.objects.reduce((rate, object) => rate + object.starlight * (1 + this.level(object.id)), 0));
 
 	starlightPerSecond = $derived(this.unlocked ? this.baseStarlight * this.starlightMultiplier : 0);
 
-	/** Light per second each color gets from the sky once the Spectroscope reads it, before the Light gain stat. */
+	/** Before the Light gain stat. */
 	skyLight = $derived.by((): Record<LightColor, number> => {
 		const rates: Record<LightColor, number> = { blue: 0, green: 0, red: 0 };
 		for (const object of this.objects) {
@@ -86,14 +80,12 @@ class CosmosManager {
 		return this.studies[objectId] ?? 0;
 	}
 
-	/** Starlight per second one object radiates, 0 until it is in the sky and the Cosmos is unlocked. */
 	starlightOf(objectId: string): number {
 		const object = COSMOS_OBJECTS_BY_ID[objectId];
 		if (!this.unlocked || !object || !this.objects.includes(object)) return 0;
 		return object.starlight * (1 + this.level(objectId)) * this.starlightMultiplier;
 	}
 
-	/** Light per second one object radiates in each color, empty until it is in the sky, the Cosmos is unlocked and the Spectroscope reads it. */
 	skyLightOf(objectId: string): Partial<Record<LightColor, number>> {
 		const object = COSMOS_OBJECTS_BY_ID[objectId];
 		if (!object?.light || !this.unlocked || !this.instruments.includes(SPECTROSCOPE_ID) || !this.objects.includes(object)) return {};
@@ -101,7 +93,6 @@ class CosmosManager {
 		return Object.fromEntries(Object.entries(object.light).map(([color, weight]) => [color, SKY_LIGHT * weight * level]));
 	}
 
-	/** The naked eye is free, every other instrument has to be built. */
 	owns(instrument: CosmosInstrument): boolean {
 		return instrument.cost === 0 || this.instruments.includes(instrument.id);
 	}
@@ -112,15 +103,11 @@ class CosmosManager {
 		return true;
 	}
 
-	/**
-	 * Starlight an Ionize pays at the new Ionize count: IONIZE_FLASH_SECONDS of Starlight times the squared ratio of the run's peak CPM
-	 * to the ionization line it crossed, so a reactor pushed past the line earns more.
-	 */
+	/** IONIZE_FLASH_SECONDS of Starlight times the squared ratio of the run's peak CPM to the ionization line, at the new Ionize count. */
 	flashFor(peakCpm: number, ionizeCpm: number, ionizes: number): number {
 		return this.baseStarlight * ionizeStarlightMultiplier(ionizes) * IONIZE_FLASH_SECONDS * (peakCpm / ionizeCpm) ** 2;
 	}
 
-	/** Pays for the next Aperture level, which counts once it has widened for `APERTURE_WIDEN_MS`. */
 	purchaseAperture(): boolean {
 		const cost = this.nextApertureCost;
 		if (!this.unlocked || this.wideningMs > 0 || this.apertureMaxed || currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < cost) return false;
@@ -129,7 +116,6 @@ class CosmosManager {
 		return true;
 	}
 
-	/** Pays for the next instrument, once the Aperture reaches as far as the current one sees. It is owned once its research time has passed. */
 	purchaseInstrument(instrumentId: string): boolean {
 		const instrument = this.nextInstrument;
 		if (
@@ -162,7 +148,6 @@ class CosmosManager {
 		this.research = null;
 	}
 
-	/** Study levels a Starlight budget buys, cheapest first. */
 	studyLevelsWithin(budget: number): number {
 		const levels = this.objects.map(object => this.level(object.id));
 		let count = 0;
@@ -204,7 +189,7 @@ class CosmosManager {
 		return { aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0), discovered: this.discovered, instruments: this.instruments, research: this.research, studies: this.studies };
 	}
 
-	/** Unknown ids from a tampered or future save are dropped, they would otherwise count toward the boosts. */
+	/** Unknown ids from a tampered or future save are dropped, they would count toward the boosts. */
 	loadState(state: CosmosState) {
 		this.aperture = Number.isInteger(state.aperture) && state.aperture > 0 ? state.aperture : 0;
 		this.wideningMs = 0;

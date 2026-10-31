@@ -5,7 +5,7 @@ const TILT = (20 * Math.PI) / 180;
 const LIGHT = [-0.55, 0.45, 0.7] as const;
 const LIGHT_LENGTH = Math.hypot(...LIGHT);
 
-/** The disc of a globe as parallel arrays, one entry per pixel it covers, so a frame is a single pass without trigonometry. */
+/** Parallel arrays with one entry per covered pixel, so a frame is a single pass without trigonometry. */
 export interface GlobeLut {
 	alpha: Uint8Array;
 	column: Float32Array;
@@ -19,7 +19,6 @@ const LUTS = new Map<string, GlobeLut>();
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/** The lit, tilted sphere of `radius` pixels centered in a `size` x `size` canvas, cached per size. */
 export function globeLut(size: number, radius: number): GlobeLut {
 	const key = `${size}:${radius}`;
 	const cached = LUTS.get(key);
@@ -66,10 +65,7 @@ export function globeLut(size: number, radius: number): GlobeLut {
 	return lut;
 }
 
-/**
- * Paints the globe of an equirectangular `MAP_WIDTH` x `MAP_HEIGHT` RGBA map into `out`, turned by `turn` map columns. The pixels
- * outside the disc are never written, `out` is zeroed once. A negative turn carries the surface from left to right, the way a planet spins.
- */
+/** Pixels outside the disc are never written, `out` is zeroed once. A negative `turn` moves the surface left to right, like a planet spins. */
 export function shadeGlobe(out: Uint8ClampedArray, source: Uint8ClampedArray, lut: GlobeLut, turn: number) {
 	const { alpha, column, pixel, row, shade } = lut;
 	for (let i = 0; i < pixel.length; i++) {
@@ -85,10 +81,7 @@ export function shadeGlobe(out: Uint8ClampedArray, source: Uint8ClampedArray, lu
 	}
 }
 
-/**
- * Scales the colors so the brightest 2% of the pixels reach `target`, the deep-sky maps are mostly black and would read as an empty disc.
- * Falls back to the brightest pixel when more than 98% of the image is black, and leaves a fully black image unchanged.
- */
+/** The brightest 2% of the pixels reach `target`, the deep-sky maps are mostly black. Falls back to the brightest pixel when 98% is black. */
 export function autoLevel(data: Uint8ClampedArray, target = 230) {
 	const histogram = new Uint32Array(256);
 	for (let i = 0; i < data.length; i += 4) histogram[Math.max(data[i], data[i + 1], data[i + 2])]++;

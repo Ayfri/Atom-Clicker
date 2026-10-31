@@ -1,4 +1,4 @@
-/** Line drawings of the paid instruments on Lucide's 24 grid (2 px margin, round joins, at least 2 px between strokes), inked in order while the instrument is built. */
+/** Line drawings on Lucide's 24 grid (2 px margin, round joins, at least 2 px between strokes), inked in order while the instrument is built. */
 export const BLUEPRINTS: Readonly<Record<string, readonly string[]>> = {
 	airborne_observatory: [
 		'M3 14C3 11.5 6 10.5 9 10.5H18C20.5 10.5 22 12 22 13.5C22 15 20.5 16.5 18 16.5H6C4 16.5 3 15.5 3 14Z',

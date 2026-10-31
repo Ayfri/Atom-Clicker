@@ -7,7 +7,6 @@
 	}
 
 	const HALF = TUNING.width / 2;
-	/** Color samples every 50 nm across the strip, the same 350 to 900 nm axis as the bars. */
 	const SPECTRUM = `linear-gradient(90deg, ${Array.from({ length: 12 }, (_, i) => 350 + i * 50)
 		.map(nm => `${wavelengthColor(nm)} ${tuneX(nm)}%`)
 		.join(', ')})`;
@@ -19,7 +18,7 @@
 	const center = $derived(periodicManager.tuning);
 </script>
 
-<!-- The input is invisible on top of the strip, its window-sized thumb (iOS only drags a thumb) travels exactly the window's centers, so a finger or the arrow keys move it natively. -->
+<!-- Invisible input over the strip: iOS only drags a thumb, so a window-sized one travels exactly the window's centers. -->
 <div
 	class="w-full max-w-60"
 	data-hint="table-tuning"

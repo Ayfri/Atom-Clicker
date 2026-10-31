@@ -73,7 +73,7 @@
 </button>
 
 <style>
-	/** A few beats then a steady glow: an endless one restyles on every frame the 3D sky draws, about 150 times a second. */
+	/** A few beats then a steady glow: an endless one restyles on every frame the 3D sky draws. */
 	.action-pulse {
 		animation: action-pulse 1.2s ease-in-out 5 alternate forwards;
 	}

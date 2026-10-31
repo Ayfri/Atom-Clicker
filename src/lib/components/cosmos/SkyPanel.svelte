@@ -47,7 +47,6 @@
 
 	const starlight = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT));
 
-	/** What each boost raises: a currency shows its own icon, the other stats a pictogram. */
 	const BOOST_ICONS: Partial<Record<EffectStat, typeof Factory | CurrencyName>> = {
 		blue_light_gain: CurrenciesTypes.BLUE_LIGHT,
 		click: MousePointerClick,
@@ -69,7 +68,6 @@
 
 	const shown = $derived(new Set(cosmosManager.objects.map(object => object.id)));
 
-	/** Discovered objects by section, each planet followed by its discovered moons and rings. */
 	const sections = $derived(
 		SKY_SECTIONS.map(ids =>
 			ids
@@ -142,7 +140,6 @@
 	</div>
 {/snippet}
 
-<!-- Slides in from the left edge like a drawer, the sky stays visible and clickable beside it. -->
 <section
 	class="flex max-h-full min-h-0 flex-col rounded-xl bg-cosmos-hud/95 shadow-2xl ring-1 ring-white/10"
 	transition:fly|global={{ duration: 300, easing: cubicOut, x: '-110%' }}
@@ -177,7 +174,6 @@
 					<li>
 						{@render row(object)}
 						{#if children.length}
-							<!-- Moons and rings hang under their planet, a neutral guide line ties them to it. -->
 							<ul class="ml-3.5 border-l border-white/10 pl-1.5">
 								{#each children as child (child.id)}
 									<li>{@render row(child)}</li>

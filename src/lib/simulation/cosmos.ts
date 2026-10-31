@@ -23,7 +23,6 @@ export interface CosmosStep {
 	wait: number;
 }
 
-/** Discoveries and instrument purchases in order, the rungs of the Cosmos ladder. */
 export function cosmosSteps({ events, openedAt }: CosmosInsights): CosmosStep[] {
 	const previous = { discover: openedAt ?? 0, instrument: openedAt ?? 0 };
 	return events.flatMap(({ detail, kind, starlightPerSecond, timestamp }) => {
@@ -50,7 +49,6 @@ export function cosmosSnapshot(): CosmosSnapshot {
 	};
 }
 
-/** The Cosmos side of a run: when it opened, every discovery, Aperture level, instrument and Ionize, and what each discovery waited on. */
 export class CosmosTracker {
 	readonly insights: CosmosInsights = {
 		blockedMs: { aperture: 0, instrument: 0, observe: 0, research: 0, widening: 0 },

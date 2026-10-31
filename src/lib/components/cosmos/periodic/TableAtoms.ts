@@ -3,7 +3,7 @@ import { rgba, TAU } from '#helpers/nucleus.js';
 import { MINI_NUCLEONS, nucleonsOf, paintAtom, paintNucleus } from './atoms.js';
 
 export type CellLook =
-	/** `glow` is the color of an identified element's lamp, painted as a soft halo behind its atom. */
+	/** `glow` is the lamp color, a soft halo behind the atom. */
 	| { color: string; glow?: string; kind: 'identified' | 'ready' | 'reading' }
 	| { color: string; kind: 'forging'; progress: number }
 	| { kind: 'waiting' };
@@ -19,15 +19,11 @@ const BARE_COLOR = '#c3cad6';
 const ATOM_SHARE = 0.86;
 const POP_SECONDS = 0.5;
 const LAMP_GLOW_ALPHA = 0.4;
-/** The widest a ready nucleus's pulsing glow gets, relative to its atom, it reaches past the top of the cell. */
+/** Widest a ready nucleus's pulsing glow gets relative to its atom, it reaches past the top of the cell. */
 const READY_GLOW = 1.23;
 
-/**
- * Draws every element of the table as a mini atom on one canvas laid under the cells: identified elements as baked Bohr atoms,
- * ready ones as a bare wobbling nucleus, forged ones as a nucleus gaining nucleons. The loop only runs while a ready nucleus wobbles or a cell pops.
- */
+/** Every element as a mini atom on one canvas under the cells. The loop only runs while a ready nucleus wobbles or a cell pops. */
 export class TableAtoms extends CanvasLoop {
-	/** When each cell last changed state, on the loop's clock. */
 	private readonly changed = new Map<number, number>();
 	private readonly ctx: CanvasRenderingContext2D;
 	private full = true;
@@ -35,10 +31,7 @@ export class TableAtoms extends CanvasLoop {
 	private slots = new Map<number, Slot>();
 	private time = 0;
 
-	/**
-	 * The canvas sits in the grid next to its `[data-cell]` slots and overflows it, so the first row's glows and pops aren't cut.
-	 * `zoom` sharpens a table that gets pinch-zoomed.
-	 */
+	/** The canvas overflows the grid so the first row's glows and pops aren't cut, `zoom` sharpens a pinch-zoomed table. */
 	constructor(
 		canvas: HTMLCanvasElement,
 		private readonly zoom = 1,
@@ -58,10 +51,7 @@ export class TableAtoms extends CanvasLoop {
 		this.redraw();
 	}
 
-	/**
-	 * A state change, a resize or a pop repaints the whole table. Otherwise only the wobbling ready cells are cleared and painted again,
-	 * their glow stays inside the gap around their cell.
-	 */
+	/** A state change, a resize or a pop repaints the whole table, otherwise only the wobbling ready cells. */
 	protected draw(dt: number): boolean {
 		const { ctx, ratio } = this;
 		this.time += dt;
@@ -73,7 +63,7 @@ export class TableAtoms extends CanvasLoop {
 		}
 		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-		/** All the ready glows are wiped before any is painted, a glow reaching past its cell would otherwise erase its ready neighbor's. */
+		/** Wiping every ready glow before painting any keeps a glow reaching past its cell from erasing its neighbor's. */
 		if (!full)
 			for (const [z, look] of this.looks) {
 				const slot = this.slots.get(z);
@@ -90,7 +80,7 @@ export class TableAtoms extends CanvasLoop {
 			this.drawCell(z, look, slot);
 			moving ||= look.kind === 'ready';
 		}
-		/** The frame after the last pop repaints in full too, to wipe what it drew past its cell. */
+		/** The frame after the last pop repaints in full to wipe what it drew past its cell. */
 		this.full = popping;
 		return moving;
 	}
@@ -105,7 +95,6 @@ export class TableAtoms extends CanvasLoop {
 		const pixels = Math.max(8, Math.round(size * ratio));
 		const nucleons = Math.min(MINI_NUCLEONS, nucleonsOf(z));
 
-		/** A cell that changes state pops: it swells past its size and settles back. */
 		const age = (this.time - (this.changed.get(z) ?? -POP_SECONDS)) / POP_SECONDS;
 		if (age >= 1) this.changed.delete(z);
 		const pop = age < 1 ? 1 + 0.35 * Math.sin(age * Math.PI) * (1 - age) : 1;
@@ -137,7 +126,6 @@ export class TableAtoms extends CanvasLoop {
 			ctx.globalAlpha = look.kind === 'ready' ? 0.55 + 0.25 * pulse : look.kind === 'reading' ? 0.45 : 0.25;
 			ctx.drawImage(this.glow(look.color), cx - glowSize / 2, cy - glowSize / 2, glowSize, glowSize);
 			if (shown > 0) {
-				/** Without its electrons around it, the nucleus takes their room. */
 				const radius = pixels * (0.14 + 0.1 * Math.cbrt(nucleons / MINI_NUCLEONS));
 				const sprite = this.sprite(`bare:${z}:${shown}:${color}`, ctx => paintNucleus(ctx, pixels / 2, pixels / 2, radius, shown, color), pixels);
 				const scale = 1 + 0.06 * pulse;

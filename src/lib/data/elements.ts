@@ -14,7 +14,6 @@ export interface Element {
 	name: string;
 	/** Nuclei to forge, `1000 × 10^(k × (12 - log ε))`. */
 	need: number;
-	/** Share of the element each site makes in the real universe, largest first. */
 	origin: [SiteId, number][];
 	row: number;
 	symbol: string;
@@ -33,11 +32,9 @@ export interface FamilyInfo {
 export interface Lore {
 	discovery: string;
 	fact: string;
-	/** Absent when the forging site's process says it all, see `reactionOf`. */
 	reaction?: string;
 }
 
-/** Each family has one color and one bonus, so a tile's color tells what it gives. */
 export const FAMILIES: Record<Family, FamilyInfo> = {
 	actinide: { color: '#e8a87c', name: 'Actinides', stat: 'stability_capacity', step: 2 },
 	alkali: { color: '#ff6b6b', name: 'Alkali metals', stat: 'click', step: 2 },
@@ -53,7 +50,6 @@ export const FAMILIES: Record<Family, FamilyInfo> = {
 
 export const FAMILY_IDS = Object.keys(FAMILIES) as Family[];
 
-/** A family with every member identified multiplies its bonus once more. */
 export const SET_BONUS = 1.25;
 
 export const LIGHT_STATS: Record<LightColor, EffectStat> = { blue: 'blue_light_gain', green: 'green_light_gain', red: 'red_light_gain' };
@@ -80,10 +76,7 @@ const NAMES =
 
 const CODE_SITE: Record<string, SiteId> = { A: 'accelerator', B: 'bigbang', D: 'decay', L: 'lowmass', M: 'massive', N: 'neutron', R: 'cosmic', W: 'whitedwarf', X: 'reactor' };
 
-/**
- * Origin shares in percent for Z 1 to 103, transcribed from Wikimedia Commons' `Nucleosynthesis_periodic_table.svg` (CMG Lee, after
- * Jennifer Johnson). Johnson's "human synthesis" is X (reactor) or A (accelerator), Z 104+ is A. Example: `B23 R13 L64` for Li.
- */
+/** Origin shares in percent for Z 1 to 103 (Wikimedia Commons `Nucleosynthesis_periodic_table.svg`), `B23 R13 L64` for Li. */
 const ORIGINS =
 	'B,B91 M5 L4,B23 R13 L64,R,R,M25 L75,M25 L75,M,M,M,M,M99 W1,M99.6 W0.4,M71 W29,M97 W3,M58 W42,M84 W16,M56 W44,M82 W18,M51 W49,M82 W18,M35 W65,M25 W75,M23 W77,M16 W84,M36 W64,M33 W67,M30 W70,M42 W58,M46 W54,M,M,M,M,M,M,M,M13 L87,M8 L92,M16 L84,L87 N13,L63 N37,X,L32 N68,L13 N87,L45 N55,L19 N81,L52 N48,L36 N64,L69 N31,L25 N75,L57 N43,L5 N95,L17 N83,L15 N85,L82 N18,L62 N38,L76 N24,L48 N52,L60 N40,X,L29 N71,L5 N95,L15 N85,L7 N93,L14 N86,L7 N93,L16 N84,L12 N88,L32 N68,L20 N80,L55 N45,L41 N59,L57 N43,L8 N92,L10 N90,L1 N99,L5 N95,L6 N94,L62 N38,L77 N23,L47 N53,L0.5 N99.5,N,N,N,N,N,N,N,N,N,N,N,X,X,X,X,X,X,A,A,A'
 		.split(',')
@@ -99,11 +92,7 @@ const LOG_EPS: Record<string, number> = {
 	Yb: 0.85, Zn: 4.56, Zr: 2.59,
 };
 
-/**
- * Five strongest neutral-atom lines between 350 and 900 nm in the NIST Atomic Spectra Database, strongest first, in air.
- * At only has UV lines, Fr comes from its transition rates, Cs and Ga keep the lines Bunsen and Lecoq de Boisbaudran named them by,
- * Fm is Sewtz et al. 2003 (PRL 90, 163002). Elements from Md on have no measured line.
- */
+/** Five strongest neutral-atom lines in 350 to 900 nm (NIST ASD, in air), At has only UV lines, Fr and Fm come from papers. */
 const LINES: Record<string, number[]> = {
 	H: [656.3, 486.1, 434, 388.9, 410.2], He: [388.9, 587.6, 447.1, 706.5, 501.6], Li: [670.8, 610.4, 812.6, 413.3, 391.5],
 	Be: [457.3, 381.3, 825.4, 440.8, 351.6], B: [582.1, 821.2, 624.5, 866.9, 594.3], C: [833.5, 505.2, 538, 711.3, 786.1],
@@ -277,7 +266,7 @@ function familyOf(z: number, symbol: string): Family {
 	return FAMILY_SETS.find(([, symbols]) => symbols.split(' ').includes(symbol))?.[0] ?? 'transition';
 }
 
-/** Grid row and column, with period 8 on row 8 and the f-block on rows 10 and 11. */
+/** Period 8 sits on row 8 and the f-block on rows 10 and 11. */
 function position(z: number): [number, number] {
 	if (z === 1) return [1, 1];
 	if (z === 2) return [1, 18];
@@ -291,10 +280,10 @@ function position(z: number): [number, number] {
 	return [period, z - (period === 6 ? 72 : 104) + 4];
 }
 
-/** How much real rarity slows forging: hydrogen to uranium spans 10^(k × 12.5), 10^5 at 0.4. */
+/** How much real rarity slows forging: hydrogen to uranium spans 10^5. */
 const RARITY = 0.4;
 
-/** Abundance sets the need. Without a stable isotope it is uranium's × 1.5 per Z from it, never below polonium's (U / 1.5⁸). */
+/** Without a stable isotope the need is uranium's × 1.5 per Z from it, never below polonium's (U / 1.5⁸). */
 function needOf(z: number, logEps: number | undefined): number {
 	const units = logEps === undefined ? 10 ** (RARITY * (12 - LOG_EPS.U)) * 1.5 ** Math.max(-8, z - 92) : 10 ** (RARITY * (12 - logEps));
 	return units * 1000;
@@ -317,7 +306,7 @@ export const zs = (symbols: string) => symbols.split(' ').map(symbol => BY_SYMBO
 /** Percent each identified related element adds to a generator's output, on top of the family bonuses. */
 export const ELEMENT_GENERATOR_PERCENT = 10;
 
-/** The elements each generator is made of or lives among, a Black Hole has none. */
+/** A Black Hole has no elements. */
 export const GENERATOR_ELEMENTS: Partial<Record<GeneratorType, number[]>> = {
 	crystal: zs('Be B C Al Si Ca'),
 	microorganism: zs('C N O P S Mg'),
@@ -329,7 +318,6 @@ export const GENERATOR_ELEMENTS: Partial<Record<GeneratorType, number[]>> = {
 	star: zs('H He C N O Ne'),
 };
 
-/** The generators an element boosts. */
 export const elementGenerators = (z: number): GeneratorType[] =>
 	(Object.keys(GENERATOR_ELEMENTS) as GeneratorType[]).filter(type => GENERATOR_ELEMENTS[type]?.includes(z));
 
@@ -338,17 +326,15 @@ export const elementBySymbol = (symbol: string): Element => BY_SYMBOL[symbol];
 /** Red from 600 nm (infrared included), Green from 500 to 600, Blue under 500 (ultraviolet included). */
 export const lightColorOf = (nm: number): LightColor => (nm >= 600 ? 'red' : nm >= 500 ? 'green' : 'blue');
 
-/** A lanthanide boosts the Light color of its strongest line. */
 export const lanthanideLight = (element: Element): LightColor => lightColorOf(element.lines[0]);
 
-/** The stat an element boosts: its family's, or the Light of its strongest line for a lanthanide. */
 export const elementStat = (element: Element): EffectStat =>
 	element.family === 'lanthanide' ? LIGHT_STATS[lanthanideLight(element)] : FAMILIES[element.family].stat;
 
 /** The Prism's tuning window: lines within `width` nm of its center cost `factorIn` times their Light, the others `factorOut`. */
 export const TUNING = { factorIn: 0.2, factorOut: 2, max: 875, min: 375, width: 50 } as const;
 
-/** Wavelengths outside this range are never read through the window, they always cost their plain share. */
+/** Wavelengths outside this range always cost their plain share. */
 const TUNING_RANGE = { max: 900, min: 350 } as const;
 
 const lineWeight = (nm: number, tuning: number | null): number =>
@@ -356,11 +342,7 @@ const lineWeight = (nm: number, tuning: number | null): number =>
 	: Math.abs(nm - tuning) <= TUNING.width / 2 ? TUNING.factorIn
 	: TUNING.factorOut;
 
-/**
- * Light per nucleus, split by the element's lines: Red ≥ 600 nm, Green 500 to 600, Blue under 500. Without a measured spectrum, no Light: see
- * `decayCost`. A `tuning` center weighs each line by its distance to the window, `null` is the plain cost, and a color never costs more
- * than its plain cost: a window that misses most of a color's lines is worth nothing there, never a loss.
- */
+/** Light per nucleus, split by the element's lines. A color never costs more than its plain cost: a window that misses its lines is no loss. */
 export function lightCost(element: Element, tuning: number | null = null): Record<LightColor, number> {
 	if (!element.lines.length) return { blue: 0, green: 0, red: 0 };
 	const total = element.need / 50;
@@ -370,7 +352,7 @@ export function lightCost(element: Element, tuning: number | null = null): Recor
 	return { blue: cost('blue'), green: cost('green'), red: cost('red') };
 }
 
-/** The whole nm window center that makes `lines` cheapest: a window edge as close as possible to one of them, kept inside the tuning range. */
+/** The whole nm window center that makes `lines` cheapest: a window edge on one of them, inside the tuning range. */
 export function bestTuning(lines: number[]): number {
 	const weight = (center: number) =>
 		(['blue', 'green', 'red'] as const).reduce((sum, color) => {
@@ -388,16 +370,14 @@ export function bestTuning(lines: number[]): number {
 	return best?.center ?? TUNING.min;
 }
 
-/** Position of a wavelength on the tuning strip's 350 to 900 nm axis, in percent. */
 export const tuneX = (nm: number): number => ((Math.min(Math.max(nm, TUNING_RANGE.min), TUNING_RANGE.max) - TUNING_RANGE.min) / (TUNING_RANGE.max - TUNING_RANGE.min)) * 100;
 
 /** An identified element's lamp pays back its Light cost in this long. */
 export const LAMP_PAYBACK_SECONDS = 25 * 86_400;
 
-/** Nuclei of an element's `need` that one Decay event stands for. */
 const NEED_PER_DECAY_EVENT = 1e6;
 
-/** Decay events an element without a measured spectrum costs, identified by how it decays instead of by its light. */
+/** Decay events an element without a measured spectrum costs instead of Light. */
 export const decayCost = (element: Element): number => (element.lines.length ? 0 : Math.ceil(element.need / NEED_PER_DECAY_EVENT));
 
 /** Dan Bruton's wavelength to RGB approximation, dimmed at the edges of vision. */
@@ -416,13 +396,10 @@ function wavelengthRgb(nm: number): [number, number, number] {
 
 export const wavelengthColor = (nm: number): string => `rgb(${wavelengthRgb(nm).join(' ')})`;
 
-/** Same color as hex, for canvas code that mixes colors through `parseHex`. */
 export const wavelengthHex = (nm: number): string => `#${wavelengthRgb(nm).map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
 
-/** Position of a wavelength on a 380 to 780 nm strip, in percent. */
 export const lineX = (nm: number) => ((Math.min(Math.max(nm, 380), 780) - 380) / 400) * 100;
 
-/** The element's lines as a CSS gradient of thin bars, its barcode. */
 export function spectrumGradient(lines: number[]): string {
 	if (!lines.length) return 'none';
 	const stops = lines

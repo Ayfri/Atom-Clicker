@@ -9,7 +9,7 @@
 
 	let { color, id, small = false }: Props = $props();
 
-	/** Saturn's rings from the outside in: the A ring, then the wider B ring past the Cassini Division. Pixels of a 32 x 32 box. */
+	/** Saturn's rings from the outside in (A, then B past the Cassini Division), in pixels of a 32 x 32 box. */
 	const SATURN_RINGS = [
 		{ rx: 14.7, ry: 4.6, stroke: '#a9a59d', width: 1.1 },
 		{ rx: 12.5, ry: 3.9, stroke: '#d8d2c4', width: 2.5 },

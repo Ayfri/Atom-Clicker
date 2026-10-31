@@ -1,6 +1,5 @@
 import { NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, TAU } from '#helpers/nucleus.js';
 
-/** Subshells in Madelung filling order, as [shell, capacity]. */
 const SUBSHELLS = [
 	[1, 2], [2, 2], [2, 6], [3, 2], [3, 6], [4, 2], [3, 10], [4, 6], [5, 2], [4, 10], [5, 6], [6, 2], [4, 14], [5, 10], [6, 6], [7, 2], [5, 14], [6, 10],
 	[7, 6], [8, 2],
@@ -8,10 +7,10 @@ const SUBSHELLS = [
 
 export type StageKind = 'forging' | 'identified' | 'ready' | 'reading' | 'waiting';
 
-/** A mini atom past this many nucleons keeps the same ball, its nucleons would shrink to specks. */
+/** Past this many nucleons a mini atom keeps the same ball, they would shrink to specks. */
 export const MINI_NUCLEONS = 20;
 
-/** Electrons per shell by the Madelung rule, which misses the few exceptions like chromium and copper: K → [2, 8, 8, 1]. */
+/** Electrons per shell by the Madelung rule, which misses exceptions like chromium and copper. */
 export function shellsOf(z: number): number[] {
 	const shells: number[] = [];
 	let left = z;
@@ -24,10 +23,10 @@ export function shellsOf(z: number): number[] {
 	return Array.from(shells, count => count ?? 0);
 }
 
-/** Mass number of the most common isotope within a few units: Fe → 56, Au → 197, U → 237. */
+/** Approximate mass number: Fe → 56, Au → 197, U → 237. */
 export const nucleonsOf = (z: number) => (z === 1 ? 1 : Math.round(z * (2 + 0.0063 * z)));
 
-/** The first `count` electrons in filling order, spread back over their shells: the 11 first of argon → [2, 8, 1]. */
+/** The first `count` electrons in filling order, spread over their shells: 11 of argon → [2, 8, 1]. */
 export function partialShells(shells: number[], count: number): number[] {
 	let left = count;
 	return shells.map(capacity => {
@@ -37,7 +36,6 @@ export function partialShells(shells: number[], count: number): number[] {
 	});
 }
 
-/** Paints a ball of `count` nucleons centered on (x, y), protons and neutrons alternating like a light nucleus. */
 export function paintNucleus(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, count: number, protonColor: string, neutronColor = NEUTRON_COLOR) {
 	if (count <= 0) return;
 	const packing = packNucleus(count);
@@ -53,13 +51,9 @@ export function paintNucleus(ctx: CanvasRenderingContext2D, x: number, y: number
 	}
 }
 
-/** Nucleus radius for a cell of `size`, growing with the nucleon count so hydrogen stays a dot and heavy elements a ball. */
 const miniNucleusRadius =(size: number, count: number) => size * (0.07 + 0.09 * Math.min(1, Math.cbrt(count / MINI_NUCLEONS)));
 
-/**
- * Paints element `z` as a flat Bohr atom filling a `size` square: its real shells as rings, every electron as a dot,
- * the nucleus in the middle. Rings get tighter with more shells so the seventh still fits.
- */
+/** A flat Bohr atom filling a `size` square, rings get tighter with more shells so the seventh still fits. */
 export function paintAtom(ctx: CanvasRenderingContext2D, size: number, z: number, color: string) {
 	const center = size / 2;
 	const shells = shellsOf(z);

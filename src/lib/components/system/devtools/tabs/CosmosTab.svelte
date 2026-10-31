@@ -61,7 +61,7 @@
 	/** Keeps the data order, `nextDiscovery` walks the objects in it. */
 	const setDiscovered = (ids: string[]) => (cosmosManager.discovered = COSMOS_OBJECTS.filter(object => ids.includes(object.id)).map(object => object.id));
 
-	/** An identified element must be forged, so its site's chain moves past it, which forges the steps before it too. */
+	/** An identified element must be forged: its site's chain moves past it, forging the steps before it too. */
 	function setIdentified(ids: string[]) {
 		const zs = ids.map(Number);
 		let sites = periodicManager.sites;

@@ -18,10 +18,7 @@ interface Entry {
 	visible: boolean;
 }
 
-/**
- * Map file of each deep-sky object, copied from `DEEP_SKY` in `cosmos/nebulae.ts` and `cosmos/maps.ts`: importing them would pull
- * Three.js into the HUD chunk. A body's map is `/cosmos/<id>.webp`, the Sun and the rings of Saturn and Uranus have no map.
- */
+/** Copied from `DEEP_SKY` in `cosmos/nebulae.ts`: importing it would pull Three.js into the HUD chunk. A body's map is `/cosmos/<id>.webp`. */
 export const DEEP_MAPS: Record<string, string> = {
 	andromeda: 'm31',
 	cmb: 'cmb',
@@ -33,7 +30,7 @@ export const DEEP_MAPS: Record<string, string> = {
 	tycho: 'sn1572',
 };
 
-/** Where the crop of a deep-sky map is centered, in UV, when it is not the middle: Mira's star sits at the right end of its tail. */
+/** Crop center in UV when it is not the middle: Mira's star sits at the right end of its tail. */
 const FLAT_CENTERS: Record<string, readonly [number, number]> = { mira: [0.86, 0.5] };
 
 const CLOUD_COLOR = [244, 247, 251] as const;
@@ -67,7 +64,6 @@ async function decodeMap(id: string) {
 	return pixels;
 }
 
-/** The day colors with the clouds blended over them, `clouds` holds the cover in its red channel. */
 async function decodeEarth() {
 	const day = await decodeMap('earth');
 	const clouds = await decodeMap('clouds');
@@ -78,7 +74,7 @@ async function decodeEarth() {
 	return day;
 }
 
-/** The square around the center of a deep-sky map, brightened, since most of these maps are dim. */
+/** Brightened with `autoLevel`, most of these maps are dim. */
 async function decodeFlat(id: string, size: number) {
 	const bitmap = await fetchBitmap(DEEP_MAPS[id]);
 	const side = Math.min(bitmap.width, bitmap.height);
@@ -94,7 +90,7 @@ async function decodeFlat(id: string, size: number) {
 	return pixels;
 }
 
-/** Decodes one map at a time in attach order, opening the list would otherwise start dozens of decodes at once. A failure resolves null and is retried later. */
+/** One decode at a time in attach order, opening the list would start dozens at once. A failure resolves null and is retried later. */
 function loadSource(id: string, kind: ThumbKind, size: number) {
 	const key = kind === 'flat' ? `${id}:${size}` : id;
 	const cached = sources.get(key);
@@ -113,11 +109,7 @@ function loadSource(id: string, kind: ThumbKind, size: number) {
 	return loaded;
 }
 
-/**
- * Draws the object thumbnails of the Sky panel on small canvases, one shared timer for all of them: every on-screen globe is
- * redrawn at 15 fps with the same spin, the timer stops while the tab is hidden, a modal or the Periodic Table covers the Cosmos, or
- * no globe is on screen. Under reduced motion each canvas gets one still frame.
- */
+/** One shared 15 fps timer for every on-screen globe, stopped while the tab is hidden, a modal or the Table covers the Cosmos, or no globe shows. */
 class SkyThumbnails {
 	#active = true;
 	#entries = new Map<Element, Entry>();
@@ -128,7 +120,7 @@ class SkyThumbnails {
 	/** Map columns, negative: the surface moves from left to right. */
 	#turn = 0;
 
-	/** `size` and `radius` are CSS pixels. `onReady` runs once the first frame is drawn. Returns the release. */
+	/** `size` and `radius` are CSS pixels. Returns the release. */
 	attach(canvas: HTMLCanvasElement, id: string, kind: ThumbKind, size: number, radius: number, onReady = () => {}) {
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return () => {};

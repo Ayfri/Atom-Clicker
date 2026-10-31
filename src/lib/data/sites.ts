@@ -4,7 +4,7 @@ export type SiteId = 'accelerator' | 'bigbang' | 'cosmic' | 'decay' | 'lowmass' 
 
 export interface Site {
 	color: string;
-	/** What opens it, shown while it is locked. */
+	/** Shown while it is locked. */
 	gate: string;
 	glyph: string;
 	name: string;
@@ -51,10 +51,7 @@ const BEAMS: Record<string, string> = {
 
 const ACCELERATED = ELEMENTS.slice(100);
 
-/**
- * Each site forges the elements it makes most of in Johnson's data, except by design Li (Big Bang), the decay chain, Np and Pu (reactor),
- * and Pb, Bi (low-mass stars), where slow neutron capture really ends.
- */
+/** Each site forges what it makes most of in Johnson's data, except by design Li, the decay chain, Np and Pu (reactor), Pb and Bi. */
 export const CHAINS: Record<SiteId, Chain> = {
 	accelerator: {
 		seeds: Object.fromEntries(
@@ -90,15 +87,14 @@ export const CHAINS: Record<SiteId, Chain> = {
 	},
 };
 
-/** Nuclei per second at study level 0, set so each site's slowest element takes 10 days, which each study level divides. */
+/** Nuclei per second at study level 0: each site's slowest element takes 10 days. */
 export const BASE_RATES = Object.fromEntries(
 	SITE_IDS.map(id => [id, Math.max(...CHAINS[id].steps.map(z => ELEMENTS[z - 1].need)) / (10 * 86_400)]),
 ) as Record<SiteId, number>;
 
-/** The site that forges each element. */
 export const FORGED_BY: Record<number, SiteId> = Object.fromEntries(SITE_IDS.flatMap(id => CHAINS[id].steps.map(z => [z, id])));
 
-/** The process a site runs, for elements whose lore names no specific reaction. */
+/** For elements whose lore names no specific reaction. */
 const SITE_REACTIONS: Partial<Record<SiteId, string>> = {
 	lowmass: 'slow neutron capture in a red giant',
 	massive: 'neutron capture in a massive star',
@@ -108,13 +104,11 @@ const SITE_REACTIONS: Partial<Record<SiteId, string>> = {
 
 export const reactionOf = (element: Element): string => LORE[element.symbol]?.reaction ?? SITE_REACTIONS[FORGED_BY[element.z]] ?? '';
 
-/** Sites whose open decay chains pay Decay events. */
 export const DECAY_SITES: SiteId[] = ['accelerator', 'decay'];
 
-/** Decay events per second of each open decay site, times `1 + study level`. */
+/** Per open decay site, times `1 + study level`. */
 export const DECAY_EVENTS_PER_SECOND = 0.5;
 
-/** Starlight for a site's next study level, each level adds the base forge rate again. */
 export const siteStudyCost = (level: number) => 1e9 * 4 ** level;
 
 /** Shared Collider injections that synthesize element `z` past 118: 30K for 119, then ×1.5 per element. */

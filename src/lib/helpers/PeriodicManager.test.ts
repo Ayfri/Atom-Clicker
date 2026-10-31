@@ -137,7 +137,6 @@ describe('table', () => {
 		expect(Math.abs(total(periodicManager.costOf(fe.z).light) - 0.2 * total(lightCost(fe)))).toBeLessThanOrEqual(1);
 		periodicManager.setTuning(800);
 		expect(periodicManager.costOf(fe.z).light).toEqual(lightCost(fe));
-		/** At only has ultraviolet lines, the window never reaches them. */
 		expect(periodicManager.costOf(at.z).light).toEqual(lightCost(at));
 
 		periodicManager.setTuning(bestTuning(fe.lines));
@@ -151,7 +150,7 @@ describe('table', () => {
 	});
 
 	test('no tuning window ever makes an element cost more Light than without the Prism, even with spread lines', () => {
-		/** Six blue lines 20 nm apart: the best window holds 3, so the raw weights (3 × 0.2 + 3 × 2) would cost 10% more than plain. */
+		/** Six blue lines 20 nm apart: the best window holds 3, so raw weights (3 × 0.2 + 3 × 2) would cost 10% more than plain. */
 		const spread = { ...ELEMENTS[zs('Fe')[0] - 1], lines: [380, 400, 420, 440, 460, 480] };
 		expect(lightCost(spread, bestTuning(spread.lines))).toEqual(lightCost(spread));
 		for (const element of [spread, ...ELEMENTS.filter(other => other.lines.length)]) {
@@ -193,7 +192,6 @@ describe('table', () => {
 
 	describe('element affinities', () => {
 		const output = () => Object.fromEntries(GENERATOR_TYPES.map(type => [type, gameManager.effects.value('generator', 1, gameManager, type)]));
-		/** Output of every generator once the elements are identified, every chain forged. */
 		const boosts = (identified: number[]) => {
 			const sites = Object.fromEntries(SITE_IDS.map(id => [id, { index: CHAINS[id].steps.length, level: 0, progress: 0 }]));
 			gameManager.periodic = { identified, sites };

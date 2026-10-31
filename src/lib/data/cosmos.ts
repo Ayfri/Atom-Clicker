@@ -2,7 +2,6 @@ import type { LightColor } from '#data/elements.js';
 import { mul } from '#helpers/effects.js';
 import type { Effect, EffectStat } from '#lib/types.js';
 
-/** The instrument that reads elements in starlight and opens the Table. */
 export const SPECTROSCOPE_ID = 'spectroscope';
 
 /** Light per second of a discovered object at study level 0 and weight 1, each study level adds it again. */
@@ -26,71 +25,57 @@ export const CosmosEras = {
 export type CosmosEra = (typeof CosmosEras)[keyof typeof CosmosEras];
 
 export interface CosmosInstrument {
-	/** Starlight price, 0 for the instrument the player starts with. */
 	cost: number;
 	description: string;
 	era: CosmosEra;
 	id: string;
-	/** Faintest apparent magnitude it reaches with no Aperture level, each level adds `APERTURE_STEP`. */
+	/** Faintest magnitude with no Aperture level, each level adds `APERTURE_STEP`. */
 	limit: number;
 	name: string;
-	/** Faintest magnitude it can ever reach, the Aperture stops widening there and only the next instrument sees further. */
+	/** Faintest magnitude it can ever reach: the Aperture stops widening there. */
 	reach: number;
-	/** Time between paying for it and owning it, while the workshop builds it. */
 	researchMs: number;
-	/** Reads the light of what is already found instead of seeing further: it stays out of the Aperture and the sight limit. */
+	/** Reads the light of what is already found: it stays out of the Aperture and the sight limit. */
 	tool?: boolean;
 	year: string;
 }
 
 export interface CosmosObject {
-	/** Each study level and the discovery itself multiply `boost.stat` by `1 + boost.amount`, additively. */
 	boost: { amount: number; label: string; stat: EffectStat };
 	color: string;
-	/** A longer read for the curious, shown under `fact`: what the object is and the story of how it was found. */
 	details: string;
 	discoverer: string;
 	era: CosmosEra;
 	fact: string;
-	/** Part of the sky from the start, never observed. */
 	given?: boolean;
 	id: string;
-	/** Visible Light the object radiates per `SKY_LIGHT` unit, weights sum to 1. Read once the Spectroscope is owned. */
+	/** Visible Light the object radiates per `SKY_LIGHT` unit, weights sum to 1. */
 	light?: Partial<Record<LightColor, number>>;
-	/** Apparent magnitude, lower is brighter: the instrument's limit has to reach it before the signal shows. */
+	/** Lower is brighter: the instrument's limit has to reach it before the signal shows. */
 	magnitude: number;
 	name: string;
-	/** Planet a moon or ring belongs to, the Sky list groups it under that planet. */
 	orbits?: string;
 	/** Starlight per second at discovery, each study level adds it again. */
 	starlight: number;
 	year: string;
 }
 
-/** Every Ionize adds 15% of the base Starlight. */
 export const IONIZE_STARLIGHT_STEP = 0.15;
-/** An Ionize pays this many seconds of Starlight, scaled by how far the reactor went past the ionization line. */
+/** Seconds of Starlight an Ionize pays, scaled by how far the reactor went past the ionization line. */
 export const IONIZE_FLASH_SECONDS = 600;
-/** Magnitudes one Aperture level adds to every instrument's limit. */
 export const APERTURE_STEP = 0.5;
-/** Time a paid Aperture level takes to widen, so each one is felt instead of clicked through. */
 export const APERTURE_WIDEN_MS = 10_000;
-/** Launching an observation costs this many seconds of atom production, so atoms keep a use once the Cosmos is open. */
+/** Seconds of atom production an observation costs, so atoms keep a use once the Cosmos is open. */
 export const OBSERVE_APS_SECONDS = 60;
 const APERTURE_BASE_COST = 90;
-/** Growth past the last instrument's first level, low because no later discovery raises the income that pays for them. */
+/** Low because no later discovery raises the income that pays for the last instrument's levels. */
 const APERTURE_LAST_GROWTH = 1.25;
-/** Share of an instrument's price its first Aperture level costs, so widening a new instrument keeps up with what it cost. */
+/** Keeps the first Aperture level of a new instrument in step with its price. */
 const APERTURE_INSTRUMENT_SHARE = 1 / 30;
 const STUDY_COST_GROWTH = 2.5;
-/** Seconds of the object's own Starlight the first study costs. */
 const STUDY_COST_SECONDS = 30;
 
-/**
- * Every instrument's reach stops at its era's faintest object, so Aperture levels bought ahead never skip an era. The eras after
- * Galileo start from the same base: objects like Uranus are brighter than Titan, what hid them was a disc to tell from a star, a
- * glare or an unknown place, which the instrument's research stands for.
- */
+/** Every instrument's reach stops at its era's faintest object, so Aperture levels bought ahead never skip an era. */
 export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 	{
 		cost: 0,
@@ -227,7 +212,6 @@ export const COSMOS_INSTRUMENTS: CosmosInstrument[] = [
 	},
 ];
 
-/** The instruments that see further, each one taking over the Aperture from the last. */
 const TELESCOPES = COSMOS_INSTRUMENTS.filter(instrument => !instrument.tool);
 
 /** By era, the brightest first within an era, so each Aperture level brings the next one within reach. */
@@ -302,7 +286,6 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		fact: 'A new star outshone Venus for weeks, and Tycho showed it lay far beyond the Moon: the heavens could change. It was a white dwarf blowing itself apart.',
 		id: 'tycho',
 		light: { blue: 1 },
-		/** As it shone in November 1572, bright enough to see in daylight. */
 		magnitude: -4,
 		name: "Tycho's Supernova",
 		starlight: 4,
@@ -374,7 +357,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		fact: 'The first star seen to change on a cycle: a red giant swelling and shrinking every 332 days, trailing a tail of gas 13 light years long.',
 		id: 'mira',
 		light: { red: 1 },
-		/** Not its brightness, which swings from 2 to 10: telling it came back took months of watching the same spot. */
+		/** Not its brightness (2 to 10): telling it came back took months of watching one spot. */
 		magnitude: 0.5,
 		name: 'Mira',
 		starlight: 110,
@@ -450,7 +433,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		fact: 'A cloud of glowing hydrogen 1,300 light years away where new stars are being born, lit by the four young stars of the Trapezium at its heart.',
 		id: 'orion_nebula',
 		light: { green: 0.4, red: 0.6 },
-		/** Not its glow, which the naked eye sees at 4 as a fuzzy star: telling it was a cloud took a telescope. */
+		/** Not its glow (4): telling it was a cloud took a telescope. */
 		magnitude: 6,
 		name: 'Orion Nebula',
 		starlight: 4400,
@@ -497,7 +480,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		fact: "What is left of a star seen exploding in 1054, around a pulsar spinning 30 times a second. Messier took it for Halley's comet in 1758 and began his catalogue so nobody would again.",
 		id: 'crab_nebula',
 		light: { blue: 1 },
-		/** Not its 8.4: a smudge only a long look tells apart from the stars, at the refractor's limit. */
+		/** Not its 8.4: a smudge only a long look tells from the stars. */
 		magnitude: 9,
 		name: 'Crab Nebula',
 		starlight: 26_000,
@@ -555,7 +538,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.REFLECTOR,
 		fact: 'Millions of rocks between Mars and Jupiter, yet all of them together weigh less than 4% of the Moon.',
 		id: 'asteroid_belt',
-		/** Astraea's, the fifth asteroid: after its find in 1845 new ones turned up every year. */
+		/** Astraea's, the fifth asteroid. */
 		magnitude: 8.7,
 		name: 'Asteroid belt',
 		starlight: 175_000,
@@ -614,7 +597,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.GREAT_REFRACTOR,
 		fact: 'It circles Mars faster than Mars turns, so it rises in the west, and it sinks a little closer every century.',
 		id: 'phobos',
-		/** Brighter than Deimos at 11.8, but 2.5 times closer to Mars' glare: Hall caught it six days after Deimos. */
+		/** Brighter than Deimos (11.8) but 2.5 times closer to Mars' glare. */
 		magnitude: 13.4,
 		name: 'Phobos',
 		orbits: 'mars',
@@ -630,7 +613,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.GREAT_REFRACTOR,
 		fact: 'The first asteroid found to come closer than Mars. Its close passes measured the size of the Solar System, and NEAR Shoemaker landed on it in 2001.',
 		id: 'eros',
-		/** Not its brightness: Witt found it as a short trail on a two-hour photographic exposure. */
+		/** Not its brightness: it showed as a short trail on a long photographic exposure. */
 		magnitude: 14,
 		name: 'Eros',
 		starlight: 6_000_000,
@@ -661,7 +644,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		fact: 'Known for a thousand years as a small cloud. In 1924 Hubble timed pulsing stars in it and found it 2.5 million light years away: the Milky Way is one galaxy among countless others.',
 		id: 'andromeda',
 		light: { green: 0.5, red: 0.5 },
-		/** Not its glow, which the naked eye sees at 3.4: proving it a galaxy took single stars in it, picked out on long photographs. */
+		/** Not its glow (3.4): proving it a galaxy took single stars picked out on long photographs. */
 		magnitude: 14.6,
 		name: 'Andromeda Galaxy',
 		starlight: 8_000_000,
@@ -676,7 +659,6 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.PHOTOGRAPHY,
 		fact: 'A planet for 76 years. Its great heart-shaped glacier is named Tombaugh Regio, after the farm boy who found it.',
 		id: 'pluto',
-		/** As it shone in 1930, far from its perihelion. */
 		magnitude: 15.1,
 		name: 'Pluto',
 		starlight: 10_500_000,
@@ -736,7 +718,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 		era: CosmosEras.SURVEY,
 		fact: 'Almost as wide as Pluto and heavier. Its discovery made astronomers define what a planet is, and Pluto lost its place in 2006.',
 		id: 'eris',
-		/** Brighter than Sedna at 18.7, but 97 AU out it crawled too slowly for the search software, it sat in the 2003 images until 2005. */
+		/** Brighter than Sedna (18.7) but 97 AU out it crawled too slowly for the search software. */
 		magnitude: 21.5,
 		name: 'Eris',
 		starlight: 175_000_000,
@@ -762,10 +744,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 
 export const COSMOS_OBJECTS_BY_ID = Object.fromEntries(COSMOS_OBJECTS.map(object => [object.id, object]));
 
-/**
- * Sky list sections, each in order of distance: the Sun out to the asteroid belt, Jupiter out to the Kuiper belt, the bodies beyond it, then deep sky. Moons and
- * rings follow their planet, nearest first, and Halley sits by its semi-major axis, between Saturn and Uranus.
- */
+/** Sky list sections by distance, moons and rings right after their planet, Halley by its semi-major axis. */
 export const SKY_SECTIONS: string[][] = [
 	['sun', 'mercury', 'venus', 'earth', 'moon', 'eros', 'mars', 'phobos', 'deimos', 'asteroid_belt', 'ceres'],
 	[
@@ -788,13 +767,13 @@ export const SKY_SECTIONS: string[][] = [
 	['cosmic_rays', 'mira', 'orion_nebula', 'crab_nebula', 'tycho', 'andromeda', 'kilonova', 'cmb'],
 ];
 
-/** Magnitudes read with their sign, `-4.4` or `+0.5`, the way astronomers write them. */
+/** `-4.4` or `+0.5`. */
 export const formatMagnitude = (magnitude: number): string => `${magnitude > 0 ? '+' : ''}${magnitude.toFixed(1)}`;
 
-/** Share of the bright sky drawn for a limiting magnitude: the naked eye's start shows the brightest stars, the refractor's end the whole field. */
+/** Share of the bright sky drawn for a limiting magnitude. */
 export const skySight = (limit: number): number => Math.min(1, Math.max(0, (limit + 5) / 13));
 
-/** Each instrument takes over the Aperture at the level where the previous one hits its reach, that level costs a share of the instrument. */
+/** Each instrument takes over the Aperture at the level where the previous one hits its reach. */
 const APERTURE_ANCHORS = TELESCOPES.map((instrument, i) => {
 	const previous = TELESCOPES[i - 1];
 	return previous
@@ -802,7 +781,7 @@ const APERTURE_ANCHORS = TELESCOPES.map((instrument, i) => {
 		: { cost: APERTURE_BASE_COST, level: 0 };
 });
 
-/** Levels between two anchors climb geometrically from one to the next, past the last one by `APERTURE_LAST_GROWTH`. */
+/** Geometric climb between two anchors, `APERTURE_LAST_GROWTH` past the last one. */
 const APERTURE_CURVES = APERTURE_ANCHORS.map((anchor, i) => {
 	const next = APERTURE_ANCHORS[i + 1];
 	return { ...anchor, growth: next ? (next.cost / anchor.cost) ** (1 / (next.level - anchor.level)) : APERTURE_LAST_GROWTH };

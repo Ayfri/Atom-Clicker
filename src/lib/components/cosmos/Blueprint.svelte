@@ -13,7 +13,7 @@
 	const paths = $derived(BLUEPRINTS[id] ?? []);
 </script>
 
-<!-- The strokes are inked one after the other by `stroke-dashoffset`, the 1 s transition matches the tick that moves `progress`. -->
+<!-- The 1 s transition matches the tick that moves `progress`. -->
 <span
 	class={[
 		'grid shrink-0 place-items-center overflow-hidden rounded-lg bg-cosmos-sky/80 ring-1 ring-cosmos-workshop/30 [background-image:linear-gradient(rgb(255_255_255/0.05)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.05)_1px,transparent_1px)] [background-size:6px_6px]',

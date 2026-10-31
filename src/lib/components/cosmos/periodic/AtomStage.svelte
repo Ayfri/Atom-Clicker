@@ -5,16 +5,15 @@
 	import type { Point } from './TableParticles.js';
 
 	interface Props {
-		/** Whether holding the atom spends Light on it, a ready element the player can afford. */
 		affordable: boolean;
 		class?: string;
 		color: string;
 		kind: StageKind;
-		/** Forge progress from 0 to 1, the nucleus gains its nucleons with it. */
+		/** Forge progress from 0 to 1. */
 		progress: number;
 		siteColor: string;
 		z: number;
-		/** Called every few frames while charging, so the page can fly Light from its counters into the atom. */
+		/** Called every few frames while charging. */
 		onfeed: (center: Point) => void;
 		onidentify: () => void;
 		onrefuse: () => void;
@@ -24,10 +23,9 @@
 
 	const BARE_COLOR = '#c3cad6';
 	const SHELL_SLOTS = 7;
-	/** A full hold fills the atom in this many seconds, each tap adds `TAP_CHARGE` on top like a click. */
 	const HOLD_SECONDS = 1.6;
 	const TAP_CHARGE = 0.06;
-	/** A released atom keeps its charge this long, then loses it at `DRAIN` per second. */
+	/** ms a released atom keeps its charge, then it loses `DRAIN` per second. */
 	const DRAIN_DELAY = 600;
 	const DRAIN = 0.6;
 	const FEED_EVERY = 110;
@@ -81,7 +79,6 @@
 		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 	}
 
-	/** Charges while held, drains once released, and stops itself when the atom is full or empty. */
 	function step(previous: number) {
 		frame = requestAnimationFrame(now => {
 			const dt = Math.min(0.1, (now - previous) / 1000);
@@ -142,7 +139,6 @@
 	{#if kind === 'waiting'}
 		<span class="absolute inset-[22%] rounded-full border-2 border-dashed border-amber-300/40"></span>
 	{:else if kind === 'ready'}
-		<!-- The charge ring fills with the hold, the faint ring under it calls for the press while the atom is empty. -->
 		<span class={['absolute inset-[6%] rounded-full', affordable && charge === 0 ? 'calling border-2 border-white/40' : 'border border-white/10']}></span>
 		<svg
 			class="absolute inset-[6%] -rotate-90"

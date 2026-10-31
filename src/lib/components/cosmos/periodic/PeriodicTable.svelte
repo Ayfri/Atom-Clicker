@@ -53,7 +53,6 @@
 
 	type StatIcon = Component<{ size?: number }> | CurrencyName;
 
-	/** Same pictograms as the Sky panel's boosts: a currency shows its own icon, the other stats a lucide one. */
 	const STAT_ICONS: Partial<Record<EffectStat, StatIcon>> = {
 		blue_light_gain: CurrenciesTypes.BLUE_LIGHT,
 		click: MousePointerClick,
@@ -74,11 +73,6 @@
 		['blue', CurrenciesTypes.BLUE_LIGHT],
 	] as const satisfies [LightColor, CurrencyName][];
 	const LIGHT_HEX: Record<LightColor, string> = { blue: '#4d8dff', green: '#2ee6a0', red: '#ff4d5e' };
-	/**
-	 * Each source as a small piece of sky, the same object the Cosmos shows: the CMB's mottled glow, a red giant, a supernova
-	 * remnant, a white dwarf's shell, cosmic rays streaking down on the Earth, two neutron stars merging, glowing ore, a reactor's
-	 * Cherenkov blue and an accelerator ring.
-	 */
 	const SKY: Record<SiteId, string> = {
 		accelerator:
 			'radial-gradient(circle, #e6ecff 0 4%, transparent 7%), radial-gradient(circle, transparent 52%, #8a93a6 55%, #5b6375 58%, transparent 61%), radial-gradient(circle, #1a2030, #0b0f1c)',
@@ -96,19 +90,18 @@
 		whitedwarf:
 			'radial-gradient(circle, #ffffff 0 5%, #e6ecff55 9%, transparent 14%), radial-gradient(circle, transparent 40%, #e6ecff66 47%, #9db8ff33 53%, transparent 60%), radial-gradient(circle, #141a2e, #0b0f1c)',
 	};
-	/** The table and the bonus line under it share the size container: 56px is the line's height, 16px leaves room for a selected cell's outline. */
+	/** 56px is the bonus line's height under the table, 16px leaves room for a selected cell's outline. */
 	const TABLE_WIDTH = 'min(100cqw - 16px, (100cqh - 56px) * 1.68 - 16px)';
 	const CELL = 44;
 	const GAP = 4;
 	const RAINBOW = 'linear-gradient(90deg, transparent, #ff4d5e, #ffd76b, #2ee6a0, #4d8dff, #b98aff, transparent)';
 	const RANK: Record<SiteStatus['kind'], number> = { done: 2, forging: 0, locked: 3, waiting: 1 };
-	/** The reveal's rainbow fills, fades out, then the element's lines light one every step. */
 	const REVEAL_LINES_AT = 700;
 	const REVEAL_LINE_STEP = 140;
 	const SPECTRUM = `linear-gradient(90deg, ${[380, 420, 450, 480, 510, 550, 580, 610, 650, 700, 780].map(wavelengthColor).join(', ')})`;
 	const BOUNCE: Keyframe[] = [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }];
 
-	/** Elements whose spectrum reveal still plays, they read as identified only once its comets land. */
+	/** Elements whose spectrum reveal still plays: identified only once its comets land. */
 	const reading = new SvelteSet<number>();
 	const pops = new SvelteMap<number, string>();
 	let atoms = $state.raw<TableAtoms | null>(null);
@@ -129,10 +122,6 @@
 	const ready = $derived(periodicManager.ready.filter(z => !reading.has(z)));
 	const identifiedCount = $derived(periodicManager.identified.length - reading.size);
 
-	/**
-	 * What each cell shows: an atom once identified, a bare nucleus once forged, a nucleus gaining nucleons while forged, a dashed
-	 * ring for the next element of a source that waits. Every other element is only the table's faint outline.
-	 */
 	const looks = $derived.by(() => {
 		const map = new Map<number, CellLook>();
 		for (const { site, status } of sites) {
@@ -175,7 +164,6 @@
 		};
 	}
 
-	/** The nucleus a source is forging, drawn again whenever it gains a nucleon. */
 	function forgeNucleus(z: number, progress: number, color: string) {
 		return (canvas: HTMLCanvasElement) => {
 			const size = Math.round(canvas.clientWidth * pixelRatio());
@@ -197,7 +185,6 @@
 		setTimeout(() => (toasts = toasts.filter(other => other.id !== id)), 2800);
 	}
 
-	/** A newly forged nucleus flies from its source to its cell. */
 	let known = new Set(untrack(() => periodicManager.forged));
 	$effect(() => {
 		const forged = periodicManager.forged;
@@ -216,7 +203,6 @@
 		}
 	});
 
-	/** Sites open as their Cosmos object is found or their elements identified, each one bursts into the strip. */
 	let opened = new Set(untrack(() => periodicManager.open));
 	$effect(() => {
 		const open = periodicManager.open;
@@ -231,7 +217,6 @@
 		}
 	});
 
-	/** The forging sources breathe out a spark on every forge tick. */
 	$effect(() => {
 		const interval = setInterval(() => {
 			for (const { id, site, status } of sites) {
@@ -243,7 +228,6 @@
 		return () => clearInterval(interval);
 	});
 
-	/** Shows a source in the sky strip. */
 	async function locate(id: SiteId) {
 		if (!periodicManager.open.has(id)) showLocked = true;
 		await tick();
@@ -267,7 +251,6 @@
 		return `Study it: ${gains.join(', ')}`;
 	}
 
-	/** Short enough for the strip under a source: `~40m`, `~5h`, `~3d`. */
 	function eta(seconds: number): string {
 		if (!Number.isFinite(seconds)) return 'stalled';
 		if (seconds < 3600) return `~${Math.max(1, Math.round(seconds / 60))}m`;
@@ -280,7 +263,6 @@
 
 	const bonusText = (target: Element) => `+${FAMILIES[target.family].step}% ${STAT_LABELS[elementStat(target)]}`;
 
-	/** Light flies from the counters into the held atom, each color as often as the element's lines call for it, Decay events for one without lines. */
 	function feed(target: Element, to: Point) {
 		if (decayCost(target) > 0) {
 			const from = centerOf('[data-light="decay"]');
@@ -294,10 +276,6 @@
 		if (from) particles?.comet(from, to, LIGHT_HEX[color], -40);
 	}
 
-	/**
-	 * Identifying plays the element's own spectrum: a rainbow collapses into its real emission lines, each line flies to the cell
-	 * as a comet in its wavelength color, and the atom lights up when the last one lands.
-	 */
 	function identify(target: Element) {
 		if (!periodicManager.identify(target.z)) return;
 		reading.add(target.z);
@@ -428,7 +406,6 @@
 	{/if}
 {/snippet}
 
-<!-- The sources as pieces of sky, each with the nucleus it is forging in front of it. -->
 {#snippet sky()}
 	<div
 		class="mx-auto flex w-max gap-1 lg:gap-3"
@@ -507,7 +484,6 @@
 				{:else}
 					<span class="line-clamp-2 text-[10px] leading-tight text-white/40">{site.gate}</span>
 				{/if}
-				<!-- A decay site's chain ends early, its study also raises the Decay events it pays. -->
 				{#if status.kind === 'forging' || (status.kind !== 'locked' && DECAY_SITES.includes(id))}
 					<button
 						class="mt-0.5 flex items-center gap-1 rounded-full bg-accent-600/80 px-2 py-0.5 text-[10px] font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
@@ -525,7 +501,6 @@
 			</div>
 		{/each}
 		{#if lockedCount}
-			<!-- Locked sources stay folded so the strip only shows what the player can act on. -->
 			<div class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24">
 				<button
 					class="grid size-15 place-items-center rounded-full border border-dashed border-white/15 text-sm font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-18"
@@ -553,7 +528,7 @@
 		></canvas>
 		{#each ELEMENTS as cell (cell.z)}
 			{@const look = looks.get(cell.z)}
-			<!-- Every slot is the same button so the atoms canvas measures it once, an empty one is only the table's faint outline. -->
+			<!-- Every slot is the same button so the atoms canvas measures it once. -->
 			<button
 				class={[
 					'relative flex aspect-square items-end justify-center rounded-md border pb-[4%] text-[10px] leading-none font-black lg:text-[11px]',
@@ -611,7 +586,6 @@
 	</div>
 {/snippet}
 
-<!-- The element as a big atom: forged bare, filled with electrons by holding it, spinning in its family color once identified. -->
 {#snippet card()}
 	{@const info = FAMILIES[element.family]}
 	{@const family = ELEMENTS.filter(other => other.family === element.family)}
@@ -856,7 +830,7 @@
 		{@render sky()}
 	</div>
 
-	<!-- Desktop: the table and the element's atom side by side, fixed heights so nothing that grows over a run adds a scrollbar. -->
+	<!-- Fixed heights so nothing that grows over a run adds a scrollbar. -->
 	<main class="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-5 lg:px-4 lg:pt-2 lg:pb-4">
 		<section class="relative min-h-0 flex-1 overflow-hidden">
 			{#if mobile.current}
@@ -872,13 +846,12 @@
 					</div>
 				</div>
 			{:else}
-				<!-- Size containment lets the table scale to whichever of the width or the height runs out first. -->
+				<!-- Size containment scales the table to whichever of width or height runs out first. -->
 				<div
 					class="h-full pt-2"
 					style:container-type="size"
 				>
 					{@render table()}
-					<!-- What the identified elements give, one discreet line per family that has started. -->
 					<div
 						class="mx-auto mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1.5"
 						style:width={TABLE_WIDTH}
@@ -913,7 +886,7 @@
 			{/if}
 		</section>
 
-		<!-- Element atom: side panel on desktop, bottom sheet on phones so it never covers the selected cell. -->
+		<!-- Bottom sheet on phones so it never covers the selected cell. -->
 		<aside
 			class="max-h-[44dvh] shrink-0 overflow-y-auto rounded-t-2xl border-t border-white/10 bg-linear-to-b from-[#0d1226]/95 to-[#070a16]/95 p-4 shadow-2xl lg:max-h-full lg:self-start lg:rounded-2xl lg:border"
 		>
@@ -921,7 +894,6 @@
 		</aside>
 	</main>
 
-	<!-- The identify moment, built from the element's own spectrum, so every element plays a different one. -->
 	{#if reveal}
 		{@const target = reveal.element}
 		{@const color = FAMILIES[target.family].color}
@@ -1013,12 +985,12 @@
 			#05070f;
 	}
 
-	/** Progress lands on the 1 s tick, a 1 s linear glide between ticks makes it read as continuous. */
+	/** Progress lands on the 1 s tick, a 1 s linear glide makes it read as continuous. */
 	.smooth {
 		transition: stroke-dashoffset 1s linear;
 	}
 
-	/** Only the sources forging right now breathe, a handful at most, on transform. */
+	/** Only the sources forging right now breathe (a handful, transform only). */
 	@media (prefers-reduced-motion: no-preference) {
 		.breathe {
 			animation: breathe 3.2s ease-in-out infinite;
@@ -1041,7 +1013,6 @@
 		}
 	}
 
-	/** Reveal timeline: the rainbow sweeps in and fades, the element's lines light one by one, then the bonus and reaction. */
 	.reveal-rainbow {
 		animation: rainbow 1s ease-out both;
 	}

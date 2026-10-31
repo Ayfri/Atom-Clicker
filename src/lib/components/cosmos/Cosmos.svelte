@@ -43,9 +43,7 @@
 		realistic: boolean;
 	}
 
-	/** The followed object survives reloads of the tab, the view reopens on it. */
 	const FOCUS_KEY = 'cosmos-focus';
-	/** The orbit lines and the lighting are kept per device. */
 	const VIEW_KEY = 'cosmos-view';
 	const wide = new MediaQuery('(min-width: 768px)');
 
@@ -108,10 +106,9 @@
 		};
 	}
 
-	/** The realms behind stop drawing. */
 	$effect(() => ui.cover());
 
-	/** The selected object shows what it radiated every second, Starlight itself accrues in the game tick. */
+	/** Display only: Starlight itself accrues in the game tick. */
 	onMount(() => {
 		let key = 0;
 		const timer = setInterval(() => {
@@ -135,10 +132,9 @@
 	const revealed = $derived(scene?.revealed ? COSMOS_OBJECTS_BY_ID[scene.revealed] : null);
 	const selected = $derived(mode === 'overview' ? scene?.selected : null);
 
-	/** Open from the start where it fits beside the sky, on phones the sheet would cover the main action. */
+	/** Closed on phones, the sheet would cover the main action. */
 	let skyOpen = $state(wide.current);
 
-	/** The sky stops under a modal and under the Periodic Table, which both cover it. */
 	const actionable = $derived(ui.activeModal === null && !realmManager.tableOpen);
 	$effect(() => scene?.setPaused(!actionable));
 	$effect(() => fx?.setActive(actionable));
@@ -161,7 +157,6 @@
 		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
 	});
 
-	/** Phones have room for one sheet, the object's own panel replaces the list. */
 	function focusFromList(id: string) {
 		if (!wide.current) skyOpen = false;
 		scene?.focus(id);
@@ -175,7 +170,7 @@
 	onpointermove={event => (pointer = { x: event.clientX, y: event.clientY })}
 />
 
-<!-- Drops in over the realms like a look up into the sky, the 3D canvas lagging behind the frame for depth. The desktop side nav stays reachable on its left. -->
+<!-- The desktop side nav stays reachable on the left. -->
 <div
 	class="fixed inset-x-0 bottom-0 z-45 select-none bg-cosmos-sky text-white lg:left-18"
 	style:top="var(--banner-height)"
@@ -361,7 +356,6 @@
 				<span class="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2 bg-cosmos-reticle/60"></span>
 				<span class="absolute right-0 top-1/2 h-px w-3 -translate-y-1/2 bg-cosmos-reticle/60"></span>
 			</div>
-			<!-- Fills clockwise from the top while the signal stays in the reticle, the photons' timer ring played backward. -->
 			<div
 				bind:this={progress}
 				class="absolute left-1/2 top-1/2 -ml-9 -mt-9 size-18 opacity-0"

@@ -2,7 +2,7 @@ import { CanvasLoop } from '#helpers/CanvasLoop.js';
 
 const MAX_SPARKS = 320;
 const MAX_COMETS = 24;
-/** Share of the velocity kept after one second. */
+/** Share of the velocity kept per second. */
 const DRAG = 0.04;
 const COMET_SECONDS = 0.9;
 const SPRITE = 64;
@@ -46,7 +46,7 @@ export class TableParticles extends CanvasLoop {
 		this.observe();
 	}
 
-	/** Sparks flying out of a point, `rise` pulls them upward like embers instead of letting them fall. */
+	/** `rise` pulls the sparks upward like embers instead of letting them fall. */
 	burst({ x, y }: Point, colors: string[], count: number, { rise = false, size = 10, speed = 160 } = {}) {
 		if (!this.shown) return;
 		for (let i = 0; i < count && this.sparks.length < MAX_SPARKS; i++) {
@@ -67,7 +67,7 @@ export class TableParticles extends CanvasLoop {
 		this.update();
 	}
 
-	/** A glowing nucleus arcing `lift` pixels above its path from `from` to `to` in `COMET_SECONDS`, the caller lands its own effect after that delay. */
+	/** Arcs `lift` pixels above its path in `COMET_SECONDS`, the caller lands its own effect after that delay. */
 	comet(from: Point, to: Point, color: string, lift = Math.min(160, Math.hypot(to.x - from.x, to.y - from.y) * 0.35)) {
 		if (!this.shown || this.comets.length >= MAX_COMETS) return;
 		this.comets.push({ color, control: { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - lift }, from, t: 0, to });

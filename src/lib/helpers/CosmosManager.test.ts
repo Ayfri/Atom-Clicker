@@ -48,7 +48,6 @@ describe('unlock', () => {
 		expect(gameManager.ionize()).toBe(true);
 		expect(cosmosManager.unlocked).toBe(true);
 		expect(radiationManager.peakCpm).toBe(0);
-		/** Sun and Earth radiate 1 each, times the multiplier of one Ionize. */
 		expect(starlight()).toBeCloseTo(2 * ionizeStarlightMultiplier(1) * IONIZE_FLASH_SECONDS * (peak / IONIZE_CPM) ** 2);
 	});
 });
@@ -135,7 +134,6 @@ describe('sky', () => {
 		expect(cosmosManager.limit).toBe(4);
 		expect(cosmosManager.canObserve).toBe(false);
 
-		/** The next instrument waits until the Aperture reaches as far as the Refractor sees. */
 		currenciesManager.add(CurrenciesTypes.STARLIGHT, cosmosManager.nextInstrument!.cost);
 		expect(cosmosManager.apertureMaxed).toBe(false);
 		expect(cosmosManager.purchaseInstrument('reflector')).toBe(false);
