@@ -101,7 +101,6 @@
 	let reveal = $state.raw<{ element: Element; id: number } | null>(null);
 	let revealId = 0;
 	let scienceOpen = $state(false);
-	let showLocked = $state(false);
 	let toasts = $state<{ color: string; id: number; text: string }[]>([]);
 	let toastId = 0;
 
@@ -109,7 +108,6 @@
 	const decayEvents = $derived(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS));
 	const starlight = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT));
 	const sites = $derived(SITE_IDS.map(id => ({ id, site: SITES[id], status: periodicManager.statuses[id] })).toSorted((a, b) => RANK[a.status.kind] - RANK[b.status.kind]));
-	const lockedCount = $derived(sites.filter(({ status }) => status.kind === 'locked').length);
 
 	/** Whether `z` has a cell, the rule of `looks` below, usable before it exists. */
 	const onGrid = (z: number) => periodicManager.forged.has(z) || Object.values(periodicManager.statuses).some(status => 'z' in status && status.z === z);
@@ -262,9 +260,7 @@
 		}
 	});
 
-	async function locate(id: SiteId) {
-		if (!periodicManager.open.has(id)) showLocked = true;
-		await tick();
+	function locate(id: SiteId) {
 		const source = document.querySelector(`[data-forge="${id}"]`);
 		source?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 		source?.animate(BOUNCE, { delay: 300, duration: 400, easing: 'ease-out' });
@@ -278,11 +274,6 @@
 		const source = centerOf(`[data-forge="${id}"]`);
 		if (source) particles?.burst(source, [SITES[id].color, '#ffffff'], 18, { speed: 120 });
 		document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
-	}
-
-	function buyForge() {
-		if (!periodicManager.buyForge()) return;
-		toast(`Forge ${periodicManager.forges} built, ${periodicManager.freeForges} free`, CURRENCIES[CurrenciesTypes.STARLIGHT].color);
 	}
 
 	function study(id: SiteId) {
@@ -639,7 +630,7 @@
 		class="mx-auto flex w-max gap-1 px-2 lg:gap-3"
 		data-hint="table-forges"
 	>
-		{#each sites.filter(({ status }) => showLocked || status.kind !== 'locked') as { id, site, status } (id)}
+		{#each sites.filter(({ status }) => status.kind !== 'locked') as { id, site, status } (id)}
 			{@const level = periodicManager.forge(id).level}
 			<div
 				class="flex w-24 shrink-0 flex-col items-center gap-0.5 text-center lg:w-26"
@@ -747,21 +738,6 @@
 				</div>
 			</div>
 		{/each}
-		{#if lockedCount && found}
-			<div
-				class="flex w-24 shrink-0 flex-col items-center gap-0.5 text-center lg:w-26"
-				in:revealIn
-			>
-				<button
-					class="grid size-16 place-items-center rounded-full border border-dashed border-white/15 text-base font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-20"
-					data-hint="table-locked"
-					onclick={() => (showLocked = !showLocked)}
-				>
-					{showLocked ? '−' : `+${lockedCount}`}
-				</button>
-				<span class="h-4 text-xs leading-4 text-white/40 lg:text-[13px]">{showLocked ? 'Hide' : 'To find'}</span>
-			</div>
-		{/if}
 	</div>
 {/snippet}
 
@@ -1280,7 +1256,7 @@
 							class="flex h-5 items-center gap-1 rounded-full bg-accent-600/80 px-2 font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
 							data-hint="table-new-forge"
 							disabled={starlight < periodicManager.forgeCost}
-							onclick={buyForge}
+							onclick={() => periodicManager.buyForge()}
 							in:revealIn
 						>
 							New forge

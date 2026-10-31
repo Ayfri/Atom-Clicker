@@ -6,7 +6,6 @@ import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
-import { SITE_IDS } from '#data/sites.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
@@ -407,15 +406,6 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-family"]'],
 		text: `Elements of a family add up their bonus. Read the whole family to multiply it by ${SET_BONUS}.`,
 		title: 'Families',
-	},
-	{
-		id: 'table:sources',
-		placement: 'bottom',
-		realm: 'table',
-		show: () => periodicManager.identified.length >= 5 && SITE_IDS.some(id => !periodicManager.open.has(id)),
-		targets: ['[data-hint="table-locked"]'],
-		text: 'More sources hide in the sky. Each one opens when you discover the object that makes it, or identify the elements it is built from.',
-		title: 'Sources to find',
 	},
 	{
 		done: () => periodicManager.tuning !== TUNING_DEFAULT,
