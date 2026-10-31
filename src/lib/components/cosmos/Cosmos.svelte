@@ -2,7 +2,6 @@
 	import { dev } from '$app/env';
 	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
-	import { instrumentReadyMessage } from '#data/tableLinks.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { particlesEnabled } from '#helpers/CanvasLoop.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
@@ -15,7 +14,6 @@
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
-	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
@@ -154,10 +152,7 @@
 	let building: string | null = null;
 	$effect(() => {
 		const id = research?.id ?? null;
-		if (building && !id) {
-			cosmosFx.built();
-			announceTableLinks(building);
-		}
+		if (building && !id) cosmosFx.built();
 		building = id;
 	});
 
@@ -168,13 +163,6 @@
 	$effect(() => {
 		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
 	});
-
-	/** Sources stay unspoiled until the Spectroscope opens the Table, which plays its own introduction. */
-	function announceTableLinks(id: string) {
-		const built = COSMOS_INSTRUMENTS.find(item => item.id === id);
-		const message = built && untrack(() => periodicManager.unlocked && cosmosManager.owns(built)) ? instrumentReadyMessage(built) : null;
-		if (message) toastStore.info({ icon: FlaskRound, message, title: `${built!.name} is ready` });
-	}
 
 	function focusFromList(id: string) {
 		if (!wide.current) skyOpen = false;

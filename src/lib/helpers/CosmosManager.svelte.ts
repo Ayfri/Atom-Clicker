@@ -25,6 +25,8 @@ class CosmosManager {
 	aperture = $state(0);
 	discovered = $state.raw<string[]>([]);
 	instruments = $state.raw<string[]>([]);
+	/** Counts the saves loaded, so a watcher tells a replaced state from an instrument that was built. */
+	loads = $state(0);
 	/** Instrument paid for and still being built, owned once `leftMs` runs out. */
 	research = $state.raw<CosmosState['research']>(null);
 	studies = $state.raw<Record<string, number>>({});
@@ -204,6 +206,7 @@ class CosmosManager {
 		const researched = COSMOS_INSTRUMENTS.find(instrument => instrument.id === research?.id && !this.instruments.includes(instrument.id));
 		this.research = research && researched ? { id: researched.id, leftMs: Math.min(Math.max(research.leftMs, 0), researched.researchMs) || 0 } : null;
 		this.studies = Object.fromEntries(Object.entries(state.studies ?? {}).filter(([id, level]) => id in COSMOS_OBJECTS_BY_ID && Number.isFinite(level) && level > 0));
+		this.loads++;
 	}
 }
 
