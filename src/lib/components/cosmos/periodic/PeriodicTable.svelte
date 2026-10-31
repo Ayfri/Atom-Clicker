@@ -39,6 +39,7 @@
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
 	import { periodicManager, type SiteStatus } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { reveal as revealIn } from '#helpers/reveals.svelte.js';
 	import type { EffectStat } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { mobile } from '#stores/window.svelte.js';
@@ -79,6 +80,7 @@
 	const TABLE_WIDTH = 'min(100cqw - 16px, (100cqh - 56px) * 1.68 - 16px)';
 	const CELL = 44;
 	const GAP = 4;
+	const GRID = new Map(ELEMENTS.map(({ column, row, z }) => [`${row},${column}`, z]));
 	const RAINBOW = 'linear-gradient(90deg, transparent, #ff4d5e, #ffd76b, #2ee6a0, #4d8dff, #b98aff, transparent)';
 	const RANK: Record<SiteStatus['kind'], number> = { done: 2, forging: 0, locked: 3, waiting: 1 };
 	const REVEAL_LINES_AT = 700;
@@ -105,6 +107,10 @@
 	const lockedCount = $derived(sites.filter(({ status }) => status.kind === 'locked').length);
 	const ready = $derived(periodicManager.ready.filter(z => !reading.has(z)));
 	const identifiedCount = $derived(periodicManager.identified.length - reading.size);
+	const found = $derived(periodicManager.identified.length > 0);
+	const hasForged = $derived(periodicManager.forged.size > 0);
+	const showDecay = $derived(periodicManager.decayEventsPerSecond > 0 || decayEvents > 0);
+	const showLights = $derived(periodicManager.ready.length > 0 || found);
 
 	const looks = $derived.by(() => {
 		const map = new Map<number, CellLook>();
@@ -118,6 +124,20 @@
 			map.set(z, { color: FAMILIES[family].color, ...(kind === 'identified' && lines.length > 0 && { glow: wavelengthHex(lines[0]) }), kind });
 		}
 		return map;
+	});
+
+	/** One character per element, `g` for a cell on or next to a known one and `h` for hidden. A string, so the grid only updates when a ghost appears. */
+	const fog = $derived.by(() => {
+		const marks = Array.from({ length: ELEMENT_COUNT }, () => 'h');
+		for (const z of looks.keys()) {
+			const { column, row } = ELEMENTS[z - 1];
+			for (let dRow = -1; dRow <= 1; dRow++)
+				for (let dColumn = -1; dColumn <= 1; dColumn++) {
+					const near = GRID.get(`${row + dRow},${column + dColumn}`);
+					if (near) marks[near - 1] = 'g';
+				}
+		}
+		return marks.join('');
 	});
 
 	const element = $derived(ELEMENTS[selected - 1]);
@@ -324,24 +344,38 @@
 	);
 </script>
 
-{#snippet lightPill(color: LightColor | 'decay' | null, name: CurrencyName, amount: number, need?: number, rate = 0)}
-	<span
-		class={[
-			'flex items-center gap-1.5 rounded-full font-semibold tabular-nums',
-			need === undefined ? 'bg-white/6 px-2.5 py-1 text-sm' : 'px-3 py-1.5 text-base',
-			need !== undefined && (amount >= need ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300'),
-		]}
-		data-hint={need === undefined && color === 'decay' ? 'table-decay' : undefined}
-		data-light={need === undefined ? color : undefined}
+{#snippet counter(light: LightColor | 'decay', name: CurrencyName, amount: number, rate: number)}
+	{@const { color, name: label } = CURRENCIES[name]}
+	<div
+		class="flex flex-col items-center leading-tight"
+		data-hint={light === 'decay' ? 'table-decay' : undefined}
+		data-light={light}
 	>
+		<span
+			class="flex items-center gap-1.5 text-lg font-black tabular-nums lg:text-3xl"
+			style:color
+			style:text-shadow="0 0 24px color-mix(in srgb, {color} 45%, transparent)"
+		>
+			<Currency
+				{name}
+				size={mobile.current ? 18 : 28}
+			/>
+			{formatNumber(amount)}
+		</span>
+		<span class="text-[10px] font-bold tracking-[0.3em] text-white/45 uppercase">{label}</span>
+		{#if rate > 0}
+			<span class="font-mono text-xs text-white/60 tabular-nums">+{rateText(rate)}/s</span>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet lightPill(name: CurrencyName, amount: number, need: number)}
+	<span class={['flex items-center gap-1.5 rounded-full px-3 py-1.5 text-base font-semibold tabular-nums', amount >= need ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300']}>
 		<Currency
 			{name}
-			size={need === undefined ? 16 : 20}
+			size={20}
 		/>
-		{formatNumber(need ?? amount)}
-		{#if rate > 0}
-			<span class="text-[10px] font-normal text-white/45">+{rateText(rate)}/s</span>
-		{/if}
+		{formatNumber(need)}
 	</span>
 {/snippet}
 
@@ -394,10 +428,14 @@
 	>
 		{#each sites.filter(({ status }) => showLocked || status.kind !== 'locked') as { id, site, status } (id)}
 			{@const forge = periodicManager.forge(id)}
-			<div class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24">
+			<div
+				class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24"
+				in:revealIn
+			>
 				<button
 					class={['relative grid size-15 shrink-0 place-items-center rounded-full lg:size-18', 'z' in status && 'cursor-pointer']}
 					data-forge={id}
+					data-hint={status.kind === 'waiting' ? 'table-waiting' : undefined}
 					disabled={!('z' in status)}
 					onclick={() => 'z' in status && (selected = status.z)}
 					title={status.kind === 'locked' ? site.gate : site.name}
@@ -465,12 +503,13 @@
 				{:else}
 					<span class="line-clamp-2 text-[10px] leading-tight text-white/40">{site.gate}</span>
 				{/if}
-				{#if status.kind === 'forging' || (status.kind !== 'locked' && DECAY_SITES.includes(id))}
+				{#if hasForged && (status.kind === 'forging' || (status.kind !== 'locked' && DECAY_SITES.includes(id)))}
 					<button
 						class="mt-0.5 flex items-center gap-1 rounded-full bg-accent-600/80 px-2 py-0.5 text-[10px] font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
 						disabled={starlight < siteStudyCost(forge.level)}
 						onclick={() => study(id)}
 						title={studyTitle(id, status.kind)}
+						in:revealIn
 					>
 						<Currency
 							name={CurrenciesTypes.STARLIGHT}
@@ -481,10 +520,14 @@
 				{/if}
 			</div>
 		{/each}
-		{#if lockedCount}
-			<div class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24">
+		{#if lockedCount && found}
+			<div
+				class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24"
+				in:revealIn
+			>
 				<button
 					class="grid size-15 place-items-center rounded-full border border-dashed border-white/15 text-sm font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-18"
+					data-hint="table-locked"
 					onclick={() => (showLocked = !showLocked)}
 				>
 					{showLocked ? '−' : `+${lockedCount}`}
@@ -512,8 +555,10 @@
 			<!-- Every slot is the same button so the atoms canvas measures it once. -->
 			<button
 				class={[
-					'relative flex aspect-square items-end justify-center rounded-md border pb-[4%] text-[10px] leading-none font-black lg:text-[11px]',
-					look ? 'cursor-pointer border-transparent hover:bg-white/5' : 'border-white/4',
+					'relative flex aspect-square items-end justify-center rounded-md border pb-[4%] text-[10px] leading-none font-black transition-opacity duration-500 lg:text-[11px]',
+					look ? 'cursor-pointer border-transparent hover:bg-white/5'
+					: fog[cell.z - 1] === 'g' ? 'border-white/6'
+					: 'border-white/4 opacity-0',
 					selected === cell.z && 'z-1 outline-2 outline-offset-1 outline-white/80',
 				]}
 				style:grid-column={cell.column}
@@ -542,6 +587,7 @@
 							: look.kind === 'reading' ? 'text-white/70'
 							: 'text-white/35',
 						]}
+						in:fade={{ duration: 500 }}
 					>
 						{cell.symbol}
 					</span>
@@ -638,11 +684,11 @@
 			<div class="mt-3 flex flex-wrap justify-center gap-1.5 text-xs">
 				{#each LIGHTS as [color, name] (color)}
 					{#if cost[color] > 0}
-						{@render lightPill(null, name, lights[color], cost[color])}
+						{@render lightPill(name, lights[color], cost[color])}
 					{/if}
 				{/each}
 				{#if decayNeed > 0}
-					{@render lightPill(null, CurrenciesTypes.DECAY_EVENTS, decayEvents, decayNeed)}
+					{@render lightPill(CurrenciesTypes.DECAY_EVENTS, decayEvents, decayNeed)}
 				{/if}
 			</div>
 			{#if periodicManager.tuned && element.lines.length}
@@ -689,6 +735,7 @@
 			{/each}
 			<span
 				class="flex max-w-60 flex-wrap justify-center gap-1"
+				data-hint="table-family"
 				title="{info.name}, a full family ×{SET_BONUS}"
 			>
 				{#each family as member (member.z)}
@@ -711,17 +758,20 @@
 			{site.glyph} from {site.name}
 		</button>
 
-		<button
-			class="mt-3 flex w-full items-center gap-1 text-[11px] font-semibold tracking-wider text-white/40 uppercase hover:text-white/70"
-			onclick={() => (scienceOpen = !scienceOpen)}
-		>
-			<ChevronDown
-				class={['transition-transform', scienceOpen && 'rotate-180']}
-				size={12}
-			/>
-			Science
-		</button>
-		{#if scienceOpen}
+		{#if found}
+			<button
+				class="mt-3 flex w-full items-center gap-1 text-[11px] font-semibold tracking-wider text-white/40 uppercase hover:text-white/70"
+				onclick={() => (scienceOpen = !scienceOpen)}
+				in:revealIn
+			>
+				<ChevronDown
+					class={['transition-transform', scienceOpen && 'rotate-180']}
+					size={12}
+				/>
+				Science
+			</button>
+		{/if}
+		{#if found && scienceOpen}
 			<div class="mt-2 space-y-3 text-left text-xs">
 				{#if !element.lines.length}
 					<p class="rounded bg-[#0b0f1c] px-2 py-1.5 text-white/50">No lab has ever seen its light: it was identified by how it decays, so it costs Decay events.</p>
@@ -758,36 +808,67 @@
 {/snippet}
 
 <div class="table-page absolute inset-0 z-30 flex flex-col overflow-hidden text-white">
-	<header class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 pt-3 sm:px-4">
-		<div class="flex items-center gap-2.5">
+	<header class="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pt-3 sm:px-4">
+		<div class="flex items-center gap-2.5 lg:flex-1">
 			<p class="text-sm font-black tracking-widest uppercase max-lg:hidden">Periodic Table</p>
-			<span class="h-1.5 w-16 overflow-hidden rounded-full bg-white/10 lg:w-28">
-				<span
-					class="block h-full origin-left bg-linear-to-r from-[#4dabf7] via-[#9775fa] to-[#ffd43b] transition-transform duration-500"
-					style:transform="scaleX({identifiedCount / ELEMENT_COUNT})"
-				></span>
-			</span>
-			<span class="text-xs font-bold tabular-nums">{identifiedCount}<span class="text-white/40">/{ELEMENT_COUNT}</span></span>
-		</div>
-		<div
-			class="flex flex-wrap items-center gap-1.5 text-xs max-lg:order-last max-lg:w-full"
-			data-hint="table-lights"
-		>
-			<span class="flex items-center gap-1.5 rounded-full bg-white/6 px-2.5 py-1 text-sm font-semibold text-[#cfe8ff] tabular-nums">
-				<Currency
-					name={CurrenciesTypes.STARLIGHT}
-					size={16}
-				/>
-				{formatNumber(starlight)}
-			</span>
-			{#each LIGHTS as [color, name] (color)}
-				{@render lightPill(color, name, lights[color], undefined, gameManager.passiveLight[color])}
-			{/each}
-			{#if periodicManager.decayEventsPerSecond > 0 || decayEvents > 0}
-				{@render lightPill('decay', CurrenciesTypes.DECAY_EVENTS, decayEvents)}
+			{#if identifiedCount > 0}
+				<div
+					class="flex items-center gap-2.5"
+					in:revealIn
+				>
+					<span class="h-1.5 w-16 overflow-hidden rounded-full bg-white/10 lg:w-28">
+						<span
+							class="block h-full origin-left bg-linear-to-r from-[#4dabf7] via-[#9775fa] to-[#ffd43b] transition-transform duration-500"
+							style:transform="scaleX({identifiedCount / ELEMENT_COUNT})"
+						></span>
+					</span>
+					<span class="text-xs font-bold tabular-nums">{identifiedCount}<span class="text-white/40">/{ELEMENT_COUNT}</span></span>
+				</div>
 			{/if}
 		</div>
-		<div class="ml-auto flex items-center gap-2">
+		{#if showLights || showDecay}
+			<div
+				class="flex flex-wrap items-start justify-center gap-x-10 gap-y-2 max-lg:order-last max-lg:w-full"
+				data-hint="table-lights"
+				in:revealIn
+			>
+				{#if showLights}
+					<div
+						class="grid w-full grid-cols-3 justify-items-center gap-x-3 lg:flex lg:w-auto lg:gap-10"
+						in:revealIn
+					>
+						{#each LIGHTS as [color, name] (color)}
+							{@render counter(color, name, lights[color], gameManager.passiveLight[color])}
+						{/each}
+					</div>
+				{/if}
+				{#if showDecay}
+					<div in:revealIn>
+						{@render counter('decay', CurrenciesTypes.DECAY_EVENTS, decayEvents, periodicManager.decayEventsPerSecond)}
+					</div>
+				{/if}
+			</div>
+		{/if}
+		<div class="ml-auto flex items-center gap-2 lg:ml-0 lg:flex-1 lg:justify-end">
+			{#if hasForged}
+				<div
+					class="mr-2 flex flex-col items-end leading-tight"
+					in:revealIn
+				>
+					<span
+						class="flex items-center gap-1.5 text-base font-black tabular-nums"
+						style:color={CURRENCIES[CurrenciesTypes.STARLIGHT].color}
+						style:text-shadow="0 0 18px color-mix(in srgb, {CURRENCIES[CurrenciesTypes.STARLIGHT].color} 45%, transparent)"
+					>
+						<Currency
+							name={CurrenciesTypes.STARLIGHT}
+							size={16}
+						/>
+						{formatNumber(starlight)}
+					</span>
+					<span class="text-[10px] font-bold tracking-[0.3em] text-white/45 uppercase">Starlight</span>
+				</div>
+			{/if}
 			{#if ready.length}
 				<button
 					class="flex items-center gap-1.5 rounded-full bg-amber-300 px-3 py-1.5 text-xs font-black text-[#05070f] transition-transform hover:scale-105"
