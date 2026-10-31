@@ -36,11 +36,14 @@ export const surfacePoint = positionLocal.normalize();
 export const realism = uniform(0);
 /**
  * Squared distance from the Sun the view is exposed for. Sunlight falls off with the square of the distance, Neptune gets 1/900 of
- * the Earth's, so the exposure adapts to the body in view like a camera: a far planet reads once visited, dim seen from the Earth.
+ * the Earth's, so the exposure adapts to the body in view like a camera: a far planet reads once visited, dimmer seen from the Earth.
  */
 export const exposure = uniform(EARTH_ORBIT ** 2);
-/** Sunlight of the realistic lighting against the exposure, capped so an inner planet seen from far out doesn't burn white. */
-export const sunlight = min(exposure.div(dot(positionWorld, positionWorld)), 3);
+/**
+ * Sunlight of the realistic lighting against the exposure, softened like the eye perceives brightness (Stevens' power law), the
+ * plain ratio leaves Jupiter seen from the Earth a dark smudge. Capped so an inner planet seen from far out doesn't burn white.
+ */
+export const sunlight = min(pow(exposure.div(dot(positionWorld, positionWorld)), 0.5), 3);
 /** How much the Sun or a sunlit body in view dazzles, 0 to 1, see `CosmosScene.#adaptToGlare`. */
 export const glare = uniform(0);
 /**
