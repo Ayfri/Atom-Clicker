@@ -450,7 +450,6 @@
 					<ObjectPanel
 						id={selected}
 						onClose={() => scene && (scene.selected = null)}
-						onHome={scene.focused === 'earth' ? undefined : () => scene?.focus('earth')}
 						onStudy={event => gameManager.studyCosmosObject(selected) && cosmosFx.study(event, selected)}
 					/>
 				</div>

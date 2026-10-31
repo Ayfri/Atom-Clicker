@@ -7,18 +7,16 @@
 	import { formatNumber } from '#lib/utils.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import { ChevronDown, Globe, Orbit, X } from '@lucide/svelte';
+	import { ChevronDown, Orbit, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
 		id: string;
 		onClose: () => void;
-		/** Shown away from the Earth, flies the camera back home. */
-		onHome?: () => void;
 		onStudy: (event: MouseEvent) => void;
 	}
 
-	let { id, onClose, onHome, onStudy }: Props = $props();
+	let { id, onClose, onStudy }: Props = $props();
 
 	/** Stays open from one object to the next, the panel is not remounted when `id` changes. */
 	let detailsOpen = $state(false);
@@ -41,15 +39,6 @@
 				{object.name}
 			</h2>
 		</div>
-		{#if onHome}
-			<button
-				class="grid size-9 shrink-0 place-items-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-				aria-label="Back to the Earth"
-				onclick={onHome}
-			>
-				<Globe size={18} />
-			</button>
-		{/if}
 		<button
 			class="grid size-9 shrink-0 place-items-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
 			aria-label="Close"
