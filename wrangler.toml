@@ -10,19 +10,20 @@ binding = "ASSETS"
 directory = ".svelte-kit/cloudflare"
 
 [observability]
-enabled = false
-head_sampling_rate = 1
+enabled = true
 
+# Server code only logs on failures, so without invocation logs a healthy request writes no log event at all and every error line is still kept.
 [observability.logs]
 enabled = true
 head_sampling_rate = 1
+invocation_logs = false
 persist = true
-invocation_logs = true
 
+# Every Supabase call is a span and the leaderboard audit makes several per request, 1% is enough to read latencies.
 [observability.traces]
 enabled = true
+head_sampling_rate = 0.01
 persist = true
-head_sampling_rate = 1
 
 [observability.issues]
 enabled = true
