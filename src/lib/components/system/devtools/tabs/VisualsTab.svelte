@@ -3,8 +3,10 @@
 	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 	import type { IconName } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
+	import { SITE_IDS, SITES } from '#data/sites.js';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
 	import Iris from '#components/cosmos/Iris.svelte';
+	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import { tierIconStack } from '#helpers/iconStacks.js';
@@ -131,6 +133,17 @@
 			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={object.name}>
 				<SkyThumbnail color={object.color} id={object.id} small={!!object.orbits} />
 				<span class="w-full truncate text-center text-[10px] text-white/40">{object.name}</span>
+			</div>
+		{/each}
+	</div>
+</Section>
+
+<Section collapsed title="Periodic Table sources">
+	<div class="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-1">
+		{#each SITE_IDS as id (id)}
+			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={SITES[id].name}>
+				<SourceArt class="size-20" {id} />
+				<span class="w-full truncate text-center text-[10px] text-white/40">{SITES[id].name}</span>
 			</div>
 		{/each}
 	</div>
