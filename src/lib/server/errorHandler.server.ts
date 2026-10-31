@@ -45,11 +45,7 @@ export async function logError(report: ServerErrorReport): Promise<{ id: string 
 	// Filtered here as well so reports from builds that predate the client-side filter stay out of Discord
 	if (isNoiseError(errorMessage, stackTrace ?? null)) return null;
 
-	const isDuplicate = await isDuplicateError(errorMessage, stackTrace || null);
-	if (isDuplicate) {
-		console.log('[ErrorHandler] Skipping duplicate error:', errorMessage.substring(0, 50));
-		return null;
-	}
+	if (await isDuplicateError(errorMessage, stackTrace || null)) return null;
 
 	// The Discord notification is a Postgres trigger on this insert
 	const { data, error: dbError } = await supabaseAdmin
