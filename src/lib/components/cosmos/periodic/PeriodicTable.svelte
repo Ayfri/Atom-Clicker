@@ -209,17 +209,6 @@
 		}
 	});
 
-	$effect(() => {
-		const interval = setInterval(() => {
-			for (const { id, site, status } of sites) {
-				if (status.kind !== 'forging') continue;
-				const source = centerOf(`[data-forge="${id}"]`);
-				if (source) particles?.burst(source, [site.color], 2, { rise: true, size: 8, speed: 50 });
-			}
-		}, 1000);
-		return () => clearInterval(interval);
-	});
-
 	async function locate(id: SiteId) {
 		if (!periodicManager.open.has(id)) showLocked = true;
 		await tick();

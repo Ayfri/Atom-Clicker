@@ -55,7 +55,10 @@ class PeriodicManager {
 
 	identifiedSet = $derived(new Set(this.identified));
 
-	forged = $derived(new Set(SITE_IDS.flatMap(id => CHAINS[id].steps.slice(0, this.forge(id).index))));
+	/** `tick` rewrites `sites` every second for the progress, a key of the chain indices only changes when an element is finished. */
+	#chainKey = $derived(SITE_IDS.map(id => this.forge(id).index).join());
+
+	forged = $derived(new Set(this.#chainKey.split(',').flatMap((index, i) => CHAINS[SITE_IDS[i]].steps.slice(0, Number(index)))));
 
 	open = $derived(new Set(SITE_IDS.filter(id => this.isOpen(id))));
 

@@ -22,6 +22,13 @@ const LAMP_GLOW_ALPHA = 0.4;
 /** Widest a ready nucleus's pulsing glow gets relative to its atom, it reaches past the top of the cell. */
 const READY_GLOW = 1.23;
 
+/** What a cell's pixels depend on, as `drawCell` reads it: a forging cell only shows its nucleon count. */
+function pixelsOf(z: number, look: CellLook): string {
+	if (look.kind === 'waiting') return look.kind;
+	const extra = look.kind === 'forging' ? Math.floor(look.progress * Math.min(MINI_NUCLEONS, nucleonsOf(z))) : (look.glow ?? '');
+	return `${look.kind}:${look.color}:${extra}`;
+}
+
 /** Every element as a mini atom on one canvas under the cells. The loop only runs while a ready nucleus wobbles or a cell pops. */
 export class TableAtoms extends CanvasLoop {
 	private readonly changed = new Map<number, number>();
@@ -43,9 +50,16 @@ export class TableAtoms extends CanvasLoop {
 		this.observe();
 	}
 
+	/** Forging progress lands every second but only repaints when it adds a nucleon, a cell changing otherwise repaints the whole table. */
 	set(looks: Map<number, CellLook>) {
-		for (const [z, look] of looks) if (this.looks.get(z)?.kind !== look.kind) this.changed.set(z, this.time);
+		let repaint = looks.size !== this.looks.size;
+		for (const [z, look] of looks) {
+			const previous = this.looks.get(z);
+			if (previous?.kind !== look.kind) this.changed.set(z, this.time);
+			repaint ||= !previous || pixelsOf(z, previous) !== pixelsOf(z, look);
+		}
 		this.looks = looks;
+		if (!repaint) return;
 		this.full = true;
 		this.update();
 		this.redraw();
