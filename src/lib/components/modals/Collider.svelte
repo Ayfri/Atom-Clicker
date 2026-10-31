@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MAJOR_TICKS, MINOR_TICKS, RING_PARTICLES } from '#components/modals/colliderRing.js';
 	import Login from '#components/modals/Login.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import { COLLIDER_COOLDOWN_SECONDS, COLLIDER_STEP, COLLIDER_STEP_BONUS } from '#data/collider.js';
@@ -19,23 +20,7 @@
 
 	let { onClose }: Props = $props();
 
-	const PARTICLES = 8;
 	const RING_LENGTH = 2 * Math.PI * 44;
-
-	/** One tick per cooldown second around the ring, a longer one every 5, like a stopwatch bezel. */
-	function ticks(major: boolean): string {
-		let path = '';
-		for (let i = 0; i < COLLIDER_COOLDOWN_SECONDS; i++) {
-			if ((i % 5 === 0) !== major) continue;
-			const angle = (i / COLLIDER_COOLDOWN_SECONDS) * 2 * Math.PI;
-			const inner = major ? 47.6 : 48.4;
-			path += `M${50 + inner * Math.cos(angle)} ${50 + inner * Math.sin(angle)}L${50 + 49.6 * Math.cos(angle)} ${50 + 49.6 * Math.sin(angle)}`;
-		}
-		return path;
-	}
-
-	const MAJOR_TICKS = ticks(true);
-	const MINOR_TICKS = ticks(false);
 
 	let bonus = $state<HTMLSpanElement>();
 	let button = $state<HTMLButtonElement>();
@@ -137,8 +122,8 @@
 					{/key}
 				{/if}
 				<g class="orbit transition-opacity duration-300 {charging ? 'opacity-0' : ''}">
-					{#each { length: PARTICLES }, i (i)}
-						{const angle = $derived((i / PARTICLES) * 2 * Math.PI)}
+					{#each { length: RING_PARTICLES }, i (i)}
+						{const angle = $derived((i / RING_PARTICLES) * 2 * Math.PI)}
 						<circle class="fill-white/70" cx={50 + 44 * Math.cos(angle)} cy={50 + 44 * Math.sin(angle)} r="1.2" />
 					{/each}
 				</g>

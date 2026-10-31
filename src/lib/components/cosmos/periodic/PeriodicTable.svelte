@@ -1,7 +1,8 @@
 <script lang="ts">
 	import AtomStage from '#components/cosmos/periodic/AtomStage.svelte';
 	import { MINI_NUCLEONS, nucleonsOf, paintNucleus, type StageKind } from '#components/cosmos/periodic/atoms.js';
-	import { SKY, SPECTRUM } from '#components/cosmos/periodic/sky.js';
+	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
+	import { SPECTRUM } from '#components/cosmos/periodic/sky.js';
 	import { TableAtoms, type CellLook } from '#components/cosmos/periodic/TableAtoms.js';
 	import { TableParticles, type Point } from '#components/cosmos/periodic/TableParticles.js';
 	import TuningStrip from '#components/cosmos/periodic/TuningStrip.svelte';
@@ -370,10 +371,10 @@
 {/snippet}
 
 {#snippet lightPill(name: CurrencyName, amount: number, need: number)}
-	<span class={['flex items-center gap-1.5 rounded-full px-3 py-1.5 text-base font-semibold tabular-nums', amount >= need ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300']}>
+	<span class={['flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold tabular-nums', amount >= need ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300']}>
 		<Currency
 			{name}
-			size={20}
+			size={16}
 		/>
 		{formatNumber(need)}
 	</span>
@@ -429,11 +430,11 @@
 		{#each sites.filter(({ status }) => showLocked || status.kind !== 'locked') as { id, site, status } (id)}
 			{@const forge = periodicManager.forge(id)}
 			<div
-				class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24"
+				class="flex w-26 shrink-0 flex-col items-center gap-0.5 text-center lg:w-28"
 				in:revealIn
 			>
 				<button
-					class={['relative grid size-15 shrink-0 place-items-center rounded-full lg:size-18', 'z' in status && 'cursor-pointer']}
+					class={['relative grid size-20 shrink-0 place-items-center rounded-full lg:size-24', 'z' in status && 'cursor-pointer']}
 					data-forge={id}
 					data-hint={status.kind === 'waiting' ? 'table-waiting' : undefined}
 					disabled={!('z' in status)}
@@ -442,18 +443,22 @@
 				>
 					<span
 						class={[
-							'absolute inset-1 rounded-full',
+							'absolute inset-1.5 rounded-full',
 							status.kind === 'forging' && 'breathe',
 							status.kind === 'locked' && 'opacity-25 grayscale',
 							status.kind === 'done' && 'opacity-60',
 						]}
-						style:background={SKY[id]}
-					></span>
+					>
+						<SourceArt
+							class="block size-full"
+							{id}
+						/>
+					</span>
 					{#if status.kind === 'forging'}
 						{@render progressRing(site.color, status.progress / ELEMENTS[status.z - 1].need, status.z)}
-						<span class="absolute -right-1 -bottom-1 size-8 rounded-full bg-[#05070f] ring-1 ring-white/15">
+						<span class="absolute -right-1 -bottom-1 size-9 rounded-full bg-[#05070f] ring-1 ring-white/15">
 							<canvas
-								class="inset-0.5 size-7"
+								class="inset-0.5 size-8"
 								{@attach forgeNucleus(status.z, status.progress / ELEMENTS[status.z - 1].need, site.color)}
 							></canvas>
 						</span>
@@ -480,18 +485,18 @@
 					{/if}
 				</button>
 				<span
-					class="mt-1 text-[11px] leading-tight font-bold whitespace-nowrap"
+					class="mt-1 text-xs leading-tight font-bold whitespace-nowrap lg:text-sm"
 					style:color={status.kind === 'locked' ? 'rgb(255 255 255 / 0.4)' : site.color}
 				>
 					{site.short}
 				</span>
 				{#if status.kind === 'forging'}
-					<span class="text-[10px] text-white/55 tabular-nums">
+					<span class="text-[11px] text-white/55 tabular-nums lg:text-xs">
 						{ELEMENTS[status.z - 1].symbol} · {eta(periodicManager.etaOf(id))}
 					</span>
 				{:else if status.kind === 'waiting'}
 					<span
-						class="line-clamp-2 text-[10px] leading-tight text-amber-200/80"
+						class="line-clamp-2 text-[11px] leading-tight text-amber-200/80 lg:text-xs"
 						title={CHAINS[id].seeds[status.z]?.why}
 					>
 						{status.missing.length ?
@@ -499,13 +504,13 @@
 						:	`Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
 					</span>
 				{:else if status.kind === 'done'}
-					<span class="text-[10px] text-white/40">Complete</span>
+					<span class="text-[11px] text-white/40 lg:text-xs">Complete</span>
 				{:else}
-					<span class="line-clamp-2 text-[10px] leading-tight text-white/40">{site.gate}</span>
+					<span class="line-clamp-2 text-[11px] leading-tight text-white/40 lg:text-xs">{site.gate}</span>
 				{/if}
 				{#if hasForged && (status.kind === 'forging' || (status.kind !== 'locked' && DECAY_SITES.includes(id)))}
 					<button
-						class="mt-0.5 flex items-center gap-1 rounded-full bg-accent-600/80 px-2 py-0.5 text-[10px] font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
+						class="mt-1 flex min-h-7 items-center gap-1.5 rounded-full bg-accent-600/80 px-3 text-xs font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
 						disabled={starlight < siteStudyCost(forge.level)}
 						onclick={() => study(id)}
 						title={studyTitle(id, status.kind)}
@@ -513,7 +518,7 @@
 					>
 						<Currency
 							name={CurrenciesTypes.STARLIGHT}
-							size={12}
+							size={14}
 						/>
 						{formatNumber(siteStudyCost(forge.level))}
 					</button>
@@ -522,17 +527,17 @@
 		{/each}
 		{#if lockedCount && found}
 			<div
-				class="flex w-21 shrink-0 flex-col items-center gap-0.5 text-center lg:w-24"
+				class="flex w-26 shrink-0 flex-col items-center gap-0.5 text-center lg:w-28"
 				in:revealIn
 			>
 				<button
-					class="grid size-15 place-items-center rounded-full border border-dashed border-white/15 text-sm font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-18"
+					class="grid size-20 place-items-center rounded-full border border-dashed border-white/15 text-base font-bold text-white/45 transition-colors hover:bg-white/4 hover:text-white/70 lg:size-24"
 					data-hint="table-locked"
 					onclick={() => (showLocked = !showLocked)}
 				>
 					{showLocked ? '−' : `+${lockedCount}`}
 				</button>
-				<span class="mt-1 text-[11px] leading-tight text-white/40">{showLocked ? 'Hide' : 'To find'}</span>
+				<span class="mt-1 text-xs leading-tight text-white/40 lg:text-sm">{showLocked ? 'Hide' : 'To find'}</span>
 			</div>
 		{/if}
 	</div>
@@ -626,13 +631,13 @@
 	{@const affordable = periodicManager.canAfford(element.z)}
 	{@const stat = elementStat(element)}
 	{#if stageKind}
-		<div class="flex items-center gap-4 lg:flex-col lg:gap-0 lg:text-center">
+		<div class="flex items-center gap-4">
 			<div
 				class="shrink-0"
 				data-hint="table-stage"
 			>
 				<AtomStage
-					class="size-28 lg:size-60"
+					class="size-28 lg:size-32"
 					{affordable}
 					color={info.color}
 					kind={stageKind}
@@ -644,7 +649,7 @@
 					z={element.z}
 				/>
 			</div>
-			<div class="min-w-0 lg:-mt-1">
+			<div class="min-w-0">
 				<p
 					class="text-xs font-semibold"
 					style:color={info.color}
@@ -681,7 +686,7 @@
 		</div>
 
 		{#if stageKind === 'ready'}
-			<div class="mt-3 flex flex-wrap justify-center gap-1.5 text-xs">
+			<div class="mt-2 flex flex-wrap gap-1.5 text-xs">
 				{#each LIGHTS as [color, name] (color)}
 					{#if cost[color] > 0}
 						{@render lightPill(name, lights[color], cost[color])}
@@ -692,13 +697,13 @@
 				{/if}
 			</div>
 			{#if periodicManager.tuned && element.lines.length}
-				<div class="mt-3 flex justify-center">
+				<div class="mt-2 flex">
 					<TuningStrip {element} />
 				</div>
 			{/if}
 		{/if}
 
-		<div class="mt-3 flex flex-col items-center gap-1.5 text-xs">
+		<div class="mt-2 flex flex-col items-start gap-1 text-xs">
 			{#if stageKind !== 'identified'}
 				<span
 					class="flex items-center gap-1"
@@ -734,7 +739,7 @@
 				</span>
 			{/each}
 			<span
-				class="flex max-w-60 flex-wrap justify-center gap-1"
+				class="flex max-w-60 flex-wrap gap-1"
 				data-hint="table-family"
 				title="{info.name}, a full family ×{SET_BONUS}"
 			>
@@ -748,29 +753,30 @@
 			</span>
 		</div>
 
-		<p class="mt-3 text-sm text-white/70">{lore.fact}</p>
-		<button
-			class="mt-2 rounded-full bg-white/6 px-2 py-0.5 text-xs transition-colors hover:bg-white/12"
-			onclick={() => locate(siteId)}
-			style:color={site.color}
-			title="Show its source"
-		>
-			{site.glyph} from {site.name}
-		</button>
-
-		{#if found}
+		<p class="mt-2 text-sm leading-snug text-white/70 lg:text-xs">{lore.fact}</p>
+		<div class="mt-2 flex items-center justify-between gap-2">
 			<button
-				class="mt-3 flex w-full items-center gap-1 text-[11px] font-semibold tracking-wider text-white/40 uppercase hover:text-white/70"
-				onclick={() => (scienceOpen = !scienceOpen)}
-				in:revealIn
+				class="rounded-full bg-white/6 px-2 py-0.5 text-xs transition-colors hover:bg-white/12"
+				onclick={() => locate(siteId)}
+				style:color={site.color}
+				title="Show its source"
 			>
-				<ChevronDown
-					class={['transition-transform', scienceOpen && 'rotate-180']}
-					size={12}
-				/>
-				Science
+				{site.glyph} from {site.name}
 			</button>
-		{/if}
+			{#if found}
+				<button
+					class="flex items-center gap-1 text-[11px] font-semibold tracking-wider text-white/40 uppercase hover:text-white/70"
+					onclick={() => (scienceOpen = !scienceOpen)}
+					in:revealIn
+				>
+					<ChevronDown
+						class={['transition-transform', scienceOpen && 'rotate-180']}
+						size={12}
+					/>
+					Science
+				</button>
+			{/if}
+		</div>
 		{#if found && scienceOpen}
 			<div class="mt-2 space-y-3 text-left text-xs">
 				{#if !element.lines.length}
@@ -810,7 +816,6 @@
 <div class="table-page absolute inset-0 z-30 flex flex-col overflow-hidden text-white">
 	<header class="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pt-3 sm:px-4">
 		<div class="flex items-center gap-2.5 lg:flex-1">
-			<p class="text-sm font-black tracking-widest uppercase max-lg:hidden">Periodic Table</p>
 			{#if identifiedCount > 0}
 				<div
 					class="flex items-center gap-2.5"
@@ -898,7 +903,7 @@
 		</div>
 	</header>
 
-	<div class="shrink-0 overflow-x-auto px-3 pt-3 pb-1 [scrollbar-width:none] sm:px-4">
+	<div class="shrink-0 overflow-x-auto px-3 pt-3 pb-1 [scrollbar-width:none] sm:px-4 lg:px-40">
 		{@render sky()}
 	</div>
 
@@ -958,9 +963,9 @@
 			{/if}
 		</section>
 
-		<!-- Bottom sheet on phones so it never covers the selected cell. -->
+		<!-- Bottom sheet on phones so it never covers the selected cell. On desktop it sits at the bottom, under the realm column at the top right. -->
 		<aside
-			class="max-h-[44dvh] shrink-0 overflow-y-auto rounded-t-2xl border-t border-white/10 bg-linear-to-b from-[#0d1226]/95 to-[#070a16]/95 p-4 shadow-2xl lg:max-h-full lg:self-start lg:rounded-2xl lg:border"
+			class="max-h-[44dvh] shrink-0 overflow-y-auto rounded-t-2xl border-t border-white/10 bg-linear-to-b from-[#0d1226]/95 to-[#070a16]/95 p-4 shadow-2xl lg:max-h-[calc(100dvh-var(--banner-height)-19.5rem)] lg:self-end lg:rounded-2xl lg:border lg:p-3"
 		>
 			{@render card()}
 		</aside>
@@ -1029,7 +1034,7 @@
 		{/key}
 	{/if}
 
-	<div class="pointer-events-none fixed bottom-4 left-1/2 z-55 flex -translate-x-1/2 flex-col items-center gap-1.5 max-lg:bottom-[calc(44dvh+var(--mobile-dock-height,0px)+1rem)]">
+	<div class="pointer-events-none fixed bottom-4 left-1/2 z-55 flex -translate-x-1/2 flex-col items-center gap-1.5 max-lg:bottom-[calc(44dvh+var(--mobile-nav-height,0px)+1rem)]">
 		{#each toasts as item (item.id)}
 			<p
 				class="rounded-full border border-white/10 bg-accent-950/95 px-3 py-1.5 text-xs font-semibold whitespace-nowrap shadow-xl"

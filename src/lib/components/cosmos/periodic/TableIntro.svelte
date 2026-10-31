@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { cellCenter, GRID_AT, GRID_COLUMNS, GRID_ROWS, IntroGrid, symbolSize } from '#components/cosmos/periodic/IntroGrid.js';
-	import { SKY, SPECTRUM } from '#components/cosmos/periodic/sky.js';
+	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
+	import { SPECTRUM } from '#components/cosmos/periodic/sky.js';
 	import { TableParticles } from '#components/cosmos/periodic/TableParticles.js';
 	import { elementBySymbol, ELEMENTS, FAMILIES, lineX } from '#data/elements.js';
 	import { SITE_IDS, SITES } from '#data/sites.js';
@@ -310,11 +311,15 @@
 				{#each sources as { id }, i (id)}
 					<span
 						style:--delay="{AT.sources + i * SOURCE_STEP_MS}ms"
-						style:background={SKY[id]}
 						class="source size-8 rounded-full ring-1 ring-white/15 sm:size-10"
 						data-intro-source={id}
 						title={SITES[id].name}
-					></span>
+					>
+						<SourceArt
+							class="block size-full"
+							{id}
+						/>
+					</span>
 				{/each}
 			</div>
 			<canvas

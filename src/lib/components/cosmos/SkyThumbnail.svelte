@@ -4,10 +4,12 @@
 	interface Props {
 		color: string;
 		id: string;
+		/** Map resolution in CSS pixels, the box then fills its parent instead of the fixed 24 or 32 px. */
+		size?: number;
 		small?: boolean;
 	}
 
-	let { color, id, small = false }: Props = $props();
+	let { color, id, size: fixed, small = false }: Props = $props();
 
 	/** Saturn's rings from the outside in (A, then B past the Cassini Division), in pixels of a 32 x 32 box. */
 	const SATURN_RINGS = [
@@ -19,7 +21,7 @@
 	let ready = $state(false);
 
 	const flat = $derived(id in DEEP_MAPS);
-	const size = $derived(small ? 24 : 32);
+	const size = $derived(fixed ?? (small ? 24 : 32));
 	const radius = $derived(id === 'saturn' ? size * 0.32 : size / 2);
 </script>
 
@@ -66,7 +68,7 @@
 <span
 	class={[
 		'relative grid shrink-0 place-items-center',
-		small ? 'size-6' : 'size-8',
+		fixed ? 'size-full' : small ? 'size-6' : 'size-8',
 		ready && id === 'earth' && 'rounded-full shadow-[0_0_3px_1px_#6fb0ff59]',
 		ready && flat && 'overflow-hidden rounded-full bg-black ring-1 ring-white/10',
 	]}

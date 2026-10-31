@@ -130,14 +130,18 @@
 	}}
 	onpointerup={release}
 >
-	<canvas
-		class="pointer-events-none absolute top-1/2 left-1/2 -translate-1/2"
-		style:height="{100 * CANVAS_OVERFLOW}%"
-		style:width="{100 * CANVAS_OVERFLOW}%"
-		{@attach mount}
-	></canvas>
+	<!-- A waiting element has no nucleus yet, so no renderer runs for it. -->
+	{#if kind !== 'waiting'}
+		<canvas
+			class="pointer-events-none absolute top-1/2 left-1/2 -translate-1/2"
+			style:height="{100 * CANVAS_OVERFLOW}%"
+			style:width="{100 * CANVAS_OVERFLOW}%"
+			{@attach mount}
+		></canvas>
+	{/if}
 	{#if kind === 'waiting'}
 		<span class="absolute inset-[22%] rounded-full border-2 border-dashed border-amber-300/40"></span>
+		<span class="pointer-events-none text-4xl font-black text-amber-200/70 lg:text-7xl">?</span>
 	{:else if kind === 'ready'}
 		<span class={['absolute inset-[6%] rounded-full', affordable && charge === 0 ? 'calling border-2 border-white/40' : 'border border-white/10']}></span>
 		<svg
