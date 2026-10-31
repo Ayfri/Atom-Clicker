@@ -305,6 +305,8 @@
 			<!-- A page-level view like the Cosmos, its chunk only loads once the player opens it. -->
 			{#await import('#components/cosmos/periodic/TableView.svelte') then { default: TableView }}
 				<TableView />
+			{:catch}
+				<span hidden {@attach () => void (realmManager.tableOpen = false)}></span>
 			{/await}
 		{/if}
 
@@ -312,6 +314,8 @@
 			<!-- Plays over the Cosmos or the Table, its chunk loads with the first play. -->
 			{#await import('#components/cosmos/periodic/TableIntro.svelte') then { default: TableIntro }}
 				<TableIntro />
+			{:catch}
+				<span hidden {@attach () => void (realmManager.introPlaying = false)}></span>
 			{/await}
 		{/if}
 

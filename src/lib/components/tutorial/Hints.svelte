@@ -34,12 +34,14 @@
 			else if (hint.realm === realm && (touring || !hint.show || hint.show())) next.push(hint);
 		}
 		if (next.length !== pending.length || next.some((hint, i) => hint !== pending[i])) pending = next;
+		if (tutorial.tour !== null && !next.some(inTour)) tutorial.tour = null;
 		perfTracker.track('hints:evaluate', start);
 	}
 
 	$effect(() => {
 		if (unseen.length === 0) {
 			pending = [];
+			untrack(() => (tutorial.tour = null));
 			return;
 		}
 		const realm = realmManager.hintScope;

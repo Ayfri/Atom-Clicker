@@ -51,6 +51,7 @@ import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds } from '#helpers/runBounds.js';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/saves.js';
 import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
@@ -741,6 +742,7 @@ export class GameManager {
 	}
 
 	loadSaveData(data: Partial<GameState>) {
+		realmManager.resetTable();
 		for (const key of Object.keys(statsConfig)) {
 			if (!(key in data)) continue;
 			switch (key) {

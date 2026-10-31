@@ -95,7 +95,8 @@ class RealmManager {
 
 	/** `z` is the element the Table selects when it opens, a player who never saw the introduction gets it first. */
 	openTable(z?: number) {
-		if (periodicManager.unlocked && !periodicManager.introSeen) return this.playIntro(z ?? null);
+		if (!periodicManager.unlocked) return;
+		if (!periodicManager.introSeen) return this.playIntro(z ?? null);
 		perfTracker.action('periodic:open');
 		this.tableFocus = z ?? null;
 		this.tableOpen = true;
@@ -103,9 +104,17 @@ class RealmManager {
 
 	/** `focus` is the element the Table opens on once the introduction ends with "Open the Table". */
 	playIntro(focus: number | null = null) {
+		if (!periodicManager.unlocked) return;
 		perfTracker.action('periodic:intro');
 		this.introFocus = focus;
 		this.introPlaying = true;
+	}
+
+	/** A loaded save can lock the Table, so nothing that shows it stays set. */
+	resetTable() {
+		this.introFocus = null;
+		this.introPlaying = false;
+		this.tableOpen = false;
 	}
 
 	selectRealm(id: RealmType) {

@@ -26,7 +26,10 @@
 				const message = built && cosmosManager.owns(built) ? instrumentReadyMessage(built) : null;
 				if (message) {
 					toastStore.info({
-						action: () => (realmManager.cosmosOpen = true),
+						action: () => {
+							realmManager.tableOpen = false;
+							realmManager.cosmosOpen = true;
+						},
 						actionLabel: 'Open the Cosmos',
 						icon: FlaskRound,
 						message,

@@ -193,6 +193,9 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * (appliedMs / 1000));
 	cosmosManager.advance(appliedMs);
 	const forged = periodicManager.tick(appliedMs);
+	/** The summary lists what the catch-up made, the watchers must not announce it again. */
+	cosmosManager.loads++;
+	periodicManager.loads++;
 
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;
