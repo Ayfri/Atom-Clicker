@@ -25,7 +25,7 @@
 	import { horizon, lookUp, rateFlash } from '#components/cosmos/transitions.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import Switch from '#components/ui/Switch.svelte';
-	import { ChevronDown, ChevronRight, Contrast, Gauge, Grid3x3, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
+	import { ChevronRight, Contrast, Gauge, Grid3x3, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { cubicIn, cubicInOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -397,7 +397,7 @@
 			>
 				<ChevronRight size={32} />
 			</div>
-			<div class="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 px-16 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6">
+			<div class="absolute inset-x-0 bottom-(--cosmos-dock-height) flex flex-col items-center gap-3 px-16 pt-6 pb-3 md:px-6 lg:pb-6">
 				<p class={['max-w-sm text-center text-xs [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]', scene?.faint ? 'text-cosmos-reticle' : 'text-white/70']}>
 					{#if scene?.faint}
 						Too faint at this zoom, pinch or scroll to zoom in on it.
@@ -415,19 +415,6 @@
 			</div>
 		</div>
 
-		<!-- Icon only on phones, so it stays clear of the centered actions, and out of the way of the bottom sheets. -->
-		<div
-			class={['absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-4 z-10', (selected || skyOpen || mode === 'discovery') && 'max-md:hidden']}
-			in:fly|global={{ delay: 500, duration: 400, y: 12 }}
-		>
-			<HudButton
-				icon={ChevronDown}
-				label="Realms"
-				labelled="md"
-				onclick={() => (realmManager.cosmosOpen = false)}
-			/>
-		</div>
-
 		{#if failure}
 			<p class="absolute inset-x-0 top-1/2 px-6 text-center text-sm text-red-300">The 3D view failed to start: {failure}</p>
 		{:else if !scene}
@@ -435,7 +422,7 @@
 		{:else if mode === 'overview'}
 			{#if skyOpen}
 				<div
-					class="absolute inset-x-3 bottom-3 z-20 flex max-h-[55dvh] flex-col pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:bottom-40 md:left-4 md:top-28 md:max-h-none md:w-[26rem]"
+					class="absolute inset-x-3 bottom-[calc(var(--cosmos-dock-height)+0.75rem)] z-20 flex max-h-[55dvh] flex-col md:inset-x-auto md:bottom-40 md:left-4 md:top-28 md:max-h-none md:w-[26rem]"
 				>
 					<SkyPanel
 						onBuyInstrument={(id, event) => cosmosManager.purchaseInstrument(id) && cosmosFx.instrument(event)}
@@ -446,7 +433,7 @@
 				</div>
 			{/if}
 			{#if selected && (wide.current || !skyOpen)}
-				<div class="absolute inset-x-3 bottom-3 pb-[env(safe-area-inset-bottom)] md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:w-80">
+				<div class="absolute inset-x-3 bottom-[calc(var(--cosmos-dock-height)+0.75rem)] md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:max-h-[calc(100%-8rem-var(--cosmos-dock-height))] md:w-80 md:overflow-y-auto md:rounded-xl lg:max-h-[calc(100%-22rem)]">
 					<ObjectPanel
 						id={selected}
 						onClose={() => scene && (scene.selected = null)}
@@ -456,7 +443,7 @@
 			{/if}
 			<div
 				class={[
-					'pointer-events-none absolute inset-x-0 bottom-0 flex-col items-center gap-2 px-16 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6 *:pointer-events-auto',
+					'pointer-events-none absolute inset-x-0 bottom-(--cosmos-dock-height) flex-col items-center gap-2 px-16 pt-6 pb-3 md:px-6 lg:pb-6 *:pointer-events-auto',
 					selected || skyOpen ? 'hidden md:flex' : 'flex',
 				]}
 			>
@@ -539,7 +526,7 @@
 				{/if}
 			</div>
 		{:else if mode === 'discovery' && revealed}
-			<div class="absolute inset-x-0 bottom-0 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+			<div class="absolute inset-x-0 bottom-(--cosmos-dock-height) flex justify-center p-3 sm:p-4">
 				<article
 					class="discovery-card flex w-full max-w-sm flex-col gap-3 rounded-xl bg-cosmos-hud/95 p-5 shadow-2xl ring-1 ring-white/10"
 					onanimationstart={event => cosmosFx.discovery(event.currentTarget, revealed.color)}

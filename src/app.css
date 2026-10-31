@@ -43,6 +43,7 @@
 @layer base {
 	:root {
 		--banner-height: 0rem;
+		--cosmos-dock-height: 0rem;
 		background-color: var(--color-page);
 		color: rgba(255, 255, 255, 0.87);
 		color-scheme: light dark;
@@ -56,15 +57,16 @@
 		touch-action: manipulation;
 	}
 
-	/* Phone nav dock plus the realm tab bar above it once a second realm opens, the realms and everything floating at the
-	   bottom sit above both. Mirrors MOBILE_QUERY. */
+	/* Phone nav dock plus the realm bar, kept while the bar is docked in the Cosmos so the realm behind never resizes.
+	   `--cosmos-dock-height` is what the dock covers at the bottom of the Cosmos. Mirrors MOBILE_QUERY. */
 	@media (width < 64rem) {
 		:root {
+			--cosmos-dock-height: calc(3.25rem + env(safe-area-inset-bottom));
 			--mobile-dock-height: 3.5rem;
 			--mobile-nav-height: calc(var(--mobile-dock-height) + var(--realm-bar-height, 0rem));
 		}
 
-		:root:has(#realm-bar) {
+		:root:has(#realm-bar, #realm-dock) {
 			--realm-bar-height: 3.25rem;
 		}
 	}
