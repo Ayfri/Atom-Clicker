@@ -3,6 +3,7 @@ import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
 import { ELEMENT_COUNT } from '#data/elements.js';
+import { FORGE_MILESTONES } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -34,6 +35,7 @@ const READERS = {
 	electrons: () => currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
 	excitedPhotons: () => currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
 	forged: () => periodicManager.forged.size,
+	forges: () => periodicManager.forges,
 	identified: () => periodicManager.identified.length,
 	instruments: () => cosmosManager.instruments.length,
 	ionizes: () => gameManager.totalIonizesAllTime,
@@ -102,6 +104,7 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 		];
 	}),
 	at('forged', 1, 'periodic_forged_1', '1st element forged', 'A site forged its first element'),
+	...FORGE_MILESTONES.map((_, i) => at('forges', i + 2, `periodic_forges_${i + 2}`, `${i + 2} forges`, `Owns ${i + 2} forges`)),
 	...[1, 10, 20, 30, 45, 60, 75, 90, 100, 110, ELEMENT_COUNT].map(count =>
 		at('identified', count, `periodic_${count}`, `${count} element${count === 1 ? '' : 's'}`, `Identified ${count} element${count === 1 ? '' : 's'}`),
 	),

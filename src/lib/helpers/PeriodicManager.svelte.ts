@@ -17,7 +17,19 @@ import {
 	zs,
 } from '#data/elements.js';
 import { GENERATOR_TYPES } from '#data/generators.js';
-import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
+import {
+	BASE_RATES,
+	CHAINS,
+	DECAY_EVENTS_PER_SECOND,
+	DECAY_SITES,
+	FORGE_COST_SECONDS,
+	FORGE_MILESTONES,
+	MAX_FORGES,
+	SITE_IDS,
+	siteStudyCost,
+	SITES,
+	type SiteId,
+} from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -25,9 +37,11 @@ import { mul } from '#helpers/effects.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import type { EffectSource, EffectStat, PeriodicState, SiteForge } from '#lib/types.js';
 
+/** `forging` and `waiting` only describe sources holding a forge, an open source without one is `idle` whatever its next element needs. */
 export type SiteStatus =
 	| { kind: 'done' | 'locked' }
 	| { kind: 'forging'; progress: number; z: number }
+	| { kind: 'idle'; missing: number[]; object: string | null; progress: number; z: number }
 	| { kind: 'waiting'; missing: number[]; object: string | null; z: number };
 
 export const TUNING_DEFAULT: number = TUNING.min;
@@ -40,6 +54,10 @@ const FAMILY_MEMBERS = Object.fromEntries(FAMILY_IDS.map(family => [family, ELEM
 
 /** Everything here is kept through every prestige. */
 class PeriodicManager {
+	/** Sources holding a forge, only these advance. */
+	active = $state.raw<SiteId[]>([]);
+	/** Forges owned, the first one is free and `FORGE_MILESTONES` unlock the others. */
+	forges = $state(1);
 	identified = $state.raw<number[]>([]);
 	/** Set once the introduction played, whether the player opened the Table from it or not. */
 	introSeen = $state(false);
@@ -54,6 +72,16 @@ class PeriodicManager {
 	tuned = $derived(chromaticManager.level('prism_tuning') > 0);
 
 	identifiedSet = $derived(new Set(this.identified));
+
+	activeSet = $derived(new Set(this.active));
+
+	freeForges = $derived(this.forges - this.active.length);
+
+	/** The next forge is buyable once enough elements are identified. */
+	nextForgeUnlocked = $derived(this.forges < MAX_FORGES && this.identified.length >= FORGE_MILESTONES[this.forges - 1]);
+
+	/** About `FORGE_COST_SECONDS` of Starlight production right now, never free. */
+	forgeCost = $derived(Math.max(1, Math.ceil(cosmosManager.starlightPerSecond * FORGE_COST_SECONDS)));
 
 	/** `tick` rewrites `sites` every second for the progress, a key of the chain indices only changes when an element is finished. */
 	#chainKey = $derived(SITE_IDS.map(id => this.forge(id).index).join());
@@ -153,12 +181,37 @@ class PeriodicManager {
 		return true;
 	}
 
-	/** Online ticks and offline catch-up both land here, a long gap can finish several elements of a chain. Returns the elements forged. */
+	/** Puts a forge on an open source. The single forge of a player who has only one follows them, one of several never leaves a busy source on its own. */
+	assign(id: SiteId): boolean {
+		if (!this.open.has(id) || this.activeSet.has(id) || this.statuses[id].kind === 'done') return false;
+		if (this.freeForges > 0) this.active = [...this.active, id];
+		else if (this.forges === 1) this.active = [id];
+		else return false;
+		return true;
+	}
+
+	release(id: SiteId): boolean {
+		if (!this.activeSet.has(id)) return false;
+		this.active = this.active.filter(other => other !== id);
+		return true;
+	}
+
+	buyForge(): boolean {
+		if (!this.nextForgeUnlocked) return false;
+		const cost = this.forgeCost;
+		if (currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) < cost) return false;
+		currenciesManager.remove(CurrenciesTypes.STARLIGHT, cost);
+		this.forges++;
+		return true;
+	}
+
+	/** Online ticks and offline catch-up both land here, a long gap can finish several elements of a chain. A finished chain frees its forge. Returns the elements forged. */
 	tick(deltaMs: number): number[] {
 		if (!this.unlocked) return [];
 		const made: number[] = [];
+		const finished = new Set<SiteId>();
 		let sites = this.sites;
-		for (const id of this.open) {
+		for (const id of this.active) {
 			let budget = (this.rateOf(id) * deltaMs) / 1000;
 			const forge = { ...this.forge(id) };
 			while (budget > 0) {
@@ -174,17 +227,19 @@ class PeriodicManager {
 				forge.index++;
 				forge.progress = 0;
 			}
+			if (forge.index >= CHAINS[id].steps.length) finished.add(id);
 			sites = { ...sites, [id]: forge };
 		}
 		this.sites = sites;
+		if (finished.size) this.active = this.active.filter(id => !finished.has(id));
 		return made;
 	}
 
 	getState(): PeriodicState {
-		return { identified: this.identified, introSeen: this.introSeen, sites: this.sites, tuning: this.tuning };
+		return { active: this.active, forges: this.forges, identified: this.identified, introSeen: this.introSeen, sites: this.sites, tuning: this.tuning };
 	}
 
-	/** Drops unknown sites and Z from a tampered or future save, and identified elements the chain never forged. */
+	/** Drops unknown sites and Z from a tampered or future save, identified elements the chain never forged, and forges on sources that are closed, finished or beyond the forges owned. */
 	loadState(state: PeriodicState) {
 		const sites: Partial<Record<SiteId, SiteForge>> = {};
 		for (const id of SITE_IDS) {
@@ -200,11 +255,21 @@ class PeriodicManager {
 		this.tuning = typeof tuning === 'number' && tuning >= TUNING.min && tuning <= TUNING.max ? tuning : TUNING_DEFAULT;
 		this.identified = [...new Set(state.identified ?? [])].filter(z => this.forged.has(z)).sort((a, b) => a - b);
 		this.introSeen = state.introSeen === true;
+		const { active, forges } = state;
+		this.forges = typeof forges === 'number' && Number.isInteger(forges) ? Math.min(Math.max(forges, 1), MAX_FORGES) : 1;
+		/** The Table's lock depends on the Ionize count, which loads after it: only what the sources themselves ask for is checked here. */
+		this.active = [...new Set(Array.isArray(active) ? active : [])]
+			.filter(id => SITE_IDS.includes(id) && this.meetsGate(id) && this.forge(id).index < CHAINS[id].steps.length)
+			.slice(0, this.forges);
 		this.loads++;
 	}
 
 	private isOpen(id: SiteId): boolean {
-		if (!this.unlocked) return false;
+		return this.unlocked && this.meetsGate(id);
+	}
+
+	/** The discovery or the identified elements that open a source, without the Table's own lock. */
+	private meetsGate(id: SiteId): boolean {
 		const { object, opensWith } = SITES[id];
 		if (object) return cosmosManager.discovered.includes(object);
 		if (opensWith) return zs(opensWith).every(z => this.identifiedSet.has(z));
@@ -219,8 +284,10 @@ class PeriodicManager {
 		const seed = CHAINS[id].seeds[z];
 		const missing = seed?.needs.filter(other => !this.forged.has(other) && !made.includes(other)) ?? [];
 		const object = seed?.object && !cosmosManager.discovered.includes(seed.object) ? seed.object : null;
+		const progress = index === this.forge(id).index ? this.forge(id).progress : 0;
+		if (!this.activeSet.has(id)) return { kind: 'idle', missing, object, progress, z };
 		if (missing.length || object) return { kind: 'waiting', missing, object, z };
-		return { kind: 'forging', progress: index === this.forge(id).index ? this.forge(id).progress : 0, z };
+		return { kind: 'forging', progress, z };
 	}
 }
 

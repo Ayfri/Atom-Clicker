@@ -2,7 +2,7 @@
 	import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS, formatMagnitude, studyCost } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ELEMENTS, FAMILIES } from '#data/elements.js';
-	import { CHAINS, FORGED_BY, SITES } from '#data/sites.js';
+	import { CHAINS, FORGED_BY, MAX_FORGES, SITES } from '#data/sites.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
@@ -174,12 +174,18 @@
 		<span class="font-mono">{periodicManager.identified.length} / {periodicManager.forged.size} forged, {periodicManager.ready.length} ready</span>
 		<span class="text-white/45">Decay events</span>
 		<span class="font-mono">{formatNumber(periodicManager.decayEventsPerSecond)}/s</span>
+		<span class="text-white/45">Forges</span>
+		<span class="font-mono">{periodicManager.active.length} busy / {periodicManager.forges}, next {periodicManager.nextForgeUnlocked ? `buyable for ${formatNumber(periodicManager.forgeCost)}` : 'locked'}</span>
 		{#each [...periodicManager.open] as id (id)}
 			<span class="text-white/45">{SITES[id].short}</span>
-			<span class="truncate font-mono">level {periodicManager.forge(id).level} · {periodicManager.statuses[id].kind} · {formatDuration(Math.min(periodicManager.etaOf(id), 1e9) * 1000)}</span>
+			<span class="truncate font-mono">
+				level {periodicManager.forge(id).level} · {periodicManager.statuses[id].kind}
+				{#if Number.isFinite(periodicManager.etaOf(id))}· {formatDuration(periodicManager.etaOf(id) * 1000)}{/if}
+			</span>
 		{/each}
 	</div>
 	<div class="mt-3 flex flex-wrap gap-1.5">
+		<button class={btn} disabled={periodicManager.forges >= MAX_FORGES} onclick={() => periodicManager.forges++}>+1 forge</button>
 		{#each [1, 24] as hours (hours)}
 			<button class={btn} disabled={!periodicManager.unlocked} onclick={() => periodicManager.tick(hours * 3_600_000)}>Forge {hours}h</button>
 		{/each}

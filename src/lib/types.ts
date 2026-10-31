@@ -147,6 +147,10 @@ export interface PhotonUpgrade {
 export type CurrencyBoosts = Partial<Record<CurrencyName, number>>;
 
 export interface PeriodicState {
+	/** Sources holding a forge, at most `forges` of them. Missing counts as none. */
+	active?: SiteId[];
+	/** Forges owned, 1 when missing. */
+	forges?: number;
 	/** Atomic numbers, ascending. */
 	identified: number[];
 	/** Whether the player has seen the Periodic Table's introduction, missing in saves from before it. */

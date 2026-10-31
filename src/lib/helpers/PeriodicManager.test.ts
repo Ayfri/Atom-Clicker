@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { SPECTROSCOPE_ID } from '#data/cosmos.js';
+import { ionizeStarlightMultiplier, SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { bestTuning, decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, TUNING, zs } from '#data/elements.js';
 import { GENERATOR_TYPES } from '#data/generators.js';
-import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, SITE_IDS, siteStudyCost, type SiteId } from '#data/sites.js';
+import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, FORGE_COST_SECONDS, FORGE_MILESTONES, MAX_FORGES, SITE_IDS, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -44,6 +44,9 @@ describe('table', () => {
 
 	test('forges each chain in order, a long gap finishes several elements, and a step waits on its seed', () => {
 		cosmosManager.discovered = ['mira'];
+		periodicManager.forges = 2;
+		periodicManager.assign('bigbang');
+		periodicManager.assign('lowmass');
 		expect(periodicManager.statuses.lowmass).toEqual({ kind: 'waiting', missing: zs('He'), object: null, z: 6 });
 		expect(periodicManager.tick(DAY_MS)).toEqual(zs('H He C N'));
 		expect(periodicManager.statuses.bigbang).toEqual({ kind: 'waiting', missing: [], object: 'cmb', z: 3 });
@@ -52,6 +55,7 @@ describe('table', () => {
 	});
 
 	test('identifying pays the Light of its lines and adds its family bonus', () => {
+		periodicManager.assign('bigbang');
 		periodicManager.tick(DAY_MS);
 		expect(periodicManager.identify(1)).toBe(false);
 		payLight(1);
@@ -246,6 +250,7 @@ describe('table', () => {
 	});
 
 	test('survives every prestige, and a save only keeps what its chains could have forged', () => {
+		periodicManager.assign('bigbang');
 		periodicManager.tick(DAY_MS);
 		payLight(1);
 		periodicManager.identify(1);
@@ -258,5 +263,128 @@ describe('table', () => {
 		};
 		expect(periodicManager.sites).toEqual({ bigbang: { index: 3, level: 0, progress: 0 } });
 		expect(periodicManager.identified).toEqual([1, 2, 3]);
+	});
+
+	describe('forges', () => {
+		/** He is forged, so the red giants (C) and the supernovae (O) can both start, Big Bang waits for the microwave background. */
+		beforeEach(() => {
+			cosmosManager.discovered = ['mira', 'crab_nebula'];
+			gameManager.periodic = { identified: [], sites: { bigbang: { index: 2, level: 0, progress: 0 } } };
+		});
+
+		const count = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
+		test('one forge at the start, and a source without one never advances', () => {
+			expect(periodicManager.forges).toBe(1);
+			expect(periodicManager.active).toEqual([]);
+			expect(periodicManager.statuses.lowmass.kind).toBe('idle');
+			expect(periodicManager.tick(DAY_MS)).toEqual([]);
+			expect(periodicManager.forge('lowmass').progress).toBe(0);
+			expect(periodicManager.etaOf('lowmass')).toBe(Infinity);
+		});
+
+		test('the only forge moves to the source clicked and every source keeps its progress', () => {
+			expect(periodicManager.assign('lowmass')).toBe(true);
+			expect(periodicManager.assign('lowmass')).toBe(false);
+			periodicManager.tick(1000);
+			const lowmass = periodicManager.forge('lowmass');
+			expect(lowmass.progress).toBeGreaterThan(0);
+
+			expect(periodicManager.assign('massive')).toBe(true);
+			expect(periodicManager.active).toEqual(['massive']);
+			periodicManager.tick(1000);
+			expect(periodicManager.forge('lowmass')).toEqual(lowmass);
+			expect(periodicManager.forge('massive').progress).toBeGreaterThan(0);
+
+			expect(periodicManager.assign('lowmass')).toBe(true);
+			periodicManager.tick(1000);
+			expect(periodicManager.forge('lowmass').progress).toBeGreaterThan(lowmass.progress);
+		});
+
+		test('with several forges a source is only added while one is free, and release gives it back', () => {
+			periodicManager.forges = 2;
+			expect(periodicManager.assign('lowmass')).toBe(true);
+			expect(periodicManager.assign('massive')).toBe(true);
+			expect(periodicManager.freeForges).toBe(0);
+			expect(periodicManager.assign('bigbang')).toBe(false);
+			expect(periodicManager.active).toEqual(['lowmass', 'massive']);
+
+			expect(periodicManager.release('lowmass')).toBe(true);
+			expect(periodicManager.release('lowmass')).toBe(false);
+			expect(periodicManager.assign('bigbang')).toBe(true);
+			expect(periodicManager.assign('accelerator')).toBe(false);
+		});
+
+		test('a finished chain frees its forge and cannot take another', () => {
+			cosmosManager.discovered = ['cosmic_rays'];
+			gameManager.periodic = {
+				identified: [],
+				sites: { bigbang: { index: 2, level: 0, progress: 0 }, cosmic: { index: 1, level: 0, progress: 0 }, lowmass: { index: 2, level: 0, progress: 0 }, massive: { index: 1, level: 0, progress: 0 } },
+			};
+
+			expect(periodicManager.assign('cosmic')).toBe(true);
+			expect(periodicManager.tick(12 * DAY_MS)).toEqual(zs('B'));
+			expect(periodicManager.statuses.cosmic.kind).toBe('done');
+			expect(periodicManager.active).toEqual([]);
+			expect(periodicManager.assign('cosmic')).toBe(false);
+		});
+
+		test('the next forge unlocks at each milestone and the last one is the cap', () => {
+			for (const [i, milestone] of FORGE_MILESTONES.entries()) {
+				periodicManager.forges = i + 1;
+				periodicManager.identified = count(milestone - 1);
+				expect(periodicManager.nextForgeUnlocked).toBe(false);
+				periodicManager.identified = count(milestone);
+				expect(periodicManager.nextForgeUnlocked).toBe(true);
+			}
+			periodicManager.forges = MAX_FORGES;
+			periodicManager.identified = count(118);
+			expect(periodicManager.nextForgeUnlocked).toBe(false);
+		});
+
+		test('a forge costs half an hour of the Starlight made now, and buying it needs the milestone and the Starlight', () => {
+			/** Only the given objects radiate once nothing is discovered. */
+			cosmosManager.discovered = [];
+			const cost = () => Math.ceil(2 * ionizeStarlightMultiplier(gameManager.totalIonizesAllTime) * FORGE_COST_SECONDS);
+			expect(periodicManager.forgeCost).toBe(cost());
+			gameManager.totalIonizesAllTime = 5;
+			expect(periodicManager.forgeCost).toBe(cost());
+
+			currenciesManager.add(CurrenciesTypes.STARLIGHT, cost());
+			periodicManager.identified = count(FORGE_MILESTONES[0] - 1);
+			expect(periodicManager.buyForge()).toBe(false);
+			periodicManager.identified = count(FORGE_MILESTONES[0]);
+			currenciesManager.remove(CurrenciesTypes.STARLIGHT, 1);
+			expect(periodicManager.buyForge()).toBe(false);
+			currenciesManager.add(CurrenciesTypes.STARLIGHT, 1);
+			expect(periodicManager.buyForge()).toBe(true);
+			expect(periodicManager.forges).toBe(2);
+			expect(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT)).toBe(0);
+			expect(periodicManager.buyForge()).toBe(false);
+		});
+
+		test('a save keeps a whole number of forges within the cap, and only open, unfinished, distinct sources up to that many', () => {
+			const load = (state: { active?: string[]; forges?: unknown }, sites: Partial<Record<SiteId, { index: number; level: number; progress: number }>> = {}) => {
+				gameManager.periodic = { identified: [], sites, ...state } as never;
+				return { active: periodicManager.active, forges: periodicManager.forges };
+			};
+			cosmosManager.discovered = ['mira'];
+
+			expect(load({})).toEqual({ active: [], forges: 1 });
+			for (const forges of ['x', 0, -3, 2.7, Number.NaN, null]) expect(load({ forges }).forges).toBe(1);
+			expect(load({ forges: 99 }).forges).toBe(MAX_FORGES);
+
+			const active = ['massive', 'nowhere', 'lowmass', 'lowmass', 'bigbang'];
+			expect(load({ active, forges: 1 }).active).toEqual(['lowmass']);
+			expect(load({ active, forges: 2 }).active).toEqual(['lowmass', 'bigbang']);
+			expect(load({ active, forges: 5 }, { bigbang: { index: 3, level: 0, progress: 0 } }).active).toEqual(['lowmass']);
+			expect(load({ active: 'lowmass' as never }).active).toEqual([]);
+
+			/** The Ionize count loads after the Table, so a save read before it still holds its forges. */
+			cosmosManager.instruments = [];
+			expect(periodicManager.unlocked).toBe(false);
+			expect(load({ active: ['bigbang'], forges: 1 }).active).toEqual(['bigbang']);
+			expect(JSON.parse(JSON.stringify(periodicManager.getState()))).toMatchObject({ active: ['bigbang'], forges: 1 });
+		});
 	});
 });

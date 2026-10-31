@@ -86,10 +86,11 @@
 	const GAP = 4;
 	const GRID = new Map(ELEMENTS.map(({ column, row, z }) => [`${row},${column}`, z]));
 	const RAINBOW = 'linear-gradient(90deg, transparent, #ff4d5e, #ffd76b, #2ee6a0, #4d8dff, #b98aff, transparent)';
-	const RANK: Record<SiteStatus['kind'], number> = { done: 2, forging: 0, locked: 3, waiting: 1 };
+	/** Open sources keep their place whether they hold a forge or not, so assigning one never makes it jump. */
+	const RANK: Record<SiteStatus['kind'], number> = { done: 1, forging: 0, idle: 0, locked: 2, waiting: 0 };
 	const REVEAL_LINES_AT = 700;
 	const REVEAL_LINE_STEP = 140;
-	const GOAL_STEPS = ['Sources forge elements', 'Read one with Light', 'Each one boosts the game'];
+	const GOAL_STEPS = ['Start a forge on a source', 'Read one with Light', 'Each one boosts the game'];
 	const BOUNCE: Keyframe[] = [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }];
 
 	/** Elements whose spectrum reveal still plays: identified only once its comets land. */
@@ -110,11 +111,15 @@
 	const sites = $derived(SITE_IDS.map(id => ({ id, site: SITES[id], status: periodicManager.statuses[id] })).toSorted((a, b) => RANK[a.status.kind] - RANK[b.status.kind]));
 	const lockedCount = $derived(sites.filter(({ status }) => status.kind === 'locked').length);
 
-	/** A focus asked by the opener, else a ready element, else the forging one closest to done, else the first open source. */
+	/** A focus asked by the opener, else a ready element, else with no forge placed the first source that can start, else the forging element closest to done. */
 	function opening(): Selection {
+		const asked = realmManager.tableFocus ?? periodicManager.ready[0];
+		if (asked !== undefined) return { kind: 'element', z: asked };
+		const idle = sites.filter(({ status }) => status.kind === 'idle');
+		const first = idle.find(({ status }) => status.kind === 'idle' && !status.missing.length && !status.object) ?? idle[0];
+		if (!periodicManager.active.length && first) return { id: first.id, kind: 'site' };
 		const next = sites.filter(({ status }) => status.kind === 'forging').toSorted((a, b) => periodicManager.etaOf(a.id) - periodicManager.etaOf(b.id))[0];
-		const z = realmManager.tableFocus ?? periodicManager.ready[0] ?? (next && 'z' in next.status ? next.status.z : null);
-		return z === null ? { id: sites.find(({ status }) => status.kind !== 'locked')?.id ?? 'bigbang', kind: 'site' } : { kind: 'element', z };
+		return next && 'z' in next.status ? { kind: 'element', z: next.status.z } : { id: sites.find(({ status }) => status.kind !== 'locked')?.id ?? 'bigbang', kind: 'site' };
 	}
 
 	let selection = $state.raw<Selection>(untrack(opening));
@@ -131,7 +136,7 @@
 		const map = new Map<number, CellLook>();
 		for (const { site, status } of sites) {
 			if (status.kind === 'forging') map.set(status.z, { color: site.color, kind: 'forging', progress: status.progress / ELEMENTS[status.z - 1].need });
-			else if (status.kind === 'waiting') map.set(status.z, { kind: 'waiting' });
+			else if (status.kind === 'waiting' || status.kind === 'idle') map.set(status.z, { kind: 'waiting' });
 		}
 		for (const z of periodicManager.forged) {
 			const kind = reading.has(z) ? 'reading' : periodicManager.identifiedSet.has(z) ? 'identified' : 'ready';
@@ -260,6 +265,21 @@
 		const source = document.querySelector(`[data-forge="${id}"]`);
 		source?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 		source?.animate(BOUNCE, { delay: 300, duration: 400, easing: 'ease-out' });
+	}
+
+	/** Whether a forge can go to this source now: a free one, or the only one there is. */
+	const canAssign = () => periodicManager.freeForges > 0 || periodicManager.forges === 1;
+
+	function assign(id: SiteId) {
+		if (!periodicManager.assign(id)) return;
+		const source = centerOf(`[data-forge="${id}"]`);
+		if (source) particles?.burst(source, [SITES[id].color, '#ffffff'], 18, { speed: 120 });
+		document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
+	}
+
+	function buyForge() {
+		if (!periodicManager.buyForge()) return;
+		toast(`Forge ${periodicManager.forges} built, ${periodicManager.freeForges} free`, CURRENCIES[CurrenciesTypes.STARLIGHT].color);
 	}
 
 	function study(id: SiteId) {
@@ -457,13 +477,13 @@
 {#snippet studyButton(id: SiteId, label?: string)}
 	{@const cost = siteStudyCost(periodicManager.forge(id).level)}
 	<button
-		class="flex min-h-7 items-center gap-1.5 rounded-full bg-accent-600/80 px-3 text-xs font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
+		class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-accent-600/80 px-3 text-center text-xs font-bold whitespace-nowrap transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
 		disabled={starlight < cost}
 		onclick={() => study(id)}
 		title="Study it: {studyGains(id, periodicManager.statuses[id].kind)}"
 		in:revealIn
 	>
-		{#if label}{label}{/if}
+		{#if label}<span class="truncate">{label}</span>{/if}
 		<Currency
 			name={CurrenciesTypes.STARLIGHT}
 			size={14}
@@ -472,32 +492,71 @@
 	</button>
 {/snippet}
 
-{#snippet needs(status: Extract<SiteStatus, { kind: 'waiting' }>)}
+{#snippet assignControl(id: SiteId)}
+	{#if canAssign()}
+		<button
+			class="inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-amber-300 px-4 text-center text-xs font-black whitespace-nowrap text-[#05070f] transition-colors hover:bg-amber-200"
+			data-hint="table-start"
+			onclick={() => assign(id)}
+		>
+			{periodicManager.freeForges === 0 ? 'Move the forge here' : 'Start forging'}
+		</button>
+	{:else}
+		<button
+			class="inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-white/8 px-4 text-center text-xs font-bold whitespace-nowrap text-white/40"
+			disabled
+		>
+			All forges are busy
+		</button>
+		<span class="flex flex-wrap items-center gap-1 text-xs text-white/45">
+			Stop one:
+			{#each periodicManager.active as busy (busy)}
+				<button
+					class="rounded-full bg-white/6 px-2 py-0.5 font-semibold transition-colors hover:bg-white/12"
+					onclick={() => (selection = { id: busy, kind: 'site' })}
+					style:color={SITES[busy].color}
+				>
+					{SITES[busy].short}
+				</button>
+			{/each}
+		</span>
+	{/if}
+{/snippet}
+
+{#snippet needs(status: Pick<Extract<SiteStatus, { kind: 'waiting' }>, 'missing' | 'object'>)}
 	<div class="flex flex-col items-start gap-1.5 text-xs">
 		{#each status.missing as z (z)}
 			{@const from = SITES[FORGED_BY[z]]}
 			<button
-				class="flex items-center gap-1 rounded-full bg-white/6 py-1 pr-2 pl-3 text-left text-amber-200/90 transition-colors hover:bg-white/12"
+				class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center whitespace-nowrap text-amber-200/90 transition-colors hover:bg-white/12"
 				onclick={() => pick(z)}
 			>
-				Needs {ELEMENTS[z - 1].name} from
-				<span style:color={from.color}>{from.short}</span>
-				<ChevronRight size={12} />
+				<span class="truncate">
+					Needs {ELEMENTS[z - 1].name} from
+					<span style:color={from.color}>{from.short}</span>
+				</span>
+				<ChevronRight
+					class="shrink-0"
+					size={12}
+				/>
 			</button>
 		{/each}
 		{#if status.object}
-			{@render cosmosButton(`Discover ${COSMOS_OBJECTS_BY_ID[status.object]?.name ?? 'it'} in the Cosmos`)}
+			{@render cosmosButton(`Discover ${COSMOS_OBJECTS_BY_ID[status.object]?.name ?? 'it'}`)}
 		{/if}
 	</div>
 {/snippet}
 
 {#snippet cosmosButton(label: string)}
 	<button
-		class="flex items-center gap-1 rounded-full bg-white/6 py-1 pr-2 pl-3 text-left text-xs text-[#cfe8ff] transition-colors hover:bg-white/12"
+		class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center text-xs whitespace-nowrap text-[#cfe8ff] transition-colors hover:bg-white/12"
 		onclick={openCosmos}
 	>
-		{label}
-		<ChevronRight size={12} />
+		<span class="truncate">{label}</span>
+		<ChevronRight
+			class="shrink-0"
+			size={12}
+		/>
 	</button>
 {/snippet}
 
@@ -568,6 +627,7 @@
 							'absolute inset-1.5 rounded-full',
 							status.kind === 'forging' && 'breathe',
 							status.kind === 'locked' && 'opacity-25 grayscale',
+							status.kind === 'idle' && 'opacity-50 grayscale-50',
 							status.kind === 'done' && 'opacity-60',
 						]}
 					>
@@ -612,6 +672,7 @@
 				<span
 					class="mt-1 text-xs leading-tight font-bold whitespace-nowrap lg:text-sm"
 					style:color={status.kind === 'locked' ? 'rgb(255 255 255 / 0.4)' : site.color}
+					style:opacity={status.kind === 'idle' ? 0.6 : undefined}
 				>
 					{site.short}
 				</span>
@@ -628,6 +689,8 @@
 							`Needs ${status.missing.map(z => ELEMENTS[z - 1].symbol).join(', ')}`
 						:	`Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
 					</span>
+				{:else if status.kind === 'idle'}
+					<span class="text-[11px] text-white/45 lg:text-xs">Idle</span>
 				{:else if status.kind === 'done'}
 					<span class="text-[11px] text-white/40 lg:text-xs">Complete</span>
 				{:else}
@@ -778,6 +841,11 @@
 			</p>
 		{:else if status.kind === 'waiting'}
 			{@render needs(status)}
+		{:else if status.kind === 'idle'}
+			<p class="text-sm text-white/60">Idle, next is {ELEMENTS[status.z - 1].name}</p>
+			{#if status.missing.length || status.object}
+				{@render needs(status)}
+			{/if}
 		{:else if status.kind === 'done'}
 			<p class="text-sm text-white/45">Complete</p>
 		{:else}
@@ -787,6 +855,18 @@
 			{/if}
 		{/if}
 	</div>
+	{#if status.kind === 'idle'}
+		<div class="mt-3 flex flex-col items-start gap-1.5">
+			{@render assignControl(id)}
+		</div>
+	{:else if status.kind === 'forging' || status.kind === 'waiting'}
+		<button
+			class="mt-3 inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-white/10 px-4 text-center text-xs font-bold whitespace-nowrap transition-colors hover:bg-white/15 self-start"
+			onclick={() => periodicManager.release(id)}
+		>
+			Stop
+		</button>
+	{/if}
 	<div class="mt-3 flex flex-wrap gap-0.5">
 		{#each steps as z (z)}
 			{@const kind = chipKind(z, status)}
@@ -891,7 +971,7 @@
 						{site.glyph} Forged by {site.short} · {Math.floor((fill && fill.status.kind === 'forging' ? fill.status.progress / element.need : 0) * 100)}% ·
 						{eta(periodicManager.etaOf(siteId))}
 					{:else}
-						Can't start yet
+						{periodicManager.statuses[siteId].kind === 'idle' ? 'Its source is idle' : "Can't start yet"}
 					{/if}
 				</p>
 			</div>
@@ -918,9 +998,14 @@
 			</div>
 		{:else if stageKind === 'waiting'}
 			{@const status = periodicManager.statuses[siteId]}
-			{#if status.kind === 'waiting'}
-				<div class={['mt-3 flex', stacked && 'justify-center']}>
-					{@render needs(status)}
+			{#if status.kind === 'waiting' || status.kind === 'idle'}
+				<div class={['mt-3 flex flex-col gap-1.5', stacked ? 'items-center' : 'items-start']}>
+					{#if status.kind === 'idle'}
+						{@render assignControl(siteId)}
+					{/if}
+					{#if status.missing.length || status.object}
+						{@render needs(status)}
+					{/if}
 				</div>
 			{/if}
 		{/if}
@@ -1129,10 +1214,41 @@
 	<!-- Fixed heights so nothing that grows over a run adds a scrollbar. On desktop the card is a right column that hangs from the header, over the sources and the table rows. -->
 	<main class="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-5 lg:px-4 lg:pt-2 lg:pb-4">
 		<div class="shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:col-start-1 lg:px-0 lg:pt-0">
-			<p class="mb-1 flex items-baseline justify-center gap-2 text-[10px] leading-none">
-				<span class="font-bold tracking-[0.3em] text-white/55 uppercase">Sources</span>
-				<span class="text-white/40">where elements are forged</span>
-			</p>
+			<div class="mb-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] leading-none">
+				<p class="flex items-baseline gap-2">
+					<span class="font-bold tracking-[0.3em] text-white/55 uppercase">Sources</span>
+					<span class="text-white/40">where elements are forged</span>
+				</p>
+				<div
+					class="flex items-center gap-1.5"
+					data-hint="table-forge-count"
+					title="A source only advances while it holds a forge"
+				>
+					<span class="font-bold tracking-[0.2em] text-white/55 uppercase">Forges</span>
+					<span class="flex gap-1">
+						{#each { length: periodicManager.forges } as _, i (i)}
+							<span class={['size-2 rounded-full', i < periodicManager.active.length ? 'bg-amber-300' : 'bg-white/20']}></span>
+						{/each}
+					</span>
+					<span class="tabular-nums text-white/55">{periodicManager.active.length}/{periodicManager.forges}</span>
+					{#if periodicManager.nextForgeUnlocked}
+						<button
+							class="flex h-5 items-center gap-1 rounded-full bg-accent-600/80 px-2 font-bold transition-colors enabled:hover:bg-accent-500 disabled:opacity-35"
+							data-hint="table-new-forge"
+							disabled={starlight < periodicManager.forgeCost}
+							onclick={buyForge}
+							in:revealIn
+						>
+							New forge
+							<Currency
+								name={CurrenciesTypes.STARLIGHT}
+								size={12}
+							/>
+							{formatNumber(periodicManager.forgeCost)}
+						</button>
+					{/if}
+				</div>
+			</div>
 			<div class="overflow-x-auto py-1 [scrollbar-width:none]">
 				{@render sky()}
 			</div>

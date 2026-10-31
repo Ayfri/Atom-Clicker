@@ -445,6 +445,19 @@ export class SimulationEngine {
 				}
 			}
 		}
+		// Every forge stays busy: a source that waits on another one gives its forge back, so the source it waits for can take it.
+		if (periodicManager.unlocked) {
+			for (const id of periodicManager.active) if (periodicManager.statuses[id].kind === 'waiting') periodicManager.release(id);
+			if (canAct() && periodicManager.buyForge()) {
+				this.record('periodic', `forge ${periodicManager.forges}`);
+				actionsThisTick++;
+			}
+			for (let site = this.bestForgeSite(); site && periodicManager.freeForges > 0 && canAct(); site = this.bestForgeSite()) {
+				if (!periodicManager.assign(site)) break;
+				this.record('periodic', `forge ${site}`);
+				actionsThisTick++;
+			}
+		}
 		if (canAct() && gameManager.totalIonizesAllTime > 0) {
 			const id = this.cheapestChromaticUpgrade();
 			if (id && chromaticManager.purchaseUpgrade(id)) {
@@ -570,8 +583,21 @@ export class SimulationEngine {
 		return best?.id ?? null;
 	}
 
+	/** The idle source whose next element finishes soonest, leaving out the ones that still wait on an element or a discovery. */
+	private bestForgeSite(): SiteId | null {
+		let best: { eta: number; id: SiteId } | null = null;
+		for (const id of periodicManager.open) {
+			const status = periodicManager.statuses[id];
+			const rate = periodicManager.rateOf(id);
+			if (status.kind !== 'idle' || status.missing.length || status.object || rate <= 0) continue;
+			const eta = (ELEMENTS[status.z - 1].need - status.progress) / rate;
+			if (!best || eta < best.eta) best = { eta, id };
+		}
+		return best?.id ?? null;
+	}
+
 	/**
-	 * The forging site with the longest wait left, when studying it saves more than an hour and leaves the Starlight saved for the next
+	 * The site holding a forge with the longest wait left, when studying it saves more than an hour and leaves the Starlight saved for the next
 	 * discovery. A study level divides the wait by `(level + 2) / (level + 1)`. A decay site also counts while an element waits for Decay
 	 * events, ranked by the hours its study saves on that wait, scaled by `level + 2` to stand on the same scale as a forge `eta`.
 	 */

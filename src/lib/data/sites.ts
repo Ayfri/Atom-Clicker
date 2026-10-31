@@ -184,5 +184,13 @@ export const DECAY_EVENTS_PER_SECOND = 0.5;
 
 export const siteStudyCost = (level: number) => 1e9 * 4 ** level;
 
+/** Identified elements that make the next forge buyable: the first forge is free, the second needs 5 elements, the third 15... */
+export const FORGE_MILESTONES = [5, 15, 35, 70];
+
+export const MAX_FORGES = 1 + FORGE_MILESTONES.length;
+
+/** A forge costs this many seconds of Starlight production when bought. */
+export const FORGE_COST_SECONDS = 1800;
+
 /** Shared Collider injections that synthesize element `z` past 118: 30K for 119, then ×1.5 per element. */
 export const colliderGoal = (z: number) => 30_000 * 1.5 ** (z - 119);
