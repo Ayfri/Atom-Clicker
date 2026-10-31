@@ -111,10 +111,13 @@
 	const sites = $derived(SITE_IDS.map(id => ({ id, site: SITES[id], status: periodicManager.statuses[id] })).toSorted((a, b) => RANK[a.status.kind] - RANK[b.status.kind]));
 	const lockedCount = $derived(sites.filter(({ status }) => status.kind === 'locked').length);
 
+	/** Whether `z` has a cell, the rule of `looks` below, usable before it exists. */
+	const onGrid = (z: number) => periodicManager.forged.has(z) || Object.values(periodicManager.statuses).some(status => 'z' in status && status.z === z);
+
 	/** A focus asked by the opener, else a ready element, else with no forge placed the first source that can start, else the forging element closest to done. */
 	function opening(): Selection {
 		const asked = realmManager.tableFocus ?? periodicManager.ready[0];
-		if (asked !== undefined) return { kind: 'element', z: asked };
+		if (asked !== undefined) return onGrid(asked) ? { kind: 'element', z: asked } : { id: FORGED_BY[asked], kind: 'site' };
 		const idle = sites.filter(({ status }) => status.kind === 'idle');
 		const first = idle.find(({ status }) => status.kind === 'idle' && !status.missing.length && !status.object) ?? idle[0];
 		if (!periodicManager.active.length && first) return { id: first.id, kind: 'site' };
@@ -178,7 +181,7 @@
 	$effect(() => {
 		const focus = realmManager.tableFocus;
 		if (focus === null) return;
-		select(focus);
+		pick(focus);
 		realmManager.tableFocus = null;
 	});
 
@@ -308,6 +311,26 @@
 	function openCosmos() {
 		onClose();
 		realmManager.cosmosOpen = true;
+	}
+
+	let cardShift = $state(0);
+
+	/** Centers the card on the page height, held under the sources band when it is too tall to sit there. */
+	function centerOnPage(wrapper: HTMLElement) {
+		const card = wrapper.firstElementChild as HTMLElement;
+		const place = () => {
+			const room = wrapper.clientHeight - card.offsetHeight;
+			cardShift = Math.max(0, Math.min(room, innerHeight / 2 - wrapper.getBoundingClientRect().top - card.offsetHeight / 2));
+		};
+		const observer = new ResizeObserver(place);
+		observer.observe(wrapper);
+		observer.observe(card);
+		/** The Table slides in from below, a position read mid-slide is off by the slide. */
+		const settled = setTimeout(place, 450);
+		return () => {
+			clearTimeout(settled);
+			observer.disconnect();
+		};
 	}
 
 	/** An element outside the grid (not forged yet) has no card, its source does. */
@@ -627,6 +650,7 @@
 						'relative grid size-16 shrink-0 cursor-pointer place-items-center rounded-full lg:size-20',
 						selection.kind === 'site' && selection.id === id && 'outline-2 outline-offset-1 outline-white/80',
 					]}
+					aria-label={site.name}
 					data-forge={id}
 					data-hint={status.kind === 'waiting' ? 'table-waiting' : undefined}
 					onclick={() => (selection = { id, kind: 'site' })}
@@ -1330,10 +1354,14 @@
 		</section>
 
 		<!-- Bottom sheet on phones so it never covers the selected cell. -->
-		<!-- On desktop the wrapper is the size container the atom scales with, and the card is centered in it. -->
-		<div class="shrink-0 lg:col-start-2 lg:row-start-2 lg:flex lg:min-h-0 lg:flex-col lg:justify-center lg:[container-type:size]">
+		<!-- On desktop the wrapper is the size container the atom scales with, and the card is centered on the page within it. -->
+		<div
+			class="shrink-0 lg:col-start-2 lg:row-start-2 lg:flex lg:min-h-0 lg:flex-col lg:[container-type:size]"
+			{@attach centerOnPage}
+		>
 			<aside
 				class="max-h-[44dvh] shrink-0 overflow-y-auto rounded-t-2xl border-t border-white/10 bg-linear-to-b from-[#0d1226]/95 to-[#070a16]/95 p-4 shadow-2xl lg:max-h-full lg:rounded-2xl lg:border"
+				style:margin-top={mobile.current ? undefined : `${cardShift}px`}
 			>
 				{@render card()}
 			</aside>
