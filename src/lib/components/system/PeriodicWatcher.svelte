@@ -7,7 +7,11 @@
 	import { FlaskRound } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
-	const symbols = (zs: number[]) => zs.map(z => ELEMENTS[z - 1].symbol).join(', ');
+	/** Names the first `max` symbols and counts the rest, so the toast never ends on a bare ellipsis. */
+	function symbols(zs: number[], max: number) {
+		const shown = zs.slice(0, max).map(z => ELEMENTS[z - 1].symbol).join(', ');
+		return zs.length > max ? `${shown} and ${zs.length - max} more` : shown;
+	}
 
 	/** The forged set is rebuilt every second, the count only moves when an element is made. */
 	const forgedCount = $derived(periodicManager.forged.size);
@@ -45,7 +49,7 @@
 				action: () => realmManager.openTable(freshElements[0]),
 				actionLabel: 'Read them',
 				icon: FlaskRound,
-				message: freshElements.length > 4 ? `${symbols(freshElements.slice(0, 4))}…` : symbols(freshElements),
+				message: symbols(freshElements, 4),
 				title: `${freshElements.length} elements are ready to read`,
 			});
 		}
@@ -55,7 +59,7 @@
 				action: () => realmManager.openTable(CHAINS[id].steps[0]),
 				actionLabel: 'See it',
 				icon: FlaskRound,
-				message: `Forges ${symbols(CHAINS[id].steps.slice(0, 3))}…`,
+				message: `Forges ${symbols(CHAINS[id].steps, 3)}`,
 				title: `${SITES[id].name} opened in the Periodic Table`,
 			});
 		}
