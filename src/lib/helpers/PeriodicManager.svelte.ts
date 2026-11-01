@@ -1,5 +1,5 @@
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
-import { CurrenciesTypes } from '#data/currencies.js';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import {
 	decayCost,
 	ELEMENT_COUNT,
@@ -25,6 +25,7 @@ import {
 	FORGE_COST_SECONDS,
 	FORGE_MILESTONES,
 	MAX_FORGES,
+	MAX_UNREAD,
 	SITE_IDS,
 	siteStudyCost,
 	SITES,
@@ -37,10 +38,14 @@ import { mul } from '#helpers/effects.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import type { EffectSource, EffectStat, PeriodicState, SiteForge } from '#lib/types.js';
 
-/** `forging` and `waiting` only describe sources holding a forge, an open source without one is `idle` whatever its next element needs. */
+/**
+ * `forging`, `full` and `waiting` only describe sources holding a forge, an open source without one is `idle` whatever its next element needs.
+ * `full` wins over `waiting` because reading is the step the player can take.
+ */
 export type SiteStatus =
 	| { kind: 'done' | 'locked' }
 	| { kind: 'forging'; progress: number; z: number }
+	| { kind: 'full'; unread: number[]; z: number }
 	| { kind: 'idle'; missing: number[]; object: string | null; progress: number; z: number }
 	| { kind: 'waiting'; missing: number[]; object: string | null; z: number };
 
@@ -50,6 +55,8 @@ const LIGHT_CURRENCIES = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTy
 const LIGHT_COLORS = Object.keys(LIGHT_CURRENCIES) as LightColor[];
 /** The reactor forges faster with its power over the ionization line, up to this many times its base rate. */
 const MAX_REACTOR_FACTOR = 4;
+/** Float sums of per-frame shares land a hair under 1, this much counts as fully paid. `pour` accepts twice as much so a read `canAfford` accepts always completes. */
+const PAID_EPSILON = 1e-9;
 const FAMILY_MEMBERS = Object.fromEntries(FAMILY_IDS.map(family => [family, ELEMENTS.filter(element => element.family === family).map(element => element.z)]));
 
 /** Everything here is kept through every prestige. */
@@ -63,6 +70,8 @@ class PeriodicManager {
 	introSeen = $state(false);
 	/** Counts the saves loaded and the offline catch-ups, so a watcher tells a replaced state from forging that happened. */
 	loads = $state(0);
+	/** Share of each ready element's cost already paid. A share, not amounts, so it stays valid when the Prism tuning changes the cost. */
+	paid = $state.raw<Partial<Record<number, number>>>({});
 	sites = $state.raw<Partial<Record<SiteId, SiteForge>>>({});
 	/** Center in nm of the Prism's tuning window, only read once the Prism Tuning upgrade is bought. */
 	tuning = $state(TUNING_DEFAULT);
@@ -139,6 +148,11 @@ class PeriodicManager {
 		return BASE_RATES[id] * (1 + this.forge(id).level) * reactor;
 	}
 
+	/** `tick` passes the index it is advancing. */
+	unreadOf(id: SiteId, index = this.forge(id).index): number[] {
+		return CHAINS[id].steps.slice(0, index).filter(z => !this.identifiedSet.has(z));
+	}
+
 	etaOf(id: SiteId): number {
 		const status = this.statuses[id];
 		if (status.kind !== 'forging') return Infinity;
@@ -152,9 +166,16 @@ class PeriodicManager {
 		return { decay: decayCost(element), light: lightCost(element, tuning) };
 	}
 
+	/** Whether what is left of the cost is held, the part already paid is not asked again. */
 	canAfford(z: number, tuning?: number | null): boolean {
-		const { decay, light } = this.costOf(z, tuning);
-		return currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS) >= decay && LIGHT_COLORS.every(color => currenciesManager.getAmount(LIGHT_CURRENCIES[color]) >= light[color]);
+		/** Same tolerance as `pour`, which completes the read, so holding exactly the remainder never fails on float dust. */
+		const left = 1 - (this.paid[z] ?? 0) - PAID_EPSILON;
+		return this.#parts(z, tuning).every(([name, cost]) => currenciesManager.getAmount(name) >= cost * left);
+	}
+
+	/** Whether a hold can start: every currency the reading needs has something in it. */
+	canPour(z: number): boolean {
+		return this.forged.has(z) && !this.identifiedSet.has(z) && this.#parts(z).every(([name]) => currenciesManager.getAmount(name) > 0);
 	}
 
 	setTuning(nm: number) {
@@ -162,13 +183,28 @@ class PeriodicManager {
 		this.tuning = Math.min(Math.max(Math.round(nm), TUNING.min), TUNING.max);
 	}
 
+	/** Pays what is left of the reading at once. The `> 0` matters: `canAfford` ignores elements that are not ready. */
 	identify(z: number): boolean {
-		if (!this.unlocked || !this.forged.has(z) || this.identifiedSet.has(z) || !this.canAfford(z)) return false;
-		const { decay, light } = this.costOf(z);
-		for (const color of LIGHT_COLORS) if (light[color] > 0) currenciesManager.remove(LIGHT_CURRENCIES[color], light[color]);
-		currenciesManager.remove(CurrenciesTypes.DECAY_EVENTS, decay);
-		this.identified = [...this.identified, z].sort((a, b) => a - b);
-		return true;
+		if (!this.canAfford(z)) return false;
+		return this.pour(z, 1) > 0 && this.identifiedSet.has(z);
+	}
+
+	/** Pays `fraction` more of every currency of `z` at once, limited by the scarcest one and by what is left, identifies it once fully paid. Returns the share paid. */
+	pour(z: number, fraction: number): number {
+		if (!this.unlocked || !this.forged.has(z) || this.identifiedSet.has(z) || !(fraction > 0)) return 0;
+		const paid = this.paid[z] ?? 0;
+		const parts = this.#parts(z);
+		const share = Math.min(fraction, 1 - paid, ...parts.map(([name, cost]) => currenciesManager.getAmount(name) / cost));
+		if (!(share > 0)) return 0;
+		const done = paid + share >= 1 - 2 * PAID_EPSILON;
+		for (const [name, cost] of parts) currenciesManager.remove(name, cost * (done ? 1 - paid : share));
+		if (done) {
+			const rest = { ...this.paid };
+			delete rest[z];
+			this.paid = rest;
+			this.identified = [...this.identified, z].sort((a, b) => a - b);
+		} else this.paid = { ...this.paid, [z]: paid + share };
+		return share;
 	}
 
 	study(id: SiteId): boolean {
@@ -206,7 +242,8 @@ class PeriodicManager {
 	}
 
 	/**
-	 * Online ticks and offline catch-up both land here, a long gap can finish several elements of a chain. A finished chain frees its forge. Returns the elements forged.
+	 * Online ticks and offline catch-up both land here, a long gap finishes elements until the source holds `MAX_UNREAD` unread ones, then it stops and the rest of the gap is lost.
+	 * A finished chain frees its forge. Returns the elements forged.
 	 * Each source runs on its own clock and passes repeat while one finishes an element, so a step waiting on another source starts when that element is made, whatever the order of `active`.
 	 */
 	tick(deltaMs: number): number[] {
@@ -248,10 +285,13 @@ class PeriodicManager {
 	}
 
 	getState(): PeriodicState {
-		return { active: this.active, forges: this.forges, identified: this.identified, introSeen: this.introSeen, sites: this.sites, tuning: this.tuning };
+		return { active: this.active, forges: this.forges, identified: this.identified, introSeen: this.introSeen, paid: this.paid, sites: this.sites, tuning: this.tuning };
 	}
 
-	/** Drops unknown sites and Z from a tampered or future save, identified elements the chain never forged, and forges on sources that are closed, finished or beyond the forges owned. */
+	/**
+	 * Drops unknown sites and Z from a tampered or future save, identified elements the chain never forged, paid shares that are not a part of a ready element's cost,
+	 * and forges on sources that are closed, finished or beyond the forges owned.
+	 */
 	loadState(state: PeriodicState) {
 		const sites: Partial<Record<SiteId, SiteForge>> = {};
 		for (const id of SITE_IDS) {
@@ -266,6 +306,11 @@ class PeriodicManager {
 		const { tuning } = state;
 		this.tuning = typeof tuning === 'number' && tuning >= TUNING.min && tuning <= TUNING.max ? tuning : TUNING_DEFAULT;
 		this.identified = [...new Set(state.identified ?? [])].filter(z => this.forged.has(z)).sort((a, b) => a - b);
+		this.paid = Object.fromEntries(
+			Object.entries(state.paid ?? {})
+				.map(([z, share]) => [Number(z), share] as const)
+				.filter(([z, share]) => this.forged.has(z) && !this.identifiedSet.has(z) && typeof share === 'number' && share > 0 && share < 1),
+		);
 		this.introSeen = state.introSeen === true;
 		const { active, forges } = state;
 		this.forges = typeof forges === 'number' && Number.isInteger(forges) ? Math.min(Math.max(forges, 1), MAX_FORGES) : 1;
@@ -274,6 +319,13 @@ class PeriodicManager {
 			.filter(id => SITE_IDS.includes(id) && this.meetsGate(id) && this.forge(id).index < CHAINS[id].steps.length)
 			.slice(0, this.forges);
 		this.loads++;
+	}
+
+	/** Currencies a reading spends with their full cost, `undefined` tuning keeps `costOf`'s default. */
+	#parts(z: number, tuning?: number | null): [CurrencyName, number][] {
+		const { decay, light } = this.costOf(z, tuning);
+		const parts: [CurrencyName, number][] = [[CurrenciesTypes.DECAY_EVENTS, decay], ...LIGHT_COLORS.map((color): [CurrencyName, number] => [LIGHT_CURRENCIES[color], light[color]])];
+		return parts.filter(([, cost]) => cost > 0);
 	}
 
 	private isOpen(id: SiteId): boolean {
@@ -298,6 +350,8 @@ class PeriodicManager {
 		const object = seed?.object && !cosmosManager.discovered.includes(seed.object) ? seed.object : null;
 		const progress = index === this.forge(id).index ? this.forge(id).progress : 0;
 		if (!this.activeSet.has(id)) return { kind: 'idle', missing, object, progress, z };
+		const unread = this.unreadOf(id, index);
+		if (unread.length >= MAX_UNREAD) return { kind: 'full', unread, z };
 		if (missing.length || object) return { kind: 'waiting', missing, object, z };
 		return { kind: 'forging', progress, z };
 	}

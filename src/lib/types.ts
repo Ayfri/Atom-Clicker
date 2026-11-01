@@ -155,6 +155,8 @@ export interface PeriodicState {
 	identified: number[];
 	/** Whether the player has seen the Periodic Table's introduction, missing in saves from before it. */
 	introSeen?: boolean;
+	/** Share from 0 to 1 of each forged, unread element's reading cost already paid, missing in saves from before it. */
+	paid?: Partial<Record<number, number>>;
 	sites: Partial<Record<SiteId, SiteForge>>;
 	/** Center in nm of the Prism's tuning window over the spectrum, missing in saves from before it. */
 	tuning?: number;

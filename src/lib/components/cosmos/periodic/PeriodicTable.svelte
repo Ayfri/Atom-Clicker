@@ -33,7 +33,7 @@
 	import { GENERATORS } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
-	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
+	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, MAX_UNREAD, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 	import { particlesEnabled, pixelRatio } from '#helpers/CanvasLoop.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -87,7 +87,7 @@
 	const GRID = new Map(ELEMENTS.map(({ column, row, z }) => [`${row},${column}`, z]));
 	const RAINBOW = 'linear-gradient(90deg, transparent, #ff4d5e, #ffd76b, #2ee6a0, #4d8dff, #b98aff, transparent)';
 	/** Open sources keep their place whether they hold a forge or not, so assigning one never makes it jump. */
-	const RANK: Record<SiteStatus['kind'], number> = { done: 1, forging: 0, idle: 0, locked: 2, waiting: 0 };
+	const RANK: Record<SiteStatus['kind'], number> = { done: 1, forging: 0, full: 0, idle: 0, locked: 2, waiting: 0 };
 	const REVEAL_LINES_AT = 700;
 	const REVEAL_LINE_STEP = 140;
 	const GOAL_STEPS = ['Start a forge on a source', 'Read one with Light', 'Each one boosts the game'];
@@ -137,7 +137,7 @@
 		const map = new Map<number, CellLook>();
 		for (const { site, status } of sites) {
 			if (status.kind === 'forging') map.set(status.z, { color: site.color, kind: 'forging', progress: status.progress / ELEMENTS[status.z - 1].need });
-			else if (status.kind === 'waiting' || status.kind === 'idle') map.set(status.z, { kind: 'waiting' });
+			else if (status.kind === 'full' || status.kind === 'idle' || status.kind === 'waiting') map.set(status.z, { kind: 'waiting' });
 		}
 		for (const z of periodicManager.forged) {
 			const kind = reading.has(z) ? 'reading' : periodicManager.identifiedSet.has(z) ? 'identified' : 'ready';
@@ -297,7 +297,7 @@
 	}
 
 	/** The Starlight button only exists once something is forged, and for a source that forges or pays Decay events. */
-	const canStudy = (id: SiteId, kind: SiteStatus['kind']) => hasForged && (kind === 'forging' || (kind !== 'locked' && DECAY_SITES.includes(id)));
+	const canStudy = (id: SiteId, kind: SiteStatus['kind']) => hasForged && (kind === 'forging' || kind === 'full' || (kind !== 'locked' && DECAY_SITES.includes(id)));
 
 	function openCosmos() {
 		onClose();
@@ -343,6 +343,12 @@
 		return `~${Math.round(seconds / 86_400)}d`;
 	}
 
+	/** A save forged past the cap before it existed holds more unread elements than the cap, and needs several reads. */
+	function fullText(unread: number[]): string {
+		if (unread.length === MAX_UNREAD) return `Read ${unread.map(z => ELEMENTS[z - 1].name).join(' or ')} to keep forging`;
+		return `Read ${unread.length - MAX_UNREAD + 1} of its elements to keep forging`;
+	}
+
 	/** Lamp rates are tiny per element: two decimals would round most of them to 0. */
 	const rateText = (rate: number) => (rate >= 0.01 ? formatNumber(rate) : rate.toPrecision(2));
 
@@ -361,8 +367,14 @@
 		if (from) particles?.comet(from, to, LIGHT_HEX[color], -40);
 	}
 
-	function identify(target: Element) {
-		if (!periodicManager.identify(target.z)) return;
+	/** Pays up to `fraction` more of the reading cost and starts the reveal once the element is fully paid. Returns the share paid. */
+	function pour(target: Element, fraction: number): number {
+		const share = periodicManager.pour(target.z, fraction);
+		if (share > 0 && periodicManager.identifiedSet.has(target.z)) read(target);
+		return share;
+	}
+
+	function read(target: Element) {
 		reading.add(target.z);
 		const id = ++revealId;
 		reveal = { element: target, id };
@@ -460,31 +472,33 @@
 {/snippet}
 
 {#snippet lightPill(name: CurrencyName, amount: number, need: number, small = false)}
+	{@const shown = Math.ceil(need - 1e-6)}
 	<span
 		class={[
 			'flex items-center rounded-full font-semibold tabular-nums',
 			small ? 'gap-1 px-2 py-0.5 text-xs' : 'gap-1.5 px-2.5 py-1 text-sm',
-			amount >= need ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300',
+			amount >= shown ? 'bg-white/10 text-white' : 'bg-red-500/15 text-red-300',
 		]}
 	>
 		<Currency
 			{name}
 			size={small ? 13 : 16}
 		/>
-		{formatNumber(need)}
+		{formatNumber(shown)}
 	</span>
 {/snippet}
 
 {#snippet costPills(small: boolean)}
 	{@const cost = periodicManager.costOf(element.z).light}
 	{@const decayNeed = decayCost(element)}
+	{@const left = 1 - (periodicManager.paid[element.z] ?? 0)}
 	{#each LIGHTS as [color, name] (color)}
 		{#if cost[color] > 0}
-			{@render lightPill(name, lights[color], cost[color], small)}
+			{@render lightPill(name, lights[color], cost[color] * left, small)}
 		{/if}
 	{/each}
 	{#if decayNeed > 0}
-		{@render lightPill(CurrenciesTypes.DECAY_EVENTS, decayEvents, decayNeed, small)}
+		{@render lightPill(CurrenciesTypes.DECAY_EVENTS, decayEvents, decayNeed * left, small)}
 	{/if}
 {/snippet}
 
@@ -570,6 +584,23 @@
 	</div>
 {/snippet}
 
+{#snippet unreadButtons(unread: number[])}
+	<div class="flex flex-col items-start gap-1.5 text-xs">
+		{#each unread.slice(0, 3) as z (z)}
+			<button
+				class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center whitespace-nowrap text-amber-200/90 transition-colors hover:bg-white/12"
+				onclick={() => select(z)}
+			>
+				<span class="truncate">Read {ELEMENTS[z - 1].name}</span>
+				<ChevronRight
+					class="shrink-0"
+					size={12}
+				/>
+			</button>
+		{/each}
+	</div>
+{/snippet}
+
 {#snippet cosmosButton(label: string)}
 	<button
 		class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center text-xs whitespace-nowrap text-[#cfe8ff] transition-colors hover:bg-white/12"
@@ -643,7 +674,7 @@
 					]}
 					aria-label={site.name}
 					data-forge={id}
-					data-hint={status.kind === 'waiting' ? 'table-waiting' : undefined}
+					data-hint={status.kind === 'waiting' ? 'table-waiting' : status.kind === 'full' ? 'table-full' : undefined}
 					onclick={() => (selection = { id, kind: 'site' })}
 					title={status.kind === 'locked' ? site.gate : site.name}
 				>
@@ -672,7 +703,7 @@
 								></canvas>
 							</span>
 						{/if}
-					{:else if status.kind === 'waiting'}
+					{:else if status.kind === 'full' || status.kind === 'waiting'}
 						<svg
 							class="absolute inset-0"
 							viewBox="0 0 64 64"
@@ -723,8 +754,25 @@
 						>
 							{need}
 						</span>
+					{:else if status.kind === 'full'}
+						<span
+							class="block truncate text-[11px] leading-4 text-amber-200/80 lg:text-xs"
+							title={fullText(status.unread)}
+						>
+							Full · {status.unread.slice(0, 3).map(z => ELEMENTS[z - 1].symbol).join(' ')}
+						</span>
 					{:else if status.kind === 'idle'}
-						<span class="block truncate text-[11px] leading-4 text-white/45 lg:text-xs">Idle</span>
+						{@const unread = periodicManager.unreadOf(id)}
+						{#if unread.length >= MAX_UNREAD}
+							<span
+								class="block truncate text-[11px] leading-4 text-amber-200/80 lg:text-xs"
+								title={fullText(unread)}
+							>
+								Full
+							</span>
+						{:else}
+							<span class="block truncate text-[11px] leading-4 text-white/45 lg:text-xs">Idle</span>
+						{/if}
 					{:else if status.kind === 'done'}
 						<span class="block truncate text-[11px] leading-4 text-white/40 lg:text-xs">Complete</span>
 					{:else}
@@ -859,10 +907,18 @@
 			>
 				{site.glyph} Forging {ELEMENTS[status.z - 1].name} · {Math.floor((status.progress / ELEMENTS[status.z - 1].need) * 100)}% · {eta(periodicManager.etaOf(id))}
 			</p>
+		{:else if status.kind === 'full'}
+			<p class="text-sm text-amber-200/90">{fullText(status.unread)}</p>
+			{@render unreadButtons(status.unread)}
 		{:else if status.kind === 'waiting'}
 			{@render needs(status)}
 		{:else if status.kind === 'idle'}
+			{@const unread = periodicManager.unreadOf(id)}
 			<p class="text-sm text-white/60">Idle, next is {ELEMENTS[status.z - 1].name}</p>
+			{#if unread.length >= MAX_UNREAD}
+				<p class="text-sm text-amber-200/90">Full: {fullText(unread)}</p>
+				{@render unreadButtons(unread)}
+			{/if}
 			{#if status.missing.length || status.object}
 				{@render needs(status)}
 			{/if}
@@ -879,7 +935,7 @@
 		<div class="mt-3 flex flex-col items-start gap-1.5">
 			{@render assignControl(id)}
 		</div>
-	{:else if status.kind === 'forging' || status.kind === 'waiting'}
+	{:else if status.kind === 'forging' || status.kind === 'full' || status.kind === 'waiting'}
 		<button
 			class="mt-3 inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-white/10 px-4 text-center text-xs font-bold whitespace-nowrap transition-colors hover:bg-white/15 self-start"
 			onclick={() => periodicManager.release(id)}
@@ -940,7 +996,8 @@
 	{@const site = SITES[siteId]}
 	{@const lore = LORE[element.symbol]}
 	{@const fill = forgingOf(element.z)}
-	{@const affordable = periodicManager.canAfford(element.z)}
+	{@const paid = periodicManager.paid[element.z] ?? 0}
+	{@const payable = periodicManager.canPour(element.z)}
 	{@const stat = elementStat(element)}
 	{#if stageKind}
 		<div class={['flex items-center gap-4', stacked && 'flex-col gap-2 text-center']}>
@@ -950,12 +1007,13 @@
 			>
 				<AtomStage
 					class={stacked ? 'size-[clamp(6rem,calc(100cqh-400px),13rem)]' : 'size-28 lg:size-[clamp(6rem,calc(100cqh-320px),8rem)]'}
-					{affordable}
 					color={info.color}
 					kind={stageKind}
 					onfeed={center => feed(element, center)}
-					onidentify={() => identify(element)}
+					onpour={fraction => pour(element, fraction)}
 					onrefuse={() => toast(decayNeed > 0 ? 'Not enough Decay events yet' : 'Not enough Light to read it yet', '#ff8a8a')}
+					{paid}
+					{payable}
 					progress={fill && fill.status.kind === 'forging' ? fill.status.progress / element.need : 0}
 					siteColor={site.color}
 					z={element.z}
@@ -975,7 +1033,7 @@
 				<p
 					class={[
 						'mt-1 text-sm font-bold',
-						stageKind === 'ready' && (affordable ? 'text-white' : 'text-red-300'),
+						stageKind === 'ready' && (payable ? 'text-white' : 'text-red-300'),
 						stageKind === 'reading' && 'text-white/70',
 						stageKind === 'waiting' && 'text-amber-200/80',
 					]}
@@ -986,12 +1044,16 @@
 					{:else if stageKind === 'reading'}
 						Reading its light…
 					{:else if stageKind === 'ready'}
-						{affordable ? 'Hold the atom to read its light' : decayNeed > 0 ? 'Not enough Decay events yet' : 'Not enough Light yet'}
+						{payable ? 'Hold the atom to read its light' : decayNeed > 0 ? 'Not enough Decay events yet' : 'Not enough Light yet'}
+						{#if paid > 0}
+							<span class="font-normal text-white/50">· {Math.floor(paid * 100)}% read</span>
+						{/if}
 					{:else if stageKind === 'forging'}
 						{site.glyph} Forged by {site.short} · {Math.floor((fill && fill.status.kind === 'forging' ? fill.status.progress / element.need : 0) * 100)}% ·
 						{eta(periodicManager.etaOf(siteId))}
 					{:else}
-						{periodicManager.statuses[siteId].kind === 'idle' ? 'Its source is idle' : "Can't start yet"}
+						{@const sourceKind = periodicManager.statuses[siteId].kind}
+						{sourceKind === 'idle' ? 'Its source is idle' : sourceKind === 'full' ? 'Its source is full' : "Can't start yet"}
 					{/if}
 				</p>
 			</div>
@@ -1018,7 +1080,12 @@
 			</div>
 		{:else if stageKind === 'waiting'}
 			{@const status = periodicManager.statuses[siteId]}
-			{#if status.kind === 'waiting' || status.kind === 'idle'}
+			{#if status.kind === 'full'}
+				<div class={['mt-3 flex flex-col gap-1.5', stacked ? 'items-center' : 'items-start']}>
+					<p class="text-xs text-amber-200/90">{fullText(status.unread)}</p>
+					{@render unreadButtons(status.unread)}
+				</div>
+			{:else if status.kind === 'waiting' || status.kind === 'idle'}
 				<div class={['mt-3 flex flex-col gap-1.5', stacked ? 'items-center' : 'items-start']}>
 					{#if status.kind === 'idle'}
 						{@render assignControl(siteId)}

@@ -189,6 +189,9 @@ export const FORGE_MILESTONES = [5, 15, 35, 70];
 
 export const MAX_FORGES = 1 + FORGE_MILESTONES.length;
 
+/** A source holding a forge stops while this many of the elements it forged are unread, so time away never forges far ahead of reading. */
+export const MAX_UNREAD = 2;
+
 /** A forge costs this many seconds of Starlight production when bought. */
 export const FORGE_COST_SECONDS = 1800;
 

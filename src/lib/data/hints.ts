@@ -6,6 +6,7 @@ import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
+import { MAX_UNREAD } from '#data/sites.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
@@ -365,7 +366,7 @@ export const HINTS: Hint[] = [
 		round: true,
 		show: () => periodicManager.ready.length > 0,
 		targets: ['[data-hint="table-stage"]'],
-		text: "Helium was read in the Sun's light before anyone found it on Earth. Hold a forged atom to pour Light in and read it.",
+		text: "Helium was read in the Sun's light before anyone found it on Earth. Hold a forged atom to pour Light in and read it, what is poured stays when you let go.",
 		title: 'Read the light',
 	},
 	{
@@ -386,6 +387,15 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-waiting"]'],
 		text: 'This source needs an element another source makes first. It resumes on its own.',
 		title: 'Waiting on another source',
+	},
+	{
+		id: 'table:full',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => Object.values(periodicManager.statuses).some(status => status.kind === 'full'),
+		targets: ['[data-hint="table-full"]'],
+		text: `A source stops forging while it holds ${MAX_UNREAD} unread elements. Read them and it forges again on its own.`,
+		title: 'Source full',
 	},
 	{
 		done: () => periodicManager.identified.length >= 5,

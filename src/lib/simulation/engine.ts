@@ -8,7 +8,7 @@ import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { RealmTypes } from '#data/realms.js';
-import { DECAY_EVENTS_PER_SECOND, DECAY_SITES, siteStudyCost, type SiteId } from '#data/sites.js';
+import { DECAY_EVENTS_PER_SECOND, DECAY_SITES, MAX_UNREAD, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
@@ -445,7 +445,10 @@ export class SimulationEngine {
 				}
 			}
 		}
-		/** Every forge stays busy: a source that waits on another one gives its forge back, so the source it waits for can take it. */
+		/**
+		 * Every forge stays busy: a source that waits on another one gives its forge back, so the source it waits for can take it.
+		 * A full source keeps its forge, the bot reads first in this same pass and moving the forge would only fill another source while Light is short.
+		 */
 		if (periodicManager.unlocked) {
 			for (const id of periodicManager.active) {
 				if (!canAct()) break;
@@ -589,13 +592,13 @@ export class SimulationEngine {
 		return best?.id ?? null;
 	}
 
-	/** The idle source whose next element finishes soonest, leaving out the ones that still wait on an element or a discovery. */
+	/** The idle source whose next element finishes soonest, leaving out the ones that still wait on an element or a discovery, or hold too many unread elements. */
 	private bestForgeSite(): SiteId | null {
 		let best: { eta: number; id: SiteId } | null = null;
 		for (const id of periodicManager.open) {
 			const status = periodicManager.statuses[id];
 			const rate = periodicManager.rateOf(id);
-			if (status.kind !== 'idle' || status.missing.length || status.object || rate <= 0) continue;
+			if (status.kind !== 'idle' || status.missing.length || status.object || rate <= 0 || periodicManager.unreadOf(id).length >= MAX_UNREAD) continue;
 			const eta = (ELEMENTS[status.z - 1].need - status.progress) / rate;
 			if (!best || eta < best.eta) best = { eta, id };
 		}

@@ -132,13 +132,15 @@ test('the Starlight boost multiplies the Starlight paid while away', () => {
 	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.STARLIGHT]).toBeCloseTo(rate * 2 * 3600);
 });
 
-test('the summary lists the elements forged while away, in the order they finished', () => {
+test('the summary lists the elements forged while away, and a source stops at the unread cap however fast it forges', () => {
 	gameManager.totalIonizesAllTime = 1;
 	cosmosManager.instruments = [SPECTROSCOPE_ID];
-	gameManager.periodic = { active: ['bigbang'], identified: [], sites: {} };
+	cosmosManager.discovered = ['cmb'];
+	gameManager.periodic = { active: ['bigbang'], identified: [], sites: { bigbang: { index: 0, level: 999, progress: 0 } } };
 
 	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
 	expect(gameManager.offlineProgressSummary?.forged).toEqual(zs('H He'));
+	expect(periodicManager.statuses.bigbang).toEqual({ kind: 'full', unread: zs('H He'), z: zs('Li')[0] });
 });
 
 test('offline purchases stay out of the daily quest counters', () => {

@@ -13,11 +13,11 @@ import { periodicManager, TUNING_DEFAULT } from '#helpers/PeriodicManager.svelte
 const DAY_MS = 86_400_000;
 const xp = () => gameManager.effects.value('xp_gain', 1, gameManager);
 
-function payLight(z: number) {
+function payLight(z: number, share = 1) {
 	const cost = lightCost(ELEMENTS[z - 1]);
-	currenciesManager.add(CurrenciesTypes.RED_LIGHT, cost.red);
-	currenciesManager.add(CurrenciesTypes.GREEN_LIGHT, cost.green);
-	currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, cost.blue);
+	currenciesManager.add(CurrenciesTypes.RED_LIGHT, cost.red * share);
+	currenciesManager.add(CurrenciesTypes.GREEN_LIGHT, cost.green * share);
+	currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, cost.blue * share);
 }
 
 beforeEach(() => {
@@ -42,13 +42,16 @@ describe('table', () => {
 		cosmosManager.instruments = [SPECTROSCOPE_ID];
 	});
 
-	test('forges each chain in order, a long gap finishes several elements, and a step waits on its seed', () => {
+	test('forges each chain in order up to the unread cap, and a step waits on its seed once there is room', () => {
 		cosmosManager.discovered = ['mira'];
 		periodicManager.forges = 2;
 		periodicManager.assign('bigbang');
 		periodicManager.assign('lowmass');
 		expect(periodicManager.statuses.lowmass).toEqual({ kind: 'waiting', missing: zs('He'), object: null, z: 6 });
 		expect(periodicManager.tick(DAY_MS)).toEqual(zs('H He C N'));
+		expect(periodicManager.statuses.bigbang).toEqual({ kind: 'full', unread: zs('H He'), z: 3 });
+		payLight(1);
+		expect(periodicManager.identify(1)).toBe(true);
 		expect(periodicManager.statuses.bigbang).toEqual({ kind: 'waiting', missing: [], object: 'cmb', z: 3 });
 		cosmosManager.discovered = ['mira', 'cmb'];
 		expect(periodicManager.statuses.bigbang.kind).toBe('forging');
@@ -413,6 +416,136 @@ describe('table', () => {
 			expect(periodicManager.unlocked).toBe(false);
 			expect(load({ active: ['bigbang'], forges: 1 }).active).toEqual(['bigbang']);
 			expect(JSON.parse(JSON.stringify(periodicManager.getState()))).toMatchObject({ active: ['bigbang'], forges: 1 });
+		});
+	});
+
+	describe('unread cap', () => {
+		const forging = (massive: { index: number; level: number }) => {
+			cosmosManager.discovered = ['crab_nebula'];
+			gameManager.periodic = { identified: [], sites: { bigbang: { index: 2, level: 0, progress: 0 }, massive: { ...massive, progress: 0 } } };
+		};
+
+		test('a source stops at the cap however long the gap, keeps its forge and resumes after a read without banking time', () => {
+			forging({ index: 0, level: 9 });
+			periodicManager.assign('massive');
+			const [o, f, ne] = zs('O F Ne');
+
+			expect(periodicManager.tick(30 * DAY_MS)).toEqual([o, f]);
+			expect(periodicManager.statuses.massive).toEqual({ kind: 'full', unread: [o, f], z: ne });
+			expect(periodicManager.active).toEqual(['massive']);
+			expect(periodicManager.forge('massive').progress).toBe(0);
+			expect(periodicManager.etaOf('massive')).toBe(Infinity);
+			expect(periodicManager.tick(DAY_MS)).toEqual([]);
+
+			payLight(o);
+			expect(periodicManager.identify(o)).toBe(true);
+			expect(periodicManager.statuses.massive.kind).toBe('forging');
+			expect(periodicManager.tick(1000)).toEqual([]);
+			expect(periodicManager.forge('massive').progress).toBeCloseTo(periodicManager.rateOf('massive'), 6);
+		});
+
+		test('a source without a forge stays idle over the cap, and a save forged past the cap needs several reads', () => {
+			forging({ index: 5, level: 0 });
+			expect(periodicManager.statuses.massive.kind).toBe('idle');
+			periodicManager.assign('massive');
+			expect(periodicManager.statuses.massive.kind).toBe('full');
+
+			for (const z of zs('O F Ne Na')) {
+				expect(periodicManager.statuses.massive.kind).toBe('full');
+				payLight(z);
+				expect(periodicManager.identify(z)).toBe(true);
+			}
+			expect(periodicManager.statuses.massive.kind).toBe('forging');
+		});
+	});
+
+	describe('reading', () => {
+		const [h, he] = zs('H He');
+		const [md] = zs('Md');
+		const lights = [CurrenciesTypes.BLUE_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.RED_LIGHT];
+		const held = () => lights.map(light => currenciesManager.getAmount(light));
+
+		beforeEach(() => {
+			gameManager.periodic = { identified: [], sites: { bigbang: { index: 2, level: 0, progress: 0 } } };
+		});
+
+		test('a pour keeps what it paid, stops at what is held, and identify only pays the remainder', () => {
+			payLight(h, 0.5);
+			expect(periodicManager.canPour(h)).toBe(true);
+			expect(periodicManager.pour(h, 1)).toBe(0.5);
+			expect(periodicManager.paid[h]).toBe(0.5);
+			expect(held()).toEqual([0, 0, 0]);
+			expect(periodicManager.identifiedSet.has(h)).toBe(false);
+			expect(periodicManager.canPour(h)).toBe(false);
+			expect(periodicManager.pour(h, 1)).toBe(0);
+
+			const { blue, red } = lightCost(ELEMENTS[h - 1]);
+			currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, blue / 2 - 1);
+			currenciesManager.add(CurrenciesTypes.RED_LIGHT, red / 2);
+			expect(periodicManager.identify(h)).toBe(false);
+			currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, 1);
+			expect(periodicManager.identify(h)).toBe(true);
+			expect(held()).toEqual([0, 0, 0]);
+			expect(periodicManager.paid[h]).toBeUndefined();
+		});
+
+		test('the scarcest currency sets the share, and a pour never goes past what is left', () => {
+			const { blue, red } = lightCost(ELEMENTS[h - 1]);
+			currenciesManager.add(CurrenciesTypes.RED_LIGHT, red);
+			currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, blue / 2);
+			expect(periodicManager.pour(h, 1)).toBe(0.5);
+			expect(currenciesManager.getAmount(CurrenciesTypes.RED_LIGHT)).toBe(red / 2);
+
+			payLight(h);
+			expect(periodicManager.pour(h, 1)).toBe(0.5);
+			expect(periodicManager.identifiedSet.has(h)).toBe(true);
+			expect(currenciesManager.getAmount(CurrenciesTypes.BLUE_LIGHT)).toBe(blue / 2);
+			expect(periodicManager.paid[h]).toBeUndefined();
+		});
+
+		test('a partial Decay pour is completed by exactly the remainder, whatever the float rounding', () => {
+			gameManager.periodic = { identified: [], sites: { accelerator: { index: 1, level: 0, progress: 0 } } };
+			const cost = decayCost(ELEMENTS[md - 1]);
+			currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, 1000);
+			expect(periodicManager.pour(md, 1)).toBeCloseTo(1000 / cost, 12);
+			expect(periodicManager.identifiedSet.has(md)).toBe(false);
+			currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, cost - 1000);
+			expect(periodicManager.identify(md)).toBe(true);
+			expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(0, 6);
+		});
+
+		test('a pour on an element that is not ready, or of nothing, spends nothing', () => {
+			payLight(h);
+			payLight(he);
+			const before = held();
+			expect(periodicManager.pour(3, 1)).toBe(0);
+			expect(periodicManager.pour(h, 0)).toBe(0);
+			expect(periodicManager.pour(h, -1)).toBe(0);
+			expect(periodicManager.pour(h, Number.NaN)).toBe(0);
+			expect(periodicManager.identify(3)).toBe(false);
+			expect(held()).toEqual(before);
+
+			periodicManager.identified = [he];
+			expect(periodicManager.pour(he, 1)).toBe(0);
+			expect(periodicManager.identify(he)).toBe(false);
+			expect(held()).toEqual(before);
+		});
+
+		test('the paid shares survive a save, and a save only keeps a share of a ready element', () => {
+			payLight(h, 0.5);
+			periodicManager.pour(h, 1);
+			gameManager.periodic = JSON.parse(JSON.stringify(periodicManager.getState()));
+			expect(periodicManager.paid).toEqual({ [h]: 0.5 });
+
+			const load = (paid: unknown) => {
+				gameManager.periodic = { identified: [he], paid, sites: { bigbang: { index: 2, level: 0, progress: 0 } } } as never;
+				return periodicManager.paid;
+			};
+			expect(load({ [h]: 0.4 })).toEqual({ [h]: 0.4 });
+			for (const share of [0, 1, 1.5, -0.2, Number.NaN, 'x', null]) expect(load({ [h]: share })).toEqual({});
+			expect(load({ [he]: 0.5, 3: 0.5, 999: 0.5, x: 0.5 })).toEqual({});
+			expect(load(undefined)).toEqual({});
+			expect(load([0.5])).toEqual({});
 		});
 	});
 });
