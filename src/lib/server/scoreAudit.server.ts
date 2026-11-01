@@ -1,10 +1,13 @@
 import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
 import { colliderBonus } from '#data/collider.js';
-import { CurrenciesTypes } from '#data/currencies.js';
+import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
 import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
+import { FORGE_MILESTONES, SITE_IDS, siteStudyCost } from '#data/sites.js';
 import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
 import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -48,14 +51,19 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	achievements: 'Duplicate achievements',
 	boosts: 'Currency boosts out of range',
 	chromaticUpgrades: 'Chromatic upgrade levels out of range',
+	cosmos: 'Cosmos discoveries, instruments or study levels duplicated or out of range',
 	counters: 'Counters not whole numbers',
 	dates: 'Dates in the future',
+	decay: 'Decay events the identified elements cost vs Decay events earned',
 	keptGenerators: 'Kept generators out of range',
+	light: 'Light the identified elements cost vs Light earned',
+	periodic: 'Periodic Table elements, forges or source studies out of range',
 	photonUpgrades: 'Photon upgrade levels out of range',
 	radiation: 'Control rod level out of range',
 	radiationUpgrades: 'Radiation upgrade levels out of range',
 	runStart: 'Run start date out of range',
 	skills: 'Duplicate skills',
+	starlight: 'Starlight the studies cost vs Starlight earned',
 	stats: 'Stats negative or not finite',
 	upgrades: 'Duplicate upgrades',
 };
@@ -113,7 +121,63 @@ export interface ScoreAudit {
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const isCount = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const isAmount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
-const isUnique = (ids: string[]) => new Set(ids).size === ids.length;
+const isUnique = (ids: readonly unknown[]) => new Set(ids).size === ids.length;
+
+const LIGHTS: Record<LightColor, CurrencyName> = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT };
+
+/** Sum of `price(level)` for the levels 0 to `count - 1`, stopped once it passes `budget` so a tampered level can't spin the loop: prices grow geometrically. */
+function priced(price: (level: number) => number, count: number, budget: number): number {
+	let sum = 0;
+	for (let level = 0; level < count && sum <= budget; level++) sum += price(level);
+	return sum;
+}
+
+/**
+ * `measure` loads the Cosmos and the Periodic Table with their boosts into the bound that atoms are checked against, so what they own must fit what the player earned.
+ * Always lower bounds of what was spent, so an honest state passes: the forge price follows Starlight income at purchase and is left out, the Light uses the cheapest Prism tuning.
+ */
+function discoveryIssues(state: GameState): string[] {
+	const issues: string[] = [];
+	const check = (ok: boolean, issue: string) => {
+		if (!ok) issues.push(issue);
+	};
+	const { discovered, instruments, studies } = state.cosmos;
+	const { forges, identified, sites } = state.periodic;
+	check(
+		Array.isArray(discovered) && Array.isArray(instruments) && isUnique(discovered) && isUnique(instruments) && isObject(studies) && Object.values(studies).every(isCount),
+		'cosmos',
+	);
+	check(
+		Array.isArray(identified) &&
+			isUnique(identified) &&
+			isObject(sites) &&
+			Object.values(sites).every(site => isCount(site?.level ?? 0)) &&
+			isCount(forges ?? 1) &&
+			(forges ?? 1) <= 1 + FORGE_MILESTONES.filter(milestone => identified.length >= milestone).length,
+		'periodic',
+	);
+	if (issues.length > 0) return issues;
+
+	const earned = (currency: CurrencyName) => (state.currencies[currency]?.earnedAllTime ?? 0) * (1 + 1e-9) + 1;
+	const starlightLimit = earned(CurrenciesTypes.STARLIGHT);
+	let starlight = 0;
+	for (const [id, level] of Object.entries(studies)) {
+		const object = COSMOS_OBJECTS_BY_ID[id];
+		if (object) starlight += priced(next => studyCost(object, next), level, starlightLimit - starlight);
+	}
+	for (const id of SITE_IDS) starlight += priced(siteStudyCost, sites[id]?.level ?? 0, starlightLimit - starlight);
+	check(starlight <= starlightLimit, 'starlight');
+
+	const read = identified.flatMap(z => ELEMENTS[z - 1] ?? []);
+	check(read.reduce((sum, element) => sum + decayCost(element), 0) <= earned(CurrenciesTypes.DECAY_EVENTS), 'decay');
+	check(
+		(Object.entries(LIGHTS) as [LightColor, CurrencyName][]).every(
+			([color, currency]) => read.reduce((sum, element) => sum + lightCost(element)[color] * TUNING.factorIn, 0) <= earned(currency),
+		),
+		'light',
+	);
+	return issues;
+}
 
 function structureIssues(state: GameState, now: number): string[] {
 	const issues: string[] = [];
@@ -161,6 +225,7 @@ function structureIssues(state: GameState, now: number): string[] {
 	const latest = now + DATE_TOLERANCE_MS;
 	check(state.startDate <= latest && state.lastSave <= latest, 'dates');
 	check(state.runStartedAt === 0 || (state.runStartedAt >= state.startDate - DATE_TOLERANCE_MS && state.runStartedAt <= latest), 'runStart');
+	issues.push(...discoveryIssues(state));
 	return issues;
 }
 

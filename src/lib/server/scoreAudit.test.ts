@@ -1,6 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { CurrenciesTypes } from '#data/currencies.js';
+import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
+import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+import { FORGE_MILESTONES, siteStudyCost } from '#data/sites.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
@@ -124,6 +127,82 @@ describe('edited states', () => {
 		const missing = structuredClone(lateRun());
 		delete (missing.state as Partial<GameState>).generators;
 		expect(audit(missing).issues).toEqual(['malformed:generators']);
+	});
+
+	describe('Cosmos and Periodic Table', () => {
+		const earn = (state: GameState, currency: CurrencyName, amount: number) => {
+			state.currencies[currency] = { amount: 0, earnedAllTime: amount, earnedRun: amount };
+		};
+		const edited = (edit: (state: GameState) => void) => {
+			const entry = structuredClone(lateRun());
+			edit(entry.state);
+			return audit(entry).issues;
+		};
+		const jupiter = COSMOS_OBJECTS_BY_ID.jupiter;
+		const firstTwoStudies = studyCost(jupiter, 0) + studyCost(jupiter, 1);
+
+		test('study levels past the Starlight earned are rejected, the exact price passes', () => {
+			expect(edited(state => (state.cosmos.studies = { jupiter: 1e6 }))).toEqual(expect.arrayContaining(['starlight']));
+			expect(edited(state => (state.cosmos.studies = { jupiter: 1.5 }))).toContain('cosmos');
+			expect(
+				edited(state => {
+					state.cosmos.studies = { jupiter: 2 };
+					earn(state, CurrenciesTypes.STARLIGHT, firstTwoStudies);
+				}),
+			).not.toContain('starlight');
+			expect(
+				edited(state => {
+					state.cosmos.studies = { jupiter: 2 };
+					earn(state, CurrenciesTypes.STARLIGHT, firstTwoStudies * 0.99);
+				}),
+			).toContain('starlight');
+		});
+
+		test('Periodic source studies share the Starlight budget with the Cosmos studies', () => {
+			const issues = (starlight: number) =>
+				edited(state => {
+					state.cosmos.studies = { jupiter: 1 };
+					state.periodic.sites = { bigbang: { index: 0, level: 1, progress: 0 } };
+					earn(state, CurrenciesTypes.STARLIGHT, starlight);
+				});
+			expect(issues(studyCost(jupiter, 0) + siteStudyCost(0))).not.toContain('starlight');
+			expect(issues(siteStudyCost(0))).toContain('starlight');
+		});
+
+		test('duplicated discoveries, instruments and elements are rejected', () => {
+			expect(edited(state => (state.cosmos.discovered = ['mira', 'mira']))).toContain('cosmos');
+			expect(edited(state => (state.cosmos.instruments = ['eye', 'eye']))).toContain('cosmos');
+			expect(edited(state => (state.periodic.identified = [1, 1]))).toContain('periodic');
+		});
+
+		test('every element identified with no Light or Decay events earned is rejected, the cheapest tuning passes', () => {
+			const all = ELEMENTS.map(({ z }) => z);
+			expect(edited(state => (state.periodic.identified = all))).toEqual(expect.arrayContaining(['decay', 'light']));
+
+			const cheapest = (color: LightColor) => ELEMENTS.reduce((sum, element) => sum + lightCost(element)[color] * TUNING.factorIn, 0);
+			const decay = ELEMENTS.reduce((sum, element) => sum + decayCost(element), 0);
+			const honest = edited(state => {
+				state.periodic.identified = all;
+				state.periodic.forges = 5;
+				earn(state, CurrenciesTypes.DECAY_EVENTS, decay);
+				earn(state, CurrenciesTypes.BLUE_LIGHT, cheapest('blue'));
+				earn(state, CurrenciesTypes.GREEN_LIGHT, cheapest('green'));
+				earn(state, CurrenciesTypes.RED_LIGHT, cheapest('red'));
+			});
+			expect(honest).not.toEqual(expect.arrayContaining(['decay']));
+			expect(honest).not.toEqual(expect.arrayContaining(['light']));
+			expect(honest).not.toEqual(expect.arrayContaining(['periodic']));
+		});
+
+		test('forges past what the identified elements unlock are rejected', () => {
+			expect(edited(state => (state.periodic.forges = 2))).toContain('periodic');
+			expect(
+				edited(state => {
+					state.periodic.identified = ELEMENTS.slice(0, FORGE_MILESTONES[0]).map(({ z }) => z);
+					state.periodic.forges = 2;
+				}),
+			).not.toContain('periodic');
+		});
 	});
 
 	describe('client-set counters and dates', () => {
