@@ -2,15 +2,18 @@ import { beforeEach, expect, test } from 'bun:test';
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { zs } from '#data/elements.js';
-import { CHAINS, DECAY_EVENTS_PER_SECOND } from '#data/sites.js';
+import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND } from '#data/sites.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import type { PowerUp } from '#lib/types.js';
 
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
+/** Share of the online rate that atoms, Starlight, Decay events and passive Light pay while away. */
+const OFFLINE_INCOME = 0.1;
 
 const powerUp = (startTime: number, duration: number): PowerUp => ({ description: '', duration, id: `p${startTime}`, multiplier: 25, name: 'Boost', startTime });
 
@@ -30,7 +33,7 @@ beforeEach(() => {
 test('pays a tenth of the production rate for the time away', () => {
 	const rate = gameManager.atomsPerSecond;
 	expect(rate).toBeGreaterThan(0);
-	expect(catchUp(HOUR)).toBeCloseTo(rate * 3600 * 0.1);
+	expect(catchUp(HOUR)).toBeCloseTo(rate * 3600 * OFFLINE_INCOME);
 	expect(gameManager.offlineProgressSummary?.appliedMs).toBe(HOUR);
 });
 
@@ -111,12 +114,12 @@ test('Decay events, lamp and sky Light are paid once for the time away and liste
 	currenciesManager.hardReset();
 	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
 	const { currencyGains } = gameManager.offlineProgressSummary!;
-	expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(rate * 3600);
-	expect(currencyGains[CurrenciesTypes.DECAY_EVENTS]).toBeCloseTo(rate * 3600);
+	expect(currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS)).toBeCloseTo(rate * 3600 * OFFLINE_INCOME);
+	expect(currencyGains[CurrenciesTypes.DECAY_EVENTS]).toBeCloseTo(rate * 3600 * OFFLINE_INCOME);
 	const lights = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT } as const;
 	for (const color of ['blue', 'green', 'red'] as const) {
-		expect(currenciesManager.getAmount(lights[color])).toBeCloseTo(passive[color] * 3600);
-		expect(currencyGains[lights[color]]).toBeCloseTo(passive[color] * 3600);
+		expect(currenciesManager.getAmount(lights[color])).toBeCloseTo(passive[color] * 3600 * OFFLINE_INCOME);
+		expect(currencyGains[lights[color]]).toBeCloseTo(passive[color] * 3600 * OFFLINE_INCOME);
 	}
 });
 
@@ -128,8 +131,8 @@ test('the Starlight boost multiplies the Starlight paid while away', () => {
 
 	currenciesManager.hardReset();
 	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
-	expect(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT)).toBeCloseTo(rate * 2 * 3600);
-	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.STARLIGHT]).toBeCloseTo(rate * 2 * 3600);
+	expect(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT)).toBeCloseTo(rate * 2 * 3600 * OFFLINE_INCOME);
+	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.STARLIGHT]).toBeCloseTo(rate * 2 * 3600 * OFFLINE_INCOME);
 });
 
 test('the summary lists the elements forged while away, and a source stops at the unread cap however fast it forges', () => {
@@ -141,6 +144,31 @@ test('the summary lists the elements forged while away, and a source stops at th
 	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
 	expect(gameManager.offlineProgressSummary?.forged).toEqual(zs('H He'));
 	expect(periodicManager.statuses.bigbang).toEqual({ kind: 'full', unread: zs('H He'), z: zs('Li')[0] });
+});
+
+test('the Reactor source forges at the reactor power of the whole gap, not the one the gap ends on', () => {
+	gameManager.totalIonizesAllTime = 1;
+	cosmosManager.instruments = [SPECTROSCOPE_ID];
+	gameManager.periodic = {
+		active: ['reactor'],
+		identified: zs('U'),
+		sites: { neutron: { index: CHAINS.neutron.steps.length, level: 0, progress: 0 }, reactor: { index: 0, level: 0, progress: 0 } },
+	};
+	radiationManager.unlock();
+	radiationManager.upgradeLevels = { coolant_pumps: 20 };
+	radiationManager.setControlRodLevel(1);
+	radiationManager.mass = 1000;
+	expect(periodicManager.reactorFactor()).toBeGreaterThan(0.5);
+	/** One step covers the hour, the core burns out in it: the mass averages `m0 (1 - e^-kt) / kt`. */
+	const kt = radiationManager.decayRatePercent * 3600;
+	const average = periodicManager.reactorFactor(radiationManager.cpmFor((1000 * (1 - Math.exp(-kt))) / kt, 1));
+
+	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+	expect(periodicManager.reactorFactor()).toBeLessThan(1e-6);
+	expect(average).toBeGreaterThan(0.005);
+	const { index, progress } = periodicManager.forge('reactor');
+	expect(index).toBe(0);
+	expect(progress).toBeCloseTo(BASE_RATES.reactor * 3600 * average, 6);
 });
 
 test('offline purchases stay out of the daily quest counters', () => {

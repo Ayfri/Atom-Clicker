@@ -91,25 +91,29 @@
 	});
 
 	onMount(() => {
-		if (!band || !canvas || !particleCanvas) return;
+		if (!canvas || !particleCanvas) return;
 		const instance = new IntroGrid(canvas);
 		grid = instance;
 		const particles = particlesEnabled && !reduced ? new TableParticles(particleCanvas) : null;
 		const cells = canvas.getBoundingClientRect();
-		const bandRect = band.getBoundingClientRect();
-		const center = { x: bandRect.left + bandRect.width / 2, y: bandRect.top + bandRect.height / 2 };
-		const sun = cosmosFx.spot('sun') ?? { x: 0, y: 0 };
-		const fontScale = symbolSize(cells.width) / LABEL_PX;
 
-		geometry = {
-			beam: { angle: Math.atan2(center.y - sun.y, center.x - sun.x), length: Math.hypot(center.x - sun.x, center.y - sun.y), x: sun.x, y: sun.y },
-			flights: lines.map(({ color, nm, symbol, z }) => {
-				const x = bandRect.left + (lineX(nm) / 100) * bandRect.width;
-				const y = bandRect.top - LABEL_PX;
-				const cell = cellCenter(z, cells.width);
-				return { color, dx: cells.left + cell.x - x, dy: cells.top + cell.y - y, scale: fontScale, symbol, x, y, z };
-			}),
-		};
+		/** The band only exists while the animation plays, the reduced motion path starts on the final screen without it. */
+		if (band) {
+			const bandRect = band.getBoundingClientRect();
+			const center = { x: bandRect.left + bandRect.width / 2, y: bandRect.top + bandRect.height / 2 };
+			const sun = cosmosFx.spot('sun') ?? { x: 0, y: 0 };
+			const fontScale = symbolSize(cells.width) / LABEL_PX;
+
+			geometry = {
+				beam: { angle: Math.atan2(center.y - sun.y, center.x - sun.x), length: Math.hypot(center.x - sun.x, center.y - sun.y), x: sun.x, y: sun.y },
+				flights: lines.map(({ color, nm, symbol, z }) => {
+					const x = bandRect.left + (lineX(nm) / 100) * bandRect.width;
+					const y = bandRect.top - LABEL_PX;
+					const cell = cellCenter(z, cells.width);
+					return { color, dx: cells.left + cell.x - x, dy: cells.top + cell.y - y, scale: fontScale, symbol, x, y, z };
+				}),
+			};
+		}
 
 		sources.forEach(({ id, status }, i) => {
 			/** Nothing is forging at the first play, so a source that could start shows the element it would make first. */

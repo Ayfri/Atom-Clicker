@@ -4,7 +4,7 @@ import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import type { CosmosBlocker, CosmosEvent, CosmosInsights, CosmosSnapshot } from './types';
+import type { CosmosBlocker, CosmosEvent, CosmosInsights, CosmosSnapshot } from './types.js';
 
 const BOOST_STATS = [...new Set(COSMOS_OBJECTS.map(object => object.boost.stat))];
 const INSTRUMENT_NAMES = Object.fromEntries(COSMOS_INSTRUMENTS.map(instrument => [instrument.id, instrument.name]));

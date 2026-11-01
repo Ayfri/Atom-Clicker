@@ -27,6 +27,8 @@ class RadiationManager {
 	/** Swapped by the simulation for a seeded generator so a benchmark run is reproducible. */
 	random: () => number = () => Math.random();
 	mass = $state(0);
+	/** Not reactive: average CPM of the last `tickOffline` step, read by the offline catch-up right after it. */
+	offlineAvgCpm = 0;
 	/** Highest CPM since the last Ionize, it sizes the Starlight flash. */
 	peakCpm = $state(0);
 	unlocked = $state(false);
@@ -68,6 +70,9 @@ class RadiationManager {
 		const level = this.upgradeLevels['coolant_pumps'] || 0;
 		return (baseCpm * (1 + level * 0.5) + this.getUpgradeEffect('fusion_ignition') * 1000) * chromaticManager.reactorCapBonus;
 	});
+
+	/** The peak a save claims is held under the reactor's cap here: the upgrades that set it load after the peak, so `loadState` can't clamp it. */
+	flashCpm = $derived(Math.min(this.peakCpm, this.maxCpm));
 
 	enrichmentBonus = $derived.by(() => {
 		const level = this.upgradeLevels['isotopic_enrichment'] || 0;
@@ -165,8 +170,9 @@ class RadiationManager {
 		if (!this.ionizeReady) this.ionizeHold = this.currentCpm >= this.ionizeCpm ? this.ionizeHold + seconds : 0;
 	}
 
-	/** Advances the core over an offline stretch and returns the radiation multiplier at its average mass. */
+	/** Advances the core over an offline stretch and returns the radiation multiplier at its average mass, that average power is left in `offlineAvgCpm`. */
 	tickOffline(seconds: number): number {
+		this.offlineAvgCpm = this.currentCpm;
 		if (!this.unlocked || this.mass <= 0) return 1;
 
 		/** Expected decay constant, preservation halves the burn on its share of ticks. */
@@ -191,7 +197,8 @@ class RadiationManager {
 			}
 		}
 
-		return this.multiplierFor(this.cpmFor(avgMass, this.controlRodLevel));
+		this.offlineAvgCpm = this.cpmFor(avgMass, this.controlRodLevel);
+		return this.multiplierFor(this.offlineAvgCpm);
 	}
 
 	purchaseUpgrade(upgradeId: string): boolean {
@@ -218,7 +225,7 @@ class RadiationManager {
 		this.controlRodLevel = state.controlRodLevel ?? 0;
 		this.ionizeHold = 0;
 		this.mass = state.mass ?? 0;
-		this.peakCpm = state.peakCpm ?? 0;
+		this.peakCpm = Number.isFinite(state.peakCpm) ? Math.max(state.peakCpm!, 0) : 0;
 		this.unlocked = state.unlocked ?? false;
 	}
 

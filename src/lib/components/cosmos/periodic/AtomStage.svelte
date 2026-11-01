@@ -2,6 +2,8 @@
 	import { ELEMENTS } from '#data/elements.js';
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/AtomRenderer.js';
 	import { perfTracker } from '#helpers/perfTracker.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { Hand } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { nucleonsOf, partialShells, shellsOf, type StageKind } from './atoms.js';
@@ -74,6 +76,9 @@
 	$effect(() => {
 		if (renderer) renderer.scene = scene;
 	});
+
+	/** The Table covers the screen itself, so `ui.covered` can't tell a modal opened over it: the loop stops while one is open. */
+	$effect(() => renderer?.setActive(ui.activeModal === null && !realmManager.introPlaying));
 
 	function center(): Point {
 		const rect = host!.getBoundingClientRect();

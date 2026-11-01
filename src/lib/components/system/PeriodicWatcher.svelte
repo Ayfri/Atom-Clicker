@@ -13,9 +13,6 @@
 		return zs.length > max ? `${shown} and ${zs.length - max} more` : shown;
 	}
 
-	/** The forged set is rebuilt every second, the count only moves when an element is made. */
-	const forgedCount = $derived(periodicManager.forged.size);
-
 	let forgedBefore = new Set<number>();
 	let loadsBefore = -1;
 	let openBefore = new Set<SiteId>();
@@ -23,9 +20,7 @@
 
 	/** Announces what the Periodic Table made while it is closed, its own toasts take over when it is open. */
 	$effect(() => {
-		const { loads, open, unlocked } = periodicManager;
-		void forgedCount;
-		const forged = untrack(() => periodicManager.forged);
+		const { forged, loads, open, unlocked } = periodicManager;
 		/** A loaded save or the Spectroscope arriving replaces the whole state, that is no news. */
 		const silent = !unlocked || !wasUnlocked || loads !== loadsBefore || untrack(() => realmManager.tableOpen || realmManager.introPlaying);
 		const freshElements = silent ? [] : [...forged].filter(z => !forgedBefore.has(z)).sort((a, b) => a - b);

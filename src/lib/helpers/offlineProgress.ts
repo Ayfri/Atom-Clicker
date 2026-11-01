@@ -60,6 +60,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 	let radMultiplierSum = 0;
 	let radSteps = 0;
+	/** The Periodic Table's Reactor source is paid at the reactor power of the whole gap, not the one it ends on: the average factor of each step weighted by its duration. */
+	let reactorFactorMs = 0;
 	const radStartMass = radiationManager.mass;
 	let radRegenTotal = 0;
 
@@ -70,6 +72,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		const productionWithoutRadiation = manager.atomsPerSecond / manager.radiationMultiplier;
 
 		const radiationMult = radiationManager.tickOffline(deltaSeconds);
+		reactorFactorMs += periodicManager.reactorFactor(radiationManager.offlineAvgCpm) * deltaMs;
 		radMultiplierSum += radiationMult;
 		radSteps++;
 		radRegenTotal += radiationManager.regenRate * deltaSeconds;
@@ -188,11 +191,12 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		}
 	}
 
-	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * (appliedMs / 1000));
-	addCurrency(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * (appliedMs / 1000));
-	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * (appliedMs / 1000));
+	const passiveSeconds = (appliedMs / 1000) * OFFLINE_INCOME_MULTIPLIER;
+	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * passiveSeconds);
+	addCurrency(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * passiveSeconds);
+	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * passiveSeconds);
 	cosmosManager.advance(appliedMs);
-	const forged = periodicManager.tick(appliedMs);
+	const forged = periodicManager.tick(appliedMs, reactorFactorMs / appliedMs);
 	/** The summary lists what the catch-up made, the watchers must not announce it again. */
 	cosmosManager.loads++;
 	periodicManager.loads++;

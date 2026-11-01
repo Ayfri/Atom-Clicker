@@ -43,6 +43,7 @@
 	import { reveal as revealIn } from '#helpers/reveals.svelte.js';
 	import type { EffectStat } from '#lib/types.js';
 	import { formatNumber } from '#lib/utils.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { mobile } from '#stores/window.svelte.js';
 	import { ChevronDown, ChevronRight, ChevronsUp, CircleHelp, Cog, Factory, Lock, MousePointerClick, Shield, Star, X, Zap } from '@lucide/svelte';
 	import { tick, untrack, type Component } from 'svelte';
@@ -101,6 +102,7 @@
 	let reveal = $state.raw<{ element: Element; id: number } | null>(null);
 	let revealId = 0;
 	let scienceOpen = $state(false);
+	const timers = new Set<ReturnType<typeof setTimeout>>();
 	let toasts = $state<{ color: string; id: number; text: string }[]>([]);
 	let toastId = 0;
 
@@ -175,6 +177,23 @@
 
 	$effect(() => atoms?.set(looks));
 
+	/** The Table covers the screen itself, so `ui.covered` can't tell a modal opened over it: the grid's loop stops while one is open. */
+	$effect(() => atoms?.setActive(ui.activeModal === null && !realmManager.introPlaying));
+
+	$effect(() => () => {
+		for (const timer of timers) clearTimeout(timer);
+		timers.clear();
+	});
+
+	/** A timeout of the reveal and the toasts, cleared with the Table so none fires on a destroyed canvas. */
+	function schedule(run: () => void, ms: number) {
+		const timer = setTimeout(() => {
+			timers.delete(timer);
+			run();
+		}, ms);
+		timers.add(timer);
+	}
+
 	/** A focus asked while the Table is already open lands here too, one that opened it was already read by `selection`. */
 	$effect(() => {
 		const focus = realmManager.tableFocus;
@@ -207,12 +226,12 @@
 
 	const shownNucleons = (z: number, progress: number) => Math.floor(progress * Math.min(MINI_NUCLEONS, nucleonsOf(z)));
 
-	function forgeNucleus(z: number, progress: number, color: string) {
+	/** Takes the nucleon count and not the progress, so the canvas only repaints when the drawing changes. */
+	function forgeNucleus(shown: number, color: string) {
 		return (canvas: HTMLCanvasElement) => {
 			const size = Math.round(canvas.clientWidth * pixelRatio());
 			canvas.width = canvas.height = size;
 			const ctx = canvas.getContext('2d');
-			const shown = shownNucleons(z, progress);
 			if (ctx && shown > 0) paintNucleus(ctx, size / 2, size / 2, size * 0.4, shown, color);
 		};
 	}
@@ -225,7 +244,7 @@
 	function toast(text: string, color: string) {
 		const id = ++toastId;
 		toasts = [...toasts.slice(-2), { color, id, text }];
-		setTimeout(() => (toasts = toasts.filter(other => other.id !== id)), 2800);
+		schedule(() => (toasts = toasts.filter(other => other.id !== id)), 2800);
 	}
 
 	let known = new Set(untrack(() => periodicManager.forged));
@@ -241,7 +260,7 @@
 			if (from) particles?.burst(from, [color, '#ffffff'], 12, { speed: 120 });
 			if (from && to) particles?.comet(from, to, color);
 			document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
-			setTimeout(() => to && particles?.burst(to, [color, '#ffffff'], 18), 900);
+			schedule(() => to && particles?.burst(to, [color, '#ffffff'], 18), 900);
 			toast(`${SITES[id].glyph} ${ELEMENTS[z - 1].name} is ready to identify`, color);
 		}
 	});
@@ -381,15 +400,15 @@
 		const lines = target.lines.toSorted((a, b) => a - b);
 		const launch = (i: number) => REVEAL_LINES_AT + i * REVEAL_LINE_STEP + 250;
 		lines.forEach((nm, i) =>
-			setTimeout(() => {
+			schedule(() => {
 				const from = centerOf(`[data-reveal="${id}"] [data-line="${nm}"]`);
 				const to = centerOf(`[data-cell="${target.z}"]`);
 				if (from && to) particles?.comet(from, to, wavelengthColor(nm));
 			}, launch(i)),
 		);
 		const landing = launch(lines.length - 1) + 900;
-		setTimeout(() => lightUp(target, lines), landing);
-		setTimeout(() => {
+		schedule(() => lightUp(target, lines), landing);
+		schedule(() => {
 			if (reveal?.id === id) reveal = null;
 		}, landing + 500);
 	}
@@ -397,7 +416,7 @@
 	function lightUp(target: Element, lines: number[]) {
 		reading.delete(target.z);
 		pops.set(target.z, bonusText(target));
-		setTimeout(() => pops.delete(target.z), 1400);
+		schedule(() => pops.delete(target.z), 1400);
 		document
 			.querySelector(`[data-cell="${target.z}"] [data-sweep]`)
 			?.animate(
@@ -411,7 +430,7 @@
 		const at = centerOf(`[data-cell="${target.z}"]`);
 		if (at) {
 			particles?.burst(at, lines.map(wavelengthColor), 36, { speed: 220 });
-			setTimeout(() => particles?.burst(at, [FAMILIES[target.family].color, '#ffffff'], 16, { speed: 90 }), 350);
+			schedule(() => particles?.burst(at, [FAMILIES[target.family].color, '#ffffff'], 16, { speed: 90 }), 350);
 		}
 
 		const family = ELEMENTS.filter(other => other.family === target.family);
@@ -421,14 +440,14 @@
 			for (const other of family) {
 				const delay = Math.hypot(other.row - target.row, other.column - target.column) * 70;
 				document.querySelector(`[data-cell="${other.z}"] [data-wave]`)?.animate([{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0 }], { delay, duration: 600 });
-				setTimeout(() => {
+				schedule(() => {
 					const point = centerOf(`[data-cell="${other.z}"]`);
 					if (point) particles?.burst(point, [info.color, '#ffffff'], 10, { speed: 110 });
 				}, delay);
 			}
 		}
 		const next = ready.find(other => other !== target.z);
-		if (next && !mobile.current && selected === target.z) setTimeout(() => selected === target.z && select(next), 1600);
+		if (next && !mobile.current && selected === target.z) schedule(() => selected === target.z && select(next), 1600);
 	}
 
 	/** Pans the table to the selected element, or to where the selected source works. */
@@ -437,13 +456,24 @@
 		const status = periodicManager.statuses[selection.id];
 		return 'z' in status ? status.z : status.kind === 'done' ? (CHAINS[selection.id].steps.at(-1) ?? 1) : 1;
 	});
-	const home = $derived.by(() => {
-		const target = ELEMENTS[(ready[0] ?? anchor) - 1];
-		return { x: (target.column - 0.5) * (CELL + GAP), y: (target.row - 0.5) * (CELL + GAP) };
+	const spotOf = (z: number) => ({ x: (ELEMENTS[z - 1].column - 0.5) * (CELL + GAP), y: (ELEMENTS[z - 1].row - 0.5) * (CELL + GAP) });
+	/** One instance for the whole visit: a new one would snap the view back to the home zoom, even in the middle of a pinch. */
+	const panZoom = new PanZoom({
+		bounds: { maxX: 18 * (CELL + GAP), maxY: 10 * (CELL + GAP) + 12, minX: 0, minY: 0 },
+		home: { ...untrack(() => spotOf(ready[0] ?? anchor)), zoom: 1.1 },
+		maxZoom: 2.5,
+		minZoom: 0.4,
 	});
-	const panZoom = $derived(
-		new PanZoom({ bounds: { maxX: 18 * (CELL + GAP), maxY: 10 * (CELL + GAP) + 12, minX: 0, minY: 0 }, home: { ...home, zoom: 1.1 }, maxZoom: 2.5, minZoom: 0.4 }),
-	);
+
+	/** Only a new selection moves the view, to its anchor and at the zoom the player chose. */
+	let panned = untrack(() => selection);
+	$effect(() => {
+		const current = selection;
+		if (current === panned) return;
+		panned = current;
+		const { x, y } = spotOf(untrack(() => anchor));
+		panZoom.panTo(x, y, 150);
+	});
 </script>
 
 {#snippet counter(light: LightColor | 'decay', name: CurrencyName, amount: number, rate: number)}
@@ -659,7 +689,6 @@
 {#snippet sky()}
 	<div
 		class="mx-auto flex w-max gap-1 px-2 lg:gap-3"
-		data-hint="table-forges"
 	>
 		{#each sites.filter(({ status }) => status.kind !== 'locked') as { id, site, status } (id)}
 			{@const level = periodicManager.forge(id).level}
@@ -695,11 +724,14 @@
 					{#if status.kind === 'forging'}
 						{@const fraction = status.progress / ELEMENTS[status.z - 1].need}
 						{@render progressRing(site.color, fraction, status.z)}
-						{#if shownNucleons(status.z, fraction) > 0}
+						{@const shown = shownNucleons(status.z, fraction)}
+						<!-- `site` is rebuilt every forge tick, a plain const keeps the attachment from repainting with each one. -->
+						{@const nucleusColor = site.color}
+						{#if shown > 0}
 							<span class="absolute -right-1 -bottom-1 size-7 rounded-full bg-[#05070f] ring-1 ring-white/15">
 								<canvas
 									class="inset-0.5 size-6"
-									{@attach forgeNucleus(status.z, fraction, site.color)}
+									{@attach forgeNucleus(shown, nucleusColor)}
 								></canvas>
 							</span>
 						{/if}
@@ -1308,7 +1340,6 @@
 				</p>
 				<div
 					class="flex items-center gap-1.5"
-					data-hint="table-forge-count"
 					title="A source only advances while it holds a forge"
 				>
 					<span class="font-bold tracking-[0.2em] text-white/55 uppercase">Forges</span>

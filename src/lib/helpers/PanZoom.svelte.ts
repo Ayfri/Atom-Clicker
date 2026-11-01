@@ -30,6 +30,8 @@ export class PanZoom {
 	y = $state(0);
 	zoom = $state(1);
 
+	/** Frame of the running `panTo` slide, 0 when none runs. */
+	#slide = 0;
 	/** Distance moved by the current gesture, a click ending a real drag is swallowed so it doesn't press what it lands on. */
 	#dragDistance = 0;
 	#element: HTMLElement | undefined;
@@ -73,6 +75,7 @@ export class PanZoom {
 			window.removeEventListener('pointerup', this.#onPointerUp);
 			window.removeEventListener('pointercancel', this.#onPointerUp);
 			clearTimeout(this.#wheelEnd);
+			this.#stopSlide();
 			this.#element = undefined;
 			this.measured = false;
 		};
@@ -82,6 +85,26 @@ export class PanZoom {
 		this.x += dx;
 		this.y += dy;
 		this.#clamp();
+	}
+
+	/** Slides the view to center the content point (`x`, `y`) with an ease-out, the zoom stays. A gesture cancels the slide, and none starts under a running drag. */
+	panTo(x: number, y: number, durationMs: number) {
+		this.#stopSlide();
+		if (!this.#element || this.#pointers.size) return;
+		const from = { x: this.x, y: this.y };
+		const to = { x: this.#width / 2 - x * this.zoom, y: this.#height / 2 - y * this.zoom };
+		const start = performance.now();
+		this.moving = true;
+		const step = (now: number) => {
+			const t = Math.min(1, (now - start) / durationMs);
+			const eased = 1 - (1 - t) ** 3;
+			this.x = from.x + (to.x - from.x) * eased;
+			this.y = from.y + (to.y - from.y) * eased;
+			this.#clamp();
+			if (t < 1) this.#slide = requestAnimationFrame(step);
+			else this.#stopSlide();
+		};
+		this.#slide = requestAnimationFrame(step);
 	}
 
 	recenter() {
@@ -102,6 +125,13 @@ export class PanZoom {
 		this.#clamp();
 	}
 
+	#stopSlide() {
+		if (!this.#slide) return;
+		cancelAnimationFrame(this.#slide);
+		this.#slide = 0;
+		this.moving = false;
+	}
+
 	#clamp() {
 		if (!this.#element) return;
 		const { bounds } = this.#options;
@@ -118,6 +148,7 @@ export class PanZoom {
 
 	#onPointerDown = (event: PointerEvent) => {
 		if (event.pointerType === 'mouse' && event.button !== 0) return;
+		this.#stopSlide();
 		if (this.#pointers.size === 0) this.#dragDistance = 0;
 		this.#pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 	};
@@ -152,6 +183,7 @@ export class PanZoom {
 	#onWheel = (event: WheelEvent) => {
 		if (!this.#element) return;
 		event.preventDefault();
+		this.#stopSlide();
 		this.moving = true;
 		clearTimeout(this.#wheelEnd);
 		this.#wheelEnd = setTimeout(() => (this.moving = false), 200);

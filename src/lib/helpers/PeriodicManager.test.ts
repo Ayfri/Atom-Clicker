@@ -444,6 +444,16 @@ describe('table', () => {
 			expect(periodicManager.forge('massive').progress).toBeCloseTo(periodicManager.rateOf('massive'), 6);
 		});
 
+		test('a tick with nothing forging leaves the sites object alone, so the open Table is not rebuilt every second', () => {
+			forging({ index: 0, level: 0 });
+			const before = periodicManager.sites;
+			expect(periodicManager.tick(1000)).toEqual([]);
+			expect(periodicManager.sites).toBe(before);
+			periodicManager.assign('massive');
+			periodicManager.tick(1000);
+			expect(periodicManager.sites).not.toBe(before);
+		});
+
 		test('a source without a forge stays idle over the cap, and a save forged past the cap needs several reads', () => {
 			forging({ index: 5, level: 0 });
 			expect(periodicManager.statuses.massive.kind).toBe('idle');

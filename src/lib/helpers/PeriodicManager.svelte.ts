@@ -143,9 +143,14 @@ class PeriodicManager {
 		return this.sites[id] ?? { index: 0, level: 0, progress: 0 };
 	}
 
-	rateOf(id: SiteId): number {
-		const reactor = id === 'reactor' ? Math.min(MAX_REACTOR_FACTOR, radiationManager.currentCpm / radiationManager.ionizeCpm) : 1;
-		return BASE_RATES[id] * (1 + this.forge(id).level) * reactor;
+	/** The reactor's speed-up at `cpm`, by default the power it runs now. */
+	reactorFactor(cpm = radiationManager.currentCpm): number {
+		return Math.min(MAX_REACTOR_FACTOR, cpm / radiationManager.ionizeCpm);
+	}
+
+	/** `reactor` replaces the live reactor factor, the offline catch-up passes the average over the gap. */
+	rateOf(id: SiteId, reactor?: number): number {
+		return BASE_RATES[id] * (1 + this.forge(id).level) * (id === 'reactor' ? (reactor ?? this.reactorFactor()) : 1);
 	}
 
 	/** `tick` passes the index it is advancing. */
@@ -245,13 +250,14 @@ class PeriodicManager {
 	 * Online ticks and offline catch-up both land here, a long gap finishes elements until the source holds `MAX_UNREAD` unread ones, then it stops and the rest of the gap is lost.
 	 * A finished chain frees its forge. Returns the elements forged.
 	 * Each source runs on its own clock and passes repeat while one finishes an element, so a step waiting on another source starts when that element is made, whatever the order of `active`.
+	 * `reactor` is the reactor factor the whole gap runs at, the offline catch-up passes its time-weighted average because the live power is the one at the end of the gap.
 	 */
-	tick(deltaMs: number): number[] {
-		if (!this.unlocked) return [];
+	tick(deltaMs: number, reactor?: number): number[] {
+		if (!this.unlocked || !this.active.length) return [];
 		const made: number[] = [];
 		const madeAt = new Map<number, number>();
 		const total = deltaMs / 1000;
-		const runs = this.active.map(id => ({ clock: 0, forge: { ...this.forge(id) }, id, rate: this.rateOf(id) }));
+		const runs = this.active.map(id => ({ clock: 0, forge: { ...this.forge(id) }, id, rate: this.rateOf(id, reactor) }));
 		let progressed = true;
 		while (progressed) {
 			progressed = false;
@@ -279,7 +285,8 @@ class PeriodicManager {
 			}
 		}
 		const finished = new Set(runs.filter(({ forge, id }) => forge.index >= CHAINS[id].steps.length).map(({ id }) => id));
-		this.sites = { ...this.sites, ...Object.fromEntries(runs.map(({ forge, id }) => [id, forge])) };
+		const moved = runs.filter(({ forge, id }) => forge.index !== this.forge(id).index || forge.progress !== this.forge(id).progress);
+		if (moved.length) this.sites = { ...this.sites, ...Object.fromEntries(moved.map(({ forge, id }) => [id, forge])) };
 		if (finished.size) this.active = this.active.filter(id => !finished.has(id));
 		return made;
 	}
