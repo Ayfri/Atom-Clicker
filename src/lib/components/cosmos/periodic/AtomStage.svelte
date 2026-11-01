@@ -145,12 +145,13 @@
 	bind:this={host}
 	class={[
 		'stage group relative flex items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
-		kind === 'ready' && 'cursor-pointer',
+		kind !== 'ready' && 'cursor-default',
 		kind === 'ready' && payable && 'transition-transform hover:scale-105',
 		className,
 	]}
 	aria-disabled={kind === 'ready' && !payable ? true : undefined}
-	aria-label={kind === 'ready' ? `Hold to read ${ELEMENTS[z - 1].name}` : 'Element atom'}
+	aria-label={kind === 'ready' ? `Hold to read ${ELEMENTS[z - 1].name}` : `${ELEMENTS[z - 1].name} atom`}
+	disabled={kind !== 'ready'}
 	onblur={release}
 	onkeydown={keyPress}
 	onkeyup={release}

@@ -1415,60 +1415,57 @@
 		{@const target = reveal.element}
 		{@const color = FAMILIES[target.family].color}
 		{#key reveal.id}
+			<!-- Global transitions: the card sits in a key block inside the if, so local ones would never play when the reveal opens or closes. -->
 			<div
-				class="pointer-events-none fixed top-[16%] left-1/2 z-55 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2"
+				class="pointer-events-none fixed top-[16%] left-1/2 z-55 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#0a0e1c] p-5 shadow-2xl shadow-black/60"
 				data-reveal={reveal.id}
-				in:scale={{ duration: 350, start: 0.85 }}
-				out:fade={{ duration: 300 }}
+				in:fly|global={{ duration: 320, y: 16 }}
+				out:fly|global={{ duration: 260, y: -10 }}
 			>
-				<div
-					class="rounded-2xl border bg-[#05070f]/92 p-5 text-center shadow-2xl"
-					style:border-color="color-mix(in srgb, {color} 45%, transparent)"
-					style:box-shadow="0 0 60px -12px {color}"
-				>
-					<p class="text-[10px] font-bold tracking-[0.35em] text-white/45 uppercase">Reading its light</p>
-					<p
-						class="reveal-symbol mt-1 text-6xl font-black"
+				<div class="flex items-center gap-4">
+					<span
+						class="reveal-symbol block w-16 shrink-0 text-center text-5xl leading-none font-black"
 						style:color
-						style:text-shadow="0 0 24px {color}"
 					>
 						{target.symbol}
-					</p>
-					<p class="text-lg font-bold">{target.name}</p>
-					<div class="relative mt-4 h-14 overflow-hidden rounded-lg bg-black">
+					</span>
+					<div class="min-w-0">
+						<p class="text-xs text-white/45">{target.z} · Reading its light</p>
+						<p class="truncate text-xl leading-tight font-bold">{target.name}</p>
+					</div>
+				</div>
+				<div class="relative mt-4 h-10 overflow-hidden rounded-md bg-black">
+					<span
+						class="reveal-rainbow absolute inset-0 origin-left"
+						style:background-image={SPECTRUM}
+					></span>
+					{#each target.lines.toSorted((a, b) => a - b) as nm, i (nm)}
 						<span
-							class="reveal-rainbow absolute inset-0 origin-left"
-							style:background-image={SPECTRUM}
+							class="reveal-line absolute inset-y-0 w-0.5 -translate-x-1/2"
+							style:animation-delay="{REVEAL_LINES_AT + i * REVEAL_LINE_STEP}ms"
+							style:background={wavelengthColor(nm)}
+							style:box-shadow="0 0 6px {wavelengthColor(nm)}"
+							style:left="{lineX(nm)}%"
+							data-line={nm}
 						></span>
-						{#each target.lines.toSorted((a, b) => a - b) as nm, i (nm)}
-							<span
-								class="reveal-line absolute inset-y-0 w-0.75 -translate-x-1/2"
-								style:animation-delay="{REVEAL_LINES_AT + i * REVEAL_LINE_STEP}ms"
-								style:background={wavelengthColor(nm)}
-								style:box-shadow="0 0 10px 2px {wavelengthColor(nm)}"
-								style:left="{lineX(nm)}%"
-								data-line={nm}
-							></span>
-						{/each}
-					</div>
-					<div class="mt-1 flex justify-between text-[9px] text-white/30 tabular-nums">
-						<span>380 nm</span>
-						<span>{target.lines.length ? `${target.lines.length} lines` : 'never measured'}</span>
-						<span>780 nm</span>
-					</div>
+					{/each}
+				</div>
+				<div class="mt-1 flex justify-between text-[10px] text-white/30 tabular-nums">
+					<span>380 nm</span>
+					<span>{target.lines.length ? `${target.lines.length} lines` : 'never measured'}</span>
+					<span>780 nm</span>
+				</div>
+				<div
+					class="reveal-late mt-4"
+					style:animation-delay="{REVEAL_LINES_AT + target.lines.length * REVEAL_LINE_STEP}ms"
+				>
 					<p
-						class="reveal-late mt-3 font-bold"
-						style:animation-delay="{REVEAL_LINES_AT + target.lines.length * REVEAL_LINE_STEP}ms"
+						class="font-bold"
 						style:color
 					>
 						{bonusText(target)}
 					</p>
-					<p
-						class="reveal-late mt-1 font-mono text-xs text-white/50"
-						style:animation-delay="{REVEAL_LINES_AT + target.lines.length * REVEAL_LINE_STEP + 150}ms"
-					>
-						{reactionOf(target)}
-					</p>
+					<p class="mt-0.5 text-xs text-white/40">{reactionOf(target)}</p>
 				</div>
 			</div>
 		{/key}
