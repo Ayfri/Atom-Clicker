@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { CHROMATIC, CHROMATIC_UPGRADES, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
+	import { IONIZE_STARLIGHT_STEP, ionizeStarlightMultiplier } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
-	import { IONIZE_STARLIGHT_STEP, ionizeStarlightMultiplier } from '#data/cosmos.js';
 	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -85,7 +85,7 @@
 		:	[]),
 	]);
 	/** Read at the count the Ionize reaches, the flash already pays with the next Starlight multiplier. */
-	const flash = $derived(cosmosManager.flashFor(radiationManager.peakCpm, radiationManager.ionizeCpm, ionizes + 1));
+	const flash = $derived(cosmosManager.flashFor(radiationManager.flashCpm, radiationManager.ionizeCpm, ionizes + 1));
 
 	function handleIonize() {
 		prestigeStore.trigger('ionize');

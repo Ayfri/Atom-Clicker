@@ -556,9 +556,9 @@ export class GameManager {
 	ionize() {
 		if (!radiationManager.ionizeReady) return false;
 		perfTracker.action('prestige:ionize');
-		const { ionizeCpm, peakCpm } = radiationManager;
+		const { flashCpm, ionizeCpm } = radiationManager;
 		this.totalIonizesAllTime++;
-		const flash = cosmosManager.flashFor(peakCpm, ionizeCpm, this.totalIonizesAllTime);
+		const flash = cosmosManager.flashFor(flashCpm, ionizeCpm, this.totalIonizesAllTime);
 		currenciesManager.add(CurrenciesTypes.STARLIGHT, flash);
 		this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + flash;
 		this.prestige(LAYERS.RADIATION_REALM);
@@ -1018,8 +1018,8 @@ export class GameManager {
 		if (this.atomsPerSecond > this.highestAPSRun) this.highestAPSRun = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);
-		if (cosmosManager.starlightPerSecond > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + cosmosManager.starlightPerSecond * seconds;
-		cosmosManager.tick(deltaTime);
+		const starlight = cosmosManager.tick(deltaTime);
+		if (starlight > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + starlight;
 		periodicManager.tick(deltaTime);
 		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
 		for (const color of CHROMATIC_COLORS) currenciesManager.add(CHROMATIC[color].currency, this.passiveLight[color] * seconds);

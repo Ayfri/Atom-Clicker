@@ -141,7 +141,6 @@ class CosmosManager {
 			return false;
 		currenciesManager.remove(CurrenciesTypes.STARLIGHT, instrument.cost);
 		this.research = { id: instrumentId, leftMs: instrument.researchMs };
-		this.advance(0);
 		return true;
 	}
 
@@ -199,9 +198,12 @@ class CosmosManager {
 		return true;
 	}
 
-	tick(deltaMs: number) {
-		if (this.starlightPerSecond > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, (this.starlightPerSecond * deltaMs) / 1000);
+	/** Returns the Starlight credited, the daily stat counts the same amount. */
+	tick(deltaMs: number): number {
+		const starlight = (this.starlightPerSecond * deltaMs) / 1000;
+		if (starlight > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, starlight);
 		this.advance(deltaMs);
+		return Math.max(starlight, 0);
 	}
 
 	/** A level still widening and a study still running are saved as done, a reload only skips their last seconds. */
@@ -215,12 +217,12 @@ class CosmosManager {
 		this.aperture = Number.isInteger(state.aperture) && state.aperture > 0 ? state.aperture : 0;
 		this.wideningMs = 0;
 		this.studying = null;
-		this.discovered = (state.discovered ?? []).filter(id => id in COSMOS_OBJECTS_BY_ID);
-		this.instruments = (state.instruments ?? []).filter(id => COSMOS_INSTRUMENTS.some(instrument => instrument.id === id));
+		this.discovered = [...new Set(state.discovered ?? [])].filter(id => id in COSMOS_OBJECTS_BY_ID);
+		this.instruments = [...new Set(state.instruments ?? [])].filter(id => COSMOS_INSTRUMENTS.some(instrument => instrument.id === id));
 		const research = state.research;
 		const researched = COSMOS_INSTRUMENTS.find(instrument => instrument.id === research?.id && !this.instruments.includes(instrument.id));
 		this.research = research && researched ? { id: researched.id, leftMs: Math.min(Math.max(research.leftMs, 0), researched.researchMs) || 0 } : null;
-		this.studies = Object.fromEntries(Object.entries(state.studies ?? {}).filter(([id, level]) => id in COSMOS_OBJECTS_BY_ID && Number.isFinite(level) && level > 0));
+		this.studies = Object.fromEntries(Object.entries(state.studies ?? {}).filter(([id, level]) => id in COSMOS_OBJECTS_BY_ID && Number.isSafeInteger(level) && level > 0));
 		this.loads++;
 	}
 }
