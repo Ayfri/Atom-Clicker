@@ -19,6 +19,7 @@ import {
 	WebGPURenderer,
 } from 'three/webgpu';
 import { COSMOS_OBJECTS, CosmosEras } from '#data/cosmos.js';
+import { perfTracker } from '#helpers/perfTracker.js';
 import { Body, BODY_LOOKS, simClock } from './bodies.js';
 import type { BenchOptions } from './CosmosBench.js';
 import { Earth } from './earth.js';
@@ -352,6 +353,7 @@ export class CosmosScene {
 			(object.material as Material).dispose();
 		});
 		this.#sharp?.map?.dispose();
+		this.#sharp = null;
 		this.#pipeline.dispose();
 		this.#renderer.dispose();
 	}
@@ -617,6 +619,11 @@ export class CosmosScene {
 	}
 
 	#frame = (now: number) => {
+		/** A few ms of slack so a 60 Hz display renders every other frame instead of drifting between one and two. */
+		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && now - this.#lastInput > INPUT_SETTLE;
+		/** Skipped before any scene work, and `#lastTime` stays put so the next frame's dt covers the skipped time. */
+		if (idle && now - this.#lastRender < IDLE_FRAME - 4) return;
+		const start = performance.now();
 		const dt = this.#lastTime ? Math.min((now - this.#lastTime) / 1000, 0.1) : 0;
 		this.#lastTime = now;
 		this.#simTime += dt * REALISTIC_PACE ** realism.value;
@@ -644,14 +651,11 @@ export class CosmosScene {
 			this.#revealing = this.#revealing.filter(body => body.revealTime >= 0);
 		}
 
-		/** A few ms of slack so a 60 Hz display renders every other frame instead of drifting between one and two. */
-		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && now - this.#lastInput > INPUT_SETTLE;
-		if (!idle || now - this.#lastRender >= IDLE_FRAME - 4) {
-			this.#lastRender = now;
-			this.#render();
-			this.#fpsFrames++;
-		}
-		this.#measure(dt);
+		this.#lastRender = now;
+		this.#render();
+		this.#fpsFrames++;
+		this.#measure(dt, idle);
+		perfTracker.track('canvas:cosmos', start);
 	};
 
 	/** Flies to the view of a nebula from beside the Earth, see `#lookAt`. */
@@ -679,8 +683,8 @@ export class CosmosScene {
 		this.#sharpen();
 	}
 
-	/** Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. */
-	#measure(dt: number) {
+	/** Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. Idle frames are capped at 30 Hz on purpose, so they never feed the probe. */
+	#measure(dt: number, idle: boolean) {
 		this.#fpsTime += dt;
 		if (this.#fpsTime >= 1) {
 			this.fps = Math.round(this.#fpsFrames / this.#fpsTime);
@@ -688,7 +692,7 @@ export class CosmosScene {
 			this.#fpsTime = 0;
 		}
 		const probe = this.#qualityProbe;
-		if (this.mode === 'intro' || probe.frames < 0) return;
+		if (idle || this.mode === 'intro' || probe.frames < 0) return;
 		probe.frames++;
 		probe.time += dt;
 		if (probe.frames < 90) return;

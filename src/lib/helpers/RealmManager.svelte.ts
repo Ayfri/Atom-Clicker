@@ -88,9 +88,9 @@ class RealmManager {
 		return this.realms.find(r => r.id === this.selectedRealmId) || this.realms[0];
 	}
 
-	/** An off-screen realm stays mounted, a value read through this freezes there instead of rerunning on every atom commit. */
+	/** An off-screen realm stays mounted, a value read through this freezes there instead of rerunning on every atom commit. The opaque Cosmos and Periodic Table hide the selected realm too. */
 	live<T>(realm: RealmType, read: () => T): T {
-		return this.selectedRealmId === realm ? read() : untrack(read);
+		return this.selectedRealmId === realm && this.view !== 'cosmos' && !this.tableOpen ? read() : untrack(read);
 	}
 
 	/** `z` is the element the Table selects when it opens, a player who never saw the introduction gets it first. */

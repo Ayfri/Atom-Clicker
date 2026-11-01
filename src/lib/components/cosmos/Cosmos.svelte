@@ -114,6 +114,11 @@
 	onMount(() => {
 		let key = 0;
 		const timer = setInterval(() => {
+			/** Behind a modal, the Table, the introduction or a hidden tab nobody sees a popup, and its CSS animation would still run. */
+			if (!actionable || document.hidden) {
+				if (popups.length) popups = [];
+				return;
+			}
 			const id = scene?.mode === 'overview' ? scene.selected : null;
 			const amount = id ? cosmosManager.starlightOf(id) : 0;
 			const spot = amount > 0 ? scene?.onScreen().find(object => object.id === id) : undefined;
@@ -462,7 +467,6 @@
 					<ActionButton
 						cost={{ affordable: observable, amount: gameManager.observationCost, currency: CurrenciesTypes.ATOMS }}
 						disabled={!observable}
-						hint="cosmos-observe"
 						icon={Telescope}
 						label="Observe the sky"
 						onclick={() => scene?.observe(next.id, () => gameManager.startObservation())}
@@ -476,7 +480,6 @@
 						busyMs={widening ? APERTURE_WIDEN_MS : 0}
 						cost={widening ? undefined : { affordable: widenable, amount: cosmosManager.nextApertureCost, currency: CurrenciesTypes.STARLIGHT }}
 						disabled={widening || !widenable}
-						hint="cosmos-aperture"
 						label={widening ? 'Widening the aperture…' : 'Widen the aperture'}
 						onclick={event => cosmosManager.purchaseAperture() && cosmosFx.aperture(event)}
 						pulse={actionable && !widening && widenable}
