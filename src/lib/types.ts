@@ -39,7 +39,11 @@ export interface ChromaticState {
 /** Given objects and the naked eye are never stored, they are part of the sky from the start. */
 export interface CosmosState {
 	aperture: number;
+	/** Taps on sky objects, missing in older saves. */
+	clicks?: Record<string, number>;
 	discovered: string[];
+	/** Guest stars caught, missing in older saves. */
+	guestStars?: number;
 	instruments: string[];
 	/** Instrument paid for and still being built. */
 	research: { id: string; leftMs: number } | null;

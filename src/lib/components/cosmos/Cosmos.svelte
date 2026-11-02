@@ -2,18 +2,21 @@
 	import { dev } from '$app/env';
 	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { GUEST_STARS } from '#data/guestStars.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { particlesEnabled } from '#helpers/CanvasLoop.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { tierIconStack } from '#helpers/iconStacks.js';
 	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
@@ -51,6 +54,9 @@
 
 	let arrow = $state<HTMLElement>();
 	let canvas = $state<HTMLCanvasElement>();
+	/** The one popup of the last guest star caught, at the tap and relative to the canvas. */
+	let caught = $state.raw<Popup | null>(null);
+	let caughtKey = 0;
 	let failure = $state('');
 	let fx = $state.raw<AmbientField>();
 	let popups = $state.raw<Popup[]>([]);
@@ -77,7 +83,9 @@
 				hud,
 				limit: untrack(() => cosmosManager.limit),
 				live: tools?.liveSurfaces(focus),
+				onClick: (id, x, y) => cosmosManager.click(id) && cosmosFx.click(id, { x, y }),
 				onDiscover: id => cosmosManager.discover(id),
+				onGuestStar: (x, y) => catchGuestStar(x, y),
 				...getJSON<CosmosView>(VIEW_KEY, { orbits: true, realistic: false }),
 				timestamps: dev,
 			});
@@ -110,7 +118,7 @@
 
 	$effect(() => ui.cover());
 
-	/** Display only: Starlight itself accrues in the game tick. */
+	/** The popups are display only, Starlight itself accrues in the game tick. The guest star timer counts here too, so only time spent looking at the sky counts. */
 	onMount(() => {
 		let key = 0;
 		const timer = setInterval(() => {
@@ -119,6 +127,7 @@
 				if (popups.length) popups = [];
 				return;
 			}
+			if (scene?.mode === 'overview' && !scene.guestStar && cosmosManager.guestStarDue(1000) && scene.spawnGuestStar()) cosmosManager.guestStarSpawned();
 			const id = scene?.mode === 'overview' ? scene.selected : null;
 			const amount = id ? cosmosManager.starlightOf(id) : 0;
 			const spot = amount > 0 ? scene?.onScreen().find(object => object.id === id) : undefined;
@@ -177,6 +186,19 @@
 	$effect(() => {
 		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
 	});
+
+	$effect(() => {
+		cosmosManager.guestStarShown = scene?.guestStar ?? false;
+		return () => (cosmosManager.guestStarShown = false);
+	});
+
+	function catchGuestStar(clientX: number, clientY: number) {
+		const amount = gameManager.catchGuestStar();
+		const { left, top } = canvas!.getBoundingClientRect();
+		caught = amount > 0 ? { key: caughtKey++, text: `+${formatNumber(amount)}`, x: clientX - left, y: clientY - top } : null;
+		const fact = GUEST_STARS[(cosmosManager.guestStars - 1) % GUEST_STARS.length];
+		toastStore.info({ duration: 8000, icon: tierIconStack('star', 0), message: `${fact.name}: ${fact.text}`, title: 'Guest star caught' });
+	}
 
 	function focusFromList(id: string) {
 		if (!wide.current) skyOpen = false;
@@ -251,6 +273,19 @@
 				{popup.text}
 			</span>
 		{/each}
+
+		{#if caught}
+			{#key caught.key}
+				<span
+					class="starlight-popup pointer-events-none absolute text-sm font-bold tabular-nums text-cosmos-starlight [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]"
+					style:left="{caught.x}px"
+					style:top="{caught.y}px"
+					onanimationend={() => (caught = null)}
+				>
+					{caught.text}
+				</span>
+			{/key}
+		{/if}
 
 		<header
 			class="pointer-events-none absolute inset-x-0 top-0 z-25 flex flex-wrap items-start justify-between gap-x-3 gap-y-1 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))]"

@@ -349,6 +349,14 @@ export const HINTS: Hint[] = [
 		title: 'The Periodic Table',
 	},
 	{
+		done: () => cosmosManager.guestStars > 0,
+		id: 'cosmos:guest-star',
+		realm: 'cosmos',
+		show: () => cosmosManager.guestStarShown,
+		text: 'A guest star just flared in your sky. Tap it before it fades for a burst of Starlight.',
+		title: 'Guest star',
+	},
+	{
 		done: () => periodicManager.active.length > 0,
 		id: 'table:forge',
 		placement: 'left',

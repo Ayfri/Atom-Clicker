@@ -1,9 +1,10 @@
 import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
 import { colliderBonus } from '#data/collider.js';
-import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
+import { CLICKABLE_OBJECTS, COSMOS_OBJECTS_BY_ID, SKY_CLICK_TIERS, skyClickAchievementId, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
+import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_TIERS, guestStarAchievementId } from '#data/guestStars.js';
 import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
@@ -12,7 +13,7 @@ import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
 import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { findImplausible } from '#helpers/plausibility.js';
-import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds, type RunBounds } from '#helpers/runBounds.js';
+import { BALANCE_VERSION, MAX_CLICKS_PER_SECOND, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds, type RunBounds } from '#helpers/runBounds.js';
 import { SAVE_VERSION, validateAndRepairGameState } from '#helpers/saves.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import { levelFromTotalXP } from '#helpers/xp.js';
@@ -51,10 +52,11 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	achievements: 'Duplicate achievements',
 	boosts: 'Currency boosts out of range',
 	chromaticUpgrades: 'Chromatic upgrade levels out of range',
-	cosmos: 'Cosmos discoveries, instruments or study levels duplicated or out of range',
+	cosmos: 'Cosmos discoveries, instruments, study levels, clicks or guest stars duplicated or out of range',
 	counters: 'Counters not whole numbers',
 	dates: 'Dates in the future',
 	decay: 'Decay events the identified elements cost vs Decay events earned',
+	guestStars: 'Guest stars caught vs time since the save start',
 	keptGenerators: 'Kept generators out of range',
 	light: 'Light the identified elements cost vs Light earned',
 	periodic: 'Periodic Table elements, forges or source studies out of range',
@@ -63,6 +65,8 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	radiationUpgrades: 'Radiation upgrade levels out of range',
 	runStart: 'Run start date out of range',
 	skills: 'Duplicate skills',
+	skyAchievements: 'Cosmos achievements claimed past the counts behind them',
+	skyClicks: 'Cosmos clicks vs time since the save start',
 	starlight: 'Starlight the studies cost vs Starlight earned',
 	stats: 'Stats negative or not finite',
 	upgrades: 'Duplicate upgrades',
@@ -136,15 +140,25 @@ function priced(price: (level: number) => number, count: number, budget: number)
  * `measure` loads the Cosmos and the Periodic Table with their boosts into the bound that atoms are checked against, so what they own must fit what the player earned.
  * Always lower bounds of what was spent, so an honest state passes: the forge price follows Starlight income at purchase and is left out, the Light uses the cheapest Prism tuning.
  */
-function discoveryIssues(state: GameState): string[] {
+function discoveryIssues(state: GameState, now: number): string[] {
 	const issues: string[] = [];
 	const check = (ok: boolean, issue: string) => {
 		if (!ok) issues.push(issue);
 	};
 	const { discovered, instruments, studies } = state.cosmos;
+	const clicks = state.cosmos.clicks ?? {};
+	const guestStars = state.cosmos.guestStars ?? 0;
 	const { forges, identified, sites } = state.periodic;
 	check(
-		Array.isArray(discovered) && Array.isArray(instruments) && isUnique(discovered) && isUnique(instruments) && isObject(studies) && Object.values(studies).every(isCount),
+		Array.isArray(discovered) &&
+			Array.isArray(instruments) &&
+			isUnique(discovered) &&
+			isUnique(instruments) &&
+			isObject(studies) &&
+			Object.values(studies).every(isCount) &&
+			isObject(clicks) &&
+			Object.values(clicks).every(isCount) &&
+			isCount(guestStars),
 		'cosmos',
 	);
 	check(
@@ -158,7 +172,18 @@ function discoveryIssues(state: GameState): string[] {
 	);
 	if (issues.length > 0) return issues;
 
-	const earned = (currency: CurrencyName) => (state.currencies[currency]?.earnedAllTime ?? 0) * (1 + 1e-9) + 1;
+	/** The save start is client-set, but no click predates it, and the epoch clamp in `runSeconds` bounds a forged one. */
+	const since = runSeconds(0, state.startDate, now + CLOCK_TOLERANCE_MS);
+	check(CLICKABLE_OBJECTS.reduce((sum, { id }) => sum + (clicks[id] ?? 0), 0) <= MAX_CLICKS_PER_SECOND * since, 'skyClicks');
+	check(guestStars <= since / (GUEST_STAR_INTERVAL_MS[0] / 1000) + 1, 'guestStars');
+	const claimed = new Set(state.achievements);
+	check(
+		CLICKABLE_OBJECTS.every(({ id }) => SKY_CLICK_TIERS.every(tier => !claimed.has(skyClickAchievementId(id, tier)) || (clicks[id] ?? 0) >= tier)) &&
+			GUEST_STAR_TIERS.every(tier => !claimed.has(guestStarAchievementId(tier)) || guestStars >= tier),
+		'skyAchievements',
+	);
+
+	const earned =(currency: CurrencyName) => (state.currencies[currency]?.earnedAllTime ?? 0) * (1 + 1e-9) + 1;
 	const starlightLimit = earned(CurrenciesTypes.STARLIGHT);
 	let starlight = 0;
 	for (const [id, level] of Object.entries(studies)) {
@@ -225,7 +250,7 @@ function structureIssues(state: GameState, now: number): string[] {
 	const latest = now + DATE_TOLERANCE_MS;
 	check(state.startDate <= latest && state.lastSave <= latest, 'dates');
 	check(state.runStartedAt === 0 || (state.runStartedAt >= state.startDate - DATE_TOLERANCE_MS && state.runStartedAt <= latest), 'runStart');
-	issues.push(...discoveryIssues(state));
+	issues.push(...discoveryIssues(state, now));
 	return issues;
 }
 

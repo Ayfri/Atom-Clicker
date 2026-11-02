@@ -14,8 +14,9 @@ export const BALANCE_VERSION = 2;
 /**
  * Manual clicks per second a run is credited with, macros included. The click counter comes from the client and Click Mastery
  * turns it into a production multiplier, so clicks past this rate over the run's duration count for nothing.
+ * Taps on Cosmos objects are held to the same rate over the whole save.
  */
-const MAX_CLICKS_PER_SECOND = 100;
+export const MAX_CLICKS_PER_SECOND = 100;
 /** Margin over the best case, it absorbs float drift and small balance changes, never whole orders of magnitude. */
 export const RUN_BOUND_SLACK = 10;
 /** No save predates the first commit of the game. */

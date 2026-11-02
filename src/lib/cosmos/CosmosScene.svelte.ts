@@ -1,5 +1,6 @@
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { prefersReducedMotion } from 'svelte/motion';
 import { pass, texture, vec3 } from 'three/tsl';
 import {
 	Line,
@@ -18,11 +19,12 @@ import {
 	Vector3,
 	WebGPURenderer,
 } from 'three/webgpu';
-import { COSMOS_OBJECTS, CosmosEras } from '#data/cosmos.js';
+import { CLICKABLE_OBJECTS, COSMOS_OBJECTS, CosmosEras } from '#data/cosmos.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { Body, BODY_LOOKS, simClock } from './bodies.js';
 import type { BenchOptions } from './CosmosBench.js';
 import { Earth } from './earth.js';
+import { GuestStarFlare } from './guestStar.js';
 import { bakeSurfaces, liveSurface, loadSurface, loadSurfaces, SHARP } from './maps.js';
 import { DAY_MS, J2000, OrbitLine, orbitFade } from './orbits.js';
 import { detail, exposure, glare, realism } from './shading.js';
@@ -51,8 +53,12 @@ interface CosmosOptions {
 	limit: number;
 	/** Surfaces drawn from their shaders instead of their baked maps, to see edits without baking. */
 	live?: readonly string[];
+	/** Called with the screen position of a tap on the object the camera already orbits, once its panel is open. */
+	onClick: (id: string, x: number, y: number) => void;
 	/** Called once the signal is fully resolved, as the object starts condensing. */
 	onDiscover: (id: string) => void;
+	/** Called with the screen position of a tap that caught the guest star. */
+	onGuestStar: (x: number, y: number) => void;
 	orbits: boolean;
 	realistic: boolean;
 	/** Records the GPU time of every render pass, which the benchmark reads. */
@@ -111,6 +117,13 @@ const ZOOM_EASE = 9;
 const INPUT_SETTLE = 1500;
 const ORBIT_FADE = 0.2;
 const IDLE_FRAME = 1000 / 30;
+const CLICKABLE = new Set(CLICKABLE_OBJECTS.map(object => object.id));
+/** Screen radius, in CSS px, around the guest star that still counts as a catch: a fingertip on a small flare. */
+const GUEST_PICK_RADIUS = 40;
+/** Screen size of the guest star's quad in CSS px, its spikes reach the edges. */
+const GUEST_SIZE = 96;
+/** Where a guest star appears, in normalized device coordinates: the upper middle, clear of the bottom dock and the side panels. */
+const GUEST_SPAWN = { x: [-0.5, 0.5], y: [0, 0.56] } as const;
 
 const easeInOut = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 const direction = (yaw: number, pitch: number) => new Vector3().setFromSphericalCoords(1, Math.PI / 2 - pitch, yaw);
@@ -126,6 +139,8 @@ export class CosmosScene {
 	faint = $state(false);
 	focused = $state('earth');
 	fps = $state(0);
+	/** A guest star is flaring in the sky. */
+	guestStar = $state(false);
 	hovered = $state<string | null>(null);
 	mode = $state<CosmosMode>('intro');
 	orbits = $state(true);
@@ -143,14 +158,19 @@ export class CosmosScene {
 	readonly #canvas: HTMLCanvasElement;
 	readonly #controls: OrbitControls;
 	readonly #earth: Earth;
+	readonly #flare = new GuestStarFlare();
 	readonly #hud: CosmosHud;
 	readonly #markers: PlanetMarkers;
+	readonly #onClick: (id: string, x: number, y: number) => void;
 	readonly #onDiscover: (id: string) => void;
+	readonly #onGuestStar: (x: number, y: number) => void;
 	readonly #pipeline: RenderPipeline;
 	readonly #pointers = new Map<number, { x: number; y: number }>();
 	readonly #renderer: WebGPURenderer;
 	readonly #resize: ResizeObserver;
 	readonly #scene = new Scene();
+	/** Reused by every projection of the guest star, so picking and placing it never allocate. */
+	readonly #scratch = new Vector3();
 	readonly #signal = signalSprite();
 	readonly #sky: Sky;
 	readonly #sun: Sun;
@@ -193,12 +213,14 @@ export class CosmosScene {
 	private constructor(
 		canvas: HTMLCanvasElement,
 		renderer: WebGPURenderer,
-		{ discovered, focus, hud, limit, onDiscover, orbits, realistic }: CosmosOptions,
+		{ discovered, focus, hud, limit, onClick, onDiscover, onGuestStar, orbits, realistic }: CosmosOptions,
 		maps: Map<string, Texture>,
 	) {
 		this.#canvas = canvas;
 		this.#hud = hud;
+		this.#onClick = onClick;
 		this.#onDiscover = onDiscover;
+		this.#onGuestStar = onGuestStar;
 		this.#renderer = renderer;
 		this.backend = 'isWebGPUBackend' in renderer.backend ? 'WebGPU' : 'WebGL 2';
 		const sinceJ2000 = (Date.now() - J2000) / DAY_MS;
@@ -230,7 +252,7 @@ export class CosmosScene {
 		this.realistic = realistic;
 		realism.value = this.#realismGoal = realistic ? 1 : 0;
 		this.#markers = new PlanetMarkers([...this.#bodies.values()].filter(body => body.around === 'sun' && body.orbit instanceof OrbitLine));
-		this.#scene.add(this.#sky.group, this.#markers.sprite, this.#signal);
+		this.#scene.add(this.#sky.group, this.#markers.sprite, this.#signal, this.#flare.sprite);
 
 		const sceneColor = pass(this.#scene, this.#camera).getTextureNode('output');
 		this.#bloom = bloom(sceneColor, BLOOM_STRENGTH, 0.3, 1);
@@ -469,6 +491,17 @@ export class CosmosScene {
 		this.#realismGoal = realistic ? 1 : 0;
 	}
 
+	/** Flares a guest star in the upper middle of the view, false while one is up or the view isn't a settled overview. */
+	spawnGuestStar(): boolean {
+		if (this.mode !== 'overview' || this.#flight || this.#flare.visible) return false;
+		const [x, y] = [GUEST_SPAWN.x, GUEST_SPAWN.y].map(([min, max]) => min + Math.random() * (max - min));
+		this.#camera.updateMatrixWorld();
+		this.#scratch.set(x, y, 0.5).unproject(this.#camera).sub(this.#camera.position).normalize();
+		this.#flare.show(this.#scratch, prefersReducedMotion.current);
+		this.guestStar = true;
+		return true;
+	}
+
 	/** Gives up on the signal and flies back to the home view, the progress is lost. */
 	stopObserving() {
 		if (this.mode !== 'observe') return;
@@ -567,10 +600,13 @@ export class CosmosScene {
 		const hidden = [...this.#bodies.values()].filter(body => !body.group.visible);
 		const orbits = [...this.#bodies.values()].flatMap(body => (body.orbit && !body.orbit.visible ? [body.orbit] : []));
 		const beacon = this.#earth.beacon.visible;
+		const flare = this.#flare.visible;
 		for (const object of [...hidden.map(body => body.group), ...orbits]) object.visible = true;
 		this.#earth.beacon.visible = true;
+		this.#flare.sprite.visible = true;
 		this.#sky.showDepth(true);
 		this.#pipeline.render();
+		this.#flare.sprite.visible = flare;
 		for (const body of hidden) body.group.visible = false;
 		for (const orbit of orbits) orbit.visible = false;
 		this.#earth.beacon.visible = beacon;
@@ -620,7 +656,7 @@ export class CosmosScene {
 
 	#frame = (now: number) => {
 		/** A few ms of slack so a 60 Hz display renders every other frame instead of drifting between one and two. */
-		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && now - this.#lastInput > INPUT_SETTLE;
+		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && !this.#flare.visible && now - this.#lastInput > INPUT_SETTLE;
 		/** Skipped before any scene work, and `#lastTime` stays put so the next frame's dt covers the skipped time. */
 		if (idle && now - this.#lastRender < IDLE_FRAME - 4) return;
 		const start = performance.now();
@@ -646,6 +682,7 @@ export class CosmosScene {
 		else if (this.mode === 'observe') this.#updateObserve(dt);
 		this.#adaptExposure(1 - Math.exp(-dt * 3));
 		this.#adaptToGlare(1 - Math.exp(-dt * 3));
+		if (this.#flare.visible && (this.mode !== 'overview' || !this.#flare.update(dt))) this.#hideFlare();
 		if (this.#revealing.length) {
 			for (const body of this.#revealing) body.updateReveal(dt);
 			this.#revealing = this.#revealing.filter(body => body.revealTime >= 0);
@@ -664,6 +701,19 @@ export class CosmosScene {
 		this.#gaze = nebula;
 		const look = () => this.#observerPosition().addScaledVector(nebula.direction, 10);
 		this.#flyTo(() => this.#observerPosition(), look, nebula.fov, 2.4, () => this.#lookAt(nebula));
+	}
+
+	/** Whether a screen point is on the flare, it wins over any object behind it. */
+	#guestStarAt(clientX: number, clientY: number): boolean {
+		const rect = this.#canvas.getBoundingClientRect();
+		this.#scratch.copy(this.#camera.position).addScaledVector(this.#flare.direction, DEEP_SKY_DISTANCE).project(this.#camera);
+		if (this.#scratch.z > 1) return false;
+		return Math.hypot(clientX - rect.left - ((1 + this.#scratch.x) * rect.width) / 2, clientY - rect.top - ((1 - this.#scratch.y) * rect.height) / 2) <= GUEST_PICK_RADIUS;
+	}
+
+	#hideFlare() {
+		this.#flare.hide();
+		this.guestStar = false;
 	}
 
 	#hideSignal() {
@@ -761,10 +811,18 @@ export class CosmosScene {
 		this.#pointers.delete(event.pointerId);
 		const press = this.#press;
 		this.#press = null;
-		if (press && !this.#flight && this.mode === 'overview' && Math.hypot(event.clientX - press.x, event.clientY - press.y) < 6) {
-			const id = this.#objectAt(event.clientX, event.clientY);
-			if (id) this.focus(id);
+		if (!press || this.#flight || this.mode !== 'overview' || Math.hypot(event.clientX - press.x, event.clientY - press.y) >= 6) return;
+		if (this.#flare.visible && this.#guestStarAt(event.clientX, event.clientY)) {
+			this.#hideFlare();
+			this.#onGuestStar(event.clientX, event.clientY);
+			return;
 		}
+		const id = this.#objectAt(event.clientX, event.clientY);
+		if (!id) return;
+		/** The first tap flies to an object and opens its panel, taps on it once landed count as clicks instead of restarting the flight. */
+		if (id !== this.focused) this.focus(id);
+		else if (this.selected !== id) this.selected = id;
+		else if (CLICKABLE.has(id)) this.#onClick(id, event.clientX, event.clientY);
 	};
 
 	#onVisibility = () => {
@@ -850,6 +908,12 @@ export class CosmosScene {
 		this.#sky.follow(this.#camera, this.#canvas.clientHeight);
 		this.#markers.update(this.#camera, this.#canvas.clientHeight, this.mode === 'observe');
 		this.#camera.updateMatrixWorld();
+		if (this.#flare.visible) {
+			const { sprite } = this.#flare;
+			const height = this.#canvas.clientHeight;
+			sprite.position.copy(this.#camera.position).addScaledVector(this.#flare.direction, DEEP_SKY_DISTANCE);
+			sprite.scale.setScalar((GUEST_SIZE * 2 * DEEP_SKY_DISTANCE * Math.tan(MathUtils.degToRad(this.#camera.fov) / 2)) / height);
+		}
 		const resized = this.#sun.fit(this.#camera, this.#canvas.clientHeight, this.#tuning.bloom > 0 && this.#pipeline.outputNode === this.#withBloom);
 		this.#bloom.updateBeforeType = ++this.#renders % this.#tuning.bloomEvery && !resized ? NodeUpdateType.NONE : NodeUpdateType.FRAME;
 		this.#pipeline.render();

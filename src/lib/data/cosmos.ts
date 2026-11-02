@@ -745,6 +745,17 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 
 export const COSMOS_OBJECTS_BY_ID = Object.fromEntries(COSMOS_OBJECTS.map(object => [object.id, object]));
 
+/** Moons and rings are drawn around their planet and never take a tap of their own. */
+export const CLICKABLE_OBJECTS = COSMOS_OBJECTS.filter(object => !object.orbits);
+
+export const SKY_CLICK_TIERS = [10, 500, 10_000] as const;
+
+/** Seconds of the current Starlight income a tap pays: auto-clickers at the server's 100 taps per second bound still add only 10 seconds of income per second. */
+export const SKY_CLICK_STARLIGHT_SECONDS = 0.1;
+
+/** Stored in the saves and claimed server-side, never rename. */
+export const skyClickAchievementId = (objectId: string, tier: number): string => `cosmos_clicks_${objectId}_${tier}`;
+
 /** Sky list sections by distance, moons and rings right after their planet, Halley by its semi-major axis. */
 export const SKY_SECTIONS: string[][] = [
 	['sun', 'mercury', 'venus', 'earth', 'moon', 'eros', 'mars', 'phobos', 'deimos', 'asteroid_belt', 'ceres'],

@@ -523,6 +523,13 @@ export class GameManager {
 		return cosmosManager.canObserve && this.spendCurrency({ amount: this.observationCost, currency: CurrenciesTypes.ATOMS });
 	}
 
+	/** Catches a guest star and counts its Starlight toward the daily stat like the tick does, returns the amount. */
+	catchGuestStar(): number {
+		const starlight = cosmosManager.catchGuestStar();
+		if (starlight > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + starlight;
+		return starlight;
+	}
+
 	/** Starts studying a Cosmos object and counts the level toward the daily quest as soon as it is paid. */
 	studyCosmosObject(objectId: string): boolean {
 		if (!cosmosManager.study(objectId)) return false;

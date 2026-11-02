@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS, formatMagnitude, studyCost } from '#data/cosmos.js';
+	import { CLICKABLE_OBJECTS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, formatMagnitude, studyCost } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ELEMENTS, FAMILIES } from '#data/elements.js';
 	import { CHAINS, FORGED_BY, MAX_FORGES, SITES } from '#data/sites.js';
@@ -57,6 +57,13 @@
 		['Next', next ? `${next.name} (${formatMagnitude(next.magnitude)})${cosmosManager.canObserve ? ', observable' : ''}` : 'needs an instrument'],
 		['Next Aperture', cosmosManager.apertureMaxed ? 'maxed' : formatNumber(cosmosManager.nextApertureCost)],
 	]);
+
+	const focusedClickable = $derived(CLICKABLE_OBJECTS.some(object => object.id === cosmosDev.scene?.focused));
+
+	function addClicks(count: number) {
+		const id = cosmosDev.scene?.focused;
+		if (id) for (let i = 0; i < count; i++) cosmosManager.click(id);
+	}
 
 	/** Keeps the data order, `nextDiscovery` walks the objects in it. */
 	const setDiscovered = (ids: string[]) => (cosmosManager.discovered = COSMOS_OBJECTS.filter(object => ids.includes(object.id)).map(object => object.id));
@@ -125,6 +132,8 @@
 		<button class={btn} disabled={timersLeft === 0} onclick={() => cosmosManager.advance(timersLeft)}>
 			Finish timers{timersLeft > 0 ? ` (${formatDuration(timersLeft)})` : ''}
 		</button>
+		<button class={btn} disabled={!cosmosDev.scene} onclick={() => cosmosDev.scene?.spawnGuestStar()}>Guest star</button>
+		<button class={btn} disabled={!focusedClickable} onclick={() => addClicks(100)} title="Taps the object the camera follows">+100 clicks</button>
 	</div>
 	{#if !cosmosManager.unlocked}
 		<p class="mt-2 text-[12px] text-white/35">Locked until the first Ionize, set Ionizes to 1 to open it.</p>

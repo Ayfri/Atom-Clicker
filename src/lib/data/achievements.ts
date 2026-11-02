@@ -6,9 +6,10 @@ import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { formatNumber } from '#lib/utils.js';
 import { CHROMATIC_COLORS } from '#data/chromatic.js';
-import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
+import { CLICKABLE_OBJECTS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, SKY_CLICK_TIERS, skyClickAchievementId } from '#data/cosmos.js';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
+import { GUEST_STAR_TIERS, guestStarAchievementId } from '#data/guestStars.js';
 import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
@@ -354,6 +355,35 @@ function createInstrumentAchievements(): Achievement[] {
 	}));
 }
 
+/** One series per sky object, hidden until it is in the sky so 24 unknown groups never flood the list. */
+function createSkyClickGroups(): AchievementGroup[] {
+	const names = [(name: string) => `Glance at ${name}`, (name: string) => `Fixated on ${name}`, (name: string) => `Lost in ${name}`];
+	return CLICKABLE_OBJECTS.map(object => ({
+		achievements: SKY_CLICK_TIERS.map((tier, index) => ({
+			id: skyClickAchievementId(object.id, tier),
+			name: names[index](object.name),
+			description: `Click ${object.name} ${formatNumber(tier)} times in the Cosmos`,
+			iconStack: tierIconStack('planet', index, tier),
+			condition: () => (cosmosManager.clicks[object.id] ?? 0) >= tier,
+			hiddenCondition: () => cosmosLocked() || !cosmosManager.objects.includes(object),
+		})),
+		name: `${object.name} Clicks`,
+		tiered: true,
+	}));
+}
+
+function createGuestStarAchievements(): Achievement[] {
+	const names = ['Guest Star', 'Nova Hunter', 'Keeper of the Guest Stars'];
+	return GUEST_STAR_TIERS.map((tier, index) => ({
+		id: guestStarAchievementId(tier),
+		name: names[index],
+		description: `Catch ${tier} guest star${tier === 1 ? '' : 's'} in the Cosmos`,
+		iconStack: tierIconStack('star', index, tier),
+		condition: () => cosmosManager.guestStars >= tier,
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
 function createCurrencyAchievements(types: CurrencyName[]): AchievementGroup[] {
 	return types
 		.map(type => CURRENCIES[type])
@@ -517,6 +547,8 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
 	{ achievements: createDiscoveryAchievements(), name: 'Discoveries', tiered: true },
 	{ achievements: createInstrumentAchievements(), name: 'Instruments', tiered: true },
 	{ achievements: createStudyAchievements(), name: 'Studies', tiered: true },
+	...createSkyClickGroups(),
+	{ achievements: createGuestStarAchievements(), name: 'Guest Stars', tiered: true },
 	...createCurrencyAchievements([CurrenciesTypes.STARLIGHT]),
 ];
 

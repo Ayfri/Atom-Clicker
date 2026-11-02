@@ -2,6 +2,7 @@ import {
 	APERTURE_STEP,
 	APERTURE_WIDEN_MS,
 	apertureCost,
+	CLICKABLE_OBJECTS,
 	COSMOS_INSTRUMENTS,
 	COSMOS_OBJECTS,
 	COSMOS_OBJECTS_BY_ID,
@@ -10,6 +11,7 @@ import {
 	cosmosEffects,
 	IONIZE_FLASH_SECONDS,
 	ionizeStarlightMultiplier,
+	SKY_CLICK_STARLIGHT_SECONDS,
 	SKY_LIGHT,
 	SPECTROSCOPE_ID,
 	STUDY_MS,
@@ -17,6 +19,7 @@ import {
 } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import type { LightColor } from '#data/elements.js';
+import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_REWARD_SECONDS } from '#data/guestStars.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import type { CosmosState, EffectSource } from '#lib/types.js';
@@ -24,7 +27,12 @@ import type { CosmosState, EffectSource } from '#lib/types.js';
 /** Everything here is kept through every prestige. */
 class CosmosManager {
 	aperture = $state(0);
+	/** Flushed taps, sky taps are kept apart from the atom click counters so Click Mastery and the run click bound never see them. */
+	clicks = $state.raw<Record<string, number>>({});
 	discovered = $state.raw<string[]>([]);
+	guestStars = $state(0);
+	/** A guest star is in the sky, read by its hint and never saved. */
+	guestStarShown = $state(false);
 	instruments = $state.raw<string[]>([]);
 	/** Counts the saves loaded and the offline catch-ups, so a watcher tells a replaced state from an instrument that was built. */
 	loads = $state(0);
@@ -37,6 +45,12 @@ class CosmosManager {
 	wideningMs = $state(0);
 	/** Reads the Starlight currency boost live, GameManager sets it since this module never imports it. */
 	currencyBoost = $state.raw<() => number>(() => 1);
+
+	/** Taps since the last tick, plain fields so an auto-clicker never writes reactive state or the currency per tap. */
+	#pendingClicks: Record<string, number> = {};
+	#pendingTotal = 0;
+	/** Cosmos time left before the next guest star, -1 until drawn. Never saved, so time away earns none. */
+	#guestStarDueMs = -1;
 
 	unlocked = $derived(radiationManager.ionizes > 0);
 
@@ -198,18 +212,72 @@ class CosmosManager {
 		return true;
 	}
 
+	/** Counts `elapsedMs` of eligible Cosmos time down, true once a guest star is due and until `guestStarSpawned()` is called. */
+	guestStarDue(elapsedMs: number, random = Math.random): boolean {
+		if (this.#guestStarDueMs < 0) this.#guestStarDueMs = GUEST_STAR_INTERVAL_MS[0] + random() * (GUEST_STAR_INTERVAL_MS[1] - GUEST_STAR_INTERVAL_MS[0]);
+		this.#guestStarDueMs = Math.max(0, this.#guestStarDueMs - elapsedMs);
+		return this.#guestStarDueMs === 0;
+	}
+
+	guestStarSpawned() {
+		this.#guestStarDueMs = -1;
+	}
+
+	/** Pays the catch at the current Starlight rate and returns the amount, 0 while the Cosmos is locked. */
+	catchGuestStar(): number {
+		const starlight = this.starlightPerSecond * GUEST_STAR_REWARD_SECONDS;
+		if (starlight > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, starlight);
+		this.guestStars++;
+		return Math.max(starlight, 0);
+	}
+
+	/** Counts a tap on a sky object, false for moons, rings and objects not in the sky yet. */
+	click(objectId: string): boolean {
+		const object = COSMOS_OBJECTS_BY_ID[objectId];
+		if (!object || object.orbits || !this.objects.includes(object)) return false;
+		this.#pendingClicks[objectId] = (this.#pendingClicks[objectId] ?? 0) + 1;
+		this.#pendingTotal++;
+		return true;
+	}
+
+	/** Merges the pending taps into `clicks` and pays their Starlight at the current rate, returns the amount credited. */
+	#flushClicks(): number {
+		if (this.#pendingTotal === 0) return 0;
+		const starlight = this.#pendingTotal * SKY_CLICK_STARLIGHT_SECONDS * this.starlightPerSecond;
+		this.clicks = this.#clicksWithPending();
+		this.#pendingClicks = {};
+		this.#pendingTotal = 0;
+		if (starlight > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, starlight);
+		return Math.max(starlight, 0);
+	}
+
+	#clicksWithPending(): Record<string, number> {
+		if (this.#pendingTotal === 0) return this.clicks;
+		const merged = { ...this.clicks };
+		for (const [id, count] of Object.entries(this.#pendingClicks)) merged[id] = (merged[id] ?? 0) + count;
+		return merged;
+	}
+
 	/** Returns the Starlight credited, the daily stat counts the same amount. */
 	tick(deltaMs: number): number {
 		const starlight = (this.starlightPerSecond * deltaMs) / 1000;
 		if (starlight > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, starlight);
 		this.advance(deltaMs);
-		return Math.max(starlight, 0);
+		return Math.max(starlight, 0) + this.#flushClicks();
 	}
 
 	/** A level still widening and a study still running are saved as done, a reload only skips their last seconds. */
 	getState(): CosmosState {
 		const studies = this.studying ? { ...this.studies, [this.studying.id]: this.level(this.studying.id) + 1 } : this.studies;
-		return { aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0), discovered: this.discovered, instruments: this.instruments, research: this.research, studies };
+		return {
+			aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0),
+			clicks: this.#clicksWithPending(),
+			discovered: this.discovered,
+			guestStars: this.guestStars,
+			instruments: this.instruments,
+			research: this.research,
+			studies,
+		};
 	}
 
 	/** Unknown ids from a tampered or future save are dropped, they would count toward the boosts. */
@@ -223,6 +291,13 @@ class CosmosManager {
 		const researched = COSMOS_INSTRUMENTS.find(instrument => instrument.id === research?.id && !this.instruments.includes(instrument.id));
 		this.research = research && researched ? { id: researched.id, leftMs: Math.min(Math.max(research.leftMs, 0), researched.researchMs) || 0 } : null;
 		this.studies = Object.fromEntries(Object.entries(state.studies ?? {}).filter(([id, level]) => id in COSMOS_OBJECTS_BY_ID && Number.isSafeInteger(level) && level > 0));
+		const guestStars = state.guestStars ?? 0;
+		this.guestStars = Number.isSafeInteger(guestStars) && guestStars > 0 ? guestStars : 0;
+		this.#pendingClicks = {};
+		this.#pendingTotal = 0;
+		this.clicks = Object.fromEntries(
+			Object.entries(state.clicks ?? {}).filter(([id, count]) => CLICKABLE_OBJECTS.some(object => object.id === id) && Number.isSafeInteger(count) && count > 0),
+		);
 		this.loads++;
 	}
 }

@@ -175,6 +175,38 @@ describe('edited states', () => {
 			expect(edited(state => (state.periodic.identified = [1, 1]))).toContain('periodic');
 		});
 
+		test('sky clicks must be whole counts that fit the time since the save start', () => {
+			expect(edited(state => (state.cosmos.clicks = { sun: 1.5 }))).toContain('cosmos');
+			expect(edited(state => (state.cosmos.clicks = { sun: 1e12 }))).toContain('skyClicks');
+			expect(edited(state => (state.cosmos.clicks = { sun: 10_000 }))).toEqual([]);
+		});
+
+		test('sky achievements need the clicks behind them', () => {
+			const claimed = (clicks: number) =>
+				edited(state => {
+					state.cosmos.clicks = { sun: clicks };
+					state.achievements = [...state.achievements, 'cosmos_clicks_sun_10', 'cosmos_clicks_sun_500'];
+				});
+			expect(claimed(499)).toContain('skyAchievements');
+			expect(claimed(500)).toEqual([]);
+		});
+
+		test('guest stars must be whole counts that fit the time since the save start', () => {
+			expect(edited(state => (state.cosmos.guestStars = 1e6))).toContain('guestStars');
+			expect(edited(state => (state.cosmos.guestStars = 2.5))).toContain('cosmos');
+			expect(edited(state => (state.cosmos.guestStars = 80))).toEqual([]);
+		});
+
+		test('guest star achievements need the catches behind them', () => {
+			const claimed = (guestStars: number) =>
+				edited(state => {
+					state.cosmos.guestStars = guestStars;
+					state.achievements = [...state.achievements, 'cosmos_guest_stars_1', 'cosmos_guest_stars_25'];
+				});
+			expect(claimed(3)).toContain('skyAchievements');
+			expect(claimed(25)).toEqual([]);
+		});
+
 		test('every element identified with no Light or Decay events earned is rejected, the cheapest tuning passes', () => {
 			const all = ELEMENTS.map(({ z }) => z);
 			expect(edited(state => (state.periodic.identified = all))).toEqual(expect.arrayContaining(['decay', 'light']));

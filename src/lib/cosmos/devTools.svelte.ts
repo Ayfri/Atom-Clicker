@@ -41,6 +41,7 @@ export function startCosmosStartupBench(runs = 10, variants: Record<string, stri
  * - `cosmosScene.bench(options?)` times the rendering variants
  * - `cosmosStartupBench(runs, variants?)`, see `startCosmosStartupBench`
  * - `cosmosBake()`, see `bakeCosmos`
+ * - `cosmosGuestStar()` flares a guest star now, false while one is up or the view isn't a settled overview
  * Returns the uninstall to call when the scene is disposed.
  * @example cosmosStartupBench(21, { baked: [], live: ['sky', 'sun'] })
  */
@@ -64,7 +65,7 @@ export function installDevTools(scene: CosmosScene): () => void {
 		console.table(table);
 		Object.assign(window, { cosmosStartupResult: { runs: pending.runs, table } });
 	}
-	Object.assign(window, { cosmosBake: () => bakeCosmos(scene), cosmosScene: scene, cosmosStartupBench: startCosmosStartupBench });
+	Object.assign(window, { cosmosBake: () => bakeCosmos(scene), cosmosGuestStar: () => scene.spawnGuestStar(), cosmosScene: scene, cosmosStartupBench: startCosmosStartupBench });
 	cosmosDev.scene = scene;
 	return () => {
 		if (cosmosDev.scene === scene) cosmosDev.scene = null;

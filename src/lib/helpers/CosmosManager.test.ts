@@ -7,6 +7,7 @@ import {
 	IONIZE_FLASH_SECONDS,
 	ionizeStarlightMultiplier,
 	OBSERVE_APS_SECONDS,
+	SKY_CLICK_STARLIGHT_SECONDS,
 	SKY_LIGHT,
 	SKY_SECTIONS,
 	SPECTROSCOPE_ID,
@@ -15,6 +16,7 @@ import {
 } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { GeneratorTypes } from '#data/generators.js';
+import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_REWARD_SECONDS } from '#data/guestStars.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -255,6 +257,129 @@ describe('sky', () => {
 		});
 	});
 
+	describe('a click', () => {
+		const clicks = (id: string, count: number) => {
+			for (let i = 0; i < count; i++) cosmosManager.click(id);
+		};
+
+		test('counts on the given objects and on discovered ones, never on moons, rings or objects not in the sky yet', () => {
+			expect(cosmosManager.click('sun')).toBe(true);
+			expect(cosmosManager.click('earth')).toBe(true);
+			expect(cosmosManager.click('moon')).toBe(false);
+			expect(cosmosManager.click('jupiter')).toBe(false);
+			expect(cosmosManager.click('nope')).toBe(false);
+			cosmosManager.tick(0);
+			expect(cosmosManager.clicks).toEqual({ earth: 1, sun: 1 });
+
+			cosmosManager.discovered = ['jupiter'];
+			expect(cosmosManager.click('jupiter')).toBe(true);
+			cosmosManager.tick(0);
+			expect(cosmosManager.clicks.jupiter).toBe(1);
+			expect(gameManager.totalClicksAllTime).toBe(0);
+			expect(gameManager.totalClicksRun).toBe(0);
+		});
+
+		test('unlocks each tier of its achievement on the sweep once the count is reached', () => {
+			clicks('sun', 9);
+			gameManager.tick();
+			expect(gameManager.unlockedAchievementIds.has('cosmos_clicks_sun_10')).toBe(false);
+
+			cosmosManager.click('sun');
+			gameManager.tick();
+			expect(gameManager.unlockedAchievementIds.has('cosmos_clicks_sun_10')).toBe(true);
+			expect(gameManager.unlockedAchievementIds.has('cosmos_clicks_sun_500')).toBe(false);
+		});
+
+		test('pays Starlight only when the tick flushes it, through the same crediting as the tick', () => {
+			const rate = cosmosManager.starlightPerSecond;
+			clicks('sun', 7);
+			clicks('earth', 3);
+			expect(starlight()).toBe(0);
+			expect(cosmosManager.clicks).toEqual({});
+
+			const credited = cosmosManager.tick(0);
+			expect(credited).toBeCloseTo(10 * SKY_CLICK_STARLIGHT_SECONDS * rate);
+			expect(starlight()).toBeCloseTo(credited);
+			expect(currenciesManager.getEarnedAllTime(CurrenciesTypes.STARLIGHT)).toBeCloseTo(credited);
+			expect(cosmosManager.clicks).toEqual({ earth: 3, sun: 7 });
+			expect(cosmosManager.tick(0)).toBe(0);
+		});
+
+		test('reaches the daily Starlight stat through the game tick, with the passive income', () => {
+			const rate = cosmosManager.starlightPerSecond;
+			clicks('sun', 20);
+			gameManager.tick(1000, true);
+			expect(starlight()).toBeCloseTo(rate + 20 * SKY_CLICK_STARLIGHT_SECONDS * rate);
+			expect(gameManager.dailyStats.starlightEarned).toBeCloseTo(starlight());
+		});
+
+		test('is saved with the taps not flushed yet, and a save drops moons, unknown ids and counts that are not positive whole numbers', () => {
+			clicks('sun', 3);
+			const saved = cosmosManager.getState();
+			expect(cosmosManager.clicks).toEqual({});
+			cosmosManager.loadState({ ...saved, clicks: undefined });
+			expect(cosmosManager.clicks).toEqual({});
+
+			cosmosManager.loadState(saved);
+			expect(cosmosManager.clicks).toEqual({ sun: 3 });
+
+			cosmosManager.loadState({ ...saved, clicks: { earth: -2, moon: 5, nope: 3, sun: 1.5 } });
+			expect(cosmosManager.clicks).toEqual({});
+		});
+	});
+
+	describe('a guest star', () => {
+		const [shortest, longest] = GUEST_STAR_INTERVAL_MS;
+
+		test('is due after the drawn interval of eligible time and stays due until it spawns, then draws a fresh one', () => {
+			cosmosManager.guestStarSpawned();
+			expect(cosmosManager.guestStarDue(shortest - 1000, () => 0)).toBe(false);
+			expect(cosmosManager.guestStarDue(999, () => 0)).toBe(false);
+			expect(cosmosManager.guestStarDue(1, () => 0)).toBe(true);
+			expect(cosmosManager.guestStarDue(1000, () => 0)).toBe(true);
+
+			cosmosManager.guestStarSpawned();
+			expect(cosmosManager.guestStarDue(longest - 1, () => 1)).toBe(false);
+			expect(cosmosManager.guestStarDue(1, () => 1)).toBe(true);
+			cosmosManager.guestStarSpawned();
+		});
+
+		test('pays 90 seconds of the current Starlight rate through the same crediting as the tick and counts the catch', () => {
+			const rate = cosmosManager.starlightPerSecond;
+			const caught = gameManager.catchGuestStar();
+			expect(caught).toBeCloseTo(rate * GUEST_STAR_REWARD_SECONDS);
+			expect(starlight()).toBeCloseTo(caught);
+			expect(currenciesManager.getEarnedAllTime(CurrenciesTypes.STARLIGHT)).toBeCloseTo(caught);
+			expect(gameManager.dailyStats.starlightEarned).toBeCloseTo(caught);
+			expect(cosmosManager.guestStars).toBe(1);
+		});
+
+		test('pays nothing but still counts while the Cosmos is locked', () => {
+			gameManager.totalIonizesAllTime = 0;
+			expect(gameManager.catchGuestStar()).toBe(0);
+			expect(starlight()).toBe(0);
+			expect(cosmosManager.guestStars).toBe(1);
+		});
+
+		test('unlocks the first tier of its achievement on the sweep', () => {
+			gameManager.catchGuestStar();
+			gameManager.tick();
+			expect(gameManager.unlockedAchievementIds.has('cosmos_guest_stars_1')).toBe(true);
+			expect(gameManager.unlockedAchievementIds.has('cosmos_guest_stars_25')).toBe(false);
+		});
+
+		test('is saved, and a save with a missing, negative, fractional or NaN count loads as none', () => {
+			gameManager.catchGuestStar();
+			const saved = cosmosManager.getState();
+			cosmosManager.loadState(saved);
+			expect(cosmosManager.guestStars).toBe(1);
+			for (const guestStars of [undefined, -1, 2.5, Number.NaN]) {
+				cosmosManager.loadState({ ...saved, guestStars });
+				expect(cosmosManager.guestStars).toBe(0);
+			}
+		});
+	});
+
 	test('survives every prestige and drops unknown ids from a save', () => {
 		cosmosManager.discover('moon');
 		gameManager.resetLayer(4);
@@ -262,6 +387,7 @@ describe('sky', () => {
 
 		gameManager.cosmos = {
 			aperture: -3,
+			clicks: { moon: 5 },
 			discovered: ['moon', 'death_star'],
 			instruments: ['warp'],
 			research: { id: 'refractor', leftMs: 1e12 },
@@ -269,7 +395,9 @@ describe('sky', () => {
 		};
 		expect(cosmosManager.getState()).toEqual({
 			aperture: 0,
+			clicks: {},
 			discovered: ['moon'],
+			guestStars: 0,
 			instruments: [],
 			research: { id: 'refractor', leftMs: COSMOS_INSTRUMENTS[1].researchMs },
 			studies: { moon: 2 },

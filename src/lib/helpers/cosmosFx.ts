@@ -22,6 +22,11 @@ class CosmosFx {
 		if (earth) AmbientField.emit('cosmos', 'bloom', earth, { color: WORKSHOP, count: 16, surge: 6 });
 	}
 
+	/** Sparks where a sky object was tapped, the field's own cooldown and mote cap bound a fast tapper. */
+	click(id: string, point: Point) {
+		AmbientField.emit('cosmos', 'spark', point, { color: COSMOS_OBJECTS_BY_ID[id].color, count: 3 });
+	}
+
 	discovery(card: Element, color: string) {
 		const { left, top, width } = card.getBoundingClientRect();
 		AmbientField.emit('cosmos', 'bloom', { x: left + width / 2, y: top }, { color, count: 18, surge: 8 });
