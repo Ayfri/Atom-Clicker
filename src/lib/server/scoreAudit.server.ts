@@ -1,11 +1,12 @@
+import { ACHIEVEMENTS } from '#data/achievements.js';
 import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
 import { colliderBonus } from '#data/collider.js';
-import { CLICKABLE_OBJECTS, COSMOS_OBJECTS_BY_ID, SKY_CLICK_TIERS, skyClickAchievementId, studyCost } from '#data/cosmos.js';
+import { CLICKABLE_OBJECTS, COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
-import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_TIERS, guestStarAchievementId } from '#data/guestStars.js';
-import { NEUTRINO_MIN_INTERVAL_MS, NEUTRINO_TIERS, neutrinoAchievementId } from '#data/neutrinos.js';
+import { GUEST_STAR_INTERVAL_MS } from '#data/guestStars.js';
+import { NEUTRINO_MIN_INTERVAL_MS } from '#data/neutrinos.js';
 import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
@@ -50,6 +51,7 @@ const COUNTERS = [
 
 /** Readable names of the structure issue ids, an id missing here (`currency:Atoms`, `generator:blackHole`) is shown as is. */
 const STRUCTURE_LABELS: Record<string, string> = {
+	achievementClaims: 'Achievements claimed without the progress behind them',
 	achievements: 'Duplicate achievements',
 	boosts: 'Currency boosts out of range',
 	chromaticUpgrades: 'Chromatic upgrade levels out of range',
@@ -60,7 +62,6 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	guestStars: 'Guest stars caught vs time since the save start',
 	keptGenerators: 'Kept generators out of range',
 	light: 'Light the identified elements cost vs Light earned',
-	neutrinoAchievements: 'Neutrino achievements without the catches behind them',
 	neutrinos: 'Neutrinos caught vs time since the save start',
 	periodic: 'Periodic Table elements, forges, neutrinos or source studies out of range',
 	photonUpgrades: 'Photon upgrade levels out of range',
@@ -68,7 +69,6 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	radiationUpgrades: 'Radiation upgrade levels out of range',
 	runStart: 'Run start date out of range',
 	skills: 'Duplicate skills',
-	skyAchievements: 'Cosmos achievements claimed past the counts behind them',
 	skyClicks: 'Cosmos clicks vs time since the save start',
 	starlight: 'Starlight the studies cost vs Starlight earned',
 	stats: 'Stats negative or not finite',
@@ -182,13 +182,6 @@ function discoveryIssues(state: GameState, now: number): string[] {
 	check(CLICKABLE_OBJECTS.reduce((sum, { id }) => sum + (clicks[id] ?? 0), 0) <= MAX_CLICKS_PER_SECOND * since, 'skyClicks');
 	check(guestStars <= since / (GUEST_STAR_INTERVAL_MS[0] / 1000) + 1, 'guestStars');
 	check(neutrinos <= Math.floor(since / (NEUTRINO_MIN_INTERVAL_MS / 1000)) + 1, 'neutrinos');
-	const claimed = new Set(state.achievements);
-	check(
-		CLICKABLE_OBJECTS.every(({ id }) => SKY_CLICK_TIERS.every(tier => !claimed.has(skyClickAchievementId(id, tier)) || (clicks[id] ?? 0) >= tier)) &&
-			GUEST_STAR_TIERS.every(tier => !claimed.has(guestStarAchievementId(tier)) || guestStars >= tier),
-		'skyAchievements',
-	);
-	check(NEUTRINO_TIERS.every(tier => !claimed.has(neutrinoAchievementId(tier)) || neutrinos >= tier), 'neutrinoAchievements');
 
 	const earned =(currency: CurrencyName) => (state.currencies[currency]?.earnedAllTime ?? 0) * (1 + 1e-9) + 1;
 	const starlightLimit = earned(CurrenciesTypes.STARLIGHT);
@@ -290,10 +283,12 @@ export function runSpending(state: GameState): number {
 /**
  * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
  * Server-compiled `$state` fields hold the objects they are given, so without the copy the wipe would zero the audited state too.
+ * Also returns the claimed achievements flagged `audited` whose condition is false on the loaded state, read before the bounds measurement overrides the managers.
  */
-function measure(state: GameState, { colliderTotal, totalUsers }: AuditContext, now: number, seconds: number): RunBounds {
+function measure(state: GameState, { colliderTotal, totalUsers }: AuditContext, now: number, seconds: number): { bounds: RunBounds; unearned: string[] } {
 	gameManager.resetAll();
 	gameManager.loadSaveData(structuredClone({ ...state, activePowerUps: [] }));
+	const unearned = gameManager.achievements.filter(id => ACHIEVEMENTS[id].audited && !ACHIEVEMENTS[id].condition(gameManager));
 	gameManager.colliderBonus = colliderBonus(colliderTotal);
 	gameManager.quarkBoostSources = QUARK_SOURCES;
 	gameManager.totalUsers = totalUsers;
@@ -304,7 +299,7 @@ function measure(state: GameState, { colliderTotal, totalUsers }: AuditContext, 
 	const uncached = gameManager.effects !== gameManager.effects;
 	if (uncached) Object.defineProperty(gameManager, 'effects', { configurable: true, value: new EffectTable(gameManager.allEffectSources) });
 	try {
-		return measureRunBounds(gameManager, now, seconds);
+		return { bounds: measureRunBounds(gameManager, now, seconds), unearned };
 	} finally {
 		if (uncached) Reflect.deleteProperty(gameManager, 'effects');
 		gameManager.colliderBonus = 0;
@@ -380,7 +375,8 @@ export function inspectScore(raw: unknown, context: AuditContext): ScoreInspecti
 	const knownSince = sameRun ? null : (previous?.receivedAt ?? accountCreatedAt);
 	let seconds = runSeconds(runStart, state.startDate, now);
 	if (knownSince !== null) seconds = Math.min(seconds, Math.max(0, now - knownSince + CLOCK_TOLERANCE_MS) / 1000);
-	const bounds = measure(state, context, now, seconds);
+	const { bounds, unearned } = measure(state, context, now, seconds);
+	if (unearned.length > 0) fail('achievementClaims', unearned.length, 0, `${STRUCTURE_LABELS.achievementClaims}: ${unearned.join(', ')}`);
 	const cap = maxRunAtoms(bounds, seconds, state.totalClicksRun);
 	if (atoms.earnedRun > cap) fail('production', atoms.earnedRun, cap, 'Atoms earned this run');
 	const heldLimit = atoms.earnedRun * (1 + 1e-9) + 1;

@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { ACHIEVEMENTS } from '#data/achievements.js';
 import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
@@ -194,7 +195,7 @@ describe('edited states', () => {
 					state.cosmos.clicks = { sun: clicks };
 					state.achievements = [...state.achievements, 'cosmos_clicks_sun_10', 'cosmos_clicks_sun_500'];
 				});
-			expect(claimed(499)).toContain('skyAchievements');
+			expect(claimed(499)).toContain('achievementClaims');
 			expect(claimed(500)).toEqual([]);
 		});
 
@@ -210,7 +211,7 @@ describe('edited states', () => {
 					state.cosmos.guestStars = guestStars;
 					state.achievements = [...state.achievements, 'cosmos_guest_stars_1', 'cosmos_guest_stars_25'];
 				});
-			expect(claimed(3)).toContain('skyAchievements');
+			expect(claimed(3)).toContain('achievementClaims');
 			expect(claimed(25)).toEqual([]);
 		});
 
@@ -226,7 +227,7 @@ describe('edited states', () => {
 					state.periodic.neutrinos = neutrinos;
 					state.achievements = [...state.achievements, 'table_neutrinos_1', 'table_neutrinos_25'];
 				});
-			expect(claimed(24)).toContain('neutrinoAchievements');
+			expect(claimed(24)).toContain('achievementClaims');
 			expect(claimed(25)).toEqual([]);
 		});
 
@@ -257,6 +258,53 @@ describe('edited states', () => {
 					state.periodic.forges = 2;
 				}),
 			).not.toContain('periodic');
+		});
+	});
+
+	describe('achievement claims', () => {
+		const claim = (edit: (state: GameState) => void, ...ids: string[]) => {
+			for (const id of ids) expect(ACHIEVEMENTS[id], id).toBeDefined();
+			const entry = structuredClone(lateRun());
+			entry.state.achievements = [...entry.state.achievements.filter(id => !ACHIEVEMENTS[id]?.audited), ...ids];
+			edit(entry.state);
+			const inspection = inspectScore(entry.state, context(entry.now));
+			if (typeof inspection === 'string') throw new Error(inspection);
+			return inspection;
+		};
+
+		test('a counter tier claimed past its counter is rejected, naming that tier only', () => {
+			const refused = claim(state => (state.totalIonizesAllTime = 4), 'ionizes_1', 'ionizes_5');
+			expect(refused.issues).toContain('achievementClaims');
+			const label = refused.checks.find(({ id }) => id === 'achievementClaims')!.label;
+			expect(label).toContain('ionizes_5');
+			expect(label).not.toContain('ionizes_1');
+			expect(claim(state => (state.totalIonizesAllTime = 5), 'ionizes_1', 'ionizes_5').issues).not.toContain('achievementClaims');
+		});
+
+		test('a currency tier claimed past the amount earned all time is rejected', () => {
+			const earned = (amount: number) => (state: GameState) => {
+				state.currencies[CurrenciesTypes.RED_LIGHT] = { amount: 0, earnedAllTime: amount, earnedRun: amount };
+			};
+			expect(claim(earned(99), 'red_light_100').issues).toContain('achievementClaims');
+			expect(claim(earned(100), 'red_light_100').issues).not.toContain('achievementClaims');
+		});
+
+		test('Spectrum tiers need the breaks of the weakest color', () => {
+			const kills = (green: number) => (state: GameState) => {
+				state.chromatic.kills = { blue: 50, green, red: 50 };
+			};
+			expect(claim(kills(49), 'spectrum_5').issues).toContain('achievementClaims');
+			expect(claim(kills(50), 'spectrum_5').issues).not.toContain('achievementClaims');
+		});
+
+		test('achievements whose progress can drop or reset are never refused', () => {
+			const unchecked = [
+				Object.keys(ACHIEVEMENTS).findLast(id => id.startsWith('aps_'))!,
+				Object.keys(ACHIEVEMENTS).findLast(id => id.startsWith('levels_'))!,
+				'1500_blackHole',
+				'higgs_no_atoms',
+			];
+			expect(claim(() => {}, ...unchecked).issues).not.toContain('achievementClaims');
 		});
 	});
 

@@ -13,6 +13,9 @@ import type { LayerType } from '#helpers/statConstants.js';
 import type { ToastIcon } from '#stores/toasts.svelte.js';
 
 export interface Achievement {
+	/** The leaderboard audit refuses a claim whose condition is false on the submitted state. Only for conditions reading saved progress that never resets nor goes down,
+	 *  with the tier in the id: removing a counted entry (object, instrument) or raising a tier under the same id would refuse honest saves. */
+	audited?: boolean;
 	condition: (manager: GameManager) => boolean;
 	description: string;
 	hiddenCondition?: (manager: GameManager) => boolean;
