@@ -12,4 +12,5 @@ test('multi-word currencies match in both numbers and with a lowercase tail, one
 	);
 	expect(highlightCurrencies('Install Atom Clicker from the Photon Realm')).toBe('Install Atom Clicker from the Photon Realm');
 	expect(highlightCurrencies('makes Blue Light')).toBe(`makes ${strong('Blue Light', CurrenciesTypes.BLUE_LIGHT)}`);
+	expect(highlightCurrencies('and 10 Quarks to your account')).toMatch(/^and 10 <strong style="background: linear-gradient\(90deg, [^"]+">Quarks<\/strong> to your account$/);
 });
