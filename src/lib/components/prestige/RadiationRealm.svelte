@@ -5,8 +5,8 @@
 	import RadiationUpgrades from '#components/radiation/RadiationUpgrades.svelte';
 	import ReactorCore from '#components/radiation/ReactorCore.svelte';
 	import Currency from '#components/ui/Currency.svelte';
+	import CurrencyLabel from '#components/ui/CurrencyLabel.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
-	import { CHERENKOV_SHOWN } from '#data/chromatic.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
@@ -123,16 +123,29 @@
 				{/if}
 			</div>
 
-			{#if cherenkov >= CHERENKOV_SHOWN}
-				<p
+			{#if cherenkov > 0}
+				<div
 					class="flex items-center gap-1 text-xs font-semibold tabular-nums"
 					data-hint="radiation-cherenkov"
 					style:color={CURRENCIES[CurrenciesTypes.BLUE_LIGHT].color}
 					in:reveal
 				>
 					<Currency name={CurrenciesTypes.BLUE_LIGHT} size={14} />
-					+{formatNumber(cherenkov)}<span class="text-white/45">/s</span>
-				</p>
+					+{cherenkov >= 0.01 ? formatNumber(cherenkov) : cherenkov.toPrecision(2)}<span class="text-white/45">/s</span>
+					<HelpIcon position="bottom">
+						{#snippet content()}
+							<div class="flex flex-col gap-1 text-left text-xs font-normal text-white/70">
+								<p>
+									A running core glows with Cherenkov radiation and makes <CurrencyLabel name={CurrenciesTypes.BLUE_LIGHT} />, more the closer it runs to its
+									cap.
+								</p>
+								<p class="text-white/50">
+									It grows with each <CurrencyLabel name={CurrenciesTypes.BLUE_LIGHT} /> gain: Blue Yield, Full Spectrum, your Blue spectrum level and your Ionizes.
+								</p>
+							</div>
+						{/snippet}
+					</HelpIcon>
+				</div>
 			{/if}
 
 			<div class="flex w-full max-w-sm flex-col gap-3 max-lg:landscape:w-auto max-lg:landscape:flex-1">

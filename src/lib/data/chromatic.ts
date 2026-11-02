@@ -38,8 +38,11 @@ export const CHROMATIC: Record<ChromaticColor, ChromaticDefinition> = {
 export const BLUE_HALF = { drop: 1, hp: 0.4, lifetime: 5000, size: 0.65 };
 /** Blue photons dropped per second by a reactor running at its output cap (Cherenkov radiation), in proportion to the output below it. Not the `cherenkov_glow` upgrade. */
 export const CHERENKOV_DROP = 0.00003;
-/** Under this many Blue Light per second the reactor readout would print +0.00/s, so it and its hint stay hidden while the core only glows. */
-export const CHERENKOV_SHOWN = 0.01;
+/**
+ * Blue Light per second a reactor at its cap makes at least. Without Prism upgrades the drop above pays about one photon every 9 hours, so players
+ * get this readable rate until their Blue Light per photon passes ~330× (the bench bot passes it on its first day after Ionizing).
+ */
+export const CHERENKOV_MIN = 0.01;
 export const CHROMATIC_BASE_SPAWN_INTERVAL = 8000;
 export const CHROMATIC_MAX_ON_SCREEN = 5;
 /** The photon auto-clicker hits colored photons for this share of a tap. */

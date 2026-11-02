@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { CHERENKOV_DROP, CHERENKOV_MIN, KILLS_PER_SPECTRUM_LEVEL } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, GeneratorTypes } from '#data/generators.js';
 import { getPhotonUpgradeCost, PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { RealmTypes } from '#data/realms.js';
 import { UPGRADES } from '#data/upgrades.js';
+import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -606,6 +608,16 @@ describe('Cherenkov Blue Light', () => {
 		setCpm(cap);
 		expect(gameManager.cherenkovLight).toBeCloseTo(quarter * 4, 12);
 		expect(gameManager.cherenkovLightAt(cap * 3)).toBe(gameManager.cherenkovLight);
+	});
+
+	test('a core at its cap makes at least the minimum rate, and Blue Light gains lift it past it', () => {
+		setCpm(radiationManager.maxCpm);
+		expect(gameManager.cherenkovLight).toBe(CHERENKOV_MIN);
+		gameManager.chromaticUpgrades = { blue_yield: 20, white_spectrum: 10 };
+		gameManager.chromatic = { kills: { blue: 40 * KILLS_PER_SPECTRUM_LEVEL, green: 0, red: 0 } };
+		gameManager.totalIonizesAllTime = 50;
+		expect(gameManager.cherenkovLight).toBeGreaterThan(CHERENKOV_MIN);
+		expect(gameManager.cherenkovLight).toBeCloseTo(chromaticManager.lightFor('blue', CHERENKOV_DROP, gameManager), 12);
 	});
 
 	test('a tick pays it in Blue Light only, and the Cherenkov Glow upgrade does not change it', () => {
