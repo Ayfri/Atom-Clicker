@@ -267,12 +267,20 @@ export const DEEP_SKY: DeepSkyObject[] = [
 	{
 		/** Mira, a red giant shedding a 13 light year tail of gas as it races through space, as ultraviolet images found it in 2007. */
 		angle: 0,
-		/** Its 332 day pulsation sped up to a 30 s cycle, a quick rise and a longer fall: only the star's core and halo breathe, the tail stays steady. */
+		/**
+		 * Its 332 day pulsation sped up to a 20 s cycle, a quick rise and a longer fall, held halfway under reduced motion. Only the head breathes, the
+		 * tail stays steady: a dimming in brightness alone is lost on a head a few pixels wide, so a live halo also swells and turns orange-white at
+		 * the peak, and shrinks to deep red at the low point, the way the real star cools as it dims.
+		 */
 		animate: (baked, p, clock, motion) => {
-			const phase = clock.div(30).fract();
-			const breath = mix(smoothstep(0, 0.4, phase), oneMinus(smoothstep(0.4, 1, phase)), step(0.4, phase));
-			const star = blob(p, [0.72, 0], [3, 1], 30);
-			return baked.mul(oneMinus(star).add(star.mul(mix(0.85, mix(0.45, 1.3, breath), motion))));
+			const phase = clock.div(20).fract();
+			const breath = mix(0.5, mix(smoothstep(0, 0.4, phase), oneMinus(smoothstep(0.4, 1, phase)), step(0.4, phase)), motion);
+			const head = blob(p, [0.72, 0], [3, 1], 30);
+			const offset = p.sub(vec2(0.72, 0)).mul(vec2(3, 1));
+			const halo = exp(dot(offset, offset).mul(mix(-45, -18, breath)));
+			return baked
+				.mul(oneMinus(head).add(head.mul(mix(0.6, 1.2, breath))))
+				.add(mix(color('#c8361f'), color('#ffc48a'), breath).mul(halo.mul(mix(0.08, 0.35, breath))));
 		},
 		at: [167.76, -57.97],
 		discovery: ['mira', '#ffb08a'],
