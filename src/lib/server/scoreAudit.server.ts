@@ -177,8 +177,8 @@ function discoveryIssues(state: GameState, now: number): string[] {
 	);
 	if (issues.length > 0) return issues;
 
-	/** The save start is client-set, but no click predates it, and the epoch clamp in `runSeconds` bounds a forged one. */
-	const since = runSeconds(0, state.startDate, now + CLOCK_TOLERANCE_MS);
+	/** The save start is client-set, but no click predates it, and the epoch clamp in `runSeconds` bounds a forged one. A device clock running ahead stamps a later start, so the margin is the date one. */
+	const since = runSeconds(0, state.startDate, now + DATE_TOLERANCE_MS);
 	check(CLICKABLE_OBJECTS.reduce((sum, { id }) => sum + (clicks[id] ?? 0), 0) <= MAX_CLICKS_PER_SECOND * since, 'skyClicks');
 	check(guestStars <= since / (GUEST_STAR_INTERVAL_MS[0] / 1000) + 1, 'guestStars');
 	check(neutrinos <= Math.floor(since / (NEUTRINO_MIN_INTERVAL_MS / 1000)) + 1, 'neutrinos');

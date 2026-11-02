@@ -181,6 +181,13 @@ describe('edited states', () => {
 			expect(edited(state => (state.cosmos.clicks = { sun: 10_000 }))).toEqual([]);
 		});
 
+		test('a device clock running an hour ahead of the server does not refuse the clicks of a save that just started', () => {
+			const entry = structuredClone(lateRun());
+			entry.state.startDate = entry.now + 3_600_000;
+			entry.state.cosmos.clicks = { sun: 1000 };
+			expect(audit(entry).issues).not.toContain('skyClicks');
+		});
+
 		test('sky achievements need the clicks behind them', () => {
 			const claimed = (clicks: number) =>
 				edited(state => {
