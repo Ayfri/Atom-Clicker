@@ -1,11 +1,11 @@
 # Unreleased
 
-- **The Cosmos**: Your first Ionize opens a 3D sky above the realms, where you rediscover planets, moons, comets, nebulae, supernovae and even the Big Bang's afterglow in the order astronomers did, from the naked eye to LIGO, while ever fainter stars fill the sky as your sight sharpens. Every find radiates Starlight and boosts the rest of the game, and tapping objects or catching the guest stars that flare up pays a bit more.
-- **Periodic Table**: A spectroscope opens the Periodic Table, reachable from any realm, where stars, supernovae and colliding neutron stars forge every element and you read each one's light to light up its atom and boost your generators, and catching the neutrinos that zip across it pushes it 10 minutes ahead.
+- **The Cosmos**: Your first Ionize opens a 3D sky where you rediscover planets, comets, nebulae and more in the order astronomers did, and every find, tap and guest star pays Starlight and boosts the rest of the game.
+- **Periodic Table**: A spectroscope opens the Periodic Table, reachable from any realm, where you forge and read every element to boost your generators, and the neutrinos you catch push it ahead.
 - **Overdrive**: Spend Higgs Bosons to double any generator's output.
 - **Generators**: Auto-buy can buy in bulk, and new electron upgrades keep your generators through prestiges.
 - **Quark Shop**: A Cosmos banner for the leaderboard.
-- **Achievements**: New achievements for your Cosmos discoveries, instruments, studies, Starlight, taps and guest stars.
+- **Achievements**: New achievements for your Cosmos discoveries, instruments, studies, Starlight, taps, guest stars and neutrinos.
 - **Daily Quests**: Two Cosmos quests, gather Starlight and study objects.
 - **Install the Game**: Install Atom Clicker as an app from Settings, and playing from it gives +10% production and 10 Quarks once per account.
 
