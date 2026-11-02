@@ -99,6 +99,12 @@
 	class="pointer-events-none absolute inset-0 z-40 overflow-hidden"
 	bind:this={box}
 >
+	<p
+		class="sr-only"
+		aria-live="polite"
+	>
+		{neutrino.visible ? 'A neutrino is crossing the Table.' : ''}
+	</p>
 	<button
 		class={['pointer-events-auto absolute top-0 left-0 -mt-5.5 -ml-5.5 grid size-11 cursor-pointer place-items-center', !neutrino.visible && 'hidden']}
 		aria-label="Catch the neutrino"

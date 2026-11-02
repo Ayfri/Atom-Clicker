@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { flareIntensity, GUEST_STAR_LIFE } from '#data/guestStars.js';
+import { flareIntensity, GUEST_STAR_LIFE, guestStarSpot } from '#data/guestStars.js';
 
 describe('flareIntensity', () => {
 	test('is dark before the flare and once its life is over', () => {
@@ -32,5 +32,34 @@ describe('flareIntensity', () => {
 			expect(fading).toBeGreaterThanOrEqual(0);
 			previous = fading;
 		}
+	});
+});
+
+describe('guestStarSpot', () => {
+	test('keeps its margin from the side edges and skips the points a panel covers', () => {
+		const draws = [0.1, 0, 0.9, 1];
+		let drawn = 0;
+		const tried: { x: number; y: number }[] = [];
+		const spot = guestStarSpot(
+			400,
+			800,
+			56,
+			(x, y) => {
+				tried.push({ x, y });
+				return x > 200;
+			},
+			() => draws[drawn++],
+		);
+		expect(tried).toHaveLength(2);
+		expect(tried[0].x).toBeCloseTo(56 + 0.1 * 288);
+		expect(tried[0].y).toBeCloseTo(160);
+		expect(spot!.x).toBeCloseTo(56 + 0.9 * 288);
+		expect(spot!.y).toBeCloseTo(560);
+	});
+
+	test('gives up after a handful of tries when every point is covered', () => {
+		let calls = 0;
+		expect(guestStarSpot(400, 800, 56, () => (calls++, false))).toBeNull();
+		expect(calls).toBe(8);
 	});
 });

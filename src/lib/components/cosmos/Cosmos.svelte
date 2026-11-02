@@ -287,6 +287,22 @@
 			{/key}
 		{/if}
 
+		<p
+			class="sr-only"
+			aria-live="polite"
+		>
+			{scene?.guestStar && mode === 'overview' ? 'A guest star is flaring in the sky.' : ''}
+		</p>
+		{#if scene?.guestStar && mode === 'overview'}
+			<button
+				class="sr-only z-30 rounded-lg bg-cosmos-hud px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/20 focus:not-sr-only focus:absolute focus:top-24 focus:left-1/2 focus:-translate-x-1/2"
+				onclick={() => scene?.catchGuestStar()}
+				type="button"
+			>
+				Catch the guest star
+			</button>
+		{/if}
+
 		<header
 			class="pointer-events-none absolute inset-x-0 top-0 z-25 flex flex-wrap items-start justify-between gap-x-3 gap-y-1 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))]"
 			in:fly|global={{ delay: 450, duration: 400, y: -12 }}
@@ -483,7 +499,9 @@
 				</div>
 			{/if}
 			{#if selected && (wide.current || !skyOpen)}
-				<div class="absolute inset-x-3 bottom-[calc(var(--cosmos-dock-height)+0.75rem)] md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:max-h-[calc(100%-8rem-var(--cosmos-dock-height))] md:w-80 md:overflow-y-auto md:rounded-xl lg:max-h-[calc(100%-22rem)]">
+				<div
+					class="absolute inset-x-3 bottom-[calc(var(--cosmos-dock-height)+0.75rem)] flex max-h-[calc(100%-var(--cosmos-dock-height)-5.75rem)] flex-col md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:block md:max-h-[calc(100%-8rem-var(--cosmos-dock-height))] md:w-80 md:overflow-y-auto md:rounded-xl lg:max-h-[calc(100%-22rem)]"
+				>
 					<ObjectPanel
 						id={selected}
 						onClose={() => scene && (scene.selected = null)}

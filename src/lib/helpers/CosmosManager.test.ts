@@ -21,6 +21,7 @@ import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { IONIZE_CPM, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { MAX_CLICKS_PER_SECOND } from '#helpers/runBounds.js';
 
 const starlight = () => currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
 
@@ -268,12 +269,12 @@ describe('sky', () => {
 			expect(cosmosManager.click('moon')).toBe(false);
 			expect(cosmosManager.click('jupiter')).toBe(false);
 			expect(cosmosManager.click('nope')).toBe(false);
-			cosmosManager.tick(0);
+			cosmosManager.tick(1000);
 			expect(cosmosManager.clicks).toEqual({ earth: 1, sun: 1 });
 
 			cosmosManager.discovered = ['jupiter'];
 			expect(cosmosManager.click('jupiter')).toBe(true);
-			cosmosManager.tick(0);
+			cosmosManager.tick(1000);
 			expect(cosmosManager.clicks.jupiter).toBe(1);
 			expect(gameManager.totalClicksAllTime).toBe(0);
 			expect(gameManager.totalClicksRun).toBe(0);
@@ -297,12 +298,31 @@ describe('sky', () => {
 			expect(starlight()).toBe(0);
 			expect(cosmosManager.clicks).toEqual({});
 
-			const credited = cosmosManager.tick(0);
+			const credited = cosmosManager.tick(1000) - rate;
 			expect(credited).toBeCloseTo(10 * SKY_CLICK_STARLIGHT_SECONDS * rate);
-			expect(starlight()).toBeCloseTo(credited);
-			expect(currenciesManager.getEarnedAllTime(CurrenciesTypes.STARLIGHT)).toBeCloseTo(credited);
+			expect(starlight()).toBeCloseTo(rate + credited);
+			expect(currenciesManager.getEarnedAllTime(CurrenciesTypes.STARLIGHT)).toBeCloseTo(rate + credited);
 			expect(cosmosManager.clicks).toEqual({ earth: 3, sun: 7 });
-			expect(cosmosManager.tick(0)).toBe(0);
+			expect(cosmosManager.tick(1000)).toBeCloseTo(rate);
+		});
+
+		test('counts and pays at most MAX_CLICKS_PER_SECOND taps per elapsed second, the excess is dropped', () => {
+			const rate = cosmosManager.starlightPerSecond;
+			clicks('sun', 600);
+			clicks('earth', 400);
+			const saved = cosmosManager.getState().clicks;
+			expect(saved).toEqual({ earth: 40, sun: 60 });
+			expect(cosmosManager.clicks).toEqual({});
+
+			const credited = cosmosManager.tick(1000) - rate;
+			expect(cosmosManager.clicks).toEqual({ earth: 40, sun: 60 });
+			expect(credited).toBeCloseTo(MAX_CLICKS_PER_SECOND * SKY_CLICK_STARLIGHT_SECONDS * rate);
+
+			clicks('sun', 1000);
+			cosmosManager.tick(500);
+			expect(cosmosManager.clicks.sun).toBe(60 + MAX_CLICKS_PER_SECOND / 2);
+			cosmosManager.tick(1000);
+			expect(cosmosManager.clicks.sun).toBe(60 + MAX_CLICKS_PER_SECOND / 2);
 		});
 
 		test('reaches the daily Starlight stat through the game tick, with the passive income', () => {

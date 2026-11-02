@@ -22,6 +22,7 @@ import type { LightColor } from '#data/elements.js';
 import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_REWARD_SECONDS } from '#data/guestStars.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { MAX_CLICKS_PER_SECOND } from '#helpers/runBounds.js';
 import type { CosmosState, EffectSource } from '#lib/types.js';
 
 /** Everything here is kept through every prestige. */
@@ -240,21 +241,39 @@ class CosmosManager {
 		return true;
 	}
 
-	/** Merges the pending taps into `clicks` and pays their Starlight at the current rate, returns the amount credited. */
-	#flushClicks(): number {
+	/**
+	 * Pending taps within `limit`, every object's count scaled down by the same factor and rounded down. The server holds taps to
+	 * `MAX_CLICKS_PER_SECOND`, so the excess of a macro is dropped instead of being counted and paid.
+	 */
+	#cappedPending(limit: number): { counts: Record<string, number>; total: number } {
+		if (this.#pendingTotal <= limit) return { counts: this.#pendingClicks, total: this.#pendingTotal };
+		const scale = limit / this.#pendingTotal;
+		const counts: Record<string, number> = {};
+		let total = 0;
+		for (const [id, count] of Object.entries(this.#pendingClicks)) {
+			const kept = Math.floor(count * scale);
+			if (kept === 0) continue;
+			counts[id] = kept;
+			total += kept;
+		}
+		return { counts, total };
+	}
+
+	/** Merges the pending taps the elapsed time allows into `clicks` and pays their Starlight at the current rate, returns the amount credited. */
+	#flushClicks(deltaMs: number): number {
 		if (this.#pendingTotal === 0) return 0;
-		const starlight = this.#pendingTotal * SKY_CLICK_STARLIGHT_SECONDS * this.starlightPerSecond;
-		this.clicks = this.#clicksWithPending();
+		const { counts, total } = this.#cappedPending(Math.floor((MAX_CLICKS_PER_SECOND * deltaMs) / 1000));
+		const starlight = total * SKY_CLICK_STARLIGHT_SECONDS * this.starlightPerSecond;
+		this.clicks = this.#mergeClicks(counts);
 		this.#pendingClicks = {};
 		this.#pendingTotal = 0;
 		if (starlight > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, starlight);
 		return Math.max(starlight, 0);
 	}
 
-	#clicksWithPending(): Record<string, number> {
-		if (this.#pendingTotal === 0) return this.clicks;
+	#mergeClicks(counts: Record<string, number>): Record<string, number> {
 		const merged = { ...this.clicks };
-		for (const [id, count] of Object.entries(this.#pendingClicks)) merged[id] = (merged[id] ?? 0) + count;
+		for (const [id, count] of Object.entries(counts)) merged[id] = (merged[id] ?? 0) + count;
 		return merged;
 	}
 
@@ -263,15 +282,18 @@ class CosmosManager {
 		const starlight = (this.starlightPerSecond * deltaMs) / 1000;
 		if (starlight > 0) currenciesManager.add(CurrenciesTypes.STARLIGHT, starlight);
 		this.advance(deltaMs);
-		return Math.max(starlight, 0) + this.#flushClicks();
+		return Math.max(starlight, 0) + this.#flushClicks(deltaMs);
 	}
 
-	/** A level still widening and a study still running are saved as done, a reload only skips their last seconds. */
+	/**
+	 * A level still widening and a study still running are saved as done, a reload only skips their last seconds. The taps not flushed
+	 * yet are saved up to one second of the tap bound, the next tick pays the rest.
+	 */
 	getState(): CosmosState {
 		const studies = this.studying ? { ...this.studies, [this.studying.id]: this.level(this.studying.id) + 1 } : this.studies;
 		return {
 			aperture: this.aperture + (this.wideningMs > 0 ? 1 : 0),
-			clicks: this.#clicksWithPending(),
+			clicks: this.#pendingTotal === 0 ? this.clicks : this.#mergeClicks(this.#cappedPending(MAX_CLICKS_PER_SECOND).counts),
 			discovered: this.discovered,
 			guestStars: this.guestStars,
 			instruments: this.instruments,

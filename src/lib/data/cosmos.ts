@@ -750,7 +750,7 @@ export const CLICKABLE_OBJECTS = COSMOS_OBJECTS.filter(object => !object.orbits)
 
 export const SKY_CLICK_TIERS = [10, 500, 10_000] as const;
 
-/** Seconds of the current Starlight income a tap pays: auto-clickers at the server's 100 taps per second bound still add only 10 seconds of income per second. */
+/** Seconds of the current Starlight income a tap pays: the game counts at most `MAX_CLICKS_PER_SECOND` taps per second (the server's bound), so even macros add only 10 seconds of income per second. */
 export const SKY_CLICK_STARLIGHT_SECONDS = 0.1;
 
 /** Stored in the saves and claimed server-side, never rename. */

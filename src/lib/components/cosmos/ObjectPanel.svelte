@@ -34,8 +34,9 @@
 	const nextTier = $derived(SKY_CLICK_TIERS.find(tier => taps < tier));
 </script>
 
-<article class="flex flex-col gap-3 rounded-xl bg-cosmos-hud/95 p-4 shadow-2xl ring-1 ring-white/10">
-	<header class="flex items-start gap-1">
+<!-- On phones the panel scrolls inside the height its wrapper leaves, so the pinned header keeps the close button in reach. -->
+<article class="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl bg-cosmos-hud/95 p-4 shadow-2xl ring-1 ring-white/10 md:overflow-visible">
+	<header class="sticky top-0 z-10 -mx-4 -mt-4 flex items-start gap-1 bg-cosmos-hud px-4 pt-4 pb-1">
 		<div class="min-w-0 flex-1">
 			<p class="text-[10px] font-semibold uppercase tracking-widest text-white/40">{object.year} · {object.discoverer}</p>
 			<h2

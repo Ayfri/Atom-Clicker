@@ -12,9 +12,9 @@ export const NEUTRINO_FLIGHT_MS = 12_000;
 /** Reduced motion gets a slower, straighter flight. */
 export const NEUTRINO_REDUCED_FLIGHT_MS = 14_000;
 
-/** Stored in the saves and claimed server-side, never rename. */
 export const NEUTRINO_TIERS = [1, 25, 250] as const;
 
+/** Stored in the saves and claimed server-side, never rename. */
 export const neutrinoAchievementId = (tier: number): string => `table_neutrinos_${tier}`;
 
 /** A random one is shown with each catch. */

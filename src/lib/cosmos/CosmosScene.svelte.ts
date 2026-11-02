@@ -1,6 +1,6 @@
+import { prefersReducedMotion } from 'svelte/motion';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
-import { prefersReducedMotion } from 'svelte/motion';
 import { pass, texture, vec3 } from 'three/tsl';
 import {
 	Line,
@@ -20,6 +20,7 @@ import {
 	WebGPURenderer,
 } from 'three/webgpu';
 import { CLICKABLE_OBJECTS, COSMOS_OBJECTS, CosmosEras } from '#data/cosmos.js';
+import { guestStarSpot } from '#data/guestStars.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { Body, BODY_LOOKS, simClock } from './bodies.js';
 import type { BenchOptions } from './CosmosBench.js';
@@ -122,9 +123,8 @@ const CLICKABLE = new Set(CLICKABLE_OBJECTS.map(object => object.id));
 const GUEST_PICK_RADIUS = 40;
 /** Screen size of the guest star's quad in CSS px, its spikes reach the edges. */
 const GUEST_SIZE = 96;
-/** Where a guest star appears, in normalized device coordinates: the upper middle, clear of the bottom dock, the Sky list that reaches -0.3 on desktop and the object panel. */
-const GUEST_SPAWN = { x: [-0.22, 0.3], y: [0, 0.56] } as const;
-
+/** Distance a guest star keeps from the side edges of the view, so its quad is never clipped. */
+const GUEST_MARGIN = GUEST_SIZE / 2 + 8;
 const easeInOut = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 const direction = (yaw: number, pitch: number) => new Vector3().setFromSphericalCoords(1, Math.PI / 2 - pitch, yaw);
 
@@ -159,13 +159,23 @@ export class CosmosScene {
 	readonly #controls: OrbitControls;
 	readonly #earth: Earth;
 	readonly #flare = new GuestStarFlare();
+	/** Point the camera aims at during a flight, `#updateFlight` only. */
+	readonly #flightLook = new Vector3();
+	/** The view directions `#adaptToGlare` compares, it never calls anything that reads them. */
+	readonly #glare = { away: new Vector3(), body: new Vector3(), forward: new Vector3(), sun: new Vector3() };
 	readonly #hud: CosmosHud;
 	readonly #markers: PlanetMarkers;
+	/** What `#observerPosition` returns, so a caller uses it before asking again. */
+	readonly #observer = new Vector3();
 	readonly #onClick: (id: string, x: number, y: number) => void;
 	readonly #onDiscover: (id: string) => void;
 	readonly #onGuestStar: (x: number, y: number) => void;
+	/** The follow step and the zoom offset of `#updateOverview`. */
+	readonly #overview = { delta: new Vector3(), offset: new Vector3() };
 	readonly #pipeline: RenderPipeline;
 	readonly #pointers = new Map<number, { x: number; y: number }>();
+	/** Screen projection of the object `#objectAt` is testing. */
+	readonly #projected = new Vector3();
 	readonly #renderer: WebGPURenderer;
 	readonly #resize: ResizeObserver;
 	readonly #scene = new Scene();
@@ -352,6 +362,16 @@ export class CosmosScene {
 		}
 	}
 
+	/** Catches the guest star the way a tap on it does, reporting its screen position (the view's center while it is behind the camera). False when none is up. */
+	catchGuestStar(): boolean {
+		if (!this.#flare.visible || this.mode !== 'overview') return false;
+		const { height, left, top, width } = this.#canvas.getBoundingClientRect();
+		const point = this.#guestStarPoint() ?? { x: left + width / 2, y: top + height / 2 };
+		this.#hideFlare();
+		this.#onGuestStar(point.x, point.y);
+		return true;
+	}
+
 	/** Closes the discovery card, the camera keeps orbiting the new object and its info panel opens. */
 	continue() {
 		if (this.mode !== 'discovery') return;
@@ -491,14 +511,21 @@ export class CosmosScene {
 		this.#realismGoal = realistic ? 1 : 0;
 	}
 
-	/** Flares a guest star in the upper middle of the view, false while one is up or the view isn't a settled overview. */
+	/**
+	 * Flares a guest star where the sky is actually in view: the Sky list, the object panel and the phone sheets cover different parts
+	 * of it per screen, so a point only counts when the canvas is what the browser finds there. False while one is up, the view isn't
+	 * a settled overview or no free point turned up, which leaves the next try to the following second.
+	 */
 	spawnGuestStar(): boolean {
 		if (this.mode !== 'overview' || this.#flight || this.#flare.visible) return false;
-		const [x, y] = [GUEST_SPAWN.x, GUEST_SPAWN.y].map(([min, max]) => min + Math.random() * (max - min));
+		const { height, left, top, width } = this.#canvas.getBoundingClientRect();
+		const spot = guestStarSpot(width, height, GUEST_MARGIN, (x, y) => document.elementFromPoint(left + x, top + y) === this.#canvas);
+		if (!spot) return false;
 		this.#camera.updateMatrixWorld();
-		this.#scratch.set(x, y, 0.5).unproject(this.#camera).sub(this.#camera.position).normalize();
+		this.#scratch.set((spot.x / width) * 2 - 1, 1 - (spot.y / height) * 2, 0.5).unproject(this.#camera).sub(this.#camera.position).normalize();
 		this.#flare.show(this.#scratch, prefersReducedMotion.current);
 		this.guestStar = true;
+		perfTracker.action('cosmos:guest-star');
 		return true;
 	}
 
@@ -536,22 +563,23 @@ export class CosmosScene {
 	 */
 	#adaptToGlare(ease: number) {
 		const camera = this.#camera;
-		const forward = camera.getWorldDirection(new Vector3());
-		const toSun = camera.position.clone().negate();
+		const { away, body: toBody, forward, sun: toSun } = this.#glare;
+		camera.getWorldDirection(forward);
+		toSun.copy(camera.position).negate();
 		const halfView = Math.tan(MathUtils.degToRad(camera.fov) / 2);
 		const halfDiagonal = Math.atan(halfView * Math.hypot(1, camera.aspect));
 		let sun = 1 - MathUtils.smoothstep(forward.angleTo(toSun), halfDiagonal, halfDiagonal + 0.35);
 		let body = 0;
 		if ((this.mode === 'overview' || this.mode === 'discovery') && !this.#flight && !this.#gaze && this.focused !== 'sun') {
 			const position = this.#positionOf(this.focused)!;
-			const toBody = position.clone().sub(camera.position);
+			toBody.copy(position).sub(camera.position);
 			const radius = this.#radiusOf(this.focused);
 			if (toBody.length() < toSun.length()) {
 				const size = Math.asin(Math.min(1, radius / toBody.length()));
 				sun *= MathUtils.smoothstep(toBody.angleTo(toSun), size * 0.9, size * 1.1);
 			}
 			const coverage = radius / (toBody.length() * halfView);
-			const litSide = (1 + Math.cos(toBody.negate().angleTo(position.clone().negate()))) / 2;
+			const litSide = (1 + Math.cos(toBody.negate().angleTo(away.copy(position).negate()))) / 2;
 			body = MathUtils.smoothstep(coverage, 0.03, 0.3) * MathUtils.lerp(0.55, 1, MathUtils.smoothstep(litSide, 0.1, 0.5));
 		}
 		glare.value = MathUtils.lerp(glare.value, Math.max(sun, body), ease);
@@ -656,7 +684,7 @@ export class CosmosScene {
 
 	#frame = (now: number) => {
 		/** A few ms of slack so a 60 Hz display renders every other frame instead of drifting between one and two. */
-		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && !this.#flare.visible && now - this.#lastInput > INPUT_SETTLE;
+		const idle = this.#tuning.idleCap && this.mode === 'overview' && !this.#flight && now - this.#lastInput > INPUT_SETTLE;
 		/** Skipped before any scene work, and `#lastTime` stays put so the next frame's dt covers the skipped time. */
 		if (idle && now - this.#lastRender < IDLE_FRAME - 4) return;
 		const start = performance.now();
@@ -705,10 +733,16 @@ export class CosmosScene {
 
 	/** Whether a screen point is on the flare, it wins over any object behind it. */
 	#guestStarAt(clientX: number, clientY: number): boolean {
+		const point = this.#guestStarPoint();
+		return point !== null && Math.hypot(clientX - point.x, clientY - point.y) <= GUEST_PICK_RADIUS;
+	}
+
+	/** Client position of the flare, null while it is behind the camera. */
+	#guestStarPoint(): { x: number; y: number } | null {
 		const rect = this.#canvas.getBoundingClientRect();
 		this.#scratch.copy(this.#camera.position).addScaledVector(this.#flare.direction, DEEP_SKY_DISTANCE).project(this.#camera);
-		if (this.#scratch.z > 1) return false;
-		return Math.hypot(clientX - rect.left - ((1 + this.#scratch.x) * rect.width) / 2, clientY - rect.top - ((1 - this.#scratch.y) * rect.height) / 2) <= GUEST_PICK_RADIUS;
+		if (this.#scratch.z > 1) return null;
+		return { x: rect.left + ((1 + this.#scratch.x) * rect.width) / 2, y: rect.top + ((1 - this.#scratch.y) * rect.height) / 2 };
 	}
 
 	#hideFlare() {
@@ -733,7 +767,11 @@ export class CosmosScene {
 		this.#sharpen();
 	}
 
-	/** Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. Idle frames are capped at 30 Hz on purpose, so they never feed the probe. */
+	/**
+	 * Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. Idle frames are
+	 * capped at 30 Hz on purpose, so they never feed the probe. It reads the frame interval and not the CPU time of a frame: WebGPU queues the
+	 * GPU work without waiting for it, so a GPU-bound phone would look fast. An iPhone in Low Power Mode (30 Hz rAF) drops to low too, which suits it.
+	 */
 	#measure(dt: number, idle: boolean) {
 		this.#fpsTime += dt;
 		if (this.#fpsTime >= 1) {
@@ -759,7 +797,7 @@ export class CosmosScene {
 		let best: { id: string; size: number } | null = null;
 		for (const id of this.#pickable()) {
 			const position = this.#positionOf(id)!;
-			const projected = position.clone().project(this.#camera);
+			const projected = this.#projected.copy(position).project(this.#camera);
 			if (projected.z > 1) continue;
 			const size = Math.max(PICK_RADIUS, (this.#radiusOf(id) / (position.distanceTo(this.#camera.position) * halfView)) * (rect.height / 2));
 			const hit = Math.hypot(x - (projected.x * rect.width) / 2, y + (projected.y * rect.height) / 2) <= size;
@@ -772,7 +810,7 @@ export class CosmosScene {
 	#observerPosition() {
 		const earth = this.#earth.position;
 		const aimed = this.#target ?? this.#gaze;
-		const toward = aimed ? this.#toward(aimed, earth) : new Vector3().crossVectors(UP, earth).normalize();
+		const toward = aimed ? this.#toward(aimed, earth, this.#observer) : this.#observer.crossVectors(UP, earth).normalize();
 		return toward.multiplyScalar(EARTH_RADIUS * 1.7).addScaledVector(UP, 0.4).add(earth);
 	}
 
@@ -812,17 +850,20 @@ export class CosmosScene {
 		const press = this.#press;
 		this.#press = null;
 		if (!press || this.#flight || this.mode !== 'overview' || Math.hypot(event.clientX - press.x, event.clientY - press.y) >= 6) return;
+		const start = performance.now();
 		if (this.#flare.visible && this.#guestStarAt(event.clientX, event.clientY)) {
 			this.#hideFlare();
 			this.#onGuestStar(event.clientX, event.clientY);
-			return;
+		} else {
+			const id = this.#objectAt(event.clientX, event.clientY);
+			/** The first tap flies to an object and opens its panel, taps on it once landed count as clicks instead of restarting the flight. */
+			if (id) {
+				if (id !== this.focused) this.focus(id);
+				else if (this.selected !== id) this.selected = id;
+				else if (CLICKABLE.has(id)) this.#onClick(id, event.clientX, event.clientY);
+			}
 		}
-		const id = this.#objectAt(event.clientX, event.clientY);
-		if (!id) return;
-		/** The first tap flies to an object and opens its panel, taps on it once landed count as clicks instead of restarting the flight. */
-		if (id !== this.focused) this.focus(id);
-		else if (this.selected !== id) this.selected = id;
-		else if (CLICKABLE.has(id)) this.#onClick(id, event.clientX, event.clientY);
+		perfTracker.track('input:cosmos-tap', start);
 	};
 
 	#onVisibility = () => {
@@ -991,7 +1032,7 @@ export class CosmosScene {
 			home: () => [this.#overviewPosition(), this.#earth.position],
 			jupiter: () => [this.#viewpoint('jupiter'), this.#positionOf('jupiter')!],
 			saturn: () => [this.#viewpoint('saturn'), this.#positionOf('saturn')!],
-			sky: () => [this.#observerPosition(), this.#observerPosition().add(GALAXY_CORE)],
+			sky: () => [this.#observerPosition().clone(), this.#observerPosition().add(GALAXY_CORE)],
 			sun: () => [this.#viewpoint('sun'), ORIGIN],
 			system: () => [new Vector3(0, 1600, 2600), ORIGIN],
 		};
@@ -1047,7 +1088,7 @@ export class CosmosScene {
 		this.#camera.position.lerpVectors(flight.fromPosition, flight.toPosition(), t);
 		this.#camera.fov = flight.fromFov + (flight.toFov - flight.fromFov) * t;
 		this.#camera.updateProjectionMatrix();
-		this.#camera.lookAt(new Vector3().lerpVectors(flight.fromLook, flight.toLook(), t));
+		this.#camera.lookAt(this.#flightLook.lerpVectors(flight.fromLook, flight.toLook(), t));
 		if (flight.elapsed < flight.duration) return;
 		this.#flight = null;
 		flight.onEnd();
@@ -1103,12 +1144,13 @@ export class CosmosScene {
 
 	#updateOverview(dt: number) {
 		const focus = this.#positionOf(this.focused)!;
-		const delta = focus.clone().sub(this.#lastFocus);
+		const { delta, offset } = this.#overview;
+		delta.copy(focus).sub(this.#lastFocus);
 		this.#camera.position.add(delta);
 		this.#controls.target.add(delta);
 		this.#lastFocus.copy(focus);
 		if (this.#distanceGoal !== null) {
-			const offset = this.#camera.position.clone().sub(this.#controls.target);
+			offset.copy(this.#camera.position).sub(this.#controls.target);
 			const distance = offset.length();
 			const next = distance + (this.#distanceGoal - distance) * (1 - Math.exp(-dt * ZOOM_EASE));
 			this.#camera.position.copy(this.#controls.target).add(offset.setLength(next));
@@ -1127,9 +1169,9 @@ export class CosmosScene {
 		return position.clone().addScaledVector(fromSun, -5.6 * size).addScaledVector(along, 2.8 * size).addScaledVector(UP, 1.4 * size);
 	}
 
-	/** Way from `from` to a target, a nebula lies the same way from anywhere. */
-	#toward(target: Target, from: Vector3) {
-		return target instanceof Nebula ? target.direction.clone() : target.group.position.clone().sub(from).normalize();
+	/** Way from `from` to a target, a nebula lies the same way from anywhere. Written into `out`, a new vector unless given one. */
+	#toward(target: Target, from: Vector3, out = new Vector3()) {
+		return target instanceof Nebula ? out.copy(target.direction) : out.copy(target.group.position).sub(from).normalize();
 	}
 
 	#zoom(factor: number) {

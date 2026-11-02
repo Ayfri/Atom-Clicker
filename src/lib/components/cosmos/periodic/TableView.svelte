@@ -15,6 +15,6 @@
 	style:top="var(--banner-height)"
 	transition:fly|global={{ duration: 400, easing: cubicInOut, y: '100%' }}
 >
-	<PeriodicTable onClose={() => (realmManager.tableOpen = false)} />
 	<Neutrino />
+	<PeriodicTable onClose={() => (realmManager.tableOpen = false)} />
 </div>
