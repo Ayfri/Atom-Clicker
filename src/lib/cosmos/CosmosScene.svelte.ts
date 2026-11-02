@@ -565,6 +565,8 @@ export class CosmosScene {
 	/**
 	 * Eases `glare` toward how dazzled the view is, `ease` 1 jumps there: the Sun from just outside the frame unless the followed body hides
 	 * it, and the followed body once it fills a good part of the frame. Its night side only dims the sky partly, so stars come back in its shadow.
+	 * The Sun dazzles fully until it shrinks to ~half its size from the Earth at the widest field (0.14 of the half view), then fades out, so
+	 * pulling far back or looking at it from the outer planets shows the stars again, all around it too since the dimming is one value.
 	 */
 	#adaptToGlare(ease: number) {
 		const camera = this.#camera;
@@ -573,7 +575,8 @@ export class CosmosScene {
 		toSun.copy(camera.position).negate();
 		const halfView = Math.tan(MathUtils.degToRad(camera.fov) / 2);
 		const halfDiagonal = Math.atan(halfView * Math.hypot(1, camera.aspect));
-		let sun = 1 - MathUtils.smoothstep(forward.angleTo(toSun), halfDiagonal, halfDiagonal + 0.35);
+		const sunSize = SUN_RADIUS / (toSun.length() * halfView);
+		let sun = (1 - MathUtils.smoothstep(forward.angleTo(toSun), halfDiagonal, halfDiagonal + 0.35)) * MathUtils.smoothstep(sunSize, 0.02, 0.07);
 		let body = 0;
 		if ((this.mode === 'overview' || this.mode === 'discovery') && !this.#flight && !this.#gaze && this.focused !== 'sun') {
 			const position = this.#positionOf(this.focused)!;

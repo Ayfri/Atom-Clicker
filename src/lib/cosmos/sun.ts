@@ -34,7 +34,7 @@ import {
 	type Texture,
 	Vector3,
 } from 'three/webgpu';
-import { edge, fresnel, realism, surfacePoint } from './shading.js';
+import { edge, fresnel, realism, sunView, surfacePoint } from './shading.js';
 import { SUN_RADIUS } from './space.js';
 
 const CORONA_REACH = 2.8;
@@ -123,7 +123,15 @@ export class Sun {
 	fit(camera: PerspectiveCamera, height: number, bloom: boolean) {
 		this.#cameraRight.value.setFromMatrixColumn(camera.matrixWorld, 0);
 		this.#cameraUp.value.setFromMatrixColumn(camera.matrixWorld, 1);
-		const halfHeight = camera.position.length() * Math.tan(MathUtils.degToRad(camera.fov) / 2);
+		const distance = camera.position.length();
+		const angle = Math.asin(Math.min(1, SUN_RADIUS / distance));
+		sunView.direction.value.copy(camera.position).negate().divideScalar(distance);
+		sunView.inner.value = Math.cos(angle);
+		sunView.outer.value = Math.cos(angle * 1.04);
+		/** ~25° to the whole sky from the Earth, 3.5° to 26° from seven times farther. The inner angle stays under 180° so the two never meet up close. */
+		sunView.haloInner.value = Math.cos(Math.min(Math.PI * 0.95, angle * 6));
+		sunView.haloOuter.value = Math.cos(Math.min(Math.PI, angle * 45));
+		const halfHeight = distance * Math.tan(MathUtils.degToRad(camera.fov) / 2);
 		const pixels = (SUN_RADIUS / halfHeight) * (height / 2);
 		const resized = Math.abs(pixels - this.#pixels) > this.#pixels * 0.002;
 		this.#pixels = pixels;

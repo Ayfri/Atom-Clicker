@@ -45,6 +45,21 @@ export const sunlight = min(pow(exposure.div(dot(positionWorld, positionWorld)),
 export const glare = uniform(0);
 /** Share of the sky's light left in the realistic lighting: set for the Sun or a sunlit body, eyes and cameras lose every star. */
 export const darkSky = oneMinus(realism.mul(glare));
+/**
+ * Way to the Sun from the camera and cosines of angles around it, set by `Sun.fit` each frame: the disc's edge (`inner`, `outer`) and the
+ * glare halo, starless within `haloInner` and clear past `haloOuter`.
+ */
+export const sunView = { direction: uniform(new Vector3(0, 0, -1)), haloInner: uniform(1), haloOuter: uniform(1), inner: uniform(1), outer: uniform(1) };
+/**
+ * `darkSky` for a sky point in `direction` from the camera. The realistic lighting keeps a starless glare around the Sun that shrinks with
+ * it, so from far out the stars come back away from it only. The disc is dark in both lightings: the sky is a shell around the camera, so
+ * seen from farther than it the Sun lies past the stars and the depth test alone would draw them over it.
+ */
+export const skyLight = (direction: Node<'vec3'>) => {
+	const toward = dot(direction.normalize(), sunView.direction);
+	const halo = smoothstep(sunView.haloOuter, sunView.haloInner, toward);
+	return oneMinus(realism.mul(max(glare, halo))).mul(oneMinus(smoothstep(sunView.outer, sunView.inner, toward)));
+};
 /** 1 in high quality, 0 in low: the extra shading terms fade out instead of recompiling every body's material. */
 export const detail = uniform(1);
 

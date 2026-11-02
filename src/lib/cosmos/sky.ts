@@ -1,5 +1,6 @@
 import { prefersReducedMotion } from 'svelte/motion';
 import {
+	cameraPosition,
 	color,
 	dot,
 	exp,
@@ -12,6 +13,7 @@ import {
 	mx_cell_noise_float,
 	oneMinus,
 	positionLocal,
+	positionWorld,
 	pow,
 	sin,
 	smoothstep,
@@ -39,7 +41,7 @@ import {
 } from 'three/webgpu';
 import { COSMOS_OBJECTS_BY_ID, type CosmosObject, skySight } from '#data/cosmos.js';
 import { DEEP_SKY } from './nebulae.js';
-import { darkSky, realism } from './shading.js';
+import { darkSky, realism, skyLight } from './shading.js';
 import { SiteRings } from './siteRings.js';
 import { DEEP_SKY_DISTANCE, EARTH_POLE, galactic, ORIGIN, SKY_DISTANCE, STAR_DISTANCE } from './space.js';
 
@@ -90,7 +92,7 @@ function starField(sight: Node<'float'>) {
 	const seen = smoothstep(mix(2.5, 0.7, sight), mix(2.8, 1, sight), star.w);
 	/** Real brightness spreads far wider than the cartoon's: a handful stand out, most are barely there. */
 	const brightness = mix(star.w.mul(0.3).add(0.35), pow(star.w.div(3.6), 3).mul(1.6), realism);
-	material.colorNode = tint.mul(twinkle).mul(brightness).mul(seen).mul(darkSky);
+	material.colorNode = tint.mul(twinkle).mul(brightness).mul(seen).mul(skyLight(star.xyz));
 	material.opacityNode = max(disc, ray(offset.x, offset.y).add(ray(offset.y, offset.x)).mul(sparkle));
 	return instancedSprite(material, STAR_COUNT);
 }
@@ -110,7 +112,7 @@ function faintStars(limit: Node<'float'>) {
 	material.sizeNode = float(2);
 	/** Dimmer the fainter, the brightest of them stay under the faintest of the bright field. */
 	const glow = mix(0.45, 0.18, star.w.sub(brightest).div(faintest - brightest));
-	material.colorNode = color('#dfe6ff').mul(glow).mul(smoothstep(star.w.sub(0.3), star.w.add(0.7), limit)).mul(darkSky);
+	material.colorNode = color('#dfe6ff').mul(glow).mul(smoothstep(star.w.sub(0.3), star.w.add(0.7), limit)).mul(skyLight(star.xyz));
 	material.opacityNode = oneMinus(smoothstep(0.15, 0.5, length(uv().sub(0.5))));
 	return instancedSprite(material, FAINT_STAR_COUNT);
 }
@@ -171,7 +173,7 @@ function deepSky(limit: Node<'float'>, discovered: readonly string[], albedo: (i
 		material.colorNode = drawn
 			.mul(oneMinus(smoothstep(0.7, 1, length(p))))
 			.mul(smoothstep(magnitude - 0.3, magnitude + 1.5, limit))
-			.mul(darkSky);
+			.mul(skyLight(positionWorld.sub(cameraPosition)));
 		const mesh = new Mesh(new PlaneGeometry(span(size[0]), span(size[1])), material);
 		mesh.position.copy(galactic(...at)).multiplyScalar(DEEP_SKY_DISTANCE);
 		mesh.up.copy(EARTH_POLE);
@@ -243,7 +245,7 @@ export class Sky {
 		this.#dome.renderOrder = -1;
 		/** Past the naked eye only, they are the faint stars a telescope adds. */
 		const zoom = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, side: BackSide, transparent: true });
-		zoom.colorNode = zoomStars(this.#pixel, smoothstep(0.005, 0.06, luminance(milkyWay))).mul(smoothstep(3, 7, this.#limit)).mul(darkSky);
+		zoom.colorNode = zoomStars(this.#pixel, smoothstep(0.005, 0.06, luminance(milkyWay))).mul(smoothstep(3, 7, this.#limit)).mul(skyLight(positionLocal));
 		this.#zoomStars = new Mesh(new SphereGeometry(SKY_DISTANCE * 0.98, 64, 32), zoom);
 		this.#deepSky = deepSky(this.#limit, discovered, albedo);
 		this.nebulae = new Map(this.#deepSky.flatMap(({ nebula }) => (nebula ? [[nebula.object.id, nebula]] : [])));
