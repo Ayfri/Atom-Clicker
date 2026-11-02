@@ -40,6 +40,15 @@
 	grid-area: --value(--grid-area-*, [*]);
 }
 
+/* The Quarks name in the QCD charge colors of the Quark icon (`QUARK_CHARGE_COLORS`), for `QuarkLabel` and the highlighted tips alike. */
+@utility quark-wordmark {
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	background-image: linear-gradient(90deg, #4a9eff, #3ddc84, #ff4d4d);
+	filter: drop-shadow(0 0 4px rgba(61, 220, 132, 0.35)) drop-shadow(0 0 8px rgba(74, 158, 255, 0.2));
+}
+
 @layer base {
 	:root {
 		--banner-height: 0rem;
