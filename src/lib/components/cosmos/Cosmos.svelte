@@ -500,7 +500,7 @@
 			{/if}
 			{#if selected && (wide.current || !skyOpen)}
 				<div
-					class="absolute inset-x-3 bottom-[calc(var(--cosmos-dock-height)+0.75rem)] flex max-h-[calc(100%-var(--cosmos-dock-height)-5.75rem)] flex-col md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:block md:max-h-[calc(100%-8rem-var(--cosmos-dock-height))] md:w-80 md:overflow-y-auto md:rounded-xl lg:max-h-[calc(100%-22rem)]"
+					class="absolute inset-x-3 bottom-[calc(var(--cosmos-dock-height)+0.75rem)] flex max-h-[calc(100%-var(--cosmos-dock-height)-9.5rem)] flex-col md:inset-x-auto md:right-4 md:top-28 md:bottom-auto md:block md:max-h-[calc(100%-8rem-var(--cosmos-dock-height))] md:w-80 md:overflow-y-auto md:rounded-xl lg:max-h-[calc(100%-22rem)]"
 				>
 					<ObjectPanel
 						id={selected}
