@@ -28,6 +28,8 @@ type HintScope = RealmType | 'cosmos' | 'table';
 export interface Hint {
 	/** A button that runs `run` and replaces "Got it", the hint is done by `done` as usual. */
 	action?: { label: string; run: () => void };
+	/** Where a hint without targets docks: under the top bar instead of the bottom, for views whose main action sits at the bottom. */
+	dock?: 'top';
 	/** The action that teaches the hint, it is marked seen as soon as this holds, even if it was never displayed. Without it the hint shows a "Got it" button. */
 	done?: () => boolean;
 	/** `realm:name`, the realm prefix also scopes the replay buttons. */
@@ -39,7 +41,7 @@ export interface Hint {
 	round?: boolean;
 	/** When the hint becomes relevant. */
 	show?: () => boolean;
-	/** Candidate targets, the first one currently visible wins. Without targets the hint is a card docked at the bottom. */
+	/** Candidate targets, the first one currently visible wins. Without targets the hint is a card docked at the bottom, see `dock`. */
 	targets?: string[];
 	text: string;
 	title: string;
@@ -350,6 +352,7 @@ export const HINTS: Hint[] = [
 		title: 'The Periodic Table',
 	},
 	{
+		dock: 'top',
 		done: () => cosmosManager.guestStars > 0,
 		id: 'cosmos:guest-star',
 		realm: 'cosmos',
@@ -447,6 +450,7 @@ export const HINTS: Hint[] = [
 		title: 'Decay',
 	},
 	{
+		dock: 'top',
 		done: () => periodicManager.neutrinos > 0,
 		id: 'table:neutrino',
 		realm: 'table',

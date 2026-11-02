@@ -146,7 +146,7 @@
 
 	const flyFrom = $derived.by(() => {
 		const side = visible?.placement ?? 'bottom';
-		if (!targetRect) return { x: 0, y: 16 };
+		if (!targetRect) return { x: 0, y: visible?.dock === 'top' ? -16 : 16 };
 		return { x: side === 'left' ? 12 : side === 'right' ? -12 : 0, y: side === 'top' ? 12 : side === 'bottom' ? -12 : 0 };
 	});
 </script>
@@ -166,6 +166,8 @@
 				targetRect
 			) ?
 				''
+			: hint.dock === 'top' ?
+				'top-[calc(var(--banner-height,0px)+10rem)] left-1/2 -translate-x-1/2'
 			:	'bottom-[calc(var(--mobile-nav-height,0px)+1.5rem)] left-1/2 -translate-x-1/2'}"
 			style={position ? `left: ${position.left}px; top: ${position.top}px;` : targetRect ? 'visibility: hidden;' : ''}
 			in:fly={{ ...flyFrom, duration: 350 }}
