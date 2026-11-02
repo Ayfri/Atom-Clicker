@@ -297,6 +297,7 @@ describe('sky', () => {
 			clicks('earth', 3);
 			expect(starlight()).toBe(0);
 			expect(cosmosManager.clicks).toEqual({});
+			expect(cosmosManager.tapsOf('sun')).toBe(7);
 
 			const credited = cosmosManager.tick(1000) - rate;
 			expect(credited).toBeCloseTo(10 * SKY_CLICK_STARLIGHT_SECONDS * rate);

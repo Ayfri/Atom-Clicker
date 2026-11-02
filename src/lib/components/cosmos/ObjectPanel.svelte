@@ -30,7 +30,7 @@
 	const studying = $derived(cosmosManager.studying?.id === id);
 	const otherStudying = $derived(cosmosManager.studying !== null && !studying);
 	const tappable = $derived(CLICKABLE_OBJECTS.includes(object));
-	const taps = $derived(cosmosManager.clicks[id] ?? 0);
+	const taps = $derived(cosmosManager.tapsOf(id));
 	const nextTier = $derived(SKY_CLICK_TIERS.find(tier => taps < tier));
 </script>
 

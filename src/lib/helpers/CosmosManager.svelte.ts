@@ -47,9 +47,12 @@ class CosmosManager {
 	/** Reads the Starlight currency boost live, GameManager sets it since this module never imports it. */
 	currencyBoost = $state.raw<() => number>(() => 1);
 
-	/** Taps since the last tick, plain fields so an auto-clicker never writes reactive state or the currency per tap. */
+	/**
+	 * Taps since the last tick, so an auto-clicker never writes the currency or a new `clicks` record per tap. Only the total is reactive, one
+	 * number that lets `tapsOf()` follow taps live.
+	 */
 	#pendingClicks: Record<string, number> = {};
-	#pendingTotal = 0;
+	#pendingTotal = $state(0);
 	/** Cosmos time left before the next guest star, -1 until drawn. Never saved, so time away earns none. */
 	#guestStarDueMs = -1;
 
@@ -239,6 +242,11 @@ class CosmosManager {
 		this.#pendingClicks[objectId] = (this.#pendingClicks[objectId] ?? 0) + 1;
 		this.#pendingTotal++;
 		return true;
+	}
+
+	/** Taps on an object, the ones the next tick counts included. */
+	tapsOf(objectId: string): number {
+		return (this.clicks[objectId] ?? 0) + (this.#pendingTotal > 0 ? (this.#pendingClicks[objectId] ?? 0) : 0);
 	}
 
 	/**
