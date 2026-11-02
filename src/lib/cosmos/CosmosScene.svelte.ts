@@ -122,8 +122,8 @@ const CLICKABLE = new Set(CLICKABLE_OBJECTS.map(object => object.id));
 const GUEST_PICK_RADIUS = 40;
 /** Screen size of the guest star's quad in CSS px, its spikes reach the edges. */
 const GUEST_SIZE = 96;
-/** Where a guest star appears, in normalized device coordinates: the upper middle, clear of the bottom dock and the side panels. */
-const GUEST_SPAWN = { x: [-0.5, 0.5], y: [0, 0.56] } as const;
+/** Where a guest star appears, in normalized device coordinates: the upper middle, clear of the bottom dock, the Sky list that reaches -0.3 on desktop and the object panel. */
+const GUEST_SPAWN = { x: [-0.22, 0.3], y: [0, 0.56] } as const;
 
 const easeInOut = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 const direction = (yaw: number, pitch: number) => new Vector3().setFromSphericalCoords(1, Math.PI / 2 - pitch, yaw);
