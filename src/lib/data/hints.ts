@@ -18,6 +18,7 @@ import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
 import { APP_PRODUCTION_PERCENT, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import { installStore } from '#stores/install.svelte.js';
+import { neutrino } from '#stores/neutrino.svelte.js';
 import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 import { ui } from '#stores/ui.svelte.js';
@@ -444,5 +445,13 @@ export const HINTS: Hint[] = [
 		targets: ['[data-hint="table-decay"]'],
 		text: "Nobody has ever seen this element's light. It's identified by how it decays.",
 		title: 'Decay',
+	},
+	{
+		done: () => periodicManager.neutrinos > 0,
+		id: 'table:neutrino',
+		realm: 'table',
+		show: () => neutrino.visible,
+		text: 'A neutrino is zipping through. Catch it to run the Table 10 minutes ahead.',
+		title: 'Neutrino',
 	},
 ];

@@ -5,6 +5,7 @@ import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
 import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_TIERS, guestStarAchievementId } from '#data/guestStars.js';
+import { NEUTRINO_MIN_INTERVAL_MS, NEUTRINO_TIERS, neutrinoAchievementId } from '#data/neutrinos.js';
 import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
@@ -59,7 +60,9 @@ const STRUCTURE_LABELS: Record<string, string> = {
 	guestStars: 'Guest stars caught vs time since the save start',
 	keptGenerators: 'Kept generators out of range',
 	light: 'Light the identified elements cost vs Light earned',
-	periodic: 'Periodic Table elements, forges or source studies out of range',
+	neutrinoAchievements: 'Neutrino achievements without the catches behind them',
+	neutrinos: 'Neutrinos caught vs time since the save start',
+	periodic: 'Periodic Table elements, forges, neutrinos or source studies out of range',
 	photonUpgrades: 'Photon upgrade levels out of range',
 	radiation: 'Control rod level out of range',
 	radiationUpgrades: 'Radiation upgrade levels out of range',
@@ -149,6 +152,7 @@ function discoveryIssues(state: GameState, now: number): string[] {
 	const clicks = state.cosmos.clicks ?? {};
 	const guestStars = state.cosmos.guestStars ?? 0;
 	const { forges, identified, sites } = state.periodic;
+	const neutrinos = state.periodic.neutrinos ?? 0;
 	check(
 		Array.isArray(discovered) &&
 			Array.isArray(instruments) &&
@@ -167,6 +171,7 @@ function discoveryIssues(state: GameState, now: number): string[] {
 			isObject(sites) &&
 			Object.values(sites).every(site => isCount(site?.level ?? 0)) &&
 			isCount(forges ?? 1) &&
+			isCount(neutrinos) &&
 			(forges ?? 1) <= 1 + FORGE_MILESTONES.filter(milestone => identified.length >= milestone).length,
 		'periodic',
 	);
@@ -176,12 +181,14 @@ function discoveryIssues(state: GameState, now: number): string[] {
 	const since = runSeconds(0, state.startDate, now + CLOCK_TOLERANCE_MS);
 	check(CLICKABLE_OBJECTS.reduce((sum, { id }) => sum + (clicks[id] ?? 0), 0) <= MAX_CLICKS_PER_SECOND * since, 'skyClicks');
 	check(guestStars <= since / (GUEST_STAR_INTERVAL_MS[0] / 1000) + 1, 'guestStars');
+	check(neutrinos <= Math.floor(since / (NEUTRINO_MIN_INTERVAL_MS / 1000)) + 1, 'neutrinos');
 	const claimed = new Set(state.achievements);
 	check(
 		CLICKABLE_OBJECTS.every(({ id }) => SKY_CLICK_TIERS.every(tier => !claimed.has(skyClickAchievementId(id, tier)) || (clicks[id] ?? 0) >= tier)) &&
 			GUEST_STAR_TIERS.every(tier => !claimed.has(guestStarAchievementId(tier)) || guestStars >= tier),
 		'skyAchievements',
 	);
+	check(NEUTRINO_TIERS.every(tier => !claimed.has(neutrinoAchievementId(tier)) || neutrinos >= tier), 'neutrinoAchievements');
 
 	const earned =(currency: CurrencyName) => (state.currencies[currency]?.earnedAllTime ?? 0) * (1 + 1e-9) + 1;
 	const starlightLimit = earned(CurrenciesTypes.STARLIGHT);

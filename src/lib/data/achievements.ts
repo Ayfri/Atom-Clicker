@@ -3,6 +3,7 @@ import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { tierIconStack } from '#helpers/iconStacks.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { formatNumber } from '#lib/utils.js';
 import { CHROMATIC_COLORS } from '#data/chromatic.js';
@@ -11,6 +12,7 @@ import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
 import { GUEST_STAR_TIERS, guestStarAchievementId } from '#data/guestStars.js';
 import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/iconNames.js';
+import { NEUTRINO_TIERS, neutrinoAchievementId } from '#data/neutrinos.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 
@@ -384,6 +386,18 @@ function createGuestStarAchievements(): Achievement[] {
 	}));
 }
 
+function createNeutrinoAchievements(): Achievement[] {
+	const names = ['Ghost Particle', 'Neutrino Detector', 'Kamiokande'];
+	return NEUTRINO_TIERS.map((tier, index) => ({
+		id: neutrinoAchievementId(tier),
+		name: names[index],
+		description: tier === 1 ? 'Catch a neutrino on the Periodic Table' : `Catch ${tier} neutrinos on the Periodic Table`,
+		iconStack: tierIconStack('atom', index, tier),
+		condition: () => periodicManager.neutrinos >= tier,
+		hiddenCondition: () => !periodicManager.unlocked,
+	}));
+}
+
 function createCurrencyAchievements(types: CurrencyName[]): AchievementGroup[] {
 	return types
 		.map(type => CURRENCIES[type])
@@ -549,6 +563,7 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
 	{ achievements: createStudyAchievements(), name: 'Studies', tiered: true },
 	...createSkyClickGroups(),
 	{ achievements: createGuestStarAchievements(), name: 'Guest Stars', tiered: true },
+	{ achievements: createNeutrinoAchievements(), name: 'Neutrinos', tiered: true },
 	...createCurrencyAchievements([CurrenciesTypes.STARLIGHT]),
 ];
 

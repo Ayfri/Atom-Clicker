@@ -70,6 +70,8 @@ class PeriodicManager {
 	introSeen = $state(false);
 	/** Counts the saves loaded and the offline catch-ups, so a watcher tells a replaced state from forging that happened. */
 	loads = $state(0);
+	/** Neutrinos caught, the achievements and the server read it. */
+	neutrinos = $state(0);
 	/** Share of each ready element's cost already paid. A share, not amounts, so it stays valid when the Prism tuning changes the cost. */
 	paid = $state.raw<Partial<Record<number, number>>>({});
 	sites = $state.raw<Partial<Record<SiteId, SiteForge>>>({});
@@ -115,8 +117,11 @@ class PeriodicManager {
 		return rates;
 	});
 
-	/** Decay events per second, paid by `GameManager.tick` online and `applyOfflineProgress` offline, never by `tick` here. */
+	/** Decay events per second, paid by `GameManager.tick` online, `applyOfflineProgress` offline and `GameManager.catchNeutrino`, never by `tick` here. */
 	decayEventsPerSecond = $derived(DECAY_SITES.reduce((rate, id) => rate + (this.open.has(id) ? DECAY_EVENTS_PER_SECOND * (1 + this.forge(id).level) : 0), 0));
+
+	/** Whether running the Table ahead pays anything: a source is forging or Decay events are coming in. */
+	skippable = $derived(this.decayEventsPerSecond > 0 || Object.values(this.statuses).some(status => status.kind === 'forging'));
 
 	/** One source per family (`1 + step% × members`, ×SET_BONUS when complete) and one for the generator affinities. */
 	effectSources = $derived.by((): EffectSource[] => {
@@ -292,7 +297,16 @@ class PeriodicManager {
 	}
 
 	getState(): PeriodicState {
-		return { active: this.active, forges: this.forges, identified: this.identified, introSeen: this.introSeen, paid: this.paid, sites: this.sites, tuning: this.tuning };
+		return {
+			active: this.active,
+			forges: this.forges,
+			identified: this.identified,
+			introSeen: this.introSeen,
+			neutrinos: this.neutrinos,
+			paid: this.paid,
+			sites: this.sites,
+			tuning: this.tuning,
+		};
 	}
 
 	/**
@@ -319,6 +333,8 @@ class PeriodicManager {
 				.filter(([z, share]) => this.forged.has(z) && !this.identifiedSet.has(z) && typeof share === 'number' && share > 0 && share < 1),
 		);
 		this.introSeen = state.introSeen === true;
+		const caught = state.neutrinos ?? 0;
+		this.neutrinos = Number.isSafeInteger(caught) && caught > 0 ? caught : 0;
 		const { active, forges } = state;
 		this.forges = typeof forges === 'number' && Number.isInteger(forges) ? Math.min(Math.max(forges, 1), MAX_FORGES) : 1;
 		/** The Table's lock depends on the Ionize count, which loads after it: only what the sources themselves ask for is checked here. */

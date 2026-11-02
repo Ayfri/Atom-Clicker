@@ -59,7 +59,7 @@ export const statsConfig = {
 	keptGenerators: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
 	overdrive: { defaultValue: {}, layer: LAYERS.PROTONIZER },
-	periodic: { defaultValue: { active: [], forges: 1, identified: [], introSeen: false, paid: {}, sites: {}, tuning: TUNING.min } satisfies PeriodicState, layer: LAYERS.NEVER },
+	periodic: { defaultValue: { active: [], forges: 1, identified: [], introSeen: false, neutrinos: 0, paid: {}, sites: {}, tuning: TUNING.min } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
 	radiation: { defaultValue: { controlRodLevel: 0.5, mass: 0, unlocked: false }, layer: LAYERS.NEVER },

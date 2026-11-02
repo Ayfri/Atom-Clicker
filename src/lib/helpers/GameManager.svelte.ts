@@ -6,6 +6,7 @@ import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats } from '#data/dailyQuests.js';
 import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
 import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { NEUTRINO_SKIP_MS } from '#data/neutrinos.js';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
 import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
@@ -528,6 +529,18 @@ export class GameManager {
 		const starlight = cosmosManager.catchGuestStar();
 		if (starlight > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + starlight;
 		return starlight;
+	}
+
+	/**
+	 * Runs the Table 10 minutes ahead at the live reactor power: its forges, its Decay events and its lamp Light, paid like `tick` does.
+	 * The Cosmos, the sky Light, atoms and the reactor don't move. Returns the elements forged.
+	 */
+	catchNeutrino(): number[] {
+		const seconds = NEUTRINO_SKIP_MS / 1000;
+		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
+		for (const color of CHROMATIC_COLORS) currenciesManager.add(CHROMATIC[color].currency, periodicManager.lampLight[color] * this.lightGain[color] * seconds);
+		periodicManager.neutrinos++;
+		return periodicManager.tick(NEUTRINO_SKIP_MS);
 	}
 
 	/** Starts studying a Cosmos object and counts the level toward the daily quest as soon as it is paid. */

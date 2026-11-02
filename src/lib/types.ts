@@ -159,6 +159,8 @@ export interface PeriodicState {
 	identified: number[];
 	/** Whether the player has seen the Periodic Table's introduction, missing in saves from before it. */
 	introSeen?: boolean;
+	/** Neutrinos caught, missing in saves from before them. */
+	neutrinos?: number;
 	/** Share from 0 to 1 of each forged, unread element's reading cost already paid, missing in saves from before it. */
 	paid?: Partial<Record<number, number>>;
 	sites: Partial<Record<SiteId, SiteForge>>;

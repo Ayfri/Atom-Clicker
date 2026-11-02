@@ -1,7 +1,7 @@
 # Unreleased
 
 - **The Cosmos**: Your first Ionize opens a 3D sky above the realms, where you rediscover planets, moons, comets, nebulae, supernovae and even the Big Bang's afterglow in the order astronomers did, from the naked eye to LIGO, while ever fainter stars fill the sky as your sight sharpens. Every find radiates Starlight and boosts the rest of the game, and tapping objects or catching the guest stars that flare up pays a bit more.
-- **Periodic Table**: A spectroscope opens the Periodic Table, reachable from any realm, where stars, supernovae and colliding neutron stars forge every element and you read each one's light to light up its atom and boost your generators.
+- **Periodic Table**: A spectroscope opens the Periodic Table, reachable from any realm, where stars, supernovae and colliding neutron stars forge every element and you read each one's light to light up its atom and boost your generators, and catching the neutrinos that zip across it pushes it 10 minutes ahead.
 - **Overdrive**: Spend Higgs Bosons to double any generator's output.
 - **Generators**: Auto-buy can buy in bulk, and new electron upgrades keep your generators through prestiges.
 - **Quark Shop**: A Cosmos banner for the leaderboard.

@@ -3,12 +3,15 @@ import { ionizeStarlightMultiplier, SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { bestTuning, decayCost, ELEMENTS, LAMP_PAYBACK_SECONDS, lightCost, SET_BONUS, TUNING, zs } from '#data/elements.js';
 import { GENERATOR_TYPES } from '#data/generators.js';
+import { NEUTRINO_SKIP_MS } from '#data/neutrinos.js';
 import { BASE_RATES, CHAINS, DECAY_EVENTS_PER_SECOND, FORGE_COST_SECONDS, FORGE_MILESTONES, MAX_FORGES, SITE_IDS, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { periodicManager, TUNING_DEFAULT } from '#helpers/PeriodicManager.svelte.js';
+import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import type { PeriodicState } from '#lib/types.js';
 
 const DAY_MS = 86_400_000;
 const xp = () => gameManager.effects.value('xp_gain', 1, gameManager);
@@ -556,6 +559,124 @@ describe('table', () => {
 			expect(load({ [he]: 0.5, 3: 0.5, 999: 0.5, x: 0.5 })).toEqual({});
 			expect(load(undefined)).toEqual({});
 			expect(load([0.5])).toEqual({});
+		});
+	});
+
+	describe('neutrinos', () => {
+		const SECONDS = NEUTRINO_SKIP_MS / 1000;
+		const chain = (id: SiteId) => ({ index: CHAINS[id].steps.length, level: 0, progress: 0 });
+		const colors = ['blue', 'green', 'red'] as const;
+		const lights = { blue: CurrenciesTypes.BLUE_LIGHT, green: CurrenciesTypes.GREEN_LIGHT, red: CurrenciesTypes.RED_LIGHT } as const;
+		const paidCurrencies = [CurrenciesTypes.DECAY_EVENTS, ...colors.map(color => lights[color])];
+		const held = () => paidCurrencies.map(name => currenciesManager.getAmount(name));
+		const forge = () => JSON.parse(JSON.stringify({ active: periodicManager.active, sites: periodicManager.sites }));
+
+		/** The Table's own state after `act` and what it paid in Decay events then Light, starting from `snapshot`. */
+		function measure(snapshot: PeriodicState, act: () => void) {
+			gameManager.periodic = snapshot;
+			const before = held();
+			act();
+			return { forge: forge(), paid: held().map((amount, i) => amount - before[i]) };
+		}
+
+		function setUpTable() {
+			cosmosManager.discovered = ['cmb'];
+			gameManager.periodic = {
+				active: ['bigbang', 'decay'],
+				forges: 2,
+				identified: zs('H He U Th'),
+				sites: { bigbang: { index: 2, level: 0, progress: 0 }, decay: { index: 0, level: 2, progress: 0 }, neutron: chain('neutron') },
+			};
+			return JSON.parse(JSON.stringify(periodicManager.getState())) as PeriodicState;
+		}
+
+		test('a catch pays what 10 minutes of the live tick pay the Table, without the sky Light', () => {
+			const snapshot = setUpTable();
+			expect(periodicManager.decayEventsPerSecond).toBeGreaterThan(0);
+			expect(periodicManager.lampLight.red).toBeGreaterThan(0);
+			expect(cosmosManager.skyLight.red).toBeGreaterThan(0);
+
+			const caught = measure(snapshot, () => gameManager.catchNeutrino());
+			const live = measure(snapshot, () => gameManager.tick(NEUTRINO_SKIP_MS, true, true));
+
+			expect(caught.paid[0]).toBeGreaterThan(0);
+			expect(caught.paid[0]).toBeCloseTo(live.paid[0], 6);
+			expect(caught.paid[0]).toBeCloseTo(periodicManager.decayEventsPerSecond * SECONDS, 6);
+			for (const [i, color] of colors.entries()) {
+				const sky = cosmosManager.skyLight[color] * gameManager.lightGain[color] * SECONDS;
+				expect(caught.paid[i + 1]).toBeGreaterThan(0);
+				expect(caught.paid[i + 1] + sky).toBeCloseTo(live.paid[i + 1], 6);
+			}
+			expect(caught.forge).toEqual(live.forge);
+			expect(caught.forge).not.toEqual(JSON.parse(JSON.stringify({ active: snapshot.active, sites: snapshot.sites })));
+		});
+
+		test('the paid Decay events and Light count as earned, the catch counts and the daily stats stay as they were', () => {
+			setUpTable();
+			const daily = JSON.stringify(gameManager.dailyStats);
+			const earned = () => paidCurrencies.map(name => currenciesManager.getEarnedAllTime(name));
+			const [earnedBefore, heldBefore] = [earned(), held()];
+			gameManager.catchNeutrino();
+			expect(periodicManager.neutrinos).toBe(1);
+			expect(JSON.stringify(gameManager.dailyStats)).toBe(daily);
+			for (const [i, amount] of held().entries()) expect(earned()[i] - earnedBefore[i]).toBeCloseTo(amount - heldBefore[i], 6);
+		});
+
+		test('the forges run at the reactor power of the moment', () => {
+			gameManager.periodic = { active: ['reactor'], identified: zs('U'), sites: { neutron: chain('neutron'), reactor: { index: 0, level: 0, progress: 0 } } };
+			const snapshot = JSON.parse(JSON.stringify(periodicManager.getState())) as PeriodicState;
+			radiationManager.unlock();
+			radiationManager.upgradeLevels = { coolant_pumps: 20 };
+			radiationManager.setControlRodLevel(1);
+			radiationManager.mass = 1000;
+			const factor = periodicManager.reactorFactor();
+			expect(factor).toBeGreaterThan(0.5);
+
+			const caught = measure(snapshot, () => gameManager.catchNeutrino()).forge;
+			expect(caught).toEqual(measure(snapshot, () => periodicManager.tick(NEUTRINO_SKIP_MS, factor)).forge);
+			expect(caught).not.toEqual(measure(snapshot, () => periodicManager.tick(NEUTRINO_SKIP_MS, factor / 2)).forge);
+		});
+
+		test('a catch still counts when nothing is running, and pays nothing', () => {
+			const before = held();
+			expect(gameManager.catchNeutrino()).toEqual([]);
+			expect(periodicManager.neutrinos).toBe(1);
+			expect(held()).toEqual(before);
+		});
+
+		test('running the Table ahead is only worth it with a forge working or Decay events coming in', () => {
+			expect(periodicManager.skippable).toBe(false);
+			periodicManager.assign('bigbang');
+			expect(periodicManager.statuses.bigbang.kind).toBe('forging');
+			expect(periodicManager.skippable).toBe(true);
+			periodicManager.release('bigbang');
+			expect(periodicManager.skippable).toBe(false);
+
+			gameManager.periodic = { identified: zs('U Th'), sites: { decay: { index: 0, level: 0, progress: 0 }, neutron: chain('neutron') } };
+			expect(periodicManager.active).toEqual([]);
+			expect(periodicManager.skippable).toBe(true);
+		});
+
+		test('the first, 25th and 250th catch unlock their achievement on the sweep', () => {
+			const unlocked = (id: string) => gameManager.unlockedAchievementIds.has(id);
+			periodicManager.neutrinos = 24;
+			gameManager.tick();
+			expect([unlocked('table_neutrinos_1'), unlocked('table_neutrinos_25'), unlocked('table_neutrinos_250')]).toEqual([true, false, false]);
+			periodicManager.neutrinos = 25;
+			gameManager.tick();
+			expect(unlocked('table_neutrinos_25')).toBe(true);
+			expect(unlocked('table_neutrinos_250')).toBe(false);
+		});
+
+		test('the count survives a save, and a save with a missing, negative, fractional or text count loads as none', () => {
+			periodicManager.neutrinos = 7;
+			gameManager.periodic = JSON.parse(JSON.stringify(periodicManager.getState()));
+			expect(periodicManager.neutrinos).toBe(7);
+			for (const neutrinos of [undefined, -1, 1.5, '3', Number.NaN, null] as never[]) {
+				gameManager.periodic = { identified: [], neutrinos, sites: {} };
+				expect(periodicManager.neutrinos).toBe(0);
+				periodicManager.neutrinos = 7;
+			}
 		});
 	});
 });

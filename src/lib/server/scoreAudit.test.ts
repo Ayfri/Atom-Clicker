@@ -207,6 +207,22 @@ describe('edited states', () => {
 			expect(claimed(25)).toEqual([]);
 		});
 
+		test('neutrinos must be whole counts that fit the time since the save start', () => {
+			expect(edited(state => (state.periodic.neutrinos = 1.5))).toContain('periodic');
+			expect(edited(state => (state.periodic.neutrinos = 1e9))).toContain('neutrinos');
+			expect(edited(state => (state.periodic.neutrinos = 80))).toEqual([]);
+		});
+
+		test('neutrino achievements need the catches behind them', () => {
+			const claimed = (neutrinos: number) =>
+				edited(state => {
+					state.periodic.neutrinos = neutrinos;
+					state.achievements = [...state.achievements, 'table_neutrinos_1', 'table_neutrinos_25'];
+				});
+			expect(claimed(24)).toContain('neutrinoAchievements');
+			expect(claimed(25)).toEqual([]);
+		});
+
 		test('every element identified with no Light or Decay events earned is rejected, the cheapest tuning passes', () => {
 			const all = ELEMENTS.map(({ z }) => z);
 			expect(edited(state => (state.periodic.identified = all))).toEqual(expect.arrayContaining(['decay', 'light']));

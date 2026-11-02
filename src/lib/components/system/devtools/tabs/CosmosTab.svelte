@@ -11,6 +11,7 @@
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { bakeCosmos, cosmosDev, startCosmosStartupBench } from '#lib/cosmos/devTools.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
+	import { neutrino } from '#stores/neutrino.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import LevelList from '../LevelList.svelte';
 	import NumberInput from '../NumberInput.svelte';
@@ -183,6 +184,8 @@
 		<span class="font-mono">{periodicManager.identified.length} / {periodicManager.forged.size} forged, {periodicManager.ready.length} ready</span>
 		<span class="text-white/45">Decay events</span>
 		<span class="font-mono">{formatNumber(periodicManager.decayEventsPerSecond)}/s</span>
+		<span class="text-white/45">Neutrinos</span>
+		<span class="font-mono">{periodicManager.neutrinos} caught</span>
 		<span class="text-white/45">Forges</span>
 		<span class="font-mono">{periodicManager.active.length} busy / {periodicManager.forges}, next {periodicManager.nextForgeUnlocked ? `buyable for ${formatNumber(periodicManager.forgeCost)}` : 'locked'}</span>
 		{#each [...periodicManager.open] as id (id)}
@@ -199,6 +202,16 @@
 			<button class={btn} disabled={!periodicManager.unlocked} onclick={() => periodicManager.tick(hours * 3_600_000)}>Forge {hours}h</button>
 		{/each}
 		<button class={btn} onclick={() => LIGHTS.forEach(light => currenciesManager.add(light, 1e7))}>+10M Light</button>
+		<button
+			class={btn}
+			disabled={!periodicManager.unlocked || neutrino.visible}
+			onclick={() => {
+				neutrino.requested = true;
+				realmManager.openTable();
+			}}
+		>
+			Neutrino
+		</button>
 	</div>
 	{#if !periodicManager.unlocked}
 		<p class="mt-2 text-[12px] text-white/35">Opens with the Spectroscope instrument.</p>
