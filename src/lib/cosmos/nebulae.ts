@@ -292,7 +292,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 				.mul(smoothstep(-0.95, 0.4, p.x))
 				.mul(oneMinus(smoothstep(0.6, 0.75, p.x)))
 				.mul(gas(p.mul(vec2(3, 1)), 3, 71).mul(0.6).add(0.4));
-			return color('#ffe1b8').mul(core).add(color('#ff6a3a').mul(halo.mul(0.45))).add(color('#8fb6ff').mul(tail.mul(0.18)));
+			return color('#ffe1b8').mul(core).add(color('#ff6a3a').mul(halo.mul(0.45))).add(color('#8fb6ff').mul(tail.mul(0.4)));
 		},
 		id: 'mira',
 		magnitude: 0.5,
