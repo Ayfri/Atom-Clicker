@@ -1,4 +1,4 @@
-import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+import { CHERENKOV_SHOWN, CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { ELEMENT_GENERATOR_PERCENT, ELEMENTS, FAMILY_IDS, GENERATOR_ELEMENTS, SET_BONUS } from '#data/elements.js';
@@ -301,7 +301,7 @@ export const HINTS: Hint[] = [
 		id: 'radiation:cherenkov',
 		placement: 'top',
 		realm: RealmTypes.RADIATION,
-		show: () => gameManager.cherenkovLight > 0,
+		show: () => gameManager.cherenkovLight >= CHERENKOV_SHOWN,
 		targets: ['[data-hint="radiation-cherenkov"]'],
 		text: 'A running reactor glows blue and makes Blue Light, more the closer it runs to its cap.',
 		title: 'Cherenkov Light',

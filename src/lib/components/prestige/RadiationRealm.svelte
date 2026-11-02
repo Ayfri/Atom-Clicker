@@ -4,8 +4,10 @@
 	import PowerLever from '#components/radiation/PowerLever.svelte';
 	import RadiationUpgrades from '#components/radiation/RadiationUpgrades.svelte';
 	import ReactorCore from '#components/radiation/ReactorCore.svelte';
+	import Currency from '#components/ui/Currency.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
-	import { wavelengthColor } from '#data/elements.js';
+	import { CHERENKOV_SHOWN } from '#data/chromatic.js';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
@@ -121,8 +123,16 @@
 				{/if}
 			</div>
 
-			{#if cherenkov > 0}
-				<p class="text-xs tabular-nums" data-hint="radiation-cherenkov" style:color={wavelengthColor(450)} in:reveal>+{formatNumber(cherenkov)} Blue Light/s</p>
+			{#if cherenkov >= CHERENKOV_SHOWN}
+				<p
+					class="flex items-center gap-1 text-xs font-semibold tabular-nums"
+					data-hint="radiation-cherenkov"
+					style:color={CURRENCIES[CurrenciesTypes.BLUE_LIGHT].color}
+					in:reveal
+				>
+					<Currency name={CurrenciesTypes.BLUE_LIGHT} size={14} />
+					+{formatNumber(cherenkov)}<span class="text-white/45">/s</span>
+				</p>
 			{/if}
 
 			<div class="flex w-full max-w-sm flex-col gap-3 max-lg:landscape:w-auto max-lg:landscape:flex-1">
