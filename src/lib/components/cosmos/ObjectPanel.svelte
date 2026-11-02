@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
-	import { COSMOS_OBJECTS_BY_ID, STUDY_MS, studyCost } from '#data/cosmos.js';
+	import { CLICKABLE_OBJECTS, COSMOS_OBJECTS_BY_ID, SKY_CLICK_TIERS, STUDY_MS, studyCost } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { formatNumber } from '#lib/utils.js';
+	import { formatNumber, formatNumberFull } from '#lib/utils.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import SiteLine from '#components/cosmos/SiteLine.svelte';
 	import Currency from '#components/ui/Currency.svelte';
@@ -29,6 +29,9 @@
 	const affordable = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cost);
 	const studying = $derived(cosmosManager.studying?.id === id);
 	const otherStudying = $derived(cosmosManager.studying !== null && !studying);
+	const tappable = $derived(CLICKABLE_OBJECTS.includes(object));
+	const taps = $derived(cosmosManager.clicks[id] ?? 0);
+	const nextTier = $derived(SKY_CLICK_TIERS.find(tier => taps < tier));
 </script>
 
 <article class="flex flex-col gap-3 rounded-xl bg-cosmos-hud/95 p-4 shadow-2xl ring-1 ring-white/10">
@@ -107,6 +110,12 @@
 			<dd class="font-semibold text-white">+{Math.round(object.boost.amount * (level + 1) * 100)}% {object.boost.label}</dd>
 		</div>
 	</dl>
+
+	{#if tappable}
+		<p class="text-xs tabular-nums text-white/50">
+			{formatNumberFull(taps)} taps · {nextTier ? `next at ${formatNumberFull(nextTier)}` : 'all tiers'}
+		</p>
+	{/if}
 
 	<SiteLine
 		compact
