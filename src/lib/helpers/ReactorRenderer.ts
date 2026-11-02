@@ -1,9 +1,12 @@
+import { wavelengthHex } from '#data/elements.js';
 import { CanvasLoop, RadialGlow } from '#helpers/CanvasLoop.js';
 import { mix, NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, TAU, type Vector } from '#helpers/nucleus.js';
 import { prefersReducedMotion } from 'svelte/motion';
 
 export interface ReactorScene {
 	accent: string;
+	/** 0 to 1, how strongly the core glows Cherenkov blue, its output over the cap, 0 before the first Ionize. */
+	cherenkov: number;
 	/** 0 to 1, how shaky the core looks: power scaled by how loaded it is. */
 	instability: number;
 	mass: number;
@@ -16,6 +19,7 @@ export interface ReactorScene {
 const VIEW_UNITS = 100;
 const CAPPED_COLOR = '#fb923c';
 const CHAMBER_RADIUS = 34;
+const CHERENKOV_COLOR = wavelengthHex(450);
 const COLD_COLOR = '#7fa7d9';
 const DEPTH_SHADES = 4;
 const ELECTRON_COLOR = '#45d945';
@@ -86,6 +90,7 @@ export class ReactorRenderer extends CanvasLoop {
 	/** Frame view transform, rumble included, kept so each rod rotates from it without a save/restore. */
 	private readonly view: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
 	private accent = '';
+	private cherenkov = 0;
 	private coreRadius = 0;
 	private state: ReactorScene;
 	private flash = 0;
@@ -112,6 +117,7 @@ export class ReactorRenderer extends CanvasLoop {
 		this.state = scene;
 		this.power = scene.power;
 		this.output = scene.output;
+		this.cherenkov = scene.cherenkov;
 		ReactorRenderer.current = this;
 		this.observe();
 	}
@@ -267,6 +273,7 @@ export class ReactorRenderer extends CanvasLoop {
 		const ease = (value: number, target: number, rate: number) => (Math.abs(target - value) < SETTLED ? target : value + (target - value) * Math.min(1, dt * rate));
 		this.power = ease(this.power, scene.power, 6);
 		this.output = ease(this.output, scene.output, 3);
+		this.cherenkov = ease(this.cherenkov, scene.cherenkov, 2);
 		const targetHeat = scene.mass <= 0 || scene.power <= 0 ? 0 : Math.min(1, scene.power / 0.08) + Math.max(0, (scene.power - 0.5) * 2);
 		this.heat = ease(this.heat, targetHeat, 2);
 		const count = nucleonCount(scene.mass);
@@ -295,6 +302,14 @@ export class ReactorRenderer extends CanvasLoop {
 		ctx.setTransform(...view);
 
 		const coreRadius = this.coreRadius;
+		if (scene.mass > 0 && this.cherenkov > 0) {
+			const radius = Math.min(CHAMBER_RADIUS, coreRadius * 2.6);
+			const flicker = this.reducedMotion ? 1 : 1 - 0.08 * (0.5 + 0.5 * Math.sin(this.time * 11) * Math.sin(this.time * 7.3));
+			ctx.globalCompositeOperation = 'lighter';
+			ctx.globalAlpha = this.cherenkov * 0.55 * flicker;
+			ctx.drawImage(GLOW.sprite(CHERENKOV_COLOR), -radius, -radius, radius * 2, radius * 2);
+			ctx.globalCompositeOperation = 'source-over';
+		}
 		if (scene.mass > 0) {
 			const radius = coreRadius * (1.7 + this.heat * 0.5) * (1 + 0.06 * Math.sin(this.time * 5));
 			ctx.globalCompositeOperation = 'lighter';
@@ -347,6 +362,7 @@ export class ReactorRenderer extends CanvasLoop {
 			this.heat !== targetHeat ||
 			this.power !== scene.power ||
 			this.output !== scene.output ||
+			this.cherenkov !== scene.cherenkov ||
 			this.coreRadius !== targetRadius ||
 			(scene.output >= 1 && this.output > 0)
 		);

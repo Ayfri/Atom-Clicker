@@ -298,6 +298,15 @@ export const HINTS: Hint[] = [
 		title: 'The Cosmos',
 	},
 	{
+		id: 'radiation:cherenkov',
+		placement: 'top',
+		realm: RealmTypes.RADIATION,
+		show: () => gameManager.cherenkovLight > 0,
+		targets: ['[data-hint="radiation-cherenkov"]'],
+		text: 'A running reactor glows blue and makes Blue Light, more the closer it runs to its cap.',
+		title: 'Cherenkov Light',
+	},
+	{
 		done: () => cosmosManager.discovered.length > 0,
 		id: 'cosmos:observe',
 		placement: 'top',

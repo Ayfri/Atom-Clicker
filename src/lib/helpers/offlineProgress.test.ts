@@ -123,6 +123,30 @@ test('Decay events, lamp and sky Light are paid once for the time away and liste
 	}
 });
 
+test('Cherenkov Blue Light is paid at the average reactor power of the time away, and a core with no output pays none', () => {
+	gameManager.totalIonizesAllTime = 1;
+	radiationManager.unlock();
+	radiationManager.upgradeLevels = { coolant_pumps: 30 };
+	radiationManager.setControlRodLevel(1);
+	radiationManager.mass = 2000;
+	const live = gameManager.cherenkovLight;
+	expect(live).toBeGreaterThan(0);
+
+	currenciesManager.hardReset();
+	expect(gameManager.catchUpOffline(30_000)).toBe(true);
+	const average = gameManager.cherenkovLightAt(radiationManager.offlineAvgCpm);
+	expect(average).toBeGreaterThan(0);
+	expect(average).toBeLessThan(live);
+	expect(currenciesManager.getAmount(CurrenciesTypes.BLUE_LIGHT)).toBeCloseTo(average * 30 * OFFLINE_INCOME, 12);
+	expect(gameManager.offlineProgressSummary?.currencyGains[CurrenciesTypes.BLUE_LIGHT]).toBeCloseTo(average * 30 * OFFLINE_INCOME, 12);
+
+	radiationManager.setControlRodLevel(0);
+	radiationManager.mass = 2000;
+	currenciesManager.hardReset();
+	expect(gameManager.catchUpOffline(HOUR)).toBe(true);
+	expect(currenciesManager.getAmount(CurrenciesTypes.BLUE_LIGHT)).toBe(0);
+});
+
 test('the Starlight boost multiplies the Starlight paid while away', () => {
 	gameManager.totalIonizesAllTime = 1;
 	const rate = cosmosManager.starlightPerSecond;

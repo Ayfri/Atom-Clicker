@@ -18,7 +18,7 @@ import {
 } from '#lib/constants.js';
 import type { GameState } from '#lib/types.js';
 
-const { ATOMS, ELECTRONS, EXCITED_PHOTONS, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
+const { ATOMS, BLUE_LIGHT, ELECTRONS, EXCITED_PHOTONS, GREEN_LIGHT, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
 
 beforeEach(() => {
 	gameManager.resetAll();
@@ -569,6 +569,64 @@ describe('Higgs Overdrive', () => {
 		gameManager.protonise();
 		expect(gameManager.overdrive.molecule?.active).toBe(true);
 		expect(gameManager.overdriveActive).toEqual([GeneratorTypes.MOLECULE]);
+	});
+});
+
+describe('Cherenkov Blue Light', () => {
+	/** Full control rods and no enrichment make the output ten times the mass, up to the 16000 cap of 30 Coolant Pumps. */
+	const setCpm = (cpm: number) => {
+		radiationManager.mass = cpm / 10;
+		expect(radiationManager.currentCpm).toBeCloseTo(cpm, 6);
+	};
+
+	beforeEach(() => {
+		radiationManager.unlock();
+		radiationManager.upgradeLevels = { coolant_pumps: 30 };
+		radiationManager.setControlRodLevel(1);
+		gameManager.totalIonizesAllTime = 1;
+	});
+
+	test('the core makes nothing before the first Ionize, nor when stopped', () => {
+		gameManager.totalIonizesAllTime = 0;
+		setCpm(radiationManager.maxCpm / 2);
+		expect(gameManager.cherenkovLight).toBe(0);
+
+		gameManager.totalIonizesAllTime = 1;
+		expect(gameManager.cherenkovLight).toBeGreaterThan(0);
+		radiationManager.setControlRodLevel(0);
+		expect(gameManager.cherenkovLight).toBe(0);
+	});
+
+	test('the rate follows the share of the output cap and stops growing at the cap', () => {
+		const cap = radiationManager.maxCpm;
+		setCpm(cap / 4);
+		const quarter = gameManager.cherenkovLight;
+		setCpm(cap / 2);
+		expect(gameManager.cherenkovLight).toBeCloseTo(quarter * 2, 12);
+		setCpm(cap);
+		expect(gameManager.cherenkovLight).toBeCloseTo(quarter * 4, 12);
+		expect(gameManager.cherenkovLightAt(cap * 3)).toBe(gameManager.cherenkovLight);
+	});
+
+	test('a tick pays it in Blue Light only, and the Cherenkov Glow upgrade does not change it', () => {
+		setCpm(radiationManager.maxCpm / 2);
+		const rate = gameManager.cherenkovLight;
+		radiationManager.upgradeLevels = { cherenkov_glow: 5, coolant_pumps: 30 };
+		expect(gameManager.cherenkovLight).toBe(rate);
+
+		currenciesManager.hardReset();
+		gameManager.tick(1000, true, true);
+		expect(currenciesManager.getAmount(BLUE_LIGHT)).toBeCloseTo(gameManager.cherenkovLight, 12);
+		expect(currenciesManager.getAmount(BLUE_LIGHT)).toBeGreaterThan(0);
+		expect(currenciesManager.getAmount(GREEN_LIGHT)).toBe(0);
+		expect(currenciesManager.getAmount(RED_LIGHT)).toBe(0);
+	});
+
+	test('catching a neutrino pays none', () => {
+		setCpm(radiationManager.maxCpm / 2);
+		currenciesManager.hardReset();
+		gameManager.catchNeutrino();
+		expect(currenciesManager.getAmount(BLUE_LIGHT)).toBe(0);
 	});
 });
 

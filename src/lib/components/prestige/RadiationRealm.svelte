@@ -5,7 +5,9 @@
 	import RadiationUpgrades from '#components/radiation/RadiationUpgrades.svelte';
 	import ReactorCore from '#components/radiation/ReactorCore.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
+	import { wavelengthColor } from '#data/elements.js';
 	import { RealmTypes } from '#data/realms.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -21,6 +23,7 @@
 	const cpm = $derived(radiationManager.currentCpm);
 	const netChange = $derived(radiationManager.netMassChange);
 	const timeToEmpty = $derived(radiationManager.timeToEmpty);
+	const cherenkov = $derived(realmManager.live(RealmTypes.RADIATION, () => gameManager.cherenkovLight));
 
 	const hasMass = $derived(mass > 0);
 
@@ -117,6 +120,10 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if cherenkov > 0}
+				<p class="text-xs tabular-nums" data-hint="radiation-cherenkov" style:color={wavelengthColor(450)} in:reveal>+{formatNumber(cherenkov)} Blue Light/s</p>
+			{/if}
 
 			<div class="flex w-full max-w-sm flex-col gap-3 max-lg:landscape:w-auto max-lg:landscape:flex-1">
 				{#if (hasMass || power > 0) && mobile.current}

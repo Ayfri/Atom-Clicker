@@ -195,6 +195,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * passiveSeconds);
 	addCurrency(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * passiveSeconds);
 	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * passiveSeconds);
+	addCurrency(CurrenciesTypes.BLUE_LIGHT, manager.cherenkovLightAt(radiationManager.offlineAvgCpm) * passiveSeconds);
 	cosmosManager.advance(appliedMs);
 	const forged = periodicManager.tick(appliedMs, reactorFactorMs / appliedMs);
 	/** The summary lists what the catch-up made, the watchers must not announce it again. */

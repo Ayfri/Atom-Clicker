@@ -1,6 +1,6 @@
 import { dev } from '$app/env';
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
-import { CHROMATIC, CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
+import { CHERENKOV_DROP, CHROMATIC, CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
 import { OBSERVE_APS_SECONDS } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats } from '#data/dailyQuests.js';
@@ -379,6 +379,14 @@ export class GameManager {
 		green: (periodicManager.lampLight.green + cosmosManager.skyLight.green) * this.lightGain.green,
 		red: (periodicManager.lampLight.red + cosmosManager.skyLight.red) * this.lightGain.red,
 	});
+
+	/** Blue Light per second a reactor at `cpm` makes, scaled by its share of the output cap, 0 for a stopped core and before the first Ionize. Offline pays it at the average power. */
+	cherenkovLightAt(cpm: number): number {
+		if (this.totalIonizesAllTime === 0 || cpm <= 0) return 0;
+		return chromaticManager.lightFor('blue', CHERENKOV_DROP * Math.min(1, cpm / radiationManager.maxCpm), this);
+	}
+
+	cherenkovLight = $derived(this.cherenkovLightAt(radiationManager.currentCpm));
 
 	powerUpDurationMultiplier = $derived(this.effects.value('power_up_duration', 1, this));
 
@@ -1043,6 +1051,7 @@ export class GameManager {
 		periodicManager.tick(deltaTime);
 		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
 		for (const color of CHROMATIC_COLORS) currenciesManager.add(CHROMATIC[color].currency, this.passiveLight[color] * seconds);
+		if (this.cherenkovLight > 0) currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, this.cherenkovLight * seconds);
 
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;

@@ -36,6 +36,8 @@ export const CHROMATIC: Record<ChromaticColor, ChromaticDefinition> = {
 
 /** A broken Blue photon splits into two halves, each with this share of its HP and paying one base drop. */
 export const BLUE_HALF = { drop: 1, hp: 0.4, lifetime: 5000, size: 0.65 };
+/** Blue photons dropped per second by a reactor running at its output cap (Cherenkov radiation), in proportion to the output below it. Not the `cherenkov_glow` upgrade. */
+export const CHERENKOV_DROP = 0.00003;
 export const CHROMATIC_BASE_SPAWN_INTERVAL = 8000;
 export const CHROMATIC_MAX_ON_SCREEN = 5;
 /** The photon auto-clicker hits colored photons for this share of a tap. */
