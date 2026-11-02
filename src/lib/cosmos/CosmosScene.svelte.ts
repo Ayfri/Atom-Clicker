@@ -511,6 +511,11 @@ export class CosmosScene {
 		this.#realismGoal = realistic ? 1 : 0;
 	}
 
+	/** Rings the deep-sky objects of the given sources, the ones whose forges are running. */
+	setSiteRings(sites: readonly string[]) {
+		this.#sky.rings.set(sites);
+	}
+
 	/**
 	 * Flares a guest star where the sky is actually in view: the Sky list, the object panel and the phone sheets cover different parts
 	 * of it per screen, so a point only counts when the canvas is what the browser finds there. False while one is up, the view isn't
@@ -946,7 +951,7 @@ export class CosmosScene {
 
 	#render() {
 		/** After the camera moved, a frame behind they slid against the planets on every zoom step. */
-		this.#sky.follow(this.#camera, this.#canvas.clientHeight);
+		this.#sky.follow(this.#camera, this.#canvas.clientHeight, this.mode === 'observe');
 		this.#markers.update(this.#camera, this.#canvas.clientHeight, this.mode === 'observe');
 		this.#camera.updateMatrixWorld();
 		if (this.#flare.visible) {

@@ -3,6 +3,7 @@
 	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, formatMagnitude } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { GUEST_STARS } from '#data/guestStars.js';
+	import { SITE_IDS, SITES } from '#data/sites.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
 	import { particlesEnabled } from '#helpers/CanvasLoop.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
@@ -69,7 +70,8 @@
 		const hud = { arrow, progress };
 		const target = canvas;
 		const discovered = untrack(() => [...cosmosManager.discovered]);
-		const focus = sessionStorage.getItem(FOCUS_KEY) ?? undefined;
+		const focus = untrack(() => realmManager.cosmosFocus) ?? sessionStorage.getItem(FOCUS_KEY) ?? undefined;
+		untrack(() => (realmManager.cosmosFocus = null));
 		let created: CosmosScene | null = null;
 		let disposed = false;
 		let uninstall: (() => void) | undefined;
@@ -162,6 +164,18 @@
 	$effect(() => fx?.setActive(actionable));
 	$effect(() => scene?.setBuilding(research !== null));
 	$effect(() => scene?.setLimit(cosmosManager.limit));
+
+	/** An object asked for while the scene is up. A scene still loading reads it at creation, and the effect drops what it can't fly to now. */
+	$effect(() => {
+		const id = realmManager.cosmosFocus;
+		if (!id || !scene) return;
+		realmManager.cosmosFocus = null;
+		untrack(() => scene?.focus(id));
+	});
+
+	/** A string so the sources' per-tick status rebuild doesn't rerun the ring effect. */
+	const forging = $derived(SITE_IDS.filter(id => SITES[id].object && periodicManager.statuses[id].kind === 'forging').join(' '));
+	$effect(() => scene?.setSiteRings(forging ? forging.split(' ') : []));
 
 	let building: string | null = null;
 	$effect(() => {

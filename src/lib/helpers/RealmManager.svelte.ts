@@ -21,6 +21,8 @@ export interface RealmConfig {
 }
 
 class RealmManager {
+	/** Cosmos object the scene flies to next, read once. */
+	cosmosFocus = $state<string | null>(null);
 	/** The Cosmos is a view above the realms, opened from any of them, the selected realm stays underneath. */
 	cosmosOpen = $state(false);
 	/** Element the introduction opens the Table on, read once when it ends. */
@@ -91,6 +93,13 @@ class RealmManager {
 	/** An off-screen realm stays mounted, a value read through this freezes there instead of rerunning on every atom commit. The opaque Cosmos and Periodic Table hide the selected realm too. */
 	live<T>(realm: RealmType, read: () => T): T {
 		return this.selectedRealmId === realm && this.view !== 'cosmos' && !this.tableOpen ? read() : untrack(read);
+	}
+
+	/** `objectId` is the Cosmos object the view flies to once it is up. */
+	openCosmos(objectId?: string) {
+		perfTracker.action('cosmos:open');
+		this.cosmosFocus = objectId ?? null;
+		this.cosmosOpen = true;
 	}
 
 	/** `z` is the element the Table selects when it opens, a player who never saw the introduction gets it first. */

@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from 'svelte/motion';
 import {
 	color,
 	dot,
@@ -39,6 +40,7 @@ import {
 import { COSMOS_OBJECTS_BY_ID, type CosmosObject, skySight } from '#data/cosmos.js';
 import { DEEP_SKY } from './nebulae.js';
 import { darkSky, realism } from './shading.js';
+import { SiteRings } from './siteRings.js';
 import { DEEP_SKY_DISTANCE, EARTH_POLE, galactic, ORIGIN, SKY_DISTANCE, STAR_DISTANCE } from './space.js';
 
 const STAR_COUNT = 3500;
@@ -115,6 +117,11 @@ function faintStars(limit: Node<'float'>) {
 
 const span = (degrees: number) => 2 * DEEP_SKY_DISTANCE * Math.tan(MathUtils.degToRad(degrees) / 2);
 
+/** Own clock for the deep-sky animations, TSL's `time` keeps running while the scene pauses. Wrapped every hour so floats stay precise. */
+export const skyClock = uniform(0);
+/** 1 for the deep-sky animations, eased to 0 under reduced motion. */
+export const skyMotion = uniform(1);
+
 /** A deep-sky object the player discovers: a faint smudge until then, resolved into its drawing as `reveal` rises. */
 export class Nebula {
 	/** Field of view that frames it with some sky around it. */
@@ -152,13 +159,14 @@ export class Nebula {
 
 /** One flat glow per deep-sky object, faded by the eased limit. A discoverable one is a smudge until resolved, flaring cyan halfway like Saturn's rings. */
 function deepSky(limit: Node<'float'>, discovered: readonly string[], albedo: (id: string) => Node<'vec3'>) {
-	return DEEP_SKY.map(({ angle, at, discovery, id, magnitude, size }) => {
+	return DEEP_SKY.map(({ angle, animate, at, discovery, id, magnitude, size }) => {
 		const p = uv().sub(0.5).mul(2);
 		const glow = (sharpness: number) => exp(dot(p, p).mul(-sharpness));
 		const nebula = discovery && new Nebula(COSMOS_OBJECTS_BY_ID[discovery[0]], galactic(...at), Math.max(...size), discovered.includes(discovery[0]));
+		const map = animate ? animate(albedo(id), p, skyClock, skyMotion) : albedo(id);
 		const drawn = nebula
-			? mix(color(discovery[1]).mul(glow(5)).mul(0.18), albedo(id), nebula.reveal).add(color('#8ff5ff').mul(glow(4)).mul(nebula.reveal.mul(oneMinus(nebula.reveal)).mul(8)))
-			: albedo(id);
+			? mix(color(discovery[1]).mul(glow(5)).mul(0.18), map, nebula.reveal).add(color('#8ff5ff').mul(glow(4)).mul(nebula.reveal.mul(oneMinus(nebula.reveal)).mul(8)))
+			: map;
 		const material = new MeshBasicNodeMaterial({ blending: AdditiveBlending, depthWrite: false, transparent: true });
 		material.colorNode = drawn
 			.mul(oneMinus(smoothstep(0.7, 1, length(p))))
@@ -206,6 +214,7 @@ const milkyGlow = (limit: number) => Math.max(0, (skySight(limit) - 0.3) / 0.7) 
 export class Sky {
 	readonly group = new Group();
 	readonly nebulae: ReadonlyMap<string, Nebula>;
+	readonly rings: SiteRings;
 	readonly #deepSky: ReturnType<typeof deepSky>;
 	readonly #dome: Mesh;
 	readonly #faint: Sprite;
@@ -238,9 +247,10 @@ export class Sky {
 		this.#zoomStars = new Mesh(new SphereGeometry(SKY_DISTANCE * 0.98, 64, 32), zoom);
 		this.#deepSky = deepSky(this.#limit, discovered, albedo);
 		this.nebulae = new Map(this.#deepSky.flatMap(({ nebula }) => (nebula ? [[nebula.object.id, nebula]] : [])));
+		this.rings = new SiteRings(this.nebulae, this.#pixel);
 		this.#stars = starField(this.#sight);
 		this.#faint = faintStars(this.#limit);
-		this.group.add(this.#dome, this.#zoomStars, ...this.#deepSky.map(({ mesh }) => mesh), this.#stars, this.#faint);
+		this.group.add(this.#dome, this.#zoomStars, ...this.#deepSky.map(({ mesh }) => mesh), this.#stars, this.#faint, this.rings.sprite);
 		this.showDepth();
 	}
 
@@ -248,8 +258,9 @@ export class Sky {
 		this.#goal = limit;
 	}
 
-	follow(camera: PerspectiveCamera, height: number) {
+	follow(camera: PerspectiveCamera, height: number, observing: boolean) {
 		this.group.position.copy(camera.position);
+		this.rings.setObserving(observing);
 		this.#pixel.value = MathUtils.degToRad(camera.fov) / height;
 		this.#zoomStars.visible = this.#high && this.#pixel.value * ZOOM_STAR_LAYERS[0] * ZOOM_STAR_CELL[0] < 1;
 	}
@@ -267,10 +278,15 @@ export class Sky {
 		const limit = this.#limit.value;
 		for (const { magnitude, mesh } of this.#deepSky) mesh.visible = all || limit > magnitude - 0.3;
 		this.#faint.visible = all || limit > FAINT_STAR_MAGNITUDES[0] - 0.3;
+		this.rings.show(all);
 		if (all) this.#zoomStars.visible = true;
 	}
 
 	update(dt: number) {
+		const still = prefersReducedMotion.current;
+		if (!still) skyClock.value = (skyClock.value + dt) % 3600;
+		skyMotion.value = still ? Math.max(0, skyMotion.value - dt * 2) : Math.min(1, skyMotion.value + dt * 2);
+		this.rings.update(dt);
 		const glow = milkyGlow(this.#goal);
 		const left = glow - this.#milky.value;
 		if (left !== 0) this.#milky.value = Math.abs(left) < 1e-3 ? glow : this.#milky.value + left * Math.min(1, dt * 0.25);

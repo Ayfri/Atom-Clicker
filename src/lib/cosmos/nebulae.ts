@@ -1,9 +1,32 @@
-import { atan, color, cos, dot, exp, float, length, log, max, mix, mx_fractal_noise_float, mx_worley_noise_float, oneMinus, pow, saturate, smoothstep, vec2, vec3 } from 'three/tsl';
+import {
+	atan,
+	color,
+	cos,
+	dot,
+	exp,
+	float,
+	length,
+	log,
+	max,
+	mix,
+	mx_fractal_noise_float,
+	mx_worley_noise_float,
+	oneMinus,
+	pow,
+	saturate,
+	sin,
+	smoothstep,
+	step,
+	vec2,
+	vec3,
+} from 'three/tsl';
 import type { Node } from 'three/webgpu';
 
 export interface DeepSkyObject {
 	/** Position angle of the drawing's +x axis, its long axis, in degrees from the sky's north through east. */
 	angle: number;
+	/** Live change over the baked map, read at runtime only: `clock` runs in seconds, `motion` is 0 under reduced motion and 1 otherwise. */
+	animate?: (baked: Node<'vec3'>, p: Node<'vec2'>, clock: Node<'float'>, motion: Node<'float'>) => Node<'vec3'>;
 	/** Galactic longitude and latitude in degrees. */
 	at: readonly [number, number];
 	/** Cosmos object id of one the player discovers, and the tint of the smudge it shows until then. */
@@ -244,6 +267,13 @@ export const DEEP_SKY: DeepSkyObject[] = [
 	{
 		/** Mira, a red giant shedding a 13 light year tail of gas as it races through space, as ultraviolet images found it in 2007. */
 		angle: 0,
+		/** Its 332 day pulsation sped up to a 30 s cycle, a quick rise and a longer fall: only the star's core and halo breathe, the tail stays steady. */
+		animate: (baked, p, clock, motion) => {
+			const phase = clock.div(30).fract();
+			const breath = mix(smoothstep(0, 0.4, phase), oneMinus(smoothstep(0.4, 1, phase)), step(0.4, phase));
+			const star = blob(p, [0.72, 0], [3, 1], 30);
+			return baked.mul(oneMinus(star).add(star.mul(mix(0.85, mix(0.45, 1.3, breath), motion))));
+		},
 		at: [167.76, -57.97],
 		discovery: ['mira', '#ffb08a'],
 		draw: p => {
@@ -263,6 +293,14 @@ export const DEEP_SKY: DeepSkyObject[] = [
 	{
 		/** Cosmic rays falling toward Cygnus: streaks crossing the sky in the same slant, like rain. */
 		angle: 0,
+		/** A shower every 20 s: a bright front sweeps across the streaks' slant in the first eighth of the cycle. */
+		animate: (baked, p, clock, motion) => {
+			const phase = clock.div(20).fract();
+			const along = p.x.mul(0.8).add(p.y.mul(0.6));
+			const sweep = mix(-1.4, 1.4, saturate(phase.div(0.125)));
+			const front = exp(along.sub(sweep).pow(2).mul(-40)).mul(step(phase, 0.125));
+			return baked.mul(front.mul(motion).mul(1.5).add(1));
+		},
 		at: [80, 1],
 		discovery: ['cosmic_rays', '#a8f2da'],
 		draw: p => {
@@ -278,6 +316,7 @@ export const DEEP_SKY: DeepSkyObject[] = [
 	{
 		/** The cosmic microwave background as Planck mapped it, in false colors: warmer and cooler by a few parts in 100,000. */
 		angle: 0,
+		animate: (baked, _p, clock, motion) => baked.mul(sin(clock.mul((Math.PI * 2) / 45)).mul(motion).mul(0.15).add(1)),
 		at: [264, 48],
 		discovery: ['cmb', '#ffcf9a'],
 		draw: p => mix(color('#2b4cff'), color('#ff6a3a'), saturate(noise(p, 7, 3, 5).mul(1.4).add(0.5))).mul(0.14),

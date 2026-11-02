@@ -35,6 +35,7 @@
 	import { ICONS } from '#data/icons.js';
 	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, MAX_UNREAD, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
 	import { particlesEnabled, pixelRatio } from '#helpers/CanvasLoop.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
@@ -318,9 +319,9 @@
 	/** The Starlight button only exists once something is forged, and for a source that forges or pays Decay events. */
 	const canStudy = (id: SiteId, kind: SiteStatus['kind']) => hasForged && (kind === 'forging' || kind === 'full' || (kind !== 'locked' && DECAY_SITES.includes(id)));
 
-	function openCosmos() {
+	function openCosmos(objectId?: string) {
 		onClose();
-		realmManager.cosmosOpen = true;
+		realmManager.openCosmos(objectId);
 	}
 
 	let cardShift = $state(0);
@@ -631,10 +632,10 @@
 	</div>
 {/snippet}
 
-{#snippet cosmosButton(label: string)}
+{#snippet cosmosButton(label: string, objectId?: string)}
 	<button
 		class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center text-xs whitespace-nowrap text-[#cfe8ff] transition-colors hover:bg-white/12"
-		onclick={openCosmos}
+		onclick={() => openCosmos(objectId)}
 	>
 		<span class="truncate">{label}</span>
 		<ChevronRight
@@ -961,6 +962,9 @@
 			{#if site.object}
 				{@render cosmosButton('Open the Cosmos')}
 			{/if}
+		{/if}
+		{#if site.object && cosmosManager.unlocked && cosmosManager.discovered.includes(site.object)}
+			{@render cosmosButton('Show in the Cosmos', site.object)}
 		{/if}
 	</div>
 	{#if status.kind === 'idle'}

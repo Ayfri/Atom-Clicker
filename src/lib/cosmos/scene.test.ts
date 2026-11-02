@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { vec3 } from 'three/tsl';
 import { MathUtils } from 'three/webgpu';
 import { COSMOS_OBJECTS } from '#data/cosmos.js';
+import { SITE_IDS, SITES } from '#data/sites.js';
 import { BODY_LOOKS } from './bodies.js';
 import { trueAnomaly } from './orbits.js';
 import { Sky } from './sky.js';
@@ -9,6 +10,20 @@ import { Sky } from './sky.js';
 test('every object to discover is drawn in the scene, as a body or a nebula', () => {
 	const { nebulae } = new Sky(() => vec3(0), 0, []);
 	for (const object of COSMOS_OBJECTS.filter(object => !object.given)) expect(object.id in BODY_LOOKS || nebulae.has(object.id), object.id).toBe(true);
+});
+
+test('every source opened by an object is ringed on a nebula, and the rings only draw while one is shown and the eyepiece is off', () => {
+	const { nebulae, rings } = new Sky(() => vec3(0), 0, []);
+	for (const id of SITE_IDS) if (SITES[id].object) expect(nebulae.has(SITES[id].object), id).toBe(true);
+	expect(rings.sprite.count).toBe(SITE_IDS.filter(id => SITES[id].object).length);
+	expect(rings.sprite.visible).toBe(false);
+	rings.set(['lowmass']);
+	expect(rings.sprite.visible).toBe(true);
+	rings.setObserving(true);
+	expect(rings.sprite.visible).toBe(false);
+	rings.setObserving(false);
+	rings.set([]);
+	expect(rings.sprite.visible).toBe(false);
 });
 
 test("Kepler's equation holds up to Halley's eccentricity", () => {
