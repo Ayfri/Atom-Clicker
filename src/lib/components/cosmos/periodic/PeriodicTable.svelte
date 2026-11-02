@@ -82,8 +82,12 @@
 		['blue', CurrenciesTypes.BLUE_LIGHT],
 	] as const satisfies [LightColor, CurrencyName][];
 	const LIGHT_HEX: Record<LightColor, string> = { blue: '#4d8dff', green: '#2ee6a0', red: '#ff4d5e' };
-	/** 56px is the bonus line's height under the table, 16px leaves room for a selected cell's outline. */
-	const TABLE_WIDTH = 'min(100cqw - 16px, (100cqh - 56px) * 1.68 - 16px)';
+	/**
+	 * With square cells the table is W / 2 + 18px tall (18 columns and 17 gaps wide, 9 cell rows, the 12px spacer and 10 gaps high), so the height
+	 * allows a width of 2 × (100cqh - 72px - 16px - 18px). 72px stay reserved for the bonus lines under the table even before the first bonus, so
+	 * the grid never shrinks when they appear, and 16px leave room for a selected cell's outline.
+	 */
+	const TABLE_WIDTH = 'min(100cqw - 16px, 200cqh - 212px)';
 	const CELL = 44;
 	const GAP = 4;
 	const GRID = new Map(ELEMENTS.map(({ column, row, z }) => [`${row},${column}`, z]));
@@ -131,6 +135,13 @@
 	const select = (z: number) => (selection = { kind: 'element', z });
 	const ready = $derived(periodicManager.ready.filter(z => !reading.has(z)));
 	const identifiedCount = $derived(periodicManager.identified.length - reading.size);
+	/** Only families with an identified element, so the bonus lines show up one by one, starting with the first bonus. */
+	const familyBonuses = $derived(
+		FAMILY_IDS.map(family => {
+			const members = ELEMENTS.filter(other => other.family === family);
+			return { count: members.filter(other => periodicManager.identifiedSet.has(other.z)).length, family, size: members.length };
+		}).filter(({ count }) => count > 0),
+	);
 	const found = $derived(periodicManager.identified.length > 0);
 	const hasForged = $derived(periodicManager.forged.size > 0);
 	const showDecay = $derived(periodicManager.decayEventsPerSecond > 0 || decayEvents > 0);
@@ -1398,21 +1409,19 @@
 				>
 					{@render table()}
 					<div
-						class="mx-auto mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1.5"
+						class="mx-auto mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2"
 						style:width={TABLE_WIDTH}
 					>
-						{#each FAMILY_IDS as family (family)}
+						{#each familyBonuses as { count, family, size } (family)}
 							{@const info = FAMILIES[family]}
-							{@const members = ELEMENTS.filter(other => other.family === family)}
-							{@const count = members.filter(other => periodicManager.identifiedSet.has(other.z)).length}
-							{#if count}
-								<span
-									class="flex items-center gap-1.5 text-xs"
-									title="{info.name}: {count}/{members.length} identified, a full family ×{SET_BONUS}"
-									in:scale={{ start: 0.85 }}
-								>
+							<div
+								class="flex flex-col gap-1 text-xs"
+								title="{info.name}: {count}/{size} identified, a full family ×{SET_BONUS}"
+								in:scale={{ start: 0.85 }}
+							>
+								<span class="flex items-center gap-1.5">
 									<span style:color={info.color}>
-										{#if count === members.length}
+										{#if count === size}
 											<Star
 												class="fill-amber-300 text-amber-300"
 												size={14}
@@ -1424,7 +1433,14 @@
 									<span class="font-bold tabular-nums">+{count * info.step}%</span>
 									<span class="text-white/45">{family === 'lanthanide' ? 'Light gain' : STAT_LABELS[info.stat]}</span>
 								</span>
-							{/if}
+								<span class="h-0.5 overflow-hidden rounded-full bg-white/8">
+									<span
+										class="block h-full origin-left transition-transform duration-500"
+										style:background={info.color}
+										style:transform="scaleX({count / size})"
+									></span>
+								</span>
+							</div>
 						{/each}
 					</div>
 				</div>
