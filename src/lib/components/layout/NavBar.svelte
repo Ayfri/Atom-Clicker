@@ -20,7 +20,7 @@
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
 	import QuarkIcon from '#components/icons/Quark.svelte';
 	import NotificationDot from '#components/ui/NotificationDot.svelte';
-	import { FlaskRound, Medal, Network, Orbit, Settings as SettingsIcon, Zap } from '@lucide/svelte';
+	import { FlaskRound, GraphHub, Medal, Orbit, Settings as SettingsIcon, Zap } from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 
 	type NavBarIcon = Component<{ class?: string; size?: number; style?: string }>;
@@ -56,7 +56,7 @@
 			condition: () => reveals.leaderboard,
 		},
 		{
-			icon: Network,
+			icon: GraphHub,
 			id: 'skill-tree',
 			label: 'Skill Tree',
 			load: () => import('#components/modals/SkillTree.svelte'),

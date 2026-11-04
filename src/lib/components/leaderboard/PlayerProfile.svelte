@@ -22,7 +22,7 @@
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { Clock, FlaskRound, MousePointerClick, Network, Orbit, Pencil, Trophy } from '@lucide/svelte';
+	import { Clock, FlaskRound, GraphHub, MousePointerClick, Orbit, Pencil, Trophy } from '@lucide/svelte';
 
 	interface Props {
 		entry: LeaderboardEntry;
@@ -47,7 +47,7 @@
 			{ icon: Clock, label: 'Play time', value: formatDuration(stats.playTime) },
 			{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(stats.clicks) },
 			{ icon: Trophy, label: 'Achievements', value: `${stats.achievements.filter(id => id in ACHIEVEMENTS).length} / ${totalAchievements}` },
-			{ icon: Network, label: 'Skills', value: `${stats.skills.filter(id => id in SKILL_UPGRADES).length} / ${totalSkills}` },
+			{ icon: GraphHub, label: 'Skills', value: `${stats.skills.filter(id => id in SKILL_UPGRADES).length} / ${totalSkills}` },
 			{ icon: AtomIcon, label: 'Best atoms / s', value: formatNumber(stats.highestAPS) },
 			{ icon: HiggsBosonIcon, label: 'Higgs Boson caught', value: formatNumber(stats.lifetime[CurrenciesTypes.HIGGS_BOSON] ?? 0) },
 			...(stats.discoveries > 0 ? [{ icon: Orbit, label: 'Cosmos discoveries', value: `${stats.discoveries} / ${COSMOS_OBJECTS.length}` }] : []),
