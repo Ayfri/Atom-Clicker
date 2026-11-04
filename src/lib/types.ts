@@ -316,6 +316,8 @@ export interface Settings {
 		notation: NumberNotation;
 	};
 	gameplay: {
+		/** Holds a screen wake lock while the game is visible. */
+		keepScreenOn: boolean;
 		offlineProgressEnabled: boolean;
 	};
 	upgrades: {

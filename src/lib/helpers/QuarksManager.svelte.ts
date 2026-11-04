@@ -69,9 +69,9 @@ class QuarksManager {
 		}),
 	);
 
-	hasClaimableQuest = $derived.by(() => {
-		return this.quests.some((quest) => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest));
-	});
+	claimableQuestCount = $derived(this.quests.filter((quest) => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest)).length);
+
+	hasClaimableQuest = $derived(this.claimableQuestCount > 0);
 
 	hasClaimableAchievement = $derived.by(() => {
 		return gameManager.achievements.some((id) => id in ACHIEVEMENTS && !this.claimedAchievementIds.includes(id));

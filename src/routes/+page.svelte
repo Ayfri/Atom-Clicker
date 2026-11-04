@@ -34,6 +34,7 @@
 	import AtomRealm from '#components/prestige/AtomRealm.svelte';
 	import PhotonRealm from '#components/prestige/PhotonRealm.svelte';
 	import RadiationRealm from '#components/prestige/RadiationRealm.svelte';
+	import AppWatcher from '#components/system/AppWatcher.svelte';
 	import AutoSaveIndicator from '#components/system/AutoSaveIndicator.svelte';
 	import CosmosWatcher from '#components/system/CosmosWatcher.svelte';
 	import PeriodicWatcher from '#components/system/PeriodicWatcher.svelte';
@@ -243,6 +244,7 @@
 	<NavBar />
 	<Toaster />
 	<AutoSaveIndicator />
+	<AppWatcher />
 	<CosmosWatcher />
 	<PeriodicWatcher />
 	<Canvas />
