@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { APP_DISPLAY_QUERY, detectInAppBrowser, isInstalledApp, isUuid } from '#helpers/clientInfo.js';
+import { APP_DISPLAY_QUERY, detectInAppBrowser, detectManualInstall, isInstalledApp, isUuid } from '#helpers/clientInfo.js';
 
 const IOS_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
 const IOS_WEBVIEW = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
@@ -35,6 +35,35 @@ describe('detectInAppBrowser', () => {
 		expect(detectInAppBrowser('Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1')).toBeNull();
 		expect(detectInAppBrowser('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')).toBeNull();
 		expect(detectInAppBrowser('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0')).toBeNull();
+	});
+});
+
+describe('detectManualInstall', () => {
+	const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)';
+
+	test('Firefox 143+ on Windows pins a taskbar tab', () => {
+		expect(detectManualInstall('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0', 0)).toBe('firefox');
+		expect(detectManualInstall('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0', 0)).toBeNull();
+		expect(detectManualInstall('Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0', 0)).toBeNull();
+		expect(detectManualInstall('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0', 0)).toBeNull();
+	});
+
+	test('Safari 17+ on macOS adds to the Dock, iPadOS with a Mac user agent goes to the home screen', () => {
+		expect(detectManualInstall(`${MAC} Version/26.1 Safari/605.1.15`, 0)).toBe('safari');
+		expect(detectManualInstall(`${MAC} Version/16.6 Safari/605.1.15`, 0)).toBeNull();
+		expect(detectManualInstall(`${MAC} Version/26.1 Safari/605.1.15`, 5)).toBe('ios');
+		expect(detectManualInstall(MAC, 5)).toBeNull();
+		expect(detectManualInstall('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36', 0)).toBeNull();
+	});
+
+	test('iOS browsers add to the home screen, in-app browsers never do', () => {
+		expect(detectManualInstall(IOS_SAFARI, 5)).toBe('ios');
+		expect(detectManualInstall(IOS_WEBVIEW, 5)).toBeNull();
+		expect(detectManualInstall(`${IOS_WEBVIEW} Instagram 350.0.0.20.100`, 5)).toBeNull();
+	});
+
+	test('Chromium browsers rely on the install prompt', () => {
+		expect(detectManualInstall('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36', 0)).toBeNull();
 	});
 });
 

@@ -1,5 +1,5 @@
 import { browser } from '$app/env';
-import { APP_DISPLAY_QUERY, isInstalledApp } from '#helpers/clientInfo.js';
+import { APP_DISPLAY_QUERY, detectManualInstall, isInstalledApp, type ManualInstall } from '#helpers/clientInfo.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 
 class InstallStore {
@@ -7,6 +7,8 @@ class InstallStore {
 	#event = $state.raw<BeforeInstallPromptEvent | null>(null);
 	/** Set by the browser's `appinstalled` event, the Settings tab shows it in place of the button. */
 	installed = $state(false);
+	/** The browser's own install steps, shown where no install prompt exists. */
+	readonly manual: ManualInstall | null = browser ? detectManualInstall(navigator.userAgent, navigator.maxTouchPoints) : null;
 
 	/** Takes the event the inline script of `app.html` caught before this module loaded, then follows the later ones. The installed app never offers it. */
 	constructor() {
@@ -29,6 +31,11 @@ class InstallStore {
 			this.#event = null;
 			this.installed = true;
 		});
+	}
+
+	/** Whether this browser can install the game at all, through the prompt or its own steps. */
+	get available() {
+		return this.canInstall || this.manual !== null;
 	}
 
 	get canInstall() {

@@ -184,7 +184,7 @@ export const HINTS: Hint[] = [
 		id: 'atoms:install',
 		placement: 'right',
 		realm: RealmTypes.ATOMS,
-		show: () => gameManager.inGameTime >= INSTALL_HINT_PLAY_MS && installStore.canInstall,
+		show: () => gameManager.inGameTime >= INSTALL_HINT_PLAY_MS && installStore.available,
 		targets: ['#nav-settings'],
 		text: `Install Atom Clicker as an app: playing from it gives +${APP_PRODUCTION_PERCENT}% production, and ${APP_REWARD_QUARKS} Quarks to your account.`,
 		title: 'Play from the app',

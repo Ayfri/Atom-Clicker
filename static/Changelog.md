@@ -8,7 +8,7 @@
 - **Quark Shop**: A Cosmos banner for the leaderboard.
 - **Achievements**: New achievements for your Cosmos discoveries, instruments, studies, Starlight, taps, guest stars and neutrinos.
 - **Daily Quests**: Two Cosmos quests, gather Starlight and study objects.
-- **Install the Game**: Install Atom Clicker as an app from Settings, and playing from it gives +10% production and 10 Quarks once per account.
+- **Install the Game**: Install Atom Clicker as an app from Settings, also from Firefox on Windows, Safari on Mac and your iPhone's home screen, and playing from it gives +10% production and 10 Quarks once per account.
 
 # What's new 13-10-2026
 

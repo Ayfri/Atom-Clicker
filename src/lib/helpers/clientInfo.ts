@@ -77,6 +77,23 @@ export function getBrowserInfo(): BrowserInfo | null {
 	};
 }
 
+/** A browser that installs the game from its own menu, as no `beforeinstallprompt` ever fires there. */
+export type ManualInstall = 'firefox' | 'ios' | 'safari';
+
+/**
+ * Only browsers whose installed window `isInstalledApp()` recognizes, so the steps always lead to the bonus: a Firefox 143+ taskbar
+ * tab on Windows reports `minimal-ui`, a Safari 17+ Dock app on macOS `standalone`, an iOS home screen app `navigator.standalone`.
+ * iPadOS reports a Mac user agent and is told apart by its touch points, the `Safari/` token leaving out iPad web views. Safari's user
+ * agent freezes macOS at 10.15, so Safari 17 and 18 on Ventura and older, which have no Add to Dock, get steps naming Sonoma.
+ */
+export function detectManualInstall(userAgent: string, maxTouchPoints: number): ManualInstall | null {
+	if (detectInAppBrowser(userAgent)) return null;
+	if (/iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1 && /Safari\//.test(userAgent))) return 'ios';
+	if (/Windows/.test(userAgent) && Number(/Firefox\/(\d+)/.exec(userAgent)?.[1]) >= 143) return 'firefox';
+	if (/Macintosh/.test(userAgent) && Number(/Version\/(\d+)[\d.]* Safari\//.exec(userAgent)?.[1]) >= 17) return 'safari';
+	return null;
+}
+
 /** `navigator.standalone` is the iOS home screen app, which has no display-mode query. */
 export function isInstalledApp(): boolean {
 	return matchMedia(APP_DISPLAY_QUERY).matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
