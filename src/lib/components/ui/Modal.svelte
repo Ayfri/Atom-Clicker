@@ -44,21 +44,44 @@
 		stack.push(id);
 		return () => stack.splice(stack.indexOf(id), 1);
 	});
+
+	let overlay = $state<HTMLDivElement>();
+	let closing = false;
+
+	/**
+	 * Fades the overlay, panel included, out with WAAPI, then lets the parent unmount the modal. A Svelte outro would make the
+	 * element `inert`, which restyles the whole modal on close (~900 elements for the Skill Tree). The fade is cancelled a frame
+	 * after `onClose`, once the modal is gone, so a parent that keeps it open gets it back instead of an invisible overlay.
+	 */
+	function requestClose() {
+		if (closing) return;
+		if (!overlay || matchMedia('(prefers-reduced-motion: reduce)').matches) return onClose();
+		closing = true;
+		const animation = overlay.animate([{ opacity: 0 }], { duration: 200, fill: 'forwards' });
+		animation.finished.then(() => {
+			onClose();
+			requestAnimationFrame(() => {
+				animation.cancel();
+				closing = false;
+			});
+		});
+	}
 </script>
 
-<svelte:window onkeydown={e => e.key === 'Escape' && stack.at(-1) === id && onClose()} />
+<svelte:window onkeydown={e => e.key === 'Escape' && stack.at(-1) === id && requestClose()} />
 
 {#snippet close(className: string, size: number)}
-	<button aria-label="Close" class={['flex shrink-0 items-center justify-center rounded-lg transition-colors *:hover:stroke-3', className]} onclick={onClose} type="button">
+	<button aria-label="Close" class={['flex shrink-0 items-center justify-center rounded-lg transition-colors *:hover:stroke-3', className]} onclick={requestClose} type="button">
 		<X class="transition-all duration-300" {size} />
 	</button>
 {/snippet}
 
-<!-- No exit transition: an outroing element is made `inert`, which restyles the whole modal on close (~900 elements for the Skill Tree). -->
+<!-- No Svelte exit transition, `requestClose()` plays the exit (see its comment for why). -->
 <div
+	bind:this={overlay}
 	class={['overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs', dialog && 'p-4']}
 	in:fade={{ duration: 200 }}
-	onclick={e => e.target === e.currentTarget && onClose()}
+	onclick={e => e.target === e.currentTarget && requestClose()}
 	role="presentation"
 >
 	{#if dialog}
