@@ -25,7 +25,7 @@
 		"@tailwindcss/vite": "4.3.4",
 		"@types/bun": "^1.4.3",
 		"@types/node": "^26.6.5",
-		"@types/three": "^0.186.0",
+		"@types/three": "^0.187.0",
 		"supabase": "^2.120.0",
 		"svelte": "^5.57.2",
 		"svelte-check": "4.7.6",
@@ -37,7 +37,7 @@
 	"dependencies": {
 		"@lucide/svelte": "^1.56.0",
 		"@supabase/supabase-js": "2.117.3",
-		"three": "0.186.1",
+		"three": "0.187.0",
 		"virtua": "^0.53.5"
 	},
 	"imports": {
