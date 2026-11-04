@@ -340,13 +340,13 @@ export class CosmosScene {
 		const { runBench } = await import('./CosmosBench.js');
 		const restore = this.#snapshot();
 		this.setQuality('high');
-		this.#renderer.setAnimationLoop(null);
+		this.#stop();
 		this.#held = true;
 		try {
 			return await runBench(
 				{
 					defaults: DEFAULT_TUNING,
-					loop: on => (on ? this.#start() : this.#renderer.setAnimationLoop(null)),
+					loop: on => (on ? this.#start() : this.#stop()),
 					render: () => this.#render(),
 					renderer: this.#renderer,
 					restore,
@@ -358,7 +358,7 @@ export class CosmosScene {
 		} finally {
 			this.#held = false;
 			restore();
-			this.#start();
+			this.#onVisibility();
 		}
 	}
 
@@ -419,9 +419,10 @@ export class CosmosScene {
 	/** Dev only: stops on a benchmark view, so screenshots of two variants show the exact same frame. A reload resumes. */
 	freeze(scenario: BenchScenario) {
 		this.#held = true;
-		this.#renderer.setAnimationLoop(null);
 		this.#stage(scenario);
 		this.#render();
+		/** After the render, which restarts three's internal loop. */
+		this.#stop();
 	}
 
 	/**
@@ -876,7 +877,7 @@ export class CosmosScene {
 
 	#onVisibility = () => {
 		if (this.#held) return;
-		if (document.hidden || this.#paused) this.#renderer.setAnimationLoop(null);
+		if (document.hidden || this.#paused) this.#stop();
 		else this.#start();
 	};
 
@@ -1083,6 +1084,15 @@ export class CosmosScene {
 		this.#applyGlare();
 		this.#onDiscover(id);
 		this.#flyTo(() => this.#viewpoint(id), () => body.group.position, 50, 3.2, () => this.#orbit(id));
+	}
+
+	/**
+	 * `setAnimationLoop(null)` only drops the callback: three's internal loop, started by any render, keeps requesting a frame every vsync
+	 * (still in r187), which a scene paused behind a modal must not cost. Its `stop()` isn't typed, `#start` restarts it.
+	 */
+	#stop() {
+		void this.#renderer.setAnimationLoop(null);
+		(this.#renderer as unknown as { _animation: { stop(): void } })._animation.stop();
 	}
 
 	#updateFlight(dt: number) {
