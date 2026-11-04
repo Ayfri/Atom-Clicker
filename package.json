@@ -15,8 +15,8 @@
 		"db:status": "supabase status",
 		"db:reset": "supabase db reset",
 		"db:diff": "supabase db diff",
-		"db:push": "supabase db push",
-		"db:types": "supabase gen types typescript --local > src/lib/types/supabase.ts"
+		"db:push": "supabase db push --remote",
+		"db:types": "supabase gen types typescript > src/lib/types/supabase.ts"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "8.0.2",

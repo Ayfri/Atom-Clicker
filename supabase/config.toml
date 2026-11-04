@@ -53,13 +53,13 @@ minimum_password_length = 6
 [auth.email]
 # Production only signs in through OAuth, but email signup is kept on locally so a
 # test user can be created from Studio without any external OAuth credentials.
-enable_signup = true
+enabled = true
 enable_confirmations = false
 secure_password_change = false
 max_frequency = "1s"
 
 [auth.sms]
-enable_signup = false
+enabled = false
 enable_confirmations = false
 
 # OAuth providers offered in Login.svelte. They stay off by default because the CLI
@@ -104,7 +104,3 @@ enabled = false
 
 [analytics]
 enabled = false
-
-# pg-delta is the schema diff engine for db diff / db pull / db remote commit.
-[experimental.pgdelta]
-enabled = true
