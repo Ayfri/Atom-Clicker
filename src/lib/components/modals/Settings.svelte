@@ -10,11 +10,12 @@
 	import GlobalStats from '#components/settings/Stats.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import NotificationDot from '#components/ui/NotificationDot.svelte';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { APP_PRODUCTION_PERCENT } from '#lib/constants.js';
 	import { changelog } from '#stores/changelog.svelte.js';
 	import { installStore } from '#stores/install.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, MonitorDown, SlidersHorizontal, User } from '@lucide/svelte';
+	import { ChartLine, ChevronLeft, ChevronRight, Cloud, FileText, Gavel, Heart, MessageSquare, MonitorCheck, MonitorDown, SlidersHorizontal, User } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 
@@ -39,6 +40,8 @@
 
 	/** Read once, so the Install tab stays after the browser's dialog used up the prompt. */
 	const canInstall = installStore.canInstall;
+	/** Inside the installed app the same tab confirms the bonus instead of selling the install. */
+	const inApp = gameManager.installedApp;
 
 	const allGroups: { label: string; tabs: SettingsTab[] }[] = [
 		{
@@ -54,7 +57,9 @@
 				{ component: Gameplay, description: 'Offline progress, numbers and tips', icon: SlidersHorizontal, id: 'gameplay', label: 'Gameplay' },
 				{ component: GlobalStats, description: 'Your progress in numbers', icon: ChartLine, id: 'stats', label: 'Stats' },
 				{ component: Changelog, description: 'What changed in each update', icon: FileText, id: 'changelog', label: 'Changelog', notification: () => changelog.unread },
-				{ component: Install, description: `Install as an app for +${APP_PRODUCTION_PERCENT}% production`, highlight: true, icon: MonitorDown, id: 'install', label: 'Install', visible: () => canInstall },
+				inApp
+					? { component: Install, description: `App bonus on, +${APP_PRODUCTION_PERCENT}% production`, icon: MonitorCheck, id: 'install', label: 'App' }
+					: { component: Install, description: `Install as an app for +${APP_PRODUCTION_PERCENT}% production`, highlight: true, icon: MonitorDown, id: 'install', label: 'Install', visible: () => canInstall },
 			],
 		},
 		{

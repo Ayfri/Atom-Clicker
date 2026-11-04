@@ -38,6 +38,8 @@ interface QuarksApiState {
 
 class QuarksManager {
 	pendingActions = $state<string[]>([]);
+	/** Only known once `claimAppReward()` ran, which only happens inside the installed app. */
+	appRewardClaimed = $state(false);
 	balance = $state(0);
 	claimedAchievementIds = $state<string[]>([]);
 	claimedQuestIds = $state<string[]>([]);
@@ -92,6 +94,7 @@ class QuarksManager {
 	}
 
 	clear() {
+		this.appRewardClaimed = false;
 		this.balance = 0;
 		this.claimedAchievementIds = [];
 		this.claimedQuestIds = [];
@@ -345,12 +348,16 @@ class QuarksManager {
 		if (this.devOverride || !userId) return;
 
 		const key = `appRewardClaimed:${userId}`;
-		if (getItem(key)) return;
+		if (getItem(key)) {
+			this.appRewardClaimed = true;
+			return;
+		}
 
 		const result = await this.postAction<{ balance: number; status: 'already_claimed' | 'cap_reached' | 'ok' }>('/api/quarks/app-reward', {}, 'claim-app-reward');
 		if (!result) return;
 
 		setItem(key, 'true');
+		this.appRewardClaimed = true;
 		this.balance = result.balance;
 		if (result.status === 'ok') {
 			toastStore.info({ message: 'Thanks for playing from the installed app.', title: `+${APP_REWARD_QUARKS} Quarks` });
