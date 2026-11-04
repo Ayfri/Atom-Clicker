@@ -161,6 +161,17 @@
 		return map;
 	});
 
+	/** Cells forging and cells shown but idle (ready, reading, queued at a source), the middle segments of the header bar. */
+	const tally = $derived.by(() => {
+		let forging = 0;
+		let shown = 0;
+		for (const { kind } of looks.values())
+			if (kind === 'forging') forging++;
+			else if (kind !== 'identified') shown++;
+		return { forging, shown };
+	});
+	const complete = $derived(identifiedCount === ELEMENT_COUNT);
+
 	/** One character per element, `g` for a cell on or next to a known one and `h` for hidden. A string, so the grid only updates when a ghost appears. */
 	const fog = $derived.by(() => {
 		const marks = Array.from({ length: ELEMENT_COUNT }, () => 'h');
@@ -1265,11 +1276,28 @@
 					class="flex items-center gap-2.5"
 					in:revealIn
 				>
-					<span class="h-1.5 w-16 overflow-hidden rounded-full bg-white/10 lg:w-28">
-						<span
-							class="block h-full origin-left bg-linear-to-r from-[#4dabf7] via-[#9775fa] to-[#ffd43b] transition-transform duration-500"
-							style:transform="scaleX({identifiedCount / ELEMENT_COUNT})"
-						></span>
+					<!-- Identified, forging, shown and unknown cells side by side. The full table turns to a rainbow fill with a soft glow. -->
+					<span
+						class="relative h-1.5 w-16 lg:w-28"
+						title="{identifiedCount} identified · {tally.forging} forging · {tally.shown} waiting · {ELEMENT_COUNT - identifiedCount - tally.forging - tally.shown} unknown"
+					>
+						{#if complete}
+							<span class="complete-glow absolute inset-0 rounded-full"></span>
+						{/if}
+						<span class="relative flex h-full overflow-hidden rounded-full bg-white/10">
+							<span
+								class={['h-full transition-[width] duration-500', complete ? 'bg-linear-to-r from-[#4dabf7] via-[#9775fa] to-[#ffd43b]' : 'bg-[#4dabf7]']}
+								style:width="{(identifiedCount / ELEMENT_COUNT) * 100}%"
+							></span>
+							<span
+								class="h-full bg-cosmos-workshop transition-[width] duration-500"
+								style:width="{(tally.forging / ELEMENT_COUNT) * 100}%"
+							></span>
+							<span
+								class="h-full bg-white/30 transition-[width] duration-500"
+								style:width="{(tally.shown / ELEMENT_COUNT) * 100}%"
+							></span>
+						</span>
 					</span>
 					<span class="text-xs font-bold tabular-nums">{identifiedCount}<span class="text-white/40">/{ELEMENT_COUNT}</span></span>
 				</div>
@@ -1553,6 +1581,25 @@
 	/** Progress lands on the 1 s tick, a 1 s linear glide makes it read as continuous. */
 	.smooth {
 		transition: stroke-dashoffset 1s linear;
+	}
+
+	.complete-glow {
+		box-shadow:
+			0 0 6px 1px #9775fa99,
+			0 0 12px 2px #ffd43b55;
+	}
+
+	/** The one looping glow of the header, opacity only so it stays on the compositor. */
+	@media (prefers-reduced-motion: no-preference) {
+		.complete-glow {
+			animation: glow 2.8s ease-in-out infinite;
+		}
+	}
+
+	@keyframes glow {
+		50% {
+			opacity: 0.45;
+		}
 	}
 
 	/** Only the sources forging right now breathe (a handful, transform only). */
