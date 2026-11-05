@@ -6,6 +6,7 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
 import { PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { formatNumber } from '#lib/utils.js';
 
 const { ATOMS, ELECTRONS, PROTONS } = CurrenciesTypes;
 
@@ -61,7 +62,7 @@ describe('grouping', () => {
 	test('categories follow the display order, then the data order', () => {
 		for (const type of GENERATOR_TYPES) gameManager.unlockGenerator(type);
 		gameManager.skillUpgrades = ['autoClicker'];
-		const groups = upgradeFamilies.categories(ATOMS);
+		const groups = upgradeFamilies.categories(ATOMS, new Set());
 		const order = groups.map(({ category }) => UPGRADE_CATEGORIES.indexOf(category));
 		expect(order.length).toBeGreaterThan(2);
 		expect(order).toEqual(order.toSorted((a, b) => a - b));
@@ -71,6 +72,29 @@ describe('grouping', () => {
 			const positions = views.map(({ family }) => dataOrder.indexOf(family.id));
 			expect(positions).toEqual(positions.toSorted((a, b) => a - b));
 		}
+	});
+
+	test('hidden families are left out', () => {
+		const family = view('click_power_mul').family;
+		const ids = (hidden: ReadonlySet<string>) => upgradeFamilies.categories(family.currency, hidden).flatMap(({ views }) => views.map(view => view.family.id));
+		expect(ids(new Set())).toContain(family.id);
+		expect(ids(new Set([family.id]))).not.toContain(family.id);
+	});
+
+	test('totals combine the owned levels per stat', () => {
+		const clickPower = view('click_power_mul');
+		gameManager.upgrades = clickPower.family.tiers.slice(0, 2).map(({ id }) => id);
+		expect(clickPower.totals).toEqual([`×${formatNumber(1.5 * 1.5)} click power`]);
+
+		const electrons = view('proton_electron_boost');
+		gameManager.upgrades = [...electrons.family.tiers.map(({ id }) => id), 'proton_electron_boost_total_protonises'];
+		gameManager.totalProtonisesRun = 4;
+		expect(electrons.totals).toEqual([`×${formatNumber(12)} electrons from Electronize`]);
+		/** A single level still shows its total when the amount follows the game. */
+		expect(view('proton_electron_boost_total_protonises').totals).toEqual(['+4 electrons from Electronize']);
+
+		gameManager.upgrades = ['global_multiplier'];
+		expect(view('global_multiplier').totals).toEqual([]);
 	});
 });
 
