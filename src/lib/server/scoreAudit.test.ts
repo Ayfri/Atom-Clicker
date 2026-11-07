@@ -1,14 +1,19 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { ACHIEVEMENTS } from '#data/achievements.js';
-import { COSMOS_OBJECTS_BY_ID, studyCost } from '#data/cosmos.js';
+import { CHROMATIC_UPGRADES } from '#data/chromatic.js';
+import { apertureCost, COSMOS_INSTRUMENTS, COSMOS_OBJECTS_BY_ID, SPECTROSCOPE_ID, studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+import { GUEST_STAR_INTERVAL_MS } from '#data/guestStars.js';
+import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 import { FORGE_MILESTONES, siteStudyCost } from '#data/sites.js';
 import { UPGRADES } from '#data/upgrades.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { IONIZE_CPM, IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { measureRunBounds } from '#helpers/runBounds.js';
 import { GENERATOR_COST_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import { auditScore, inspectScore, keptSpending, type PreviousScore, runSpending, type ScoreAudit } from '#lib/server/scoreAudit.server.js';
@@ -43,6 +48,17 @@ const atomsOf = (state: GameState) => state.currencies[CurrenciesTypes.ATOMS];
 const runId = ({ state }: Capture) => `${state.totalProtonisesAllTime}:${state.totalElectronizesAllTime}:${state.totalIonizesAllTime}`;
 /** A late state with a known run start, past the first Protonize. */
 const lateRun = () => captures.findLast(({ state }) => state.runStartedAt > 0 && atomsOf(state).earnedRun > 1e12)!;
+const earn = (state: GameState, currency: CurrencyName, amount: number) => {
+	state.currencies[currency] = { amount: 0, earnedAllTime: amount, earnedRun: amount };
+};
+/** Starlight the instruments up to `id` cost together, they are only bought in list order. */
+const instrumentsCost = (id: string) => COSMOS_INSTRUMENTS.slice(0, COSMOS_INSTRUMENTS.findIndex(instrument => instrument.id === id) + 1).reduce((sum, { cost }) => sum + cost, 0);
+/** Issues the audit finds on the late state after `edit`. */
+const edited = (edit: (state: GameState) => void) => {
+	const entry = structuredClone(lateRun());
+	edit(entry.state);
+	return audit(entry).issues;
+};
 
 /** Playing six hours takes several seconds, past the default hook timeout on a busy machine. */
 beforeAll(() => {
@@ -83,6 +99,11 @@ describe('honest states', () => {
 		expect(gameManager.atoms).toBe(0);
 		expect(gameManager.upgrades).toEqual([]);
 		expect(Object.hasOwn(gameManager, 'effects')).toBe(false);
+		/** The Starlight bound forces these to their best case while it measures. */
+		expect(gameManager.totalIonizesAllTime).toBe(0);
+		expect(gameManager.currencyBoosts).toEqual({});
+		expect(gameManager.radiationUpgrades).toEqual({});
+		expect(gameManager.chromaticUpgrades).toEqual({});
 	});
 });
 
@@ -131,14 +152,6 @@ describe('edited states', () => {
 	});
 
 	describe('Cosmos and Periodic Table', () => {
-		const earn = (state: GameState, currency: CurrencyName, amount: number) => {
-			state.currencies[currency] = { amount: 0, earnedAllTime: amount, earnedRun: amount };
-		};
-		const edited = (edit: (state: GameState) => void) => {
-			const entry = structuredClone(lateRun());
-			edit(entry.state);
-			return audit(entry).issues;
-		};
 		const jupiter = COSMOS_OBJECTS_BY_ID.jupiter;
 		const firstTwoStudies = studyCost(jupiter, 0) + studyCost(jupiter, 1);
 
@@ -237,9 +250,12 @@ describe('edited states', () => {
 
 			const cheapest = (color: LightColor) => ELEMENTS.reduce((sum, element) => sum + lightCost(element)[color] * TUNING.factorIn, 0);
 			const decay = ELEMENTS.reduce((sum, element) => sum + decayCost(element), 0);
+			/** The Cosmos behind the spectroscope's Starlight is not played, so `starlightEarned` is expected and only the Periodic Table checks are asserted. */
 			const honest = edited(state => {
+				state.cosmos.instruments = [SPECTROSCOPE_ID];
 				state.periodic.identified = all;
 				state.periodic.forges = 5;
+				earn(state, CurrenciesTypes.STARLIGHT, instrumentsCost(SPECTROSCOPE_ID));
 				earn(state, CurrenciesTypes.DECAY_EVENTS, decay);
 				earn(state, CurrenciesTypes.BLUE_LIGHT, cheapest('blue'));
 				earn(state, CurrenciesTypes.GREEN_LIGHT, cheapest('green'));
@@ -254,8 +270,10 @@ describe('edited states', () => {
 			expect(edited(state => (state.periodic.forges = 2))).toContain('periodic');
 			expect(
 				edited(state => {
+					state.cosmos.instruments = [SPECTROSCOPE_ID];
 					state.periodic.identified = ELEMENTS.slice(0, FORGE_MILESTONES[0]).map(({ z }) => z);
 					state.periodic.forges = 2;
+					earn(state, CurrenciesTypes.STARLIGHT, instrumentsCost(SPECTROSCOPE_ID));
 				}),
 			).not.toContain('periodic');
 		});
@@ -384,6 +402,224 @@ describe('edited states', () => {
 		const result = audit(entry, previous);
 		expect(result.warnings).toContain('clicks');
 		expect(result.issues).toEqual([]);
+	});
+});
+
+describe('Starlight and Cosmos purchases', () => {
+	const HOURS = 24;
+	const TICK_MS = 60_000;
+	const TAPS_PER_TICK = 300;
+	const GUEST_STAR_TICKS = GUEST_STAR_INTERVAL_MS[0] / TICK_MS;
+	const IONIZE_TICKS = (6 * 3_600_000) / TICK_MS;
+	const atMaxLevel = (registry: Record<string, { maxLevel: number }>) => Object.fromEntries(Object.entries(registry).map(([id, { maxLevel }]) => [id, maxLevel]));
+	const sum = (price: (level: number) => number, count: number) => Array.from({ length: count }, (_, level) => price(level)).reduce((total, cost) => total + cost, 0);
+	const cost = (id: string) => COSMOS_INSTRUMENTS.find(instrument => instrument.id === id)!.cost;
+	const issuesOf = (entry: Capture, edit: (state: GameState) => void) => {
+		const copy = structuredClone(entry);
+		edit(copy.state);
+		return audit(copy).issues;
+	};
+
+	/** The reactor held at its cap for the whole minute, with every upgrade a late reactor owns: the Ionize that pays the biggest flash. */
+	function ionizeAtCap() {
+		gameManager.radiationUpgrades = atMaxLevel(RADIATION_UPGRADES);
+		gameManager.chromaticUpgrades = atMaxLevel(CHROMATIC_UPGRADES);
+		radiationManager.unlock();
+		radiationManager.peakCpm = radiationManager.maxCpm;
+		radiationManager.ionizeHold = IONIZE_HOLD_SECONDS;
+		expect(radiationManager.maxCpm).toBeGreaterThanOrEqual(radiationManager.ionizeCpm);
+		expect(gameManager.ionize()).toBe(true);
+	}
+
+	/** Plays the Cosmos like a player: taps the Sun, catches every guest star, observes, widens the Aperture, builds instruments and studies what is cheap next to the goal. */
+	function playCosmos(): Capture {
+		let nowMs = 0;
+		gameManager.resetAll();
+		gameManager.clock = () => nowMs;
+		try {
+			gameManager.startDate = 0;
+			ionizeAtCap();
+			for (let tick = 1; tick <= (HOURS * 3_600_000) / TICK_MS; tick++) {
+				nowMs += TICK_MS;
+				for (let tap = 0; tap < TAPS_PER_TICK; tap++) cosmosManager.click('sun');
+				if (tick % GUEST_STAR_TICKS === 0) cosmosManager.catchGuestStar();
+				gameManager.tick(TICK_MS, true);
+
+				while (cosmosManager.canObserve) cosmosManager.discover(cosmosManager.nextDiscovery?.id ?? '');
+				cosmosManager.purchaseAperture();
+				const instrument = cosmosManager.nextInstrument;
+				if (instrument) cosmosManager.purchaseInstrument(instrument.id);
+				const goal = cosmosManager.apertureMaxed ? (instrument?.cost ?? Infinity) : cosmosManager.nextApertureCost;
+				const cheapest = cosmosManager.objects.reduce((best, object) => (studyCost(object, cosmosManager.level(object.id)) < studyCost(best, cosmosManager.level(best.id)) ? object : best));
+				if (studyCost(cheapest, cosmosManager.level(cheapest.id)) * 20 <= goal) cosmosManager.study(cheapest.id);
+				if (tick % IONIZE_TICKS === 0) ionizeAtCap();
+			}
+			return capture();
+		} finally {
+			gameManager.clock = () => Date.now();
+			gameManager.resetAll();
+		}
+	}
+
+	let honest: Capture;
+	beforeAll(() => {
+		honest = playCosmos();
+	}, 60_000);
+
+	test('a Cosmos played for a day through the real managers passes', () => {
+		const { cosmos, currencies } = honest.state;
+		expect(currencies[CurrenciesTypes.STARLIGHT].earnedAllTime).toBeGreaterThan(0);
+		expect(cosmos.discovered.length).toBeGreaterThan(0);
+		expect(cosmos.instruments.length).toBeGreaterThan(0);
+		expect(cosmos.aperture).toBeGreaterThan(0);
+		expect(audit(honest).issues).toEqual([]);
+	});
+
+	test('Starlight earned past what the Cosmos could radiate is rejected', () => {
+		expect(issuesOf(honest, state => (state.currencies[CurrenciesTypes.STARLIGHT].earnedAllTime *= 1e6))).toContain('starlightEarned');
+	});
+
+	test('a discovery without the instrument of its era is rejected, so is an instrument dropped from an honest save', () => {
+		const { discovered, instruments } = honest.state.cosmos;
+		/** The kilonova belongs to the LIGO era, an instrument a day of play does not afford. */
+		expect(instruments).not.toContain('ligo');
+		expect(discovered).not.toContain('kilonova');
+		expect(issuesOf(honest, state => (state.cosmos.discovered = [...state.cosmos.discovered, 'kilonova']))).toContain('discoveries');
+		const used = COSMOS_INSTRUMENTS.findLast(instrument => !instrument.tool && instruments.includes(instrument.id) && discovered.some(id => COSMOS_OBJECTS_BY_ID[id].era === instrument.era));
+		expect(used).toBeDefined();
+		expect(issuesOf(honest, state => (state.cosmos.instruments = instruments.filter(id => id !== used!.id)))).toContain('discoveries');
+	});
+
+	test('study levels bought with Starlight earned only by a forged Ionize count are rejected', () => {
+		const sun = COSMOS_OBJECTS_BY_ID.sun;
+		const sixty = (state: GameState) => {
+			state.totalIonizesAllTime = 1;
+			state.cosmos.studies = { sun: 60 };
+			earn(state, CurrenciesTypes.STARLIGHT, sum(level => studyCost(sun, level), 60));
+		};
+		const issues = edited(sixty);
+		expect(issues).toContain('starlightEarned');
+		expect(issues).not.toContain('starlight');
+
+		const honestTwo = edited(state => {
+			state.totalIonizesAllTime = 1;
+			state.cosmos.studies = { sun: 2 };
+			earn(state, CurrenciesTypes.STARLIGHT, studyCost(sun, 0) + studyCost(sun, 1));
+		});
+		expect(honestTwo).not.toContain('starlightEarned');
+		expect(honestTwo).not.toContain('starlight');
+	});
+
+	test('an Ionize count past one per minute of the save is clamped, so Starlight earned beyond it is rejected', () => {
+		expect(
+			edited(state => {
+				state.totalIonizesAllTime = 1e9;
+				earn(state, CurrenciesTypes.STARLIGHT, 1e12);
+			}),
+		).toContain('starlightEarned');
+	});
+
+	/** The limit of the `starlightEarned` check on the late state after `edit`, with an earned amount no bound reaches so the check always reports it. */
+	const starlightLimit = (edit: (state: GameState) => void) => {
+		const entry = structuredClone(lateRun());
+		entry.state.runStartedAt = 0;
+		edit(entry.state);
+		earn(entry.state, CurrenciesTypes.STARLIGHT, 1e300);
+		const inspection = inspectScore(entry.state, context(entry.now));
+		if (typeof inspection === 'string') throw new Error(inspection);
+		const check = inspection.checks.find(({ id }) => id === 'starlightEarned');
+		expect(check, inspection.issues.join(', ')).toBeDefined();
+		return check!.limit!;
+	};
+
+	test('the time since the save start widens the Starlight bound, a start in the future gets the date margin only', () => {
+		/** The date margin is 24 h: a start one hour ahead leaves 23 h of income, a start a full margin ahead leaves none. */
+		const withStart = (ahead: number) =>
+			starlightLimit(state => {
+				state.startDate = state.lastSave = lateRun().now + ahead;
+				state.inGameTime = 0;
+				state.totalIonizesAllTime = 1;
+			});
+		expect(withStart(3_600_000)).toBeGreaterThan(withStart(24 * 3_600_000));
+	});
+
+	test('an Ionize count past the maxed reactor cap does not widen the Starlight bound, however far back the save starts', () => {
+		gameManager.radiationUpgrades = atMaxLevel(RADIATION_UPGRADES);
+		gameManager.chromaticUpgrades = atMaxLevel(CHROMATIC_UPGRADES);
+		const maxIonizes = Math.floor((radiationManager.maxCpm - IONIZE_CPM) / IONIZE_CPM_STEP) + 1;
+		gameManager.resetAll();
+		expect(maxIonizes).toBeGreaterThan(1);
+		/** Before the first commit of the game, so the run bounds clamp it to that date: well over the minutes an Ionize count of 1e9 needs. */
+		const backdated = (ionizes: number) =>
+			starlightLimit(state => {
+				state.startDate = Date.UTC(2020, 0, 1);
+				state.totalIonizesAllTime = ionizes;
+			});
+		expect(backdated(1e9)).toBeLessThanOrEqual(backdated(maxIonizes));
+		expect(backdated(maxIonizes)).toBeGreaterThan(backdated(1));
+	});
+
+	test('an instrument is only bought after every earlier one, so owning the last alone is priced as the whole chain', () => {
+		const last = COSMOS_INSTRUMENTS.at(-1)!;
+		const alone = (starlight: number) =>
+			edited(state => {
+				state.cosmos.instruments = [last.id];
+				earn(state, CurrenciesTypes.STARLIGHT, starlight);
+			});
+		expect(alone(last.cost)).toContain('starlight');
+		expect(alone(instrumentsCost(last.id))).not.toContain('starlight');
+	});
+
+	test('instruments and Aperture levels are paid with Starlight, whole levels only', () => {
+		expect(edited(state => (state.cosmos.instruments = ['refractor']))).toContain('starlight');
+		expect(
+			edited(state => {
+				state.cosmos.instruments = ['refractor'];
+				earn(state, CurrenciesTypes.STARLIGHT, cost('refractor'));
+			}),
+		).not.toContain('starlight');
+
+		const widened = (starlight: number) =>
+			edited(state => {
+				state.cosmos.aperture = 5;
+				earn(state, CurrenciesTypes.STARLIGHT, starlight);
+			});
+		const five = sum(apertureCost, 5);
+		expect(widened(0)).toContain('starlight');
+		expect(widened(five)).not.toContain('starlight');
+		expect(widened(five * 0.99)).toContain('starlight');
+		expect(edited(state => (state.cosmos.aperture = 1.5))).toContain('cosmos');
+	});
+
+	test('a discovery needs an owned instrument of its era and an Aperture that reaches its magnitude', () => {
+		const observed = (id: string, aperture: number, instruments: string[] = []) =>
+			edited(state => {
+				state.cosmos.aperture = aperture;
+				state.cosmos.discovered = [id];
+				state.cosmos.instruments = instruments;
+				earn(state, CurrenciesTypes.STARLIGHT, sum(apertureCost, aperture) + instruments.reduce((total, id) => total + cost(id), 0));
+			});
+		/** The naked eye sees down to -5 and gains half a magnitude per level, Jupiter at -2.4 needs six. */
+		expect(observed('moon', 0)).not.toContain('discoveries');
+		expect(observed('jupiter', 5)).toContain('discoveries');
+		expect(observed('jupiter', 6)).not.toContain('discoveries');
+		/** The refractor starts at -1.5 and takes over from level 11, Ganymede at 4.6 needs 13 and the refractor itself. */
+		expect(observed('ganymede', 13)).toContain('discoveries');
+		expect(observed('ganymede', 12, ['refractor'])).toContain('discoveries');
+		expect(observed('ganymede', 13, ['refractor'])).not.toContain('discoveries');
+		/** Ceres is within the refractor's sight at 17 but belongs to the reflector's era. */
+		expect(observed('ceres', 17, ['refractor'])).toContain('discoveries');
+		expect(observed('removed_object', 0)).not.toContain('discoveries');
+	});
+
+	test('elements identified without the Spectroscope are rejected', () => {
+		expect(edited(state => (state.periodic.identified = [1]))).toContain('periodic');
+		expect(
+			edited(state => {
+				state.cosmos.instruments = [SPECTROSCOPE_ID];
+				state.periodic.identified = [1];
+			}),
+		).not.toContain('periodic');
 	});
 });
 
