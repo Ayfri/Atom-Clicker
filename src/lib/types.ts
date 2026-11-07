@@ -38,7 +38,6 @@ export interface ChromaticState {
 	kills: Record<ChromaticColor, number>;
 }
 
-/** `injections` and `readyInMs` stay at 0 for a signed-out player. */
 /** Given objects and the naked eye are never stored, they are part of the sky from the start. */
 export interface CosmosState {
 	aperture: number;
@@ -53,6 +52,7 @@ export interface CosmosState {
 	studies: Record<string, number>;
 }
 
+/** `injections` and `readyInMs` stay at 0 for a signed-out player. */
 export interface ColliderState {
 	injections: number;
 	readyInMs: number;
