@@ -9,7 +9,9 @@
 	import LevelChip from '#components/ui/LevelChip.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { COSMOS_OBJECTS } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { ELEMENT_COUNT } from '#data/elements.js';
 	import { GENERATOR_COLORS, GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 	import { podiumColor } from '#data/leaderboard.js';
 	import { getQuarkShopItem } from '#data/quarkShop.js';
@@ -20,7 +22,7 @@
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { Clock, MousePointerClick, Network, Pencil, Trophy } from '@lucide/svelte';
+	import { Clock, FlaskRound, GraphHub, MousePointerClick, Orbit, Pencil, Trophy } from '@lucide/svelte';
 
 	interface Props {
 		entry: LeaderboardEntry;
@@ -45,9 +47,14 @@
 			{ icon: Clock, label: 'Play time', value: formatDuration(stats.playTime) },
 			{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(stats.clicks) },
 			{ icon: Trophy, label: 'Achievements', value: `${stats.achievements.filter(id => id in ACHIEVEMENTS).length} / ${totalAchievements}` },
-			{ icon: Network, label: 'Skills', value: `${stats.skills.filter(id => id in SKILL_UPGRADES).length} / ${totalSkills}` },
+			{ icon: GraphHub, label: 'Skills', value: `${stats.skills.filter(id => id in SKILL_UPGRADES).length} / ${totalSkills}` },
 			{ icon: AtomIcon, label: 'Best atoms / s', value: formatNumber(stats.highestAPS) },
 			{ icon: HiggsBosonIcon, label: 'Higgs Boson caught', value: formatNumber(stats.lifetime[CurrenciesTypes.HIGGS_BOSON] ?? 0) },
+			...(stats.discoveries > 0 ? [{ icon: Orbit, label: 'Cosmos discoveries', value: `${stats.discoveries} / ${COSMOS_OBJECTS.length}` }] : []),
+			...(stats.elements > 0 ? [{ icon: FlaskRound, label: 'Elements identified', value: `${stats.elements} / ${ELEMENT_COUNT}` }] : []),
+			...(stats.skyTaps > 0 ? [{ icon: MousePointerClick, label: 'Sky taps', value: formatNumber(stats.skyTaps, 0) }] : []),
+			...(stats.guestStars > 0 ? [{ icon: Orbit, label: 'Guest stars caught', value: formatNumber(stats.guestStars, 0) }] : []),
+			...(stats.neutrinos > 0 ? [{ icon: FlaskRound, label: 'Neutrinos caught', value: formatNumber(stats.neutrinos, 0) }] : []),
 		];
 	}
 

@@ -42,8 +42,8 @@ self.addEventListener('message', event => {
 	const urls: unknown = event.data;
 	if (!Array.isArray(urls)) return;
 	const paths = new Set(urls.map(url => new URL(String(url)).pathname).filter(path => buildPaths.has(path)));
-	/** `addAll` stores nothing when one request fails, so each chunk is added on its own. */
-	event.waitUntil(caches.open(IMMUTABLE_CACHE).then(cache => Promise.allSettled([...paths].map(path => cache.add(path)))));
+	/** `addAll` stores nothing when one request fails, so each chunk is added on its own, skipping those a previous build already cached. */
+	event.waitUntil(caches.open(IMMUTABLE_CACHE).then(cache => Promise.allSettled([...paths].map(async path => (await cache.match(path)) ?? cache.add(path)))));
 });
 
 self.addEventListener('fetch', event => {

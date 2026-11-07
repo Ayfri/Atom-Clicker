@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { IncidentKinds } from '#helpers/perfIncidents.js';
-import { MAX_SOURCES } from '#helpers/perfStats.js';
+import { MAX_SOURCE_NAMES } from '#helpers/perfStats.js';
 import { PerfTracker } from '#helpers/perfTracker.js';
 import type { PerfWindow } from '#lib/types/session.js';
 
@@ -40,10 +40,10 @@ describe('track', () => {
 	});
 
 	test('the names past the 32nd share the other slot', () => {
-		for (let i = 0; i < MAX_SOURCES + 1; i++) tracker.track(`source:${i}`, performance.now());
+		for (let i = 0; i < MAX_SOURCE_NAMES + 1; i++) tracker.track(`source:${i}`, performance.now());
 		tracker.track('source:extra', performance.now());
 		const sources = tracker.sessionSources();
-		expect(sources).toHaveLength(MAX_SOURCES + 1);
+		expect(sources).toHaveLength(MAX_SOURCE_NAMES + 1);
 		expect(sources.find(({ name }) => name === 'other')?.calls).toBe(2);
 	});
 

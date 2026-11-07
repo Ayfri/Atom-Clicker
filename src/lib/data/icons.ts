@@ -13,12 +13,15 @@ import NeutronStarIcon from '#components/icons/generators/NeutronStar.svelte';
 import PlanetIcon from '#components/icons/generators/Planet.svelte';
 import RockIcon from '#components/icons/generators/Rock.svelte';
 import StarIcon from '#components/icons/generators/Star.svelte';
+import DecayEventIcon from '#components/icons/DecayEvent.svelte';
 import GitHubIcon from '#components/icons/GitHub.svelte';
 import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
 import IonizeIcon from '#components/icons/Ionize.svelte';
+import OverdriveIcon from '#components/icons/Overdrive.svelte';
 import PhotonIcon from '#components/icons/Photon.svelte';
 import ProtonIcon from '#components/icons/Proton.svelte';
 import QuarkIcon from '#components/icons/Quark.svelte';
+import StarlightIcon from '#components/icons/Starlight.svelte';
 import {
 	Activity,
 	ArrowBigUp,
@@ -31,6 +34,7 @@ import {
 	FileText,
 	Gauge,
 	Globe,
+	GraphHub,
 	Hexagon,
 	Hourglass,
 	Magnet,
@@ -38,7 +42,6 @@ import {
 	Moon,
 	MoonStar,
 	MousePointerClick,
-	Network,
 	Orbit,
 	Radiation,
 	Rainbow,
@@ -47,6 +50,7 @@ import {
 	ShieldCog,
 	ShieldPlus,
 	SquareArrowOutUpRight,
+	Telescope,
 	TrendingUp,
 	Triangle,
 	Trophy,
@@ -74,6 +78,7 @@ export const ICONS = {
 	collider: Orbit,
 	crystal: CrystalIcon,
 	currencyBoost: Zap,
+	decayEvent: DecayEventIcon,
 	discord: DiscordIcon,
 	electron: ElectronIcon,
 	excitedPhoton: ExcitedPhotonIcon,
@@ -93,6 +98,7 @@ export const ICONS = {
 	nanostructure: NanostructureIcon,
 	neutronStar: NeutronStarIcon,
 	offline: Hourglass,
+	overdrive: OverdriveIcon,
 	photon: PhotonIcon,
 	planet: PlanetIcon,
 	playTime: Clock,
@@ -105,10 +111,12 @@ export const ICONS = {
 	shieldCheck: ShieldCheck,
 	shieldCog: ShieldCog,
 	shieldPlus: ShieldPlus,
-	skillTreeMaster: Network,
+	skillTreeMaster: GraphHub,
 	speed: Gauge,
 	stabilityField: Activity,
 	star: StarIcon,
+	starlight: StarlightIcon,
+	telescope: Telescope,
 	trendingUp: TrendingUp,
 	trophy: Trophy,
 	upgrade: CircleArrowUp,

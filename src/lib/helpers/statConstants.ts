@@ -1,6 +1,7 @@
 import type { DailyStats } from '#data/dailyQuests.js';
+import { TUNING } from '#data/elements.js';
 import { RealmTypes } from '#data/realms.js';
-import type { ChromaticState, RealmState, Settings } from '#lib/types.js';
+import type { ChromaticState, CosmosState, PeriodicState, RealmState, Settings } from '#lib/types.js';
 
 /** `resetLayer(n)` resets every stat whose layer is 1 to n, NEVER stats always stay and SPECIAL ones are handled by their own code. */
 export const LAYERS = {
@@ -25,6 +26,7 @@ export const statsConfig = {
 	balanceVersion: { defaultValue: 0, layer: LAYERS.SPECIAL },
 	chromatic: { defaultValue: { kills: { blue: 0, green: 0, red: 0 } } satisfies ChromaticState, layer: LAYERS.NEVER },
 	chromaticUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
+	cosmos: { defaultValue: { aperture: 0, clicks: {}, discovered: [], guestStars: 0, instruments: [], research: null, studies: {} } satisfies CosmosState, layer: LAYERS.NEVER },
 	currencies: { defaultValue: {}, layer: LAYERS.NEVER }, // Handled by CurrenciesManager
 	currencyBoosts: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	dailyStats: {
@@ -33,6 +35,7 @@ export const statsConfig = {
 			atomsEarned: 0,
 			chromaticBreaks: 0,
 			clicks: 0,
+			cosmosStudies: 0,
 			dayKey: '',
 			electronizes: 0,
 			fuelInjected: 0,
@@ -43,6 +46,7 @@ export const statsConfig = {
 			protonises: 0,
 			questIds: [],
 			questTargets: {},
+			starlightEarned: 0,
 			upgradesPurchased: 0,
 		} satisfies DailyStats,
 		layer: LAYERS.NEVER,
@@ -52,7 +56,10 @@ export const statsConfig = {
 	highestAPSRun: { defaultValue: 0, layer: LAYERS.ELECTRONIZE },
 	inGameTime: { defaultValue: 0, layer: LAYERS.NEVER },
 	integrityFlagged: { defaultValue: false, layer: LAYERS.NEVER },
+	keptGenerators: { defaultValue: {}, layer: LAYERS.PROTONIZER },
 	lastSave: { defaultValue: Date.now(), layer: LAYERS.SPECIAL },
+	overdrive: { defaultValue: {}, layer: LAYERS.PROTONIZER },
+	periodic: { defaultValue: { active: [], forges: 1, identified: [], introSeen: false, neutrinos: 0, paid: {}, sites: {}, tuning: TUNING.min } satisfies PeriodicState, layer: LAYERS.NEVER },
 	photonUpgrades: { defaultValue: {}, layer: LAYERS.NEVER },
 	powerUpsCollected: { defaultValue: 0, layer: LAYERS.NEVER },
 	radiation: { defaultValue: { controlRodLevel: 0.5, mass: 0, unlocked: false }, layer: LAYERS.NEVER },
@@ -69,7 +76,7 @@ export const statsConfig = {
 		defaultValue: {
 			automation: { autoClick: false, autoClickPhotons: false, generators: [], upgrades: false },
 			display: { notation: 'suffix' },
-			gameplay: { offlineProgressEnabled: true },
+			gameplay: { keepScreenOn: false, offlineProgressEnabled: true },
 			upgrades: { displayAlreadyBought: false },
 		} satisfies Settings,
 		layer: LAYERS.NEVER,

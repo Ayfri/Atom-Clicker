@@ -1,39 +1,60 @@
 import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+import { SPECTROSCOPE_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { ELEMENT_GENERATOR_PERCENT, ELEMENTS, FAMILY_IDS, GENERATOR_ELEMENTS, SET_BONUS } from '#data/elements.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
+import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
+import { MAX_UNREAD } from '#data/sites.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager, TUNING_DEFAULT } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
-import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { APP_PRODUCTION_PERCENT, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { installStore } from '#stores/install.svelte.js';
+import { neutrino } from '#stores/neutrino.svelte.js';
 import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 import { ui } from '#stores/ui.svelte.js';
 
+type HintScope = RealmType | 'cosmos' | 'table';
+
 export interface Hint {
+	/** A button that runs `run` and replaces "Got it", the hint is done by `done` as usual. */
+	action?: { label: string; run: () => void };
+	/** Where a hint without targets docks: under the top bar instead of the bottom, for views whose main action sits at the bottom. */
+	dock?: 'top';
 	/** The action that teaches the hint, it is marked seen as soon as this holds, even if it was never displayed. Without it the hint shows a "Got it" button. */
 	done?: () => boolean;
 	/** `realm:name`, the realm prefix also scopes the replay buttons. */
 	id: string;
 	placement?: TooltipPosition;
-	/** Only shown while this realm is selected. */
-	realm: RealmType;
+	/** Only shown while this realm, or the Cosmos above them, fills the screen. */
+	realm: HintScope;
 	/** Draws a circular halo instead of a rounded rectangle around the target. */
 	round?: boolean;
 	/** When the hint becomes relevant. */
 	show?: () => boolean;
-	/** Candidate targets, the first one currently visible wins. Without targets the hint is a card docked at the bottom. */
+	/** Candidate targets, the first one currently visible wins. Without targets the hint is a card docked at the bottom, see `dock`. */
 	targets?: string[];
 	text: string;
 	title: string;
 }
 
+/** In-game time before the install hint shows up, an hour in means the player came to stay. */
+const INSTALL_HINT_PLAY_MS = 3_600_000;
 const SKILL_TREE_ROOTS = Object.values(SKILL_UPGRADES).filter(skill => !skill.requires || skill.requires.length === 0);
+const AFFINITY_ELEMENTS = [...new Set(Object.values(GENERATOR_ELEMENTS).flat())];
+const FAMILY_MEMBERS = FAMILY_IDS.map(family => ELEMENTS.filter(element => element.family === family).map(element => element.z));
+
+/** Identified members of each family. */
+const familyProgress = () => FAMILY_MEMBERS.map(members => ({ lit: members.filter(z => periodicManager.identifiedSet.has(z)).length, size: members.length }));
 
 const realmHint = (realm: RealmType, title: string): Hint => ({
 	done: () => realmManager.selectedRealmId === realm,
@@ -77,6 +98,16 @@ export const HINTS: Hint[] = [
 		targets: ['#upgrades-list [data-hint="upgrade"]', '[data-hint="upgrades-tab"]'],
 		text: 'Upgrades boost your clicks and generators. Grab one whenever you can afford it.',
 		title: 'Upgrades',
+	},
+	{
+		done: () => gameManager.overdriveActive.length > 0,
+		id: 'atoms:overdrive',
+		placement: 'left',
+		realm: RealmTypes.ATOMS,
+		show: () => gameManager.features[FeatureTypes.OVERDRIVE],
+		targets: ['[data-hint="overdrive"]', '[data-hint="generators-tab"]'],
+		text: "Overdrive doubles a generator's output for 1 Higgs Boson every 5 minutes. It stays on while your Higgs Bosons last.",
+		title: 'Overdrive',
 	},
 	{
 		done: () => ui.activeModalId === 'protonise' || gameManager.totalProtonisesAllTime > 0,
@@ -127,6 +158,36 @@ export const HINTS: Hint[] = [
 		targets: ['#nav-electronize'],
 		text: 'A deeper reset: trade your Protons for Electrons and their own upgrades.',
 		title: 'Electronize',
+	},
+	{
+		done: () => realmManager.tableOpen,
+		id: 'atoms:table',
+		placement: 'right',
+		realm: RealmTypes.ATOMS,
+		show: () => periodicManager.introSeen && periodicManager.ready.length > 0,
+		targets: ['#nav-periodic-table'],
+		text: 'An element is ready in the Periodic Table. Open it from here, whatever realm you are in.',
+		title: 'An element is ready',
+	},
+	{
+		id: 'atoms:affinity',
+		placement: 'left',
+		realm: RealmTypes.ATOMS,
+		show: () => periodicManager.unlocked && AFFINITY_ELEMENTS.some(z => periodicManager.identifiedSet.has(z)),
+		targets: ['[data-hint="generator-elements"]'],
+		text: `Every element you identify boosts the generators made of it, +${ELEMENT_GENERATOR_PERCENT}% each.`,
+		title: 'Element affinities',
+	},
+	{
+		action: { label: 'Show me', run: () => ui.openSettings('install') },
+		done: () => gameManager.installedApp || installStore.installed || (ui.activeModalId === 'settings' && ui.activeTab === 'install'),
+		id: 'atoms:install',
+		placement: 'right',
+		realm: RealmTypes.ATOMS,
+		show: () => gameManager.inGameTime >= INSTALL_HINT_PLAY_MS && installStore.available,
+		targets: ['#nav-settings'],
+		text: `Install Atom Clicker as an app: playing from it gives +${APP_PRODUCTION_PERCENT}% production, and ${APP_REWARD_QUARKS} Quarks to your account.`,
+		title: 'Play from the app',
 	},
 	realmHint(RealmTypes.PHOTONS, 'The Photon Realm'),
 	realmHint(RealmTypes.RADIATION, 'The Radiation Realm'),
@@ -225,5 +286,185 @@ export const HINTS: Hint[] = [
 		targets: ['#nav-ionize'],
 		text: 'The core is past the ionization line. Hold it there for a full minute, then Ionize here.',
 		title: 'Ionize',
+	},
+	{
+		done: () => realmManager.cosmosOpen,
+		id: 'radiation:cosmos',
+		placement: 'left',
+		realm: RealmTypes.RADIATION,
+		show: () => cosmosManager.unlocked,
+		targets: ['#cosmos-entry'],
+		text: 'Your first Ionize lit up the sky above the realms. Look up into the Cosmos from here, whatever realm you are in.',
+		title: 'The Cosmos',
+	},
+	{
+		id: 'radiation:cherenkov',
+		placement: 'top',
+		realm: RealmTypes.RADIATION,
+		show: () => gameManager.cherenkovLight > 0,
+		targets: ['[data-hint="radiation-cherenkov"]'],
+		text: 'A running reactor glows blue and makes Blue Light, more the closer it runs to its cap.',
+		title: 'Cherenkov Light',
+	},
+	{
+		done: () => cosmosManager.discovered.length > 0,
+		id: 'cosmos:observe',
+		placement: 'top',
+		realm: 'cosmos',
+		round: true,
+		targets: ['[data-hint="cosmos-reticle"]'],
+		text: 'Drag the sky to keep the signal inside the reticle until its ring fills.',
+		title: 'Observe',
+	},
+	{
+		done: () => Object.keys(cosmosManager.studies).length > 0,
+		id: 'cosmos:study',
+		placement: 'top',
+		realm: 'cosmos',
+		show: () => cosmosManager.discovered.length > 0,
+		targets: ['[data-hint="cosmos-study"]', '[data-hint="cosmos-sky"]'],
+		text: 'Every object in your sky radiates Starlight. Study one to raise its Starlight and its boost to the realms.',
+		title: 'Study',
+	},
+	{
+		done: () => cosmosManager.instruments.length > 0,
+		id: 'cosmos:instrument',
+		placement: 'top',
+		realm: 'cosmos',
+		show: () =>
+			cosmosManager.apertureMaxed && cosmosManager.nextInstrument !== null && currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
+		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
+		text: 'A better instrument reveals a new batch of the sky, and a new way to observe it.',
+		title: 'Instruments',
+	},
+	{
+		done: () => periodicManager.unlocked,
+		id: 'cosmos:spectroscope',
+		placement: 'top',
+		realm: 'cosmos',
+		show: () =>
+			cosmosManager.apertureMaxed &&
+			cosmosManager.nextInstrument?.id === SPECTROSCOPE_ID &&
+			currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cosmosManager.nextInstrument.cost,
+		targets: ['[data-hint="cosmos-instrument"]', '[data-hint="cosmos-sky"]'],
+		text: 'Starlight carries the fingerprint of what made it. A spectroscope can read it.',
+		title: 'Spectroscope',
+	},
+	{
+		done: () => realmManager.tableOpen || periodicManager.identified.length > 0,
+		id: 'cosmos:table',
+		placement: 'bottom',
+		realm: 'cosmos',
+		show: () => periodicManager.introSeen,
+		targets: ['[data-hint="cosmos-table"]'],
+		text: 'The Periodic Table lives here and in the menu. Open it whenever an element is ready.',
+		title: 'The Periodic Table',
+	},
+	{
+		dock: 'top',
+		done: () => cosmosManager.guestStars > 0,
+		id: 'cosmos:guest-star',
+		realm: 'cosmos',
+		show: () => cosmosManager.guestStarShown,
+		text: 'A guest star just flared in your sky. Tap it before it fades for a burst of Starlight.',
+		title: 'Guest star',
+	},
+	{
+		done: () => periodicManager.active.length > 0,
+		id: 'table:forge',
+		placement: 'left',
+		realm: 'table',
+		show: () => periodicManager.unlocked,
+		targets: ['[data-hint="table-start"]', '[data-forge]'],
+		text: 'Click a source and start forging. You have one forge for now, it moves wherever you need it.',
+		title: 'Synthesis',
+	},
+	{
+		done: () => periodicManager.identified.length > 0,
+		id: 'table:identify',
+		placement: 'left',
+		realm: 'table',
+		round: true,
+		show: () => periodicManager.ready.length > 0,
+		targets: ['[data-hint="table-stage"]'],
+		text: "Helium was read in the Sun's light before anyone found it on Earth. Hold a forged atom to pour Light in and read it, what is poured stays when you let go.",
+		title: 'Read the light',
+	},
+	{
+		done: () => periodicManager.forges > 1,
+		id: 'table:new-forge',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.nextForgeUnlocked,
+		targets: ['[data-hint="table-new-forge"]'],
+		text: 'Another forge is available: more sources work at the same time.',
+		title: 'New forge',
+	},
+	{
+		id: 'table:waiting',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => Object.values(periodicManager.statuses).some(status => status.kind === 'waiting' && status.missing.length > 0),
+		targets: ['[data-hint="table-waiting"]'],
+		text: 'This source needs an element another source makes first. It resumes on its own.',
+		title: 'Waiting on another source',
+	},
+	{
+		id: 'table:full',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => Object.values(periodicManager.statuses).some(status => status.kind === 'full'),
+		targets: ['[data-hint="table-full"]'],
+		text: `A source stops forging while it holds ${MAX_UNREAD} unread elements. Read them and it forges again on its own.`,
+		title: 'Source full',
+	},
+	{
+		done: () => periodicManager.identified.length >= 5,
+		id: 'table:lamp',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.identified.length > 0 && Object.values(periodicManager.lampLight).some(rate => rate > 0),
+		targets: ['[data-hint="table-lights"]'],
+		text: 'An element you can read, you can also make glow. Each identified element now adds its own Light.',
+		title: 'Lamps',
+	},
+	{
+		done: () => familyProgress().some(({ lit, size }) => lit === size),
+		id: 'table:families',
+		placement: 'top',
+		realm: 'table',
+		show: () => familyProgress().some(({ lit }) => lit >= 2),
+		targets: ['[data-hint="table-family"]'],
+		text: `Elements of a family add up their bonus. Read the whole family to multiply it by ${SET_BONUS}.`,
+		title: 'Families',
+	},
+	{
+		done: () => periodicManager.tuning !== TUNING_DEFAULT,
+		id: 'table:tuning',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.tuned,
+		targets: ['[data-hint="table-tuning"]'],
+		text: "Slide the window over an element's lines. Those lines cost 5x less Light.",
+		title: 'Tuning',
+	},
+	{
+		done: () => periodicManager.identified.some(z => !ELEMENTS[z - 1].lines.length),
+		id: 'table:decay',
+		placement: 'bottom',
+		realm: 'table',
+		show: () => periodicManager.ready.some(z => !ELEMENTS[z - 1].lines.length),
+		targets: ['[data-hint="table-decay"]'],
+		text: "Nobody has ever seen this element's light. It's identified by how it decays.",
+		title: 'Decay',
+	},
+	{
+		dock: 'top',
+		done: () => periodicManager.neutrinos > 0,
+		id: 'table:neutrino',
+		realm: 'table',
+		show: () => neutrino.visible,
+		text: 'A neutrino is zipping through. Catch it to run the Table 10 minutes ahead.',
+		title: 'Neutrino',
 	},
 ];

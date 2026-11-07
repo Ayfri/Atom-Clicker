@@ -1,4 +1,5 @@
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { TUNING } from '#data/elements.js';
 import { add, mul } from '#helpers/effects.js';
 import type { Effect } from '#lib/types.js';
 import { formatNumber } from '#lib/utils.js';
@@ -35,6 +36,13 @@ export const CHROMATIC: Record<ChromaticColor, ChromaticDefinition> = {
 
 /** A broken Blue photon splits into two halves, each with this share of its HP and paying one base drop. */
 export const BLUE_HALF = { drop: 1, hp: 0.4, lifetime: 5000, size: 0.65 };
+/** Blue photons dropped per second by a reactor running at its output cap (Cherenkov radiation), in proportion to the output below it. Not the `cherenkov_glow` upgrade. */
+export const CHERENKOV_DROP = 0.00003;
+/**
+ * Blue Light per second a reactor at its cap makes at least. Without Prism upgrades the drop above pays about one photon every 9 hours, so players
+ * get this readable rate until their Blue Light per photon passes ~330× (the bench bot passes it on its first day after Ionizing).
+ */
+export const CHERENKOV_MIN = 0.01;
 export const CHROMATIC_BASE_SPAWN_INTERVAL = 8000;
 export const CHROMATIC_MAX_ON_SCREEN = 5;
 /** The photon auto-clicker hits colored photons for this share of a tap. */
@@ -62,6 +70,8 @@ export interface ChromaticUpgrade {
 	id: string;
 	maxLevel: number;
 	name: string;
+	/** Hidden until the Periodic Table opens, `PrismUpgrades` and the simulation bot check it. */
+	table?: boolean;
 	/** Hidden until this color reaches the spectrum level, the phase 2 boosts wait for a color to be farmed first. */
 	unlock?: { color: ChromaticColor; spectrum: number };
 }
@@ -166,6 +176,16 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'prism_resonance',
 			maxLevel: 5,
 			name: 'Prism Resonance',
+		},
+		{
+			baseCost: 20_000,
+			costMultiplier: 1,
+			currencies: ALL_LIGHTS,
+			description: () => `A ${TUNING.width} nm window: lines inside cost ×${TUNING.factorIn} Light, lines outside ×${TUNING.factorOut}, never more than without it`,
+			id: 'prism_tuning',
+			maxLevel: 1,
+			name: 'Prism Tuning',
+			table: true,
 		},
 		colorBoost(ChromaticColors.RED, {
 			baseCost: 100,

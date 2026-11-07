@@ -5,6 +5,7 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { perfMonitor } from '#helpers/PerfMonitor.js';
 	import { perfTracker } from '#helpers/perfTracker.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
@@ -13,6 +14,8 @@
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
+	/** Builds the install store at load, it pushes the installed app flag into the game. */
+	import '#stores/install.svelte.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
@@ -31,7 +34,10 @@
 	import AtomRealm from '#components/prestige/AtomRealm.svelte';
 	import PhotonRealm from '#components/prestige/PhotonRealm.svelte';
 	import RadiationRealm from '#components/prestige/RadiationRealm.svelte';
+	import AppWatcher from '#components/system/AppWatcher.svelte';
 	import AutoSaveIndicator from '#components/system/AutoSaveIndicator.svelte';
+	import CosmosWatcher from '#components/system/CosmosWatcher.svelte';
+	import PeriodicWatcher from '#components/system/PeriodicWatcher.svelte';
 	import { onMount, untrack, type Component } from 'svelte';
 
 	const realmComponents: Record<string, Component> = {
@@ -41,6 +47,14 @@
 	};
 
 	const selectedIndex = $derived(realmManager.selectedIndex);
+
+	/** A reload of the tab reopens the Cosmos if it was open. */
+	const COSMOS_OPEN_KEY = 'cosmos-open';
+	realmManager.cosmosOpen = sessionStorage.getItem(COSMOS_OPEN_KEY) !== null;
+	$effect(() => {
+		if (realmManager.cosmosOpen) sessionStorage.setItem(COSMOS_OPEN_KEY, '1');
+		else sessionStorage.removeItem(COSMOS_OPEN_KEY);
+	});
 
 	autoBuyManager.init();
 	autoUpgradeManager.init();
@@ -146,19 +160,16 @@
 		});
 	});
 
+	/** The installed app pays its Quarks once per account, after a sync has proven the session and the connection. */
+	$effect(() => {
+		if (gameManager.installedApp && quarksManager.hasSynced) untrack(() => void quarksManager.claimAppReward());
+	});
+
 	/** Quests roll over at UTC midnight, a tab left open overnight resyncs then instead of keeping yesterday's quests and counters. */
 	$effect(() => {
 		if (!quarksManager.dayKey) return;
 		const timer = setTimeout(() => quarksManager.sync(), Date.parse(quarksManager.dayKey) + 86_400_000 - Date.now() + 1000);
 		return () => clearTimeout(timer);
-	});
-
-	/** Late enough that the One Tap prompt offers to keep real progress instead of greeting a new player with a login. */
-	const ONE_TAP_PLAY_TIME_MS = 10 * 60_000;
-	const oneTapReady = $derived(accountBootstrapped && !supabaseAuth.isAuthenticated && gameManager.inGameTime >= ONE_TAP_PLAY_TIME_MS);
-
-	$effect(() => {
-		if (oneTapReady) supabaseAuth.promptGoogleOneTap();
 	});
 
 	/** Signing in or out swaps the player half of the Collider state, so it re-syncs on each change. */
@@ -233,6 +244,9 @@
 	<NavBar />
 	<Toaster />
 	<AutoSaveIndicator />
+	<AppWatcher />
+	<CosmosWatcher />
+	<PeriodicWatcher />
 	<Canvas />
 	<RealmSwitcher />
 
@@ -281,6 +295,31 @@
 				</div>
 			</div>
 		{/each}
+
+		{#if realmManager.view === 'cosmos'}
+			<!-- Its chunk and Three.js only load once the player opens it. -->
+			{#await import('#components/cosmos/Cosmos.svelte') then { default: Cosmos }}
+				<Cosmos />
+			{/await}
+		{/if}
+
+		{#if realmManager.tableOpen && periodicManager.unlocked}
+			<!-- A page-level view like the Cosmos, its chunk only loads once the player opens it. -->
+			{#await import('#components/cosmos/periodic/TableView.svelte') then { default: TableView }}
+				<TableView />
+			{:catch}
+				<span hidden {@attach () => void (realmManager.tableOpen = false)}></span>
+			{/await}
+		{/if}
+
+		{#if realmManager.introPlaying && periodicManager.unlocked}
+			<!-- Plays over the Cosmos or the Table, its chunk loads with the first play. -->
+			{#await import('#components/cosmos/periodic/TableIntro.svelte') then { default: TableIntro }}
+				<TableIntro />
+			{:catch}
+				<span hidden {@attach () => void (realmManager.introPlaying = false)}></span>
+			{/await}
+		{/if}
 
 		{#if saveRecovery.hasError}
 			<SaveRecovery onClose={() => saveRecovery.clearError()} />

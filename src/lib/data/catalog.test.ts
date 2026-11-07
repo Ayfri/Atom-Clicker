@@ -7,7 +7,6 @@ import { HINTS } from '#data/hints.js';
 import { ALL_PHOTON_UPGRADES, EXCITED_PHOTON_UPGRADES, getPhotonUpgradeCost, PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { getRadiationUpgradeCost, RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
-import { RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { effectAmount } from '#helpers/effects.js';
@@ -38,12 +37,8 @@ test('photon and excited photon upgrades never share an id', () => {
 });
 
 test('hint ids are unique and prefixed with their realm', () => {
-	const realms: string[] = Object.values(RealmTypes);
 	expect(new Set(HINTS.map(hint => hint.id)).size).toBe(HINTS.length);
-	for (const hint of HINTS) {
-		const [prefix] = hint.id.split(':');
-		expect(realms, hint.id).toContain(prefix);
-	}
+	for (const hint of HINTS) expect(hint.id.split(':')[0], hint.id).toBe(hint.realm);
 });
 
 describe('skill tree', () => {

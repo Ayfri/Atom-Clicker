@@ -140,7 +140,7 @@ describe('merging', () => {
 
 describe('kinds', () => {
 	test('input beats freeze beats stall beats frame', () => {
-		expect(incidentKind({ durationMs: 1_500, input: input(), loaf: null, timerLate: true })).toBe(IncidentKinds.INPUT);
+		expect(incidentKind({ durationMs: 1_500, input: input({ processingMs: 1_300 }), loaf: null, timerLate: true })).toBe(IncidentKinds.INPUT);
 		expect(incidentKind({ durationMs: 1_500, input: null, loaf: null, timerLate: true })).toBe(IncidentKinds.FREEZE);
 		expect(incidentKind({ durationMs: 400, input: null, loaf: null, timerLate: true })).toBe(IncidentKinds.STALL);
 		expect(incidentKind({ durationMs: 400, input: null, loaf: loaf(), timerLate: false })).toBe(IncidentKinds.STALL);
@@ -149,6 +149,13 @@ describe('kinds', () => {
 
 	test('an interaction under 200 ms is not an input incident', () => {
 		expect(incidentKind({ durationMs: 180, input: input({ presentationMs: 50, processingMs: 100 }), loaf: null, timerLate: true })).toBe(IncidentKinds.STALL);
+	});
+
+	test('an interaction covering less than half of its block leaves the kind to the block', () => {
+		const click = input({ delayMs: 13, presentationMs: 195, processingMs: 0 });
+		expect(incidentKind({ durationMs: 5_163, input: click, loaf: null, timerLate: true })).toBe(IncidentKinds.FREEZE);
+		expect(incidentKind({ durationMs: 600, input: click, loaf: null, timerLate: true })).toBe(IncidentKinds.STALL);
+		expect(incidentKind({ durationMs: 400, input: click, loaf: null, timerLate: true })).toBe(IncidentKinds.INPUT);
 	});
 
 	test('only a rAF gap with an on-time timer is a frame incident', () => {
@@ -240,6 +247,16 @@ describe('actions', () => {
 
 		log.observe({ end: 2_300, input: input({ delayMs: 600, presentationMs: 400, processingMs: 200 }), start: 1_100 });
 		expect(log.worst(1)[0]).toMatchObject({ action: 'modal:skill-tree', actionAgoMs: 100 });
+	});
+
+	test('a merge into a block without an action reads the actions again', () => {
+		log.observe({ end: 1_300, start: 1_000, timerLate: true });
+		expect(log.worst(1)[0].action).toBeNull();
+
+		log.action('tap:', element, 1_030);
+		log.observe({ end: 1_290, loaf: loaf(), start: 1_000 });
+		expect(log.worst(10)).toHaveLength(1);
+		expect(log.worst(1)[0]).toMatchObject({ action: 'tap:Atom', actionAgoMs: 0 });
 	});
 
 	test('without an environment the realm falls back to the atoms realm and a target stays undescribed', () => {

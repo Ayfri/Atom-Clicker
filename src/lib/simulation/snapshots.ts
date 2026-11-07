@@ -5,6 +5,7 @@ import { UPGRADES } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable, effectAmount } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { cosmosSnapshot } from './cosmos';
 import { marginalProduction } from './purchases';
 import type { QuestTracker } from './quests';
 import type { SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
@@ -103,6 +104,7 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		generatorsEverPurchased: [...run.everPurchasedGenerators],
 		generatorsPurchased: gameManager.totalGeneratorsPurchasedAllTime,
 		clicks: gameManager.totalClicksAllTime,
+		cosmos: cosmosSnapshot(),
 		dayNumber: gameManager.inGameTime / DAY_MS,
 		electrons: currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
 		electronizes: gameManager.totalElectronizesAllTime,

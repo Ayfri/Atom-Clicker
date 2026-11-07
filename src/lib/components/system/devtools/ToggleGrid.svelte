@@ -3,7 +3,11 @@
 
 	interface Item {
 		description: string;
+		/** Puts the item in this group instead of the one parsed from its id. */
+		group?: string;
 		id: string;
+		/** Chip text, defaults to the id's tier part. */
+		label?: string;
 		name: string;
 	}
 
@@ -27,9 +31,9 @@
 		const byKey = new Map<string, Chip[]>();
 		for (const item of items) {
 			const parts = item.id.split('_');
-			const key = parts.filter(part => !TIER.test(part)).join(' ');
+			const key = item.group ?? parts.filter(part => !TIER.test(part)).join(' ');
 			const chips = byKey.get(key) ?? [];
-			chips.push({ item, label: parts.filter(part => TIER.test(part)).join('.') });
+			chips.push({ item, label: item.label ?? parts.filter(part => TIER.test(part)).join('.') });
 			byKey.set(key, chips);
 		}
 		const misc: Chip[] = [];
@@ -81,7 +85,7 @@
 				</button>
 			{/each}
 		</div>
-		<span class="font-mono text-[11px] text-white/40">{ownedSet.size}/{items.length}</span>
+		<span class="font-mono text-[12px] text-white/40">{ownedSet.size}/{items.length}</span>
 		<button class={btn} onclick={() => onChange(items.map(item => item.id))}>All</button>
 		<button class={btn} onclick={() => onChange([])}>None</button>
 	</div>
@@ -90,7 +94,7 @@
 		{const onCount = $derived(group.chips.filter(chip => ownedSet.has(chip.item.id)).length)}
 		<div class="flex flex-col gap-1.5">
 			<button
-				class="w-fit cursor-pointer text-left text-[11px] font-bold tracking-wider text-white/35 uppercase hover:text-white/70"
+				class="w-fit cursor-pointer text-left text-[12px] font-bold tracking-wider text-white/50 uppercase hover:text-white/80"
 				onclick={() => setGroup(group.chips, onCount < group.chips.length)}
 				title="Toggle the whole group"
 			>
@@ -101,7 +105,7 @@
 					{const on = $derived(ownedSet.has(item.id))}
 					<button
 						aria-pressed={on}
-						class="h-7 min-w-7 cursor-pointer rounded-md border px-2 text-[11px] font-semibold transition-colors {on ?
+						class="h-7 min-w-7 cursor-pointer rounded-md border px-2 text-[12px] font-semibold transition-colors {on ?
 							'border-accent-400/60 bg-accent-500/25 text-accent-100'
 						:	'border-white/10 bg-white/5 text-white/40 hover:border-white/25 hover:text-white/70'}"
 						onclick={() => onChange(on ? owned.filter(id => id !== item.id) : [...owned, item.id])}
@@ -114,16 +118,16 @@
 			</div>
 		</div>
 	{:else}
-		<p class="py-4 text-center text-xs text-white/30">Nothing matches</p>
+		<p class="py-4 text-center text-xs text-white/45">Nothing matches</p>
 	{/each}
 
 	<div class="sticky bottom-0 -mx-4 border-t border-white/10 bg-accent-950/95 px-4 py-2 text-xs backdrop-blur">
 		{#if hovered}
 			<span class="font-semibold text-white">{hovered.name}</span>
-			<span class="font-mono text-white/30">{hovered.id}</span>
+			<span class="font-mono text-white/45">{hovered.id}</span>
 			<p class="text-white/60">{hovered.description}</p>
 		{:else}
-			<span class="text-white/30">Hover an item for details, click a group title to toggle it whole</span>
+			<span class="text-white/45">Hover an item for details, click a group title to toggle it whole</span>
 		{/if}
 	</div>
 </div>

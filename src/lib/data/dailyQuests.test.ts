@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { type DailyQuestContext, type DailyStats, DAILY_QUEST_COUNT, getDailyCap, getDailyQuestCount, getQuestProgress, getQuestTarget, pickDailyQuests, QUEST_POOL } from '#data/dailyQuests.js';
+import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats, DAILY_QUEST_COUNT, getDailyCap, getDailyQuestCount, getQuestProgress, getQuestTarget, pickDailyQuests, QUEST_POOL } from '#data/dailyQuests.js';
 import { statsConfig } from '#helpers/statConstants.js';
 
 const context: DailyQuestContext = {
 	chromaticSpawnBoost: 1,
+	cosmosStudyReach: 0,
 	fuelAffordable: 0,
+	hasCosmos: false,
 	hasElectronized: false,
 	hasPhotonRealm: false,
 	hasPrism: false,
@@ -12,14 +14,27 @@ const context: DailyQuestContext = {
 	hasThirdQuestSlot: false,
 	highestAPSRun: 0,
 	remainingAchievements: 100,
+	starlightPerSecond: 0,
 };
+
+/** Every system before the Cosmos, the newest pool a released save can see. */
+const preCosmos: DailyQuestContext = { ...context, hasElectronized: true, hasPhotonRealm: true, hasPrism: true, hasRadiationRealm: true, hasThirdQuestSlot: true };
 
 const days = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10));
 
 describe('pickDailyQuests', () => {
 	test('keeps the picks of a given day across releases, a player mid-day must not see their quests change', () => {
-		expect(pickDailyQuests('2026-01-01', DAILY_QUEST_COUNT + 1).map(quest => quest.id)).toEqual(['complete_other_daily_quests', 'clicks_250', 'chromatic_breaks']);
-		expect(pickDailyQuests('2026-10-03').map(quest => quest.id)).toEqual(['higgs_bosons_collected', 'chromatic_each_color']);
+		const ids = (day: string, count = DAILY_QUEST_COUNT) => pickDailyQuests(day, count, preCosmos).map(quest => quest.id);
+		expect(ids('2026-01-01', DAILY_QUEST_COUNT + 1)).toEqual(['complete_other_daily_quests', 'clicks_250', 'chromatic_breaks']);
+		expect(ids('2026-10-03')).toEqual(['higgs_bosons_collected', 'chromatic_each_color']);
+		expect(ids('2026-10-05', DAILY_QUEST_COUNT + 1)).toEqual(['fuel_injected', 'higgs_bosons_collected', 'upgrades_purchased']);
+	});
+
+	test('offers the Cosmos quests only once the Cosmos is open', () => {
+		const cosmosIds = new Set(['cosmos_studies', 'starlight_earned']);
+		const offered = (ctx: DailyQuestContext) => days.flatMap(day => pickDailyQuests(day, DAILY_QUEST_COUNT, ctx).map(quest => quest.id)).filter(id => cosmosIds.has(id));
+		expect(offered(preCosmos)).toEqual([]);
+		expect(new Set(offered({ ...preCosmos, hasCosmos: true }))).toEqual(cosmosIds);
 	});
 
 	test('always returns the requested count of distinct pool quests', () => {
@@ -66,8 +81,16 @@ test('every quest metric is a counter of the daily stats', () => {
 test('targets never fall below their floor', () => {
 	for (const quest of QUEST_POOL) {
 		expect(getQuestTarget(quest, context)).toBe(quest.floor);
-		expect(getQuestTarget(quest, { ...context, chromaticSpawnBoost: 2.3, fuelAffordable: 1e9, highestAPSRun: 1e6 })).toBeGreaterThanOrEqual(quest.floor);
+		expect(
+			getQuestTarget(quest, { ...context, chromaticSpawnBoost: 2.3, cosmosStudyReach: 40, fuelAffordable: 1e9, highestAPSRun: 1e6, starlightPerSecond: 1e8 }),
+		).toBeGreaterThanOrEqual(quest.floor);
 	}
+});
+
+test('the Cosmos quests ask for 3 hours of Starlight income', () => {
+	const quest = (id: string) => QUEST_POOL.find(q => q.id === id)!;
+	expect(getQuestTarget(quest('starlight_earned'), { ...context, starlightPerSecond: 1e6 })).toBe(1e6 * COSMOS_QUEST_SECONDS);
+	expect(getQuestTarget(quest('cosmos_studies'), { ...context, cosmosStudyReach: 12 })).toBe(12);
 });
 
 test('the color quest progresses with the least broken color', () => {

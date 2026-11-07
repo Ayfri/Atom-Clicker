@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { RealmTypes } from '#data/realms.js';
 	import { AmbientField } from '#helpers/AmbientField.js';
+	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { ReactorRenderer, type ReactorScene } from '#helpers/ReactorRenderer.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -19,6 +20,7 @@
 	const mass = $derived(radiationManager.mass);
 	const scene: ReactorScene = $derived({
 		accent,
+		cherenkov: gameManager.cherenkovLight > 0 ? Math.min(1, cpm / maxCpm) : 0,
 		instability: radiationManager.instability,
 		mass,
 		output: Math.min(1, cpm / maxCpm),

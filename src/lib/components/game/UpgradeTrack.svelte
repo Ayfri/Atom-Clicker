@@ -23,6 +23,8 @@
 	const Icon = $derived(ICONS[view.family.icon]);
 	const affordable = $derived(realmManager.live(RealmTypes.ATOMS, () => view.affordable));
 	const affordableTiers = $derived(realmManager.live(RealmTypes.ATOMS, () => view.affordableTiers));
+	/** Live amounts follow clicks and Protonizes, so only a maxed row on screen reads them. */
+	const totals = $derived(view.maxed ? realmManager.live(RealmTypes.ATOMS, () => view.totals) : []);
 
 	let chip = $state<HTMLSpanElement>();
 	let pop: Animation | undefined;
@@ -38,19 +40,13 @@
 	});
 </script>
 
-{#snippet done(label: string)}
-	<span class="flex items-center gap-0.5 rounded-sm bg-(--c)/15 px-1 text-[10px] font-bold text-(--c) uppercase">
-		<Check size={10} strokeWidth={3.5} />{label}
-	</span>
-{/snippet}
-
-<!-- Three states read apart at a glance: buyable rows take their currency tint, maxed ones go quiet with a check, unaffordable ones dim. -->
+<!-- Buyable rows take their currency tint, unaffordable ones dim, maxed ones lose every color and the bar so they never outshine the rest. -->
 <div
-	class="relative rounded-lg border p-2 transition-[background-color] duration-200 {view.maxed
-		? 'border-transparent bg-white/3 text-white/60'
+	class="relative rounded-lg border transition-[background-color] duration-200 {view.maxed
+		? 'border-transparent bg-white/3 px-2 py-1.5 text-white/45'
 		: affordable
-			? 'border-(--c)/40 bg-(--c)/10 hover:bg-(--c)/15'
-			: 'border-transparent bg-white/5 opacity-45'}"
+			? 'border-(--c)/40 bg-(--c)/10 p-2 hover:bg-(--c)/15'
+			: 'border-transparent bg-white/5 p-2 opacity-45'}"
 	data-family={view.family.id}
 	style:--c={color}
 >
@@ -63,11 +59,13 @@
 		type="button"
 	></button>
 	<div class="pointer-events-none relative">
-		<h3 class="flex items-center gap-2 text-sm text-blue-400">
+		<h3 class="flex items-center gap-2 text-sm {view.maxed ? 'text-white/60' : 'text-blue-400'}">
 			<Icon color="currentColor" size={14} />
 			<span class="truncate">{view.family.name}</span>
 			{#if view.maxed}
-				{@render done(view.max > 1 ? 'Max' : 'Bought')}
+				<span class="ml-auto flex items-center gap-0.5 text-[10px] font-bold uppercase">
+					<Check size={10} strokeWidth={3.5} />{view.max > 1 ? 'Max' : 'Bought'}
+				</span>
 			{:else if view.max > 1}
 				<span bind:this={chip} class="rounded-sm bg-accent-800/30 px-1 py-0.5 text-xs whitespace-nowrap text-accent-400 tabular-nums">
 					{view.level}/{view.shown}
@@ -75,12 +73,16 @@
 			{/if}
 		</h3>
 		<p class="my-0.5 text-xs">{view.preview.description}</p>
-		{#if view.max > 1}
+		{#if view.maxed}
+			{#each totals as total (total)}
+				<p class="text-xs text-white/60">Total: {total}</p>
+			{/each}
+		{:else if view.max > 1}
 			<UpgradeTierBar {affordable} {color} hasNext={view.next !== null} level={view.level} segments={view.shown} />
 		{/if}
 		{#if view.next}
 			<div class="mt-1 flex h-4 items-center gap-1 text-xs" style:color>Cost: <Value currency={view.family.currency} value={view.nextCost} /></div>
-		{:else if view.lockReason}
+		{:else if view.lockReason && !view.maxed}
 			<div class="mt-1 flex h-4 items-center text-xs text-white/50">{view.lockReason}</div>
 		{/if}
 	</div>

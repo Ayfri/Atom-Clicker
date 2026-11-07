@@ -29,9 +29,13 @@
 			</label>
 			<button class={btn} onclick={() => tutorial.forget(`${realm}:`)}>Replay {hintCount} hints</button>
 		{/each}
+		<span>Cosmos</span>
+		<button class={btn} onclick={() => tutorial.forget('cosmos:')}>Replay {HINTS.filter(hint => hint.realm === 'cosmos').length} hints</button>
+		<span>Periodic Table</span>
+		<button class={btn} onclick={() => tutorial.forget('table:')}>Replay {HINTS.filter(hint => hint.realm === 'table').length} hints</button>
 		<label class="flex items-center gap-2">
 			<input checked={tutorial.state.enabled} class={checkbox} onchange={e => tutorial.setEnabled(e.currentTarget.checked)} type="checkbox" />
-			Tips enabled <span class="text-white/30">({tutorial.state.seen.length} seen)</span>
+			Tips enabled <span class="text-white/45">({tutorial.state.seen.length} seen)</span>
 		</label>
 		<button class={btn} onclick={() => tutorial.forget()}>Replay all</button>
 	</div>
@@ -56,7 +60,7 @@
 			value={stabilityProgress}
 		/>
 		{#if !gameManager.features[FeatureTypes.STABILITY_FIELD]}
-			<span class="text-[11px] text-white/35">Feature locked, the multiplier stays at x1.</span>
+			<span class="text-[12px] text-white/35">Feature locked, the multiplier stays at x1.</span>
 		{/if}
 	</div>
 </Section>

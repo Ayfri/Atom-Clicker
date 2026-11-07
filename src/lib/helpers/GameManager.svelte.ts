@@ -1,24 +1,40 @@
 import { dev } from '$app/env';
 import { ACHIEVEMENTS, ACHIEVEMENT_ENTRIES } from '#data/achievements.js';
-import { CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
+import { CHERENKOV_DROP, CHERENKOV_MIN, CHROMATIC, CHROMATIC_BASE_SPAWN_INTERVAL, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor } from '#data/chromatic.js';
+import { OBSERVE_APS_SECONDS } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import type { DailyQuestContext, DailyStats } from '#data/dailyQuests.js';
+import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats } from '#data/dailyQuests.js';
 import { createDefaultFeatureState, FeatureTypes } from '#data/features.js';
 import { type GeneratorType, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES, GENERATORS, getGeneratorLevelMultiplier } from '#data/generators.js';
+import { NEUTRINO_SKIP_MS } from '#data/neutrinos.js';
 import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.js';
 import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.js';
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
-import { UPGRADES } from '#data/upgrades.js';
-import { ELECTRONS_PROTONS_REQUIRED, GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS, PROTONS_ATOMS_REQUIRED, XP_PER_ATOM } from '#lib/constants.js';
+import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
+import {
+	APP_PRODUCTION_MULTIPLIER,
+	AUTO_BUY_BULK,
+	ELECTRONS_PROTONS_REQUIRED,
+	GENERATOR_COST_MULTIPLIER,
+	MAX_BOOST_POINTS,
+	OVERDRIVE_COST,
+	OVERDRIVE_MULTIPLIER,
+	OVERDRIVE_PERIOD_MS,
+	PROTONS_ATOMS_REQUIRED,
+	XP_PER_ATOM,
+} from '#lib/constants.js';
 import type {
 	ChromaticState,
+	CosmosState,
 	CurrencyBoosts,
 	EffectSource,
 	FeatureState,
 	GameState,
 	Generator,
 	OfflineProgressSummary,
+	OverdriveSlot,
+	PeriodicState,
 	PowerUp,
 	Price,
 	RealmState,
@@ -28,12 +44,15 @@ import type {
 import { numberNotation } from '#lib/utils.js';
 import { setItem } from '#lib/utils/safeLocalStorage.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { EffectTable } from '#helpers/effects.js';
+import { EffectTable, mul } from '#helpers/effects.js';
 import { applyOfflineProgress } from '#helpers/offlineProgress.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { perfTracker } from '#helpers/perfTracker.js';
 import { checkStatePlausibility } from '#helpers/plausibility.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/RealmManager.svelte.js';
 import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds } from '#helpers/runBounds.js';
 import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/saves.js';
 import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
@@ -70,11 +89,16 @@ export class GameManager {
 	/** Best rate since the last Electronize, which sets the daily atoms quest: the all-time best can sit 60+ orders above a fresh run. */
 	highestAPSRun = $state(0);
 	inGameTime = $state(0);
+	/** Pushed in by the install store while the game runs as the installed app, never saved. */
+	installedApp = $state(false);
 	/** Saved and sticky: the next save re-signs an edited payload, so a reload would otherwise clear a checksum mismatch. */
 	integrityFlagged = $state(false);
+	/** Generator counts a retention upgrade carried into this run, the leaderboard audit leaves them out of what the run spent. */
+	keptGenerators = $state.raw<Partial<Record<GeneratorType, number>>>({});
 	lastInteractionTime = $state(Date.now());
 	lastSave = $state(Date.now());
 	offlineProgressSummary = $state<OfflineProgressSummary | null>(null);
+	overdrive = $state.raw<Partial<Record<GeneratorType, OverdriveSlot>>>({});
 	photonUpgrades = $state.raw<Record<string, number>>({});
 	powerUpsCollected = $state(0);
 	/** Pushed in by QuarksManager, which GameManager never imports so the simulation worker stays free of fetch and auth code. */
@@ -123,6 +147,22 @@ export class GameManager {
 	}
 	set chromaticUpgrades(levels: Record<string, number>) {
 		chromaticManager.upgradeLevels = levels;
+	}
+
+	/** CosmosManager owns the discoveries, this accessor only exposes them to the save and reset loops. */
+	get cosmos(): CosmosState {
+		return cosmosManager.getState();
+	}
+	set cosmos(state: CosmosState) {
+		cosmosManager.loadState(state);
+	}
+
+	/** PeriodicManager owns the Table, this accessor only exposes it to the save and reset loops. */
+	get periodic(): PeriodicState {
+		return periodicManager.getState();
+	}
+	set periodic(state: PeriodicState) {
+		periodicManager.loadState(state);
 	}
 
 	get currencies() {
@@ -175,7 +215,20 @@ export class GameManager {
 			const upgrade = CHROMATIC_UPGRADES[id];
 			return level > 0 && upgrade?.effects ? [{ effects: upgrade.effects(level), id, name: upgrade.name }] : [];
 		});
-		return [...this.currentUpgradesBought, ...photonUpgrades, ...chromaticUpgrades, ...this.quarkBoostSources];
+		return [
+			...this.currentUpgradesBought,
+			...photonUpgrades,
+			...chromaticUpgrades,
+			...cosmosManager.effectSources,
+			...periodicManager.effectSources,
+			...this.quarkBoostSources,
+			/** Read live, a pinned effect table (the server's audit) never rebuilds when `measureRunBounds` overdrives every generator. */
+			{
+				effects: this.features[FeatureTypes.OVERDRIVE] ? GENERATOR_TYPES.map(type => mul('generator', m => (m.overdriveActive.includes(type) ? OVERDRIVE_MULTIPLIER : 1), type)) : [],
+				id: 'overdrive',
+				name: 'Overdrive',
+			},
+		];
 	});
 
 	/** Rebuilt only on a purchase, every stat below reads its value from here. */
@@ -202,6 +255,11 @@ export class GameManager {
 		for (const production of Object.values(this.generatorProductions)) baseProduction += production;
 		return baseProduction * this.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS);
 	});
+
+	observationCost = $derived(this.atomsPerSecond * OBSERVE_APS_SECONDS);
+
+	/** Generators one auto-buy purchase builds, `Infinity` for as many as the bank pays for. */
+	autoBuyAmount = $derived(AUTO_BUY_BULK[this.photonUpgrades.auto_buy_bulk ?? 0] ?? 1);
 
 	/** Auto-buy period of each generator the player automated, in the order its upgrades were bought. */
 	autoBuyIntervals = $derived.by(() => {
@@ -265,6 +323,9 @@ export class GameManager {
 		return features;
 	});
 
+	/** Generators under Overdrive, empty without the skill so a state that carries slots gains nothing from them. */
+	overdriveActive = $derived(this.features[FeatureTypes.OVERDRIVE] ? GENERATOR_TYPES.filter(type => this.overdrive[type]?.active === true) : []);
+
 	generatorProductions = $derived.by(() => {
 		const productions = {} as Record<GeneratorType, number>;
 		for (const type of GENERATOR_TYPES) productions[type] = (this.generators[type]?.count ?? 0) * this.generatorUnitProductions[type];
@@ -277,13 +338,16 @@ export class GameManager {
 		const commonMultiplier = this.globalMultiplier * this.bonusMultiplier * this.stabilityMultiplier;
 		for (const type of GENERATOR_TYPES) {
 			const generator = this.generators[type];
-			const rate = this.effects.value('generator', GENERATORS[type].rate, this, type);
+			/** Untargeted `'generator'` effects (Alkaline earths, Cosmos objects) boost every generator, the targeted ones only theirs. */
+			const rate = this.effects.value('generator', this.effects.value('generator', GENERATORS[type].rate, this), this, type);
 			productions[type] = rate * getGeneratorLevelMultiplier(generator?.count ?? 0, generator?.level ?? 0) * commonMultiplier;
 		}
 		return productions;
 	});
 
-	globalMultiplier = $derived(this.effects.value('global', 1, this) * this.radiationMultiplier);
+	appMultiplier = $derived(this.installedApp ? APP_PRODUCTION_MULTIPLIER : 1);
+
+	globalMultiplier = $derived(this.effects.value('global', 1, this) * this.radiationMultiplier * this.appMultiplier);
 
 	hasAvailableSkillUpgrades = $derived(Object.values(SKILL_UPGRADES).some(skill => this.canPurchaseSkill(skill)));
 
@@ -301,6 +365,28 @@ export class GameManager {
 	photonUpgradeLevels = $derived(Object.values(this.photonUpgrades).reduce((sum, level) => sum + (level ?? 0), 0));
 
 	photonValueBonus = $derived(this.effects.value('photon_value', 0, this));
+
+	/** Multiplier on each color's Light from outside the Prism, read by `chromaticManager.lightFor`. */
+	lightGain = $derived<Record<ChromaticColor, number>>({
+		blue: this.effects.value('blue_light_gain', 1, this),
+		green: this.effects.value('green_light_gain', 1, this),
+		red: this.effects.value('red_light_gain', 1, this),
+	});
+
+	/** Light per second each color earns with no click: the Table's lamps and the sky times the stat-only Light gain, outside every Prism multiplier. */
+	passiveLight = $derived<Record<ChromaticColor, number>>({
+		blue: (periodicManager.lampLight.blue + cosmosManager.skyLight.blue) * this.lightGain.blue,
+		green: (periodicManager.lampLight.green + cosmosManager.skyLight.green) * this.lightGain.green,
+		red: (periodicManager.lampLight.red + cosmosManager.skyLight.red) * this.lightGain.red,
+	});
+
+	/** Blue Light per second a reactor at `cpm` makes, scaled by its share of the output cap, 0 for a stopped core and before the first Ionize. Offline pays it at the average power. */
+	cherenkovLightAt(cpm: number): number {
+		if (this.totalIonizesAllTime === 0 || cpm <= 0) return 0;
+		return Math.min(1, cpm / radiationManager.maxCpm) * Math.max(CHERENKOV_MIN, chromaticManager.lightFor('blue', CHERENKOV_DROP, this));
+	}
+
+	cherenkovLight = $derived(this.cherenkovLightAt(radiationManager.currentCpm));
 
 	powerUpDurationMultiplier = $derived(this.effects.value('power_up_duration', 1, this));
 
@@ -376,6 +462,15 @@ export class GameManager {
 		if (added > 0) this.currencyBoosts = { ...this.currencyBoosts, [currency]: points + added };
 	}
 
+	/** Buys one auto-buy batch of a generator, as many as the Bulk Assembly level allows and the bank pays for, and returns how many were built. */
+	autoBuyGenerator(type: GeneratorType): number {
+		const max = this.getMaxAffordableGenerator(type);
+		/** An overflowed bank makes the max infinite and spending from it would store NaN atoms. */
+		if (!Number.isFinite(max)) return 0;
+		const amount = Math.min(this.autoBuyAmount, max);
+		return amount >= 1 && this.purchaseGenerator(type, amount) ? amount : 0;
+	}
+
 	canAfford(price: Price): boolean {
 		return currenciesManager.getAmount(price.currency) >= price.amount;
 	}
@@ -418,7 +513,9 @@ export class GameManager {
 	dailyQuestContext(hasThirdQuestSlot: boolean): DailyQuestContext {
 		return {
 			chromaticSpawnBoost: CHROMATIC_BASE_SPAWN_INTERVAL / chromaticManager.spawnInterval,
+			cosmosStudyReach: cosmosManager.studyLevelsWithin(cosmosManager.starlightPerSecond * COSMOS_QUEST_SECONDS),
 			fuelAffordable: (this.electrons + this.electronizeElectronsGain) * radiationManager.massPerElectron,
+			hasCosmos: cosmosManager.unlocked,
 			hasElectronized: this.totalElectronizesAllTime > 0,
 			hasPhotonRealm: this.realms[RealmTypes.PHOTONS]?.unlocked ?? false,
 			hasPrism: this.totalIonizesAllTime > 0,
@@ -426,7 +523,39 @@ export class GameManager {
 			hasThirdQuestSlot,
 			highestAPSRun: this.highestAPSRun,
 			remainingAchievements: ACHIEVEMENT_ENTRIES.filter(([id]) => !this.unlockedAchievementIds.has(id)).length,
+			starlightPerSecond: cosmosManager.starlightPerSecond,
 		};
+	}
+
+	/** Pays the atoms that launch an observation of the next Cosmos signal, stopping the observation never refunds them. */
+	startObservation(): boolean {
+		return cosmosManager.canObserve && this.spendCurrency({ amount: this.observationCost, currency: CurrenciesTypes.ATOMS });
+	}
+
+	/** Catches a guest star and counts its Starlight toward the daily stat like the tick does, returns the amount. */
+	catchGuestStar(): number {
+		const starlight = cosmosManager.catchGuestStar();
+		if (starlight > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + starlight;
+		return starlight;
+	}
+
+	/**
+	 * Runs the Table 10 minutes ahead at the live reactor power: its forges, its Decay events and its lamp Light, paid like `tick` does.
+	 * The Cosmos, the sky Light, atoms and the reactor don't move. Returns the elements forged.
+	 */
+	catchNeutrino(): number[] {
+		const seconds = NEUTRINO_SKIP_MS / 1000;
+		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
+		for (const color of CHROMATIC_COLORS) currenciesManager.add(CHROMATIC[color].currency, periodicManager.lampLight[color] * this.lightGain[color] * seconds);
+		periodicManager.neutrinos++;
+		return periodicManager.tick(NEUTRINO_SKIP_MS);
+	}
+
+	/** Starts studying a Cosmos object and counts the level toward the daily quest as soon as it is paid. */
+	studyCosmosObject(objectId: string): boolean {
+		if (!cosmosManager.study(objectId)) return false;
+		this.dailyStats.cosmosStudies = (this.dailyStats.cosmosStudies ?? 0) + 1;
+		return true;
 	}
 
 	/** Reassigning unconditionally would invalidate the whole production chain on every tick a power-up is live. */
@@ -455,7 +584,11 @@ export class GameManager {
 	ionize() {
 		if (!radiationManager.ionizeReady) return false;
 		perfTracker.action('prestige:ionize');
+		const { flashCpm, ionizeCpm } = radiationManager;
 		this.totalIonizesAllTime++;
+		const flash = cosmosManager.flashFor(flashCpm, ionizeCpm, this.totalIonizesAllTime);
+		currenciesManager.add(CurrenciesTypes.STARLIGHT, flash);
+		this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + flash;
 		this.prestige(LAYERS.RADIATION_REALM);
 		currenciesManager.remove(CurrenciesTypes.ELECTRONS, this.electrons);
 		this.totalElectronizesRun = 0;
@@ -475,6 +608,7 @@ export class GameManager {
 			balanceVersion: this.balanceVersion,
 			chromatic: this.chromatic,
 			chromaticUpgrades: this.chromaticUpgrades,
+			cosmos: this.cosmos,
 			currencies: this.currencies,
 			currencyBoosts: this.currencyBoosts,
 			dailyStats: this.dailyStats,
@@ -483,8 +617,11 @@ export class GameManager {
 			highestAPSRun: this.highestAPSRun,
 			inGameTime: this.inGameTime,
 			integrityFlagged: this.integrityFlagged,
+			keptGenerators: this.keptGenerators,
 			lastInteractionTime: this.lastInteractionTime,
 			lastSave: this.lastSave,
+			overdrive: this.overdrive,
+			periodic: this.periodic,
 			photonUpgrades: this.photonUpgrades,
 			powerUpsCollected: this.powerUpsCollected,
 			radiation: radiationManager.getState(),
@@ -633,6 +770,7 @@ export class GameManager {
 	}
 
 	loadSaveData(data: Partial<GameState>) {
+		realmManager.resetTable();
 		for (const key of Object.keys(statsConfig)) {
 			if (!(key in data)) continue;
 			switch (key) {
@@ -683,15 +821,29 @@ export class GameManager {
 		for (const p of this.activePowerUps) scheduleExpiry(() => this.removePowerUp(p.id), p.startTime + p.duration - now);
 	}
 
+	/** Whether a prestige of `layer` leaves the generators standing, Ionize always resets them. */
+	keepsGenerators(layer: LayerType): boolean {
+		const [protonize, electronize] = KEEP_GENERATOR_UPGRADES;
+		if (layer === LAYERS.PROTONIZER) return this.upgrades.includes(protonize) || this.upgrades.includes(electronize);
+		return layer === LAYERS.ELECTRONIZE && this.upgrades.includes(electronize);
+	}
+
 	/** Upgrades paid in protons or electrons survive every prestige, like photon upgrades and skills which never reset. */
 	private prestige(layer: LayerType, gain?: Price) {
 		const upgrades = this.upgrades.filter(id => {
 			const currency = UPGRADES[id]?.cost.currency;
 			return currency === CurrenciesTypes.PROTONS || currency === CurrenciesTypes.ELECTRONS;
 		});
+		const generators = this.keepsGenerators(layer) ? this.generators : null;
+		const { overdrive } = this;
 
 		this.resetLayer(layer);
 		this.upgrades = upgrades;
+		if (generators) {
+			this.generators = generators;
+			this.overdrive = overdrive;
+			this.keptGenerators = Object.fromEntries(GENERATOR_TYPES.flatMap(type => ((generators[type]?.count ?? 0) > 0 ? [[type, generators[type]?.count]] : [])));
+		}
 		if (gain) currenciesManager.add(gain.currency, gain.amount);
 		this.lastInteractionTime = this.runStartedAt = this.clock();
 	}
@@ -773,6 +925,20 @@ export class GameManager {
 		this.activePowerUps = this.activePowerUps.filter(p => p.id !== id);
 	}
 
+	/**
+	 * Pays the next period of an active Overdrive once `now` reaches the end of the paid one, and turns it off when the bank cannot pay.
+	 * A gap longer than a period (a frozen tab, time away) costs one Higgs Boson, never the periods it skipped. A `paidUntil` that is not a
+	 * number (an edited save) counts as 0, so it is paid once and rewritten instead of charging every tick.
+	 */
+	renewOverdrive(type: GeneratorType, now: number) {
+		const slot = this.overdrive[type];
+		const until = slot?.paidUntil || 0;
+		if (!slot?.active || now < until) return;
+		const paid = this.spendCurrency({ amount: OVERDRIVE_COST, currency: CurrenciesTypes.HIGGS_BOSON });
+		const paidUntil = (now - until > OVERDRIVE_PERIOD_MS ? now : until) + OVERDRIVE_PERIOD_MS;
+		this.overdrive = { ...this.overdrive, [type]: paid ? { active: true, paidUntil } : { ...slot, active: false } };
+	}
+
 	reset() {
 		this.resetAll();
 		this.saveIntegrityWarnings = [];
@@ -839,7 +1005,7 @@ export class GameManager {
 	}
 
 	/** Reassigns every point round-robin over the given currencies so they end up within one point of each other. */
-	splitCurrencyBoostsEvenly(currencies: CurrencyName[]) {
+	splitCurrencyBoostsEvenly(currencies: readonly CurrencyName[]) {
 		if (currencies.length === 0) return;
 		const boosts: CurrencyBoosts = {};
 		let remaining = this.boostPointsTotal;
@@ -880,6 +1046,12 @@ export class GameManager {
 		if (this.atomsPerSecond > this.highestAPSRun) this.highestAPSRun = this.atomsPerSecond;
 
 		radiationManager.tick(deltaTime);
+		const starlight = cosmosManager.tick(deltaTime);
+		if (starlight > 0) this.dailyStats.starlightEarned = (this.dailyStats.starlightEarned ?? 0) + starlight;
+		periodicManager.tick(deltaTime);
+		currenciesManager.add(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * seconds);
+		for (const color of CHROMATIC_COLORS) currenciesManager.add(CHROMATIC[color].currency, this.passiveLight[color] * seconds);
+		if (this.cherenkovLight > 0) currenciesManager.add(CurrenciesTypes.BLUE_LIGHT, this.cherenkovLight * seconds);
 
 		if (!skipAchievements) {
 			const unlocked = this.unlockedAchievementIds;
@@ -889,6 +1061,7 @@ export class GameManager {
 		}
 
 		this.dropExpiredPowerUps();
+		for (const type of this.overdriveActive) this.renewOverdrive(type, this.tickTime);
 	}
 
 	toggleAutoClick() {
@@ -905,6 +1078,25 @@ export class GameManager {
 			automation.generators.includes(generatorType) ?
 				automation.generators.filter(type => type !== generatorType)
 			:	[...automation.generators, generatorType];
+	}
+
+	/** Turning a generator on pays its first period unless the last one is still running, turning it off keeps what was paid. Returns whether it changed. */
+	toggleOverdrive(type: GeneratorType): boolean {
+		const slot = this.overdrive[type];
+		if (slot?.active) {
+			this.overdrive = { ...this.overdrive, [type]: { ...slot, active: false } };
+			return true;
+		}
+		if (!this.features[FeatureTypes.OVERDRIVE] || (this.generators[type]?.count ?? 0) < 1) return false;
+
+		const now = this.clock();
+		let paidUntil = slot?.paidUntil || 0;
+		if (now >= paidUntil) {
+			if (!this.spendCurrency({ amount: OVERDRIVE_COST, currency: CurrenciesTypes.HIGGS_BOSON })) return false;
+			paidUntil = now + OVERDRIVE_PERIOD_MS;
+		}
+		this.overdrive = { ...this.overdrive, [type]: { active: true, paidUntil } };
+		return true;
 	}
 
 	toggleUpgradeAutomation() {
@@ -933,4 +1125,5 @@ export class GameManager {
 }
 
 export const gameManager = new GameManager();
+cosmosManager.currencyBoost = () => gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.STARLIGHT);
 numberNotation.read = () => gameManager.settings.display.notation;

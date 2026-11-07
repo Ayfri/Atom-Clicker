@@ -88,7 +88,13 @@
 
 	let { onClose }: Props = $props();
 
-	const SKILL_CURRENCIES: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS];
+	const SKILL_CURRENCIES: CurrencyName[] = [
+		CurrenciesTypes.ATOMS,
+		CurrenciesTypes.PROTONS,
+		CurrenciesTypes.ELECTRONS,
+		CurrenciesTypes.PHOTONS,
+		CurrenciesTypes.HIGGS_BOSON,
+	];
 
 	const panZoom = new PanZoom({ bounds: TREE_BOUNDS, home: { ...ROOT_CENTER, zoom: mobile.current ? 0.6 : 0.8 }, maxZoom: 2, minZoom: 0.15 });
 
@@ -116,6 +122,8 @@
 		const draw = () => {
 			const start = performance.now();
 			frame = 0;
+			if (!panZoom.measured) return;
+
 			const ratio = pixelRatio();
 			const cell = GRID_STEP * panZoom.zoom * ratio;
 			const size = Math.max(1, Math.round(cell));
@@ -142,7 +150,7 @@
 		const observer = new ResizeObserver(schedule);
 		observer.observe(canvas);
 		$effect(() => {
-			void [panZoom.x, panZoom.y, panZoom.zoom];
+			void [panZoom.measured, panZoom.x, panZoom.y, panZoom.zoom];
 			schedule();
 		});
 		return () => {
@@ -157,7 +165,7 @@
 	const enterDelays = new Map<string, number>();
 
 	function isCurrencyKnown(currency: CurrencyName): boolean {
-		return currency === CurrenciesTypes.ATOMS || currency === CurrenciesTypes.PROTONS && gameManager.canProtonise || currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0 || (currency === CurrenciesTypes.PHOTONS || currency === CurrenciesTypes.EXCITED_PHOTONS || currency === CurrenciesTypes.HIGGS_BOSON) && gameManager.realms[RealmTypes.PHOTONS].unlocked;
+		return currency === CurrenciesTypes.ATOMS || currency === CurrenciesTypes.PROTONS && gameManager.canProtonise || currency === CurrenciesTypes.ELECTRONS && gameManager.totalElectronizesAllTime > 0 || (currency === CurrenciesTypes.PHOTONS || currency === CurrenciesTypes.EXCITED_PHOTONS) && gameManager.realms[RealmTypes.PHOTONS].unlocked || currency === CurrenciesTypes.HIGGS_BOSON && currenciesManager.getEarnedAllTime(currency) > 0;
 	}
 
 	const balances = $derived(SKILL_CURRENCIES.filter(isCurrencyKnown).map((currency) => ({ amount: currenciesManager.getAmount(currency), currency })));

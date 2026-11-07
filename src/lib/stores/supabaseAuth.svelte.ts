@@ -75,22 +75,13 @@ class SupabaseAuth {
 
 			this.supabase.auth.onAuthStateChange(async (event, session) => {
 				console.log('Auth state changed:', event);
+				if (event === 'SIGNED_OUT') this.signedOut = true;
 				this.currentSession = session;
 				await this.handleAuthStateChange(session?.user || null);
 			});
 
 			window.addEventListener('beforeunload', () => {
-				if (this.currentSession?.access_token) {
-					fetch('/api/auth/status', {
-						method: 'POST',
-						headers: {
-							'Authorization': `Bearer ${this.currentSession.access_token}`,
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify({ is_online: false }),
-						keepalive: true,
-					});
-				}
+				if (this.currentSession?.access_token) void this.sendPresence(false, this.currentSession.access_token).catch(() => {});
 			});
 		} catch (err) {
 			console.error('Supabase auth initialization error:', err);
@@ -158,18 +149,28 @@ class SupabaseAuth {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
 			/** supabase-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
-			const headers = await this.authHeaders();
-			if (!('Authorization' in headers)) return;
-			try {
-				await fetch('/api/auth/status', {
-					body: JSON.stringify({ is_online: true }),
-					headers: { ...headers, 'Content-Type': 'application/json' },
-					method: 'POST',
-				});
-			} catch (err) {
-				console.error('Heartbeat failed:', err);
-			}
+			const accessToken = await this.getAccessToken();
+			if (accessToken) this.sendPresence(true, accessToken).catch(err => console.error('Heartbeat failed:', err));
 		}, 45_000);
+	}
+
+	/**
+	 * Writes the presence columns straight to PostgREST, which the column grant allows, so the heartbeat of every signed-in tab never
+	 * costs a Worker request. A raw call because supabase-js can't set `keepalive`, which lets the offline write outlive a closing tab.
+	 */
+	private async sendPresence(isOnline: boolean, accessToken: string) {
+		if (!this.user) return;
+		const response = await fetch(`${PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${this.user.id}`, {
+			body: JSON.stringify({ is_online: isOnline, updated_at: new Date().toISOString() }),
+			headers: {
+				'apikey': PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+				'Authorization': `Bearer ${accessToken}`,
+				'Content-Type': 'application/json',
+			},
+			keepalive: true,
+			method: 'PATCH',
+		});
+		if (!response.ok) throw new Error(`Presence update failed: ${response.status}`);
 	}
 
 	private stopHeartbeat() {
@@ -235,46 +236,69 @@ class SupabaseAuth {
 		}
 	}
 
+	/** True from `promptGoogleOneTap` until `cancelGoogleOneTap`, so a screen that closes and reopens can ask again. */
 	private oneTapPrompted = false;
+	/** Bumped by every prompt and cancel, a prompt that waited for the script only shows if no other call happened meanwhile. */
+	private oneTapRun = 0;
+	private oneTapSetup: Promise<void> | null = null;
+	/** Google advises against offering a sign in right after a sign out, so One Tap stays off for the rest of the page load. */
+	private signedOut = false;
 
-	/** Signs in from Google's One Tap prompt without leaving the page, Google itself backs off for days once a player dismisses it. */
+	/** The script and `initialize` run once per page load, the nonce they bind is checked by Supabase on every sign in. */
+	private async setupGoogleOneTap(clientId: string) {
+		await new Promise((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = 'https://accounts.google.com/gsi/client';
+			script.onload = resolve;
+			script.onerror = reject;
+			document.head.append(script);
+		});
+
+		/** Google signs the SHA-256 of the nonce into the ID token, Supabase hashes the raw one to compare them. */
+		const nonce = crypto.randomUUID();
+		const hashedNonce = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce))).toHex();
+
+		window.google!.accounts.id.initialize({
+			callback: async ({ credential }) => {
+				const { error } = await this.supabase!.auth.signInWithIdToken({ nonce, provider: 'google', token: credential });
+				if (error) {
+					console.error('Google One Tap sign in error:', error);
+					this.error = error;
+				}
+			},
+			client_id: clientId,
+			context: 'signin',
+			itp_support: true,
+			nonce: hashedNonce,
+			use_fedcm_for_prompt: true,
+		});
+	}
+
+	/**
+	 * Signs in from Google's One Tap prompt without leaving the page, Google itself backs off for days once a player dismisses it.
+	 * Shown by the screens where signing in matters (Leaderboard, Profile), which call `cancelGoogleOneTap` when they close.
+	 */
 	async promptGoogleOneTap() {
 		// FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't.
-		if (!PUBLIC_GOOGLE_CLIENT_ID || !this.supabase || this.isAuthenticated || this.oneTapPrompted || window.self !== window.top) return;
+		if (!PUBLIC_GOOGLE_CLIENT_ID || !this.supabase || this.isAuthenticated || this.signedOut || this.oneTapPrompted || window.self !== window.top) return;
 		this.oneTapPrompted = true;
+		const run = ++this.oneTapRun;
 
 		try {
-			await new Promise((resolve, reject) => {
-				const script = document.createElement('script');
-				script.src = 'https://accounts.google.com/gsi/client';
-				script.onload = resolve;
-				script.onerror = reject;
-				document.head.append(script);
-			});
-
-			/** Google signs the SHA-256 of the nonce into the ID token, Supabase hashes the raw one to compare them. */
-			const nonce = crypto.randomUUID();
-			const hashedNonce = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce))).toHex();
-
-			window.google!.accounts.id.initialize({
-				callback: async ({ credential }) => {
-					const { error } = await this.supabase!.auth.signInWithIdToken({ nonce, provider: 'google', token: credential });
-					if (error) {
-						console.error('Google One Tap sign in error:', error);
-						this.error = error;
-					}
-				},
-				client_id: PUBLIC_GOOGLE_CLIENT_ID,
-				context: 'signin',
-				itp_support: true,
-				nonce: hashedNonce,
-				use_fedcm_for_prompt: true,
-			});
-			window.google!.accounts.id.prompt();
+			await (this.oneTapSetup ??= this.setupGoogleOneTap(PUBLIC_GOOGLE_CLIENT_ID));
+			if (run === this.oneTapRun) window.google!.accounts.id.prompt();
 		} catch (err) {
 			// Content blockers commonly block the Google script, the regular sign in dialog still works without it.
 			console.warn('Google One Tap unavailable:', err);
 		}
+	}
+
+	/** Closes the prompt with the screen that asked for it, the next `promptGoogleOneTap` can show it again. */
+	cancelGoogleOneTap() {
+		if (!this.oneTapPrompted) return;
+		this.oneTapPrompted = false;
+		this.oneTapRun++;
+		window.google?.accounts.id.cancel();
 	}
 
 	private popupListener: ((event: MessageEvent) => void) | null = null;

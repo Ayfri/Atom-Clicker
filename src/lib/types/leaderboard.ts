@@ -25,13 +25,21 @@ export interface PublicProfileStats {
     /** Raw ids, counted against the client's achievement list so removed ones never inflate the total. */
     achievements: string[];
     clicks: number;
+    /** Objects in the player's sky, 0 until the Cosmos opens. */
+    discoveries: number;
     electronizes: number;
+    /** Elements identified in the Periodic Table. */
+    elements: number;
     generators: Partial<Record<GeneratorType, number>>;
+    guestStars: number;
     highestAPS: number;
     ionizes: number;
     lifetime: Partial<Record<CurrencyName, number>>;
+    neutrinos: number;
     playTime: number;
     protonizes: number;
     realms: RealmType[];
     skills: string[];
+    /** Taps on sky objects. */
+    skyTaps: number;
 }

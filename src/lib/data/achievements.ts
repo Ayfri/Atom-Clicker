@@ -2,12 +2,17 @@ import type { Achievement, AchievementGroup } from '#lib/types.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { tierIconStack } from '#helpers/iconStacks.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { formatNumber } from '#lib/utils.js';
 import { CHROMATIC_COLORS } from '#data/chromatic.js';
+import { CLICKABLE_OBJECTS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, SKY_CLICK_TIERS, skyClickAchievementId } from '#data/cosmos.js';
 import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { GENERATOR_TYPES, GENERATORS, type GeneratorType } from '#data/generators.js';
+import { GUEST_STAR_TIERS, guestStarAchievementId } from '#data/guestStars.js';
 import { CURRENCY_ICON_NAMES, GENERATOR_ICON_NAMES } from '#data/iconNames.js';
+import { NEUTRINO_TIERS, neutrinoAchievementId } from '#data/neutrinos.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 
@@ -39,7 +44,9 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		hiddenCondition: (manager: GameManager) => !manager.unlockedAchievementIds.has('reset_modal_opener'),
 		condition: (manager: GameManager) => manager.unlockedAchievementIds.has('reset_modal_opener'),
 	},
+	/** Play time is audited: no cloud save on 02-11-2026 held one of these above its `inGameTime`, unlike the clicks and prestige counters older saves started lower. */
 	{
+		audited: true,
 		id: 'play_time_10min',
 		name: 'Getting Started',
 		description: 'Play for 10 minutes',
@@ -47,6 +54,7 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		condition: (manager: GameManager) => manager.inGameTime >= 600000, // 10 minutes in ms
 	},
 	{
+		audited: true,
 		id: 'play_time_2h',
 		name: 'Dedicated Player',
 		description: 'Play for 2 hours',
@@ -54,6 +62,7 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		condition: (manager: GameManager) => manager.inGameTime >= 7200000, // 2 hours in ms
 	},
 	{
+		audited: true,
 		id: 'play_time_30h',
 		name: 'Atomic Addict',
 		description: 'Play for 30 hours',
@@ -61,6 +70,7 @@ const SPECIAL_ACHIEVEMENTS: Achievement[] = [
 		condition: (manager: GameManager) => manager.inGameTime >= 108000000, // 30 hours in ms
 	},
 	{
+		audited: true,
 		id: 'play_time_123h',
 		name: 'Time Lord',
 		description: 'Play for 123 hours',
@@ -291,6 +301,7 @@ function createElectronizeAchievements(): Achievement[] {
 
 function createIonizeAchievements(): Achievement[] {
 	return [1, 5, 10, 20, 30, 50].map((tier, index) => ({
+		audited: true,
 		id: `ionizes_${tier}`,
 		name: `${tier} Ionize${tier === 1 ? '' : 's'}`,
 		description: `Ionize ${tier} time${tier === 1 ? '' : 's'}`,
@@ -304,6 +315,7 @@ function createIonizeAchievements(): Achievement[] {
 function createSpectrumAchievements(): Achievement[] {
 	const lowestSpectrum = () => Math.min(...CHROMATIC_COLORS.map(color => chromaticManager.spectrumLevel(color)));
 	return [5, 10, 25, 50].map((tier, index) => ({
+		audited: true,
 		id: `spectrum_${tier}`,
 		name: `Spectrum ${tier}`,
 		description: `Reach Spectrum ${tier} in all three colors`,
@@ -313,7 +325,96 @@ function createSpectrumAchievements(): Achievement[] {
 	}));
 }
 
-function createCurrencyAchievements(types: CurrencyName[]): AchievementGroup[] {
+const cosmosLocked = () => !cosmosManager.unlocked;
+
+/**
+ * The tiers land on the end of an era: every naked eye planet, every refractor object, Neptune's system, then the whole sky.
+ * Audited: removing a Cosmos object lowers the discovered count on load, so honest holders of the top tier would fail the audit.
+ */
+function createDiscoveryAchievements(): Achievement[] {
+	const total = COSMOS_OBJECTS.filter(object => !object.given).length;
+	return [1, 8, 17, 22, total].map((tier, index) => ({
+		audited: true,
+		id: `cosmos_discoveries_${tier}`,
+		name: tier === total ? 'Whole Sky' : `${tier} Discover${tier === 1 ? 'y' : 'ies'}`,
+		description: tier === total ? 'Discover every object in the Cosmos' : `Discover ${tier} object${tier === 1 ? '' : 's'} in the Cosmos`,
+		iconStack: tierIconStack('planet', index, tier),
+		condition: () => cosmosManager.discovered.length >= tier,
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
+/** Total study levels across every object. Audited: removing a Cosmos object drops its study levels on load, so honest holders would fail the audit. */
+function createStudyAchievements(): Achievement[] {
+	const studyLevels = () => Object.values(cosmosManager.studies).reduce((total, level) => total + level, 0);
+	return [10, 50, 150, 300, 450].map((tier, index) => ({
+		audited: true,
+		id: `cosmos_studies_${tier}`,
+		name: `${tier} Study Levels`,
+		description: `Reach ${tier} study levels across the Cosmos`,
+		iconStack: tierIconStack('moonStar', index, tier),
+		condition: () => studyLevels() >= tier,
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
+function createInstrumentAchievements(): Achievement[] {
+	return COSMOS_INSTRUMENTS.filter(instrument => instrument.cost > 0).map((instrument, index) => ({
+		audited: true,
+		id: `cosmos_instrument_${instrument.id}`,
+		name: instrument.name,
+		description: `Build ${instrument.name}`,
+		iconStack: tierIconStack('telescope', index),
+		condition: () => cosmosManager.instruments.includes(instrument.id),
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
+/** One series per sky object, hidden until it is in the sky so 24 unknown groups never flood the list. */
+function createSkyClickGroups(): AchievementGroup[] {
+	const names = [(name: string) => `Glance at ${name}`, (name: string) => `Fixated on ${name}`, (name: string) => `Lost in ${name}`];
+	return CLICKABLE_OBJECTS.map(object => ({
+		achievements: SKY_CLICK_TIERS.map((tier, index) => ({
+			audited: true,
+			id: skyClickAchievementId(object.id, tier),
+			name: names[index](object.name),
+			description: `Click ${object.name} ${formatNumber(tier)} times in the Cosmos`,
+			iconStack: tierIconStack('planet', index, tier),
+			condition: () => (cosmosManager.clicks[object.id] ?? 0) >= tier,
+			hiddenCondition: () => cosmosLocked() || !cosmosManager.objects.includes(object),
+		})),
+		name: `${object.name} Clicks`,
+		tiered: true,
+	}));
+}
+
+function createGuestStarAchievements(): Achievement[] {
+	const names = ['Guest Star', 'Nova Hunter', 'Keeper of the Guest Stars'];
+	return GUEST_STAR_TIERS.map((tier, index) => ({
+		audited: true,
+		id: guestStarAchievementId(tier),
+		name: names[index],
+		description: `Catch ${tier} guest star${tier === 1 ? '' : 's'} in the Cosmos`,
+		iconStack: tierIconStack('star', index, tier),
+		condition: () => cosmosManager.guestStars >= tier,
+		hiddenCondition: cosmosLocked,
+	}));
+}
+
+function createNeutrinoAchievements(): Achievement[] {
+	const names = ['Ghost Particle', 'Neutrino Detector', 'Kamiokande'];
+	return NEUTRINO_TIERS.map((tier, index) => ({
+		audited: true,
+		id: neutrinoAchievementId(tier),
+		name: names[index],
+		description: tier === 1 ? 'Catch a neutrino on the Periodic Table' : `Catch ${tier} neutrinos on the Periodic Table`,
+		iconStack: tierIconStack('atom', index, tier),
+		condition: () => periodicManager.neutrinos >= tier,
+		hiddenCondition: () => !periodicManager.unlocked,
+	}));
+}
+
+function createCurrencyAchievements(types: CurrencyName[], audited = false): AchievementGroup[] {
 	return types
 		.map(type => CURRENCIES[type])
 		.filter(c => c.achievementTiers && c.stat)
@@ -347,6 +448,7 @@ function createCurrencyAchievements(types: CurrencyName[]): AchievementGroup[] {
 				if (currency.name === CurrenciesTypes.PHOTONS) prefix = 'photons';
 
 				return {
+					audited,
 					id: `${prefix}_${tier}`,
 					get name() {
 						return name();
@@ -472,7 +574,14 @@ export const ACHIEVEMENT_GROUPS: AchievementGroup[] = [
 	{ achievements: createRadiationAchievements(), name: 'Reactor', tiered: false },
 	{ achievements: SPECIAL_ACHIEVEMENTS, name: 'Special', tiered: false },
 	{ achievements: createSpectrumAchievements(), name: 'Spectrum', tiered: true },
-	...createCurrencyAchievements([CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT, CurrenciesTypes.WHITE_LIGHT]),
+	...createCurrencyAchievements([CurrenciesTypes.RED_LIGHT, CurrenciesTypes.GREEN_LIGHT, CurrenciesTypes.BLUE_LIGHT, CurrenciesTypes.WHITE_LIGHT], true),
+	{ achievements: createDiscoveryAchievements(), name: 'Discoveries', tiered: true },
+	{ achievements: createInstrumentAchievements(), name: 'Instruments', tiered: true },
+	{ achievements: createStudyAchievements(), name: 'Studies', tiered: true },
+	...createSkyClickGroups(),
+	{ achievements: createGuestStarAchievements(), name: 'Guest Stars', tiered: true },
+	{ achievements: createNeutrinoAchievements(), name: 'Neutrinos', tiered: true },
+	...createCurrencyAchievements([CurrenciesTypes.STARLIGHT], true),
 ];
 
 export const ACHIEVEMENTS = Object.fromEntries(ACHIEVEMENT_GROUPS.flatMap(group => group.achievements).map(achievement => [achievement.id, achievement]));

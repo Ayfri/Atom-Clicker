@@ -7,16 +7,20 @@
 	import StatTiles, { type StatTile } from '#components/profile/StatTiles.svelte';
 	import Avatar from '#components/ui/Avatar.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { COSMOS_OBJECTS } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
+	import { ELEMENT_COUNT } from '#data/elements.js';
 	import { REALMS } from '#data/realms.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { ChartLine, Clock, Cloud, Link as LinkIcon, LogOut, Medal, MousePointerClick, Pencil, Trophy, User } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { ChartLine, Clock, Cloud, FlaskRound, Link as LinkIcon, LogOut, Medal, MousePointerClick, Orbit, Pencil, Trophy, User } from '@lucide/svelte';
+	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const totalAchievements = Object.keys(ACHIEVEMENTS).length;
@@ -38,6 +42,8 @@
 		{ icon: Clock, label: 'Play time', value: formatDuration(gameManager.inGameTime) },
 		{ icon: AtomIcon, label: 'Atoms / s', value: formatNumber(gameManager.atomsPerSecond) },
 		{ icon: MousePointerClick, label: 'Click power', value: formatNumber(gameManager.clickPower) },
+		...(cosmosManager.unlocked ? [{ icon: Orbit, label: 'Cosmos discoveries', value: `${cosmosManager.objects.length} / ${COSMOS_OBJECTS.length}` }] : []),
+		...(periodicManager.unlocked ? [{ icon: FlaskRound, label: 'Elements identified', value: `${periodicManager.identified.length} / ${ELEMENT_COUNT}` }] : []),
 		...(supabaseAuth.isAuthenticated
 			? [
 					{ icon: Medal, label: 'Leaderboard', value: leaderboard.playerRank ? `#${leaderboard.playerRank} · Top ${leaderboard.playerPercentile}%` : 'Unranked' },
@@ -50,6 +56,13 @@
 	onMount(() => {
 		leaderboard.ensureLoaded();
 		return () => clearTimeout(previewTimer);
+	});
+
+	/** Only once the session restore finished, so a signed-in player never gets prompted, and never next to the Login modal. */
+	$effect(() => {
+		if (supabaseAuth.loading || supabaseAuth.isAuthenticated || showLoginModal) return;
+		untrack(() => supabaseAuth.promptGoogleOneTap());
+		return () => supabaseAuth.cancelGoogleOneTap();
 	});
 
 	function startEditing() {

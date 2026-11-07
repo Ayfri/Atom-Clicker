@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { BOOSTABLE_CURRENCIES } from '#data/currencies.js';
 	import { GENERATOR_TYPES, GENERATORS, getGeneratorColor, type GeneratorType } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
@@ -12,8 +12,6 @@
 	import { btn, checkbox, setGeneratorCount } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
-
-	const BOOSTABLE: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS];
 
 	const autoBuyUnlocked = $derived(new Set(gameManager.effects.targets('auto_buy')));
 	const autoUpgradeUnlocked = $derived(gameManager.effects.has('auto_upgrade'));
@@ -31,11 +29,11 @@
 		<button class={btn} onclick={() => (gameManager.generators = {})}>Clear</button>
 	{/snippet}
 	<div class="grid grid-cols-[1fr_5.5rem_2.5rem_4.5rem_auto] items-center gap-x-2 gap-y-1.5 text-xs">
-		<span class="text-[10px] text-white/30">Name</span>
-		<span class="text-[10px] text-white/30">Count</span>
-		<span class="text-[10px] text-white/30">Lvl</span>
-		<span class="text-right text-[10px] text-white/30">Atoms/s</span>
-		<span class="text-[10px] text-white/30" title="Auto-buy">Auto</span>
+		<span class="text-[11px] text-white/45">Name</span>
+		<span class="text-[11px] text-white/45">Count</span>
+		<span class="text-[11px] text-white/45">Lvl</span>
+		<span class="text-right text-[11px] text-white/45">Atoms/s</span>
+		<span class="text-[11px] text-white/45" title="Auto-buy">Auto</span>
 		{#each GENERATOR_TYPES as type (type)}
 			{const generator = $derived(gameManager.generators[type])}
 			{const Icon = $derived(ICONS[GENERATOR_ICON_NAMES[type]])}
@@ -54,7 +52,7 @@
 					onchange={() => gameManager.toggleAutomation(type)}
 					type="checkbox"
 				/>
-				<span class="font-mono text-[10px] {autoBuyManager.recentlyAutoPurchasedGenerators.has(type) ? 'text-accent-300' : 'text-white/25'}">
+				<span class="font-mono text-[11px] {autoBuyManager.recentlyAutoPurchasedGenerators.has(type) ? 'text-accent-300' : 'text-white/40'}">
 					{autoBuyUnlocked.has(type) ? (interval ? `${(interval / 1000).toFixed(1)}s` : 'off') : 'lock'}
 				</span>
 			</label>
@@ -91,11 +89,11 @@
 
 <Section title="Currency boosts {gameManager.boostPointsUsed}/{gameManager.boostPointsTotal}">
 	{#snippet actions()}
-		<button class={btn} onclick={() => gameManager.splitCurrencyBoostsEvenly(BOOSTABLE)}>Split</button>
+		<button class={btn} onclick={() => gameManager.splitCurrencyBoostsEvenly(BOOSTABLE_CURRENCIES)}>Split</button>
 		<button class={btn} disabled={gameManager.boostPointsUsed === 0} onclick={() => gameManager.resetCurrencyBoosts()}>Reset</button>
 	{/snippet}
 	<div class="grid grid-cols-[1fr_auto_1.5rem_auto_3rem] items-center gap-x-2 gap-y-1.5 text-xs">
-		{#each BOOSTABLE as currency (currency)}
+		{#each BOOSTABLE_CURRENCIES as currency (currency)}
 			{const points = $derived(gameManager.currencyBoosts[currency] ?? 0)}
 			<span class="flex items-center gap-1.5 text-white/70"><Currency name={currency} size={14} />{currency}</span>
 			<button class={btn} disabled={points <= 0} onclick={() => gameManager.removeCurrencyBoost(currency)}>-</button>

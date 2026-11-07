@@ -282,6 +282,28 @@ describe('listeners and environment', () => {
 		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 300, input: { delayMs: 10, processingMs: 190, presentationMs: 100 } });
 	});
 
+	test('events and idle frames longer than 10 s are a suspended device and become no incident', async () => {
+		await startAndOpen();
+		const [events, frames] = FakeObserver.instances;
+		const startTime = perfTracker.resumedAt + 100;
+		const inputP95 = perfTracker.totals().inputP95Ms;
+		events.deliver({ duration: 12_000, interactionId: 1, name: 'click', processingEnd: startTime + 11_000, processingStart: startTime + 10, startTime, target: null });
+		frames.deliver({ duration: 12_000, scripts: [], startTime, styleAndLayoutStart: 0 });
+		expect(perfTracker.incidents.worst(1)).toEqual([]);
+		expect(perfTracker.totals().inputP95Ms).toBe(inputP95);
+
+		frames.deliver({ duration: 10_000, scripts: [], startTime, styleAndLayoutStart: 0 });
+		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 10_000 });
+	});
+
+	test('a frame longer than 10 s that is mostly script stays an incident', async () => {
+		await startAndOpen();
+		const [, frames] = FakeObserver.instances;
+		const startTime = perfTracker.resumedAt + 100;
+		frames.deliver({ duration: 12_000, scripts: [{ duration: 11_000, invoker: 'tick', invokerType: 'user-callback', sourceFunctionName: 'tick' }], startTime, styleAndLayoutStart: 0 });
+		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 12_000, loaf: { scriptMs: 11_000 } });
+	});
+
 	test('a modal replaced while its loader runs is not labelled again', async () => {
 		await startAndOpen();
 		const action = spyOn(perfTracker, 'action');

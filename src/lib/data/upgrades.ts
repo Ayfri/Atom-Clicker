@@ -12,6 +12,9 @@ export const UPGRADE_CATEGORIES = ['Generators', 'Click', 'Production', 'Utility
 
 export type UpgradeCategory = (typeof UPGRADE_CATEGORIES)[number];
 
+/** Matter Retention keeps generators through Protonize, Deep Retention through Electronize too. */
+export const KEEP_GENERATOR_UPGRADES = ['electron_keep_generators', 'electron_keep_generators_deep'] as const;
+
 interface CreateUpgradesOptions {
 	category: UpgradeCategory;
 	/** Hides the upgrade while false. */
@@ -62,7 +65,8 @@ function createUpgrades(options: CreateUpgradesOptions): Upgrade[] {
 const achievementCount = (manager: GameManager) => manager.achievements.length;
 const playerLevel = (manager: GameManager) => manager.playerLevel;
 
-/** Boost tiers 6-10, 11-15 and 16-20 each need one more protonise, so a first run tops out near 1e15 atoms instead of 1e29. */
+const GENERATOR_BOOST_TIERS = 22;
+/** Boost tiers 6-10, 11-15, 16-20 and 21-22 each need one more protonise, so early runs stay limited to the first few tiers. */
 const GENERATOR_BOOST_TIERS_PER_PROTONISE = 5;
 
 function boostTierProtonises(tier: number): number {
@@ -72,7 +76,8 @@ function boostTierProtonises(tier: number): number {
 /** Boost tiers of unlocked generators that the next protonise opens, so the panel can say why the atom list ran dry. */
 export function boostTiersUnlockedByNextProtonise(manager: GameManager): number {
 	const unlockedGenerators = GENERATOR_TYPES.filter(type => manager.generators[type]?.unlocked).length;
-	return manager.totalProtonisesAllTime < 3 ? unlockedGenerators * GENERATOR_BOOST_TIERS_PER_PROTONISE : 0;
+	const remaining = GENERATOR_BOOST_TIERS - GENERATOR_BOOST_TIERS_PER_PROTONISE * (manager.totalProtonisesAllTime + 1);
+	return unlockedGenerators * Math.max(0, Math.min(GENERATOR_BOOST_TIERS_PER_PROTONISE, remaining));
 }
 
 const isGeneratorUnlocked = (generatorType: GeneratorType) => (state: GameManager) => state.generators[generatorType]?.unlocked === true;
@@ -86,7 +91,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 		...createUpgrades({
 			category: 'Generators',
 			condition: (_, state) => isGeneratorUnlocked(generatorType)(state),
-			count: 20,
+			count: GENERATOR_BOOST_TIERS,
 			familyName: `${generator.name} Boost`,
 			gate: {
 				open: (i, state) => state.totalProtonisesAllTime >= boostTierProtonises(i),
@@ -97,7 +102,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 			id,
 			name: i => `${generator.name} Boost ${i}`,
 			description: i => `${capitalize(shortNumberText(1 + Math.ceil(i / 5)))} ${generator.name} production`,
-			cost: i => generator.cost.amount * 2.5 ** (i * 2) * (i > 10 ? i ** 3 : 1),
+			cost: i => generator.cost.amount * 10 ** (0.8 * i + 0.05 * i * i),
 			effects: i => [mul('generator', 1 + Math.ceil(i / 5), generatorType)],
 		}),
 		{
@@ -115,8 +120,8 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 			condition: isGeneratorUnlocked(generatorType),
 			// 30x per generator so the last masteries wait for later protonise runs instead of all landing at 5e14 atoms.
 			cost: { amount: 5_000_000 * 30 ** index, currency: CurrenciesTypes.ATOMS },
-			description: `+10% ${generator.name} production per 25 ${generator.name} levels`,
-			effects: [mul('generator', manager => 1 + Math.floor(levels(manager) / 25) * 0.1, generatorType)],
+			description: `+10% ${generator.name} production per ${generator.name} level`,
+			effects: [mul('generator', manager => 1 + levels(manager) * 0.1, generatorType)],
 			icon: 'generator',
 			id: `${id}_level_mastery`,
 			name: `${generator.name} Level Mastery`,
@@ -632,6 +637,25 @@ function createElectronUpgrades(): Upgrade[] {
 			icon: 'generator',
 			id: 'electron_cosmic_synergy',
 			name: 'Cosmic Synergy',
+		},
+		{
+			category: 'Utility',
+			cost: { amount: 10_000, currency: CurrenciesTypes.ELECTRONS },
+			description: 'Keep your generators when you Protonize',
+			effects: [],
+			icon: 'generator',
+			id: 'electron_keep_generators',
+			name: 'Matter Retention',
+		},
+		{
+			category: 'Utility',
+			condition: state => state.totalIonizesAllTime >= 5 && state.upgrades.includes('electron_keep_generators'),
+			cost: { amount: 1_000_000, currency: CurrenciesTypes.ELECTRONS },
+			description: 'Your generators also survive Electronize',
+			effects: [],
+			icon: 'generator',
+			id: 'electron_keep_generators_deep',
+			name: 'Deep Retention',
 		},
 	];
 }

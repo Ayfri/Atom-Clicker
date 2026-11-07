@@ -1,9 +1,49 @@
 import type { CurrencyName } from '#data/currencies.js';
+import { GENERATORS, type GeneratorType } from '#data/generators.js';
 import type { IconName } from '#data/iconNames.js';
 import { UPGRADE_CATEGORIES, UPGRADES, type UpgradeCategory } from '#data/upgrades.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+import { effectAmount } from '#helpers/effects.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
-import type { Upgrade } from '#lib/types.js';
+import type { EffectStat, Upgrade } from '#lib/types.js';
+import { formatNumber } from '#lib/utils.js';
+
+/** Totals of `add` effects, a stat missing here never shows a total. */
+const ADD_TOTALS: Partial<Record<EffectStat, (value: number) => string>> = {
+	auto_click: value => `+${formatNumber(value)} auto clicks per second`,
+	auto_upgrade: value => `${formatNumber(value / 1000)}s auto-upgrade interval`,
+	click: value => `+${formatNumber(value)} base value per click`,
+	click_aps: value => `+${formatNumber(value * 100)}% of your Atoms per second per click`,
+	electron_gain: value => `+${formatNumber(value)} electrons from Electronize`,
+	stability_boost: value => `+${formatNumber(value * 100)}% Stability Field bonus`,
+	stability_capacity: value => `×${formatNumber(1 + value)} Stability Field max bonus`,
+	stability_speed: value => `+${formatNumber(value * 100)}% Stability Field speed`,
+	start_atoms: value => `+${formatNumber(value)} atoms after a Protonize`,
+};
+
+/** What `mul` and `sum` effects multiply, a stat missing here never shows a total. */
+const MUL_LABELS: Partial<Record<EffectStat, string>> = {
+	click: 'click power',
+	electron_gain: 'electrons from Electronize',
+	global: 'production',
+	power_up_duration: 'power-up duration',
+	power_up_interval: 'power-up interval',
+	proton_gain: 'protons from Protonize',
+};
+
+interface Total {
+	kind: 'add' | 'mul' | 'sum';
+	stat: EffectStat;
+	target?: GeneratorType;
+	value: number;
+}
+
+function totalText({ kind, stat, target, value }: Total): string | null {
+	if (kind === 'add') return ADD_TOTALS[stat]?.(value) ?? null;
+	const label = stat === 'generator' && target ? `${GENERATORS[target].name} production` : MUL_LABELS[stat];
+	if (!label) return null;
+	return kind === 'mul' ? `×${formatNumber(value)} ${label}` : `+${formatNumber(value * 100)}% ${label}`;
+}
 
 /** The tiers of `UPGRADES` that share a `family`, one row of the panel. Ids and saves are untouched. */
 interface Family {
@@ -73,6 +113,27 @@ export class FamilyView {
 
 	preview = $derived.by(() => this.next ?? this.unbought[0] ?? this.family.tiers[this.max - 1]);
 
+	/**
+	 * What the owned levels give together right now, one line per stat. Empty for a single level with constant effects, its description
+	 * already says it all. A family's `sum` effects share one reader, so they add up as a percent.
+	 * @example ['×248.83K click power'] for a maxed Click Power
+	 */
+	totals = $derived.by(() => {
+		const effects = this.family.tiers.filter(tier => this.owned().has(tier.id)).flatMap(tier => tier.effects);
+		if (this.max === 1 && effects.every(effect => effect.kind !== 'sum' && typeof effect.amount === 'number')) return [];
+		const totals = new Map<string, Total>();
+		for (const effect of effects) {
+			const target = effect.kind === 'sum' ? undefined : effect.target;
+			const key = `${effect.stat}:${target}:${effect.kind}`;
+			const amount = effectAmount(effect, gameManager);
+			const total = totals.get(key);
+			if (!total) totals.set(key, { kind: effect.kind, stat: effect.stat, target, value: amount });
+			else total.value = effect.kind === 'mul' ? total.value * amount : total.value + amount;
+		}
+		/** Some descriptions already count every level (Field Strength), their total would only repeat them. */
+		return [...totals.values()].map(totalText).filter(text => text !== null && text !== this.preview.description);
+	});
+
 	/** Running totals of the unbought open tiers, what buying them in a row costs. */
 	private readonly costs = $derived.by(() => {
 		const owned = this.owned();
@@ -139,9 +200,9 @@ class UpgradeFamilies {
 		return view.next !== null && gameManager.purchaseUpgrade(view.next.id);
 	}
 
-	/** Visible families in category order, then data order: nothing moves when bought, affordable or maxed. */
-	categories(currency: CurrencyName): UpgradeGroup[] {
-		const visible = this.views.filter(view => view.family.currency === currency && view.visible);
+	/** Visible families minus `hidden` ids, in category order then data order: nothing moves when bought, affordable or maxed. */
+	categories(currency: CurrencyName, hidden: ReadonlySet<string>): UpgradeGroup[] {
+		const visible = this.views.filter(view => view.family.currency === currency && view.visible && !hidden.has(view.family.id));
 		return UPGRADE_CATEGORIES.flatMap(category => {
 			const views = visible.filter(view => view.family.category === category);
 			return views.length > 0 ? [{ category, views }] : [];

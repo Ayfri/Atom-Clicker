@@ -1,6 +1,7 @@
 ﻿<script lang="ts">
 	import { Award, ChevronDown, ChevronUp, Clock, Layers, Sparkles, Star, Target, TrendingUp, Zap } from '@lucide/svelte';
 	import { formatDuration, formatNumber, formatSimTimePrecise } from '#lib/utils.js';
+	import { buildScorecard, VERDICT_MARK, type Verdict } from '#lib/simulation/markdownReport.js';
 	import { MILESTONES } from '#lib/simulation/milestones.js';
 	import type { SimulationResult } from '#lib/simulation/types.js';
 	import SpikeBreakdown from './SpikeBreakdown.svelte';
@@ -16,6 +17,9 @@
 		return MILESTONES.filter(m => !reachedIds.has(m.id));
 	});
 	const spikes = $derived(result.spikes);
+	const scorecard = $derived(buildScorecard(result));
+
+	const VERDICT_STYLE: Record<Verdict, string> = { bad: 'text-red-400', ok: 'text-green-400', watch: 'text-amber-400' };
 </script>
 
 <section class="backdrop-blur-xl bg-white/5 border border-white/10 p-6 rounded-2xl">
@@ -76,7 +80,7 @@
 		</div>
 	</div>
 
-	<div class="gap-3 grid grid-cols-2 mt-4 md:grid-cols-6 text-sm">
+	<div class="gap-3 grid grid-cols-2 mt-4 md:grid-cols-4 lg:grid-cols-8 text-sm">
 		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
 			<span class="text-gray-500">Protonises</span>
 			<span class="font-mono text-amber-400">{final?.protonises ?? 0}</span>
@@ -84,6 +88,14 @@
 		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
 			<span class="text-gray-500">Electronizes</span>
 			<span class="font-mono text-blue-400">{final?.electronizes ?? 0}</span>
+		</div>
+		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
+			<span class="text-gray-500">Ionizes</span>
+			<span class="font-mono text-fuchsia-400">{final?.cosmos?.ionizes ?? 0}</span>
+		</div>
+		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
+			<span class="text-gray-500">Discoveries</span>
+			<span class="font-mono text-cyan-300">{final?.cosmos?.discovered ?? 0}</span>
 		</div>
 		<div class="bg-black/10 flex gap-2 items-center justify-between p-3 rounded-lg">
 			<span class="text-gray-500">Photon Lvls</span>
@@ -104,6 +116,21 @@
 	</div>
 
 	<div class="bg-black/30 h-px my-6 w-full"></div>
+
+	{#if scorecard.length > 0}
+		<div class="flex flex-col gap-2 mb-6">
+			<h3 class="font-medium mb-1 text-gray-400 text-xs uppercase tracking-wider">Balance scorecard</h3>
+			<div class="gap-x-6 gap-y-1 grid grid-cols-1 lg:grid-cols-2 text-sm">
+				{#each scorecard as check (check.label)}
+					<div class="gap-3 grid grid-cols-[1rem_10rem_1fr] items-baseline px-2 py-1 rounded hover:bg-white/5" title="Target: {check.target}">
+						<span class="font-bold {VERDICT_STYLE[check.verdict]}">{VERDICT_MARK[check.verdict]}</span>
+						<span class="text-gray-300">{check.label}</span>
+						<span class="text-gray-500 text-xs">{check.measured}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	{#if spikes.length > 0}
 		<div class="flex flex-col gap-2 mb-6">

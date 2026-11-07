@@ -89,14 +89,14 @@
 </script>
 
 <Section title="Local save">
-	<div class="mb-2 flex flex-wrap gap-x-3 font-mono text-[11px] text-white/50">
+	<div class="mb-2 flex flex-wrap gap-x-3 font-mono text-[12px] text-white/50">
 		<span>v{SAVE_VERSION}</span>
 		<span>{(saveSize / 1024).toFixed(1)} KB</span>
 		<span>saved {new Date(gameManager.lastSave).toLocaleTimeString()}</span>
 		{#if gameManager.integrityFlagged}<span class="text-red-400">integrity flagged</span>{/if}
 	</div>
 	{#each gameManager.saveIntegrityWarnings as warning (warning)}
-		<p class="mb-1 text-[11px] text-yellow-300/80">{warning}</p>
+		<p class="mb-1 text-[12px] text-yellow-300/80">{warning}</p>
 	{/each}
 	<div class="flex flex-wrap gap-1">
 		<button class={btnAccent} onclick={() => gameManager.save()}>Save now</button>
@@ -108,7 +108,7 @@
 	{#if importText !== null}
 		<textarea aria-label="Save to import" bind:value={importText} class="{field} mt-2 h-24 resize-y" placeholder="Paste a stored save or a raw state JSON"></textarea>
 		<div class="mt-1 flex items-center gap-2">
-			<span class="flex-1 truncate text-[11px] text-red-300">{importError ?? ''}</span>
+			<span class="flex-1 truncate text-[12px] text-red-300">{importError ?? ''}</span>
 			<button class={btnAccent} disabled={!importText || !!importError} onclick={() => reloadWithSave(importText)}>Load and reload</button>
 		</div>
 	{/if}
@@ -181,12 +181,12 @@
 		{#each snapshots.list as snapshot (snapshot.date)}
 			<div class="flex items-center gap-2 rounded px-1 text-xs hover:bg-white/5">
 				<span class="min-w-0 flex-1 truncate text-white/80">{snapshot.name}</span>
-				<span class="font-mono text-[10px] text-white/30">{new Date(snapshot.date).toLocaleString()}</span>
+				<span class="font-mono text-[11px] text-white/45">{new Date(snapshot.date).toLocaleString()}</span>
 				<button class={btn} onclick={() => snapshots.restore(snapshot)}>Load</button>
 				<button class={btn} onclick={() => snapshots.remove(snapshot.date)}>x</button>
 			</div>
 		{:else}
-			<p class="text-[11px] text-white/30">Captures the stored save, loading one reloads the page.</p>
+			<p class="text-[12px] text-white/45">Captures the stored save, loading one reloads the page.</p>
 		{/each}
 	</div>
 </Section>
@@ -197,14 +197,14 @@
 		{#each keys as key (key)}
 			{const value = $derived(read(key))}
 			<div class="grid grid-cols-[10rem_1fr] items-center gap-2 border-b border-white/5 py-0.5 text-xs last:border-0">
-				<span class="truncate font-mono text-[11px] text-white/50" title={key}>{key}</span>
+				<span class="truncate font-mono text-[12px] text-white/50" title={key}>{key}</span>
 				{#if typeof value === 'number'}
 					<NumberInput label={key} onCommit={next => write(key, next)} {value} />
 				{:else if typeof value === 'string'}
 					<input aria-label={key} class={field} onchange={e => write(key, e.currentTarget.value)} {value} />
 				{:else}
 					<button
-						class="truncate rounded px-1 text-left font-mono text-[11px] text-white/40 hover:bg-white/5 hover:text-white/70"
+						class="truncate rounded px-1 text-left font-mono text-[12px] text-white/40 hover:bg-white/5 hover:text-white/70"
 						onclick={() => (editing = editing?.key === key ? null : { key, text: JSON.stringify(value, null, 2) })}
 					>
 						{Array.isArray(value) ? `[${value.length}]` : `{${Object.keys(value ?? {}).length}}`}
@@ -226,7 +226,7 @@
 						}
 					}}
 				></textarea>
-				<p class="mb-1 text-[10px] {editError ? 'text-red-300' : 'text-white/30'}">{editError ?? 'Ctrl+Enter to apply, Esc to cancel'}</p>
+				<p class="mb-1 text-[11px] {editError ? 'text-red-300' : 'text-white/45'}">{editError ?? 'Ctrl+Enter to apply, Esc to cancel'}</p>
 			{/if}
 		{/each}
 	</div>
@@ -238,7 +238,7 @@
 		<button class={btn} onclick={() => copy(JSON.stringify(gameManager.getCurrentState(), null, 2), 'State JSON')}>Copy</button>
 	{/snippet}
 	{#if rawJson}
-		<pre class="max-h-96 overflow-auto rounded bg-black/40 p-2 font-mono text-[10px] text-green-300/90">{rawJson}</pre>
+		<pre class="max-h-96 overflow-auto rounded bg-black/40 p-2 font-mono text-[11px] text-green-300/90">{rawJson}</pre>
 	{/if}
 </Section>
 
@@ -247,6 +247,6 @@
 		<button class={btn} onclick={fetchCloud}>Fetch</button>
 	{/snippet}
 	{#if cloudJson}
-		<pre class="max-h-96 overflow-auto rounded bg-black/40 p-2 font-mono text-[10px] text-green-300/90">{cloudJson}</pre>
+		<pre class="max-h-96 overflow-auto rounded bg-black/40 p-2 font-mono text-[11px] text-green-300/90">{cloudJson}</pre>
 	{/if}
 </Section>

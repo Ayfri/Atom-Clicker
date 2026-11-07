@@ -19,6 +19,7 @@
 		const multipliers = [
 			{ label: 'Upgrades and skills', value: gameManager.effects.value('global', 1, gameManager) },
 			{ label: 'Reactor', value: gameManager.radiationMultiplier },
+			{ label: 'Installed app', value: gameManager.appMultiplier },
 			{ label: 'Power-ups', value: gameManager.bonusMultiplier },
 			{ label: 'Stability Field', value: gameManager.stabilityMultiplier },
 			{ label: 'Atoms boost', value: gameManager.getCurrencyBoostMultiplier(CurrenciesTypes.ATOMS) },

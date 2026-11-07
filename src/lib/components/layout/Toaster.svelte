@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toastStore, type ToastStyle, type ToastType } from '#stores/toasts.svelte.js';
-	import { AlertCircle, AlertTriangle, CheckCircle, Info, Trash2 } from '@lucide/svelte';
+	import { CircleCheckBig, CircleExclamationPoint, Info, Trash, TriangleExclamationPoint } from '@lucide/svelte';
 	import { flip } from 'svelte/animate';
 	import { fade, fly } from 'svelte/transition';
 	import Toast from './Toast.svelte';
@@ -8,7 +8,7 @@
 	const typeConfig = {
 		error: {
 			border: 'border-red-500/50',
-			icon: AlertCircle,
+			icon: CircleExclamationPoint,
 			iconColor: 'text-red-500',
 			progressBarColor: 'bg-red-500',
 			title: 'text-red-400',
@@ -22,14 +22,14 @@
 		},
 		success: {
 			border: 'border-green-500/50',
-			icon: CheckCircle,
+			icon: CircleCheckBig,
 			iconColor: 'text-green-500',
 			progressBarColor: 'bg-green-500',
 			title: 'text-green-200',
 		},
 		warning: {
 			border: 'border-yellow-500/50',
-			icon: AlertTriangle,
+			icon: TriangleExclamationPoint,
 			iconColor: 'text-yellow-500',
 			progressBarColor: 'bg-yellow-500',
 			title: 'text-yellow-500',
@@ -57,7 +57,7 @@
 			title="Clear All"
 			transition:fade={{ duration: 400 }}
 		>
-			<Trash2 size={18} />
+			<Trash size={18} />
 		</button>
 	{/if}
 </div>

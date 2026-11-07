@@ -5,7 +5,7 @@
 	import { saveRecovery, type SaveErrorType } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { CloudDownload, Database, RefreshCw, Trash2, TriangleAlert } from '@lucide/svelte';
+	import { ArchiveArrowDown, CloudDownload, RefreshCw, Trash, TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -98,7 +98,7 @@
 
 		{#if saveRecovery.backupKey}
 			<div class="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
-				<Database
+				<ArchiveArrowDown
 					size={20}
 					class="text-green-400"
 				/>
@@ -162,7 +162,7 @@
 				onclick={handleDismiss}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-500/20">
-					<Trash2
+					<Trash
 						size={24}
 						class="text-red-400"
 					/>

@@ -5,11 +5,13 @@ import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { formatDuration, formatNumber } from '#lib/utils.js';
+import { COSMOS_DISCOVERABLE, COSMOS_INSTRUMENT_COUNT, cosmosSteps } from './cosmos';
 import { MILESTONES } from './milestones';
 import { DEFAULT_SEED } from './random';
 import {
 	PRESTIGE_LAYERS,
 	totalActionCount,
+	type CosmosInsights,
 	type PrestigeEvent,
 	type RunInsights,
 	type SimulationAction,
@@ -37,7 +39,7 @@ const SKILL_TOTAL = Object.keys(SKILL_UPGRADES).length;
 const STALL_GROWTH = 1.05;
 const SYSTEM_GAP_TARGET_MS = 4 * HOUR_MS;
 
-function simTime(ms: number): string {
+export function simTime(ms: number): string {
 	const h = Math.floor(ms / 3_600_000);
 	const m = Math.floor((ms % 3_600_000) / 60_000);
 	return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}m`;
@@ -504,9 +506,55 @@ function idleSection(insights: RunInsights): string {
 	].join('\n');
 }
 
-type Verdict = 'bad' | 'ok' | 'watch';
+function cosmosSection(insights: CosmosInsights | undefined, snapshots: SimulationSnapshot[]): string {
+	const final = snapshots.at(-1)?.cosmos;
+	if (insights?.openedAt == null || !final) return 'The Cosmos never opened, the run did not reach the first Ionize.';
+	const opened = insights.openedAt;
+	const end = snapshots.at(-1)?.timestamp ?? opened;
+	const steps = cosmosSteps(insights);
+	const blocked = Object.entries(insights.blockedMs).filter(([, ms]) => ms > 0);
+	const blockedTotal = blocked.reduce((total, [, ms]) => total + ms, 0);
+	const open = snapshots.filter(s => (s.cosmos?.ionizes ?? 0) > 0);
+	return [
+		`Opened at ${simTime(opened)}, played for ${simTime(end - opened)}: ${final.discovered}/${COSMOS_DISCOVERABLE} discovered, ` +
+			`${final.instruments}/${COSMOS_INSTRUMENT_COUNT} instruments, Aperture ${final.aperture}, ${final.studyLevels} study levels, ${final.ionizes} Ionizes, ` +
+			`${formatNumber(final.starlightPerSecond)} Starlight/s. Boosts: ${Object.entries(final.boosts).map(([stat, value]) => `${stat} ${mult(value)}`).join(', ')}.`,
+		'',
+		`What the next discovery waited on while the sky still held one (${simTime(blockedTotal)}): ` +
+			(blocked.length > 0 ? blocked.map(([blocker, ms]) => `${blocker} ${simTime(ms)} (${pct(ms / blockedTotal)})`).join(', ') : 'nothing') + '.',
+		'',
+		'Wait is the time since the previous step of the same kind, the opening for the first one.',
+		'',
+		table(
+			['step', 'at', 'since open', 'wait', 'Starlight/s'],
+			steps.map(step => [
+				step.kind === 'instrument' ? `**${step.name}**` : step.name,
+				simTime(step.timestamp),
+				simTime(step.timestamp - opened),
+				simTime(step.wait),
+				formatNumber(step.starlightPerSecond),
+			]),
+		),
+		'',
+		table(
+			['t', 'Starlight/s', 'held', 'earned', 'found', 'studies', 'aperture', 'ionizes'],
+			sample(open).map(({ cosmos, timestamp }) => [
+				simTime(timestamp),
+				formatNumber(cosmos?.starlightPerSecond ?? 0),
+				formatNumber(cosmos?.starlight ?? 0),
+				formatNumber(cosmos?.starlightEarned ?? 0),
+				`${cosmos?.discovered ?? 0}`,
+				`${cosmos?.studyLevels ?? 0}`,
+				`${cosmos?.aperture ?? 0}`,
+				`${cosmos?.ionizes ?? 0}`,
+			]),
+		),
+	].join('\n');
+}
 
-interface Check {
+export type Verdict = 'bad' | 'ok' | 'watch';
+
+export interface Check {
 	label: string;
 	measured: string;
 	target: string;
@@ -594,6 +642,20 @@ export function buildScorecard(result: SimulationResult): Check[] {
 		checks.push({ label, measured: time !== undefined ? simTime(time) : 'never', target: 'reached', verdict: time !== undefined ? 'ok' : 'bad' });
 	}
 
+	const cosmos = insights?.cosmos;
+	if (cosmos?.openedAt != null) {
+		const gaps = cosmosSteps(cosmos).filter(step => step.kind === 'instrument').map(step => step.wait);
+		const gap = median(gaps);
+		checks.push({
+			label: 'Cosmos instruments',
+			measured: `opened ${simTime(cosmos.openedAt)}, ${gaps.length}/${COSMOS_INSTRUMENT_COUNT} bought, median gap ${simTime(gap)}`,
+			target: `one every ~${SYSTEM_GAP_TARGET_MS / HOUR_MS}h at first, then slower`,
+			verdict: gaps.length === 0 ? 'watch' : grade(Math.abs(Math.log2(gap / SYSTEM_GAP_TARGET_MS)), 1, 2),
+		});
+	} else if (cosmos) {
+		checks.push({ label: 'Cosmos instruments', measured: 'never opened', target: 'first Ionize reached', verdict: 'watch' });
+	}
+
 	const densest = milestoneDensity(milestones);
 	checks.push({
 		label: 'Unlock dogpile',
@@ -605,7 +667,7 @@ export function buildScorecard(result: SimulationResult): Check[] {
 	return checks;
 }
 
-const VERDICT_MARK: Record<Verdict, string> = { bad: '✗', ok: '✓', watch: '~' };
+export const VERDICT_MARK: Record<Verdict, string> = { bad: '✗', ok: '✓', watch: '~' };
 
 export function formatScorecard(checks: Check[]): string[] {
 	const width = Math.max(...checks.map(check => check.label.length));
@@ -705,6 +767,7 @@ export function buildMarkdownReport(result: SimulationResult): string {
 				['excited held', formatNumber(final.excitedPhotons ?? 0), 'excited earned', formatNumber(final.excitedPhotonsEarned ?? 0)],
 				['circles expired', formatNumber(final.photonsExpired ?? 0), 'quarks', formatNumber(final.quarks ?? 0)],
 				['protonises', `${final.protonises}`, 'electronizes', `${final.electronizes}`],
+				['ionizes', `${final.cosmos?.ionizes ?? 0}`, 'Starlight earned', formatNumber(final.cosmos?.starlightEarned ?? 0)],
 				['player level', `${final.playerLevel}`, 'total XP', formatNumber(final.totalXP)],
 				['generators', `${final.totalGenerators}`, 'generator levels', `${final.generatorLevels}`],
 				['upgrades owned', `${final.upgrades}`, 'upgrades all-time', `${final.totalUpgrades}`],
@@ -749,6 +812,13 @@ export function buildMarkdownReport(result: SimulationResult): string {
 		lines.push('## Idle time');
 		lines.push('');
 		lines.push(idleSection(result.insights));
+
+		if (result.insights.cosmos) {
+			lines.push('');
+			lines.push('## Cosmos');
+			lines.push('');
+			lines.push(cosmosSection(result.insights.cosmos, snapshots));
+		}
 	}
 
 	lines.push('');

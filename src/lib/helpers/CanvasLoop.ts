@@ -149,6 +149,11 @@ export abstract class CanvasLoop {
 	/** Runs when the loop stops for a hidden or deselected canvas. */
 	protected paused() {}
 
+	/** Drops the cached sprites, for a subclass whose sprites bake in a size that just changed. */
+	protected clearSprites() {
+		this.sprites.clear();
+	}
+
 	/** Draws one frame even when stopped, resizing a canvas clears it. */
 	protected redraw() {
 		if (!this.frame) this.frame = requestAnimationFrame(this.loop);

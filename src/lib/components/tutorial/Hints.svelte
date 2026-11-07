@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { HINTS, type Hint } from '#data/hints.js';
-	import type { RealmType } from '#data/realms.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { perfTracker } from '#helpers/perfTracker.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
@@ -19,27 +18,33 @@
 
 	const unseen = $derived(tutorial.state.enabled ? HINTS.filter(hint => !tutorial.hasSeen(hint.id)) : []);
 
+	/** A replayed hint shows even if its action is done, its target being on screen is the only condition left. */
+	const inTour = (hint: Hint) => tutorial.tour !== null && hint.id.startsWith(tutorial.tour);
+
 	/** Hints for the realm on screen, changes only on the poll so atom commits never rebuild it. */
 	let pending = $state.raw<Hint[]>([]);
 
 	/** Completion is tracked for every unseen hint, so a player who already did the action never gets told to do it. */
-	function evaluate(realm: RealmType) {
+	function evaluate(realm: Hint['realm']) {
 		const start = performance.now();
 		const next: Hint[] = [];
 		for (const hint of unseen) {
-			if (hint.done?.()) tutorial.markSeen(hint.id);
-			else if (hint.realm === realm && (!hint.show || hint.show())) next.push(hint);
+			const touring = inTour(hint);
+			if (!touring && hint.done?.()) tutorial.markSeen(hint.id);
+			else if (hint.realm === realm && (touring || !hint.show || hint.show())) next.push(hint);
 		}
 		if (next.length !== pending.length || next.some((hint, i) => hint !== pending[i])) pending = next;
+		if (tutorial.tour !== null && !next.some(inTour)) tutorial.tour = null;
 		perfTracker.track('hints:evaluate', start);
 	}
 
 	$effect(() => {
 		if (unseen.length === 0) {
 			pending = [];
+			untrack(() => (tutorial.tour = null));
 			return;
 		}
-		const realm = realmManager.selectedRealmId;
+		const realm = realmManager.hintScope;
 		untrack(() => evaluate(realm));
 		const interval = setInterval(() => evaluate(realm), POLL_MS);
 		return () => clearInterval(interval);
@@ -67,10 +72,17 @@
 			if (hint.targets && !rect) continue;
 			current = hint;
 			targetRect = rect;
+			endTour();
 			return;
 		}
 		current = null;
 		targetRect = null;
+		endTour();
+	}
+
+	/** The replay ends once none of its hints can show, the ones left unseen then follow their usual rules. */
+	function endTour() {
+		if (tutorial.tour !== null && !(current && inTour(current))) tutorial.tour = null;
 	}
 
 	$effect(() => {
@@ -92,7 +104,7 @@
 		};
 	});
 
-	const visible = $derived(current && pending.includes(current) && !ui.activeModal ? current : null);
+	const visible = $derived(current && pending.includes(current) && !ui.activeModal && !realmManager.introPlaying ? current : null);
 
 	/** Space between the target and its halo, a round halo breathes further out. */
 	const pad = $derived(visible?.round ? 14 : 4);
@@ -134,7 +146,7 @@
 
 	const flyFrom = $derived.by(() => {
 		const side = visible?.placement ?? 'bottom';
-		if (!targetRect) return { x: 0, y: 16 };
+		if (!targetRect) return { x: 0, y: visible?.dock === 'top' ? -16 : 16 };
 		return { x: side === 'left' ? 12 : side === 'right' ? -12 : 0, y: side === 'top' ? 12 : side === 'bottom' ? -12 : 0 };
 	});
 </script>
@@ -154,6 +166,8 @@
 				targetRect
 			) ?
 				''
+			: hint.dock === 'top' ?
+				'top-[calc(var(--banner-height,0px)+10rem)] left-1/2 -translate-x-1/2'
 			:	'bottom-[calc(var(--mobile-nav-height,0px)+1.5rem)] left-1/2 -translate-x-1/2'}"
 			style={position ? `left: ${position.left}px; top: ${position.top}px;` : targetRect ? 'visibility: hidden;' : ''}
 			in:fly={{ ...flyFrom, duration: 350 }}
@@ -168,12 +182,19 @@
 			</button>
 			<h3 class="text-sm font-bold text-white">{hint.title}</h3>
 			<p class="mt-1 text-xs text-white/70">{@html highlightCurrencies(hint.text)}</p>
-			{#if !hint.done}
+			{#if hint.action}
+				<button
+					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
+					onclick={hint.action.run}
+				>
+					{hint.action.label}
+				</button>
+			{:else if !hint.done || inTour(hint)}
 				<button
 					class="pointer-events-auto mt-2 rounded-md bg-accent-500 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-accent-400"
 					onclick={() => tutorial.markSeen(hint.id)}
 				>
-					Got it
+					{inTour(hint) ? 'Next' : 'Got it'}
 				</button>
 			{/if}
 		</div>

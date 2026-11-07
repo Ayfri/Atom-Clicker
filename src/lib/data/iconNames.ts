@@ -14,6 +14,7 @@ export type IconName =
 	| 'collider'
 	| 'crystal'
 	| 'currencyBoost'
+	| 'decayEvent'
 	| 'discord'
 	| 'electron'
 	| 'excitedPhoton'
@@ -33,6 +34,7 @@ export type IconName =
 	| 'nanostructure'
 	| 'neutronStar'
 	| 'offline'
+	| 'overdrive'
 	| 'photon'
 	| 'planet'
 	| 'playTime'
@@ -49,6 +51,8 @@ export type IconName =
 	| 'speed'
 	| 'stabilityField'
 	| 'star'
+	| 'starlight'
+	| 'telescope'
 	| 'trendingUp'
 	| 'trophy'
 	| 'upgrade'
@@ -58,6 +62,7 @@ export type IconName =
 export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.ATOMS]: 'atom',
 	[CurrenciesTypes.BLUE_LIGHT]: 'blueLight',
+	[CurrenciesTypes.DECAY_EVENTS]: 'decayEvent',
 	[CurrenciesTypes.ELECTRONS]: 'electron',
 	[CurrenciesTypes.EXCITED_PHOTONS]: 'excitedPhoton',
 	[CurrenciesTypes.GREEN_LIGHT]: 'greenLight',
@@ -65,6 +70,7 @@ export const CURRENCY_ICON_NAMES: Record<CurrencyName, IconName> = {
 	[CurrenciesTypes.PHOTONS]: 'photon',
 	[CurrenciesTypes.PROTONS]: 'proton',
 	[CurrenciesTypes.RED_LIGHT]: 'redLight',
+	[CurrenciesTypes.STARLIGHT]: 'starlight',
 	[CurrenciesTypes.WHITE_LIGHT]: 'whiteLight',
 };
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BenchmarkCharts from '#lib/components/benchmark/BenchmarkCharts.svelte';
 	import BenchmarkConfigPanel from '#lib/components/benchmark/BenchmarkConfigPanel.svelte';
+	import BenchmarkCosmos from '#lib/components/benchmark/BenchmarkCosmos.svelte';
 	import BenchmarkExport from '#lib/components/benchmark/BenchmarkExport.svelte';
 	import BenchmarkResults from '#lib/components/benchmark/BenchmarkResults.svelte';
 	import BenchmarkTimeline from '#lib/components/benchmark/BenchmarkTimeline.svelte';
@@ -9,7 +10,7 @@
 	import SimulationWorker from '#lib/simulation/simulation.worker?worker';
 	import type { MilestoneHit, SimulationProgress, SimulationResult, SimulationSnapshot, SpikeEvent } from '#lib/simulation/types.js';
 	import { getReport, saveReport, type BenchmarkReport } from '#lib/stores/benchmarkHistory.svelte.js';
-	import { ChartLine, GitCompare, History, Save, X } from '@lucide/svelte';
+	import { ChartLine, GitCompare, RotateCcwClock, Save, X } from '@lucide/svelte';
 
 	interface LiveRun {
 		milestones: MilestoneHit[];
@@ -45,6 +46,7 @@
 				cancelled: !loadedReport.wasCompleted,
 				config: loadedReport.config,
 				durationMs: loadedReport.durationMs,
+				insights: loadedReport.insights,
 				milestones: loadedReport.milestones ?? [],
 				snapshots: loadedReport.snapshots,
 				spikes: loadedReport.spikes ?? [],
@@ -180,7 +182,7 @@
 					class="cursor-pointer flex gap-2 hover:bg-white/10 items-center px-4 py-2 rounded-xl text-gray-400 transition-colors {showHistoryPanel ? 'bg-white/10 text-white' : ''}"
 					onclick={() => (showHistoryPanel = !showHistoryPanel)}
 				>
-					<History size={18} />
+					<RotateCcwClock size={18} />
 					<span class="hidden md:inline">History</span>
 				</button>
 			</div>
@@ -221,6 +223,7 @@
 
 			{#if shown}
 				<BenchmarkResults result={shown} />
+				<BenchmarkCosmos result={shown} />
 				<BenchmarkExport result={shown} />
 			{/if}
 

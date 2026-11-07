@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, mock, setSystemTime, spyOn, test } from 'bun:test';
 import { DAILY_QUEST_COUNT, getDailyCap, pickDailyQuests } from '#data/dailyQuests.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { obfuscateClientData } from '#lib/utils/obfuscation.js';
 
@@ -21,6 +22,7 @@ mock.module('#lib/server/supabase.server.js', () => ({
 }));
 
 const { POST: achievement } = await import('./achievement/+server.js');
+const { POST: appReward } = await import('./app-reward/+server.js');
 const { POST: claim } = await import('./claim/+server.js');
 const { POST: equipBanner } = await import('./equip-banner/+server.js');
 const { POST: equipTheme } = await import('./equip-theme/+server.js');
@@ -107,6 +109,14 @@ describe('rewards', () => {
 		expect(service.grantAchievementQuarks).toHaveBeenCalledWith('user-1', ['reset_modal_opener'], QUARK_ACHIEVEMENT_REWARD);
 		expect((await call(achievement, { achievementIds: Array.from({ length: 251 }, () => 'reset_modal_opener') })).status).toBe(400);
 		expect((await call(achievement, { achievementIds: [1] })).status).toBe(400);
+	});
+
+	test('the app reward is one fixed grant per account, whatever the request says', async () => {
+		expect((await call(appReward, { delta: 1e6, ref: 'other', reward: 1e6 })).status).toBe(200);
+		expect(service.grantQuarks).toHaveBeenCalledWith('user-1', APP_REWARD_QUARKS, 'app_install', 'app_install');
+		expect((await call(appReward, {}, { auth: false })).status).toBe(401);
+		expect((await call(appReward, {}, { tamper: true })).status).toBe(400);
+		expect(service.grantQuarks).toHaveBeenCalledTimes(1);
 	});
 
 	test('quest claims are keyed on the UTC day and capped by the day quest count', async () => {

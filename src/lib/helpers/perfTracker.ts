@@ -1,5 +1,5 @@
 import { INCIDENT_MIN_MS, IncidentKinds, IncidentLog, SPAN_MIN_MS } from '#helpers/perfIncidents.js';
-import { IGNORE_GAP_MS, JANK_GAP_MS, LatencyHistogram, MAX_FREEZE_MS, MAX_SOURCES, WINDOW_MS } from '#helpers/perfStats.js';
+import { IGNORE_GAP_MS, JANK_GAP_MS, LatencyHistogram, MAX_FREEZE_MS, MAX_SOURCE_NAMES, WINDOW_MS } from '#helpers/perfStats.js';
 import type { PerfSourceStat, PerfTotals, PerfWindow } from '#lib/types/session.js';
 
 /** Preallocated per source, so tracking a call never allocates. */
@@ -199,9 +199,9 @@ export class PerfTracker {
 		this.onWindow?.(closed);
 	}
 
-	/** Past `MAX_SOURCES` names the extra ones share the `other` slot. */
+	/** Past `MAX_SOURCE_NAMES` names the extra ones share the `other` slot. */
 	private createSlot(source: string): Slot {
-		if (this.slots.size >= MAX_SOURCES) return this.other;
+		if (this.slots.size >= MAX_SOURCE_NAMES) return this.other;
 
 		const slot = newSlot(source);
 		this.slots.set(source, slot);

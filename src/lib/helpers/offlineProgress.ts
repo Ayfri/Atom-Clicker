@@ -3,8 +3,10 @@ import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { FeatureTypes } from '#data/features.js';
 import type { GeneratorType } from '#data/generators.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { XP_PER_ATOM } from '#lib/constants.js';
 import type { GeneratorCountMap, CurrencyAmountMap, OfflineProgressSummary } from '#lib/types.js';
@@ -58,6 +60,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 	let radMultiplierSum = 0;
 	let radSteps = 0;
+	/** The Periodic Table's Reactor source is paid at the reactor power of the whole gap, not the one it ends on: the average factor of each step weighted by its duration. */
+	let reactorFactorMs = 0;
 	const radStartMass = radiationManager.mass;
 	let radRegenTotal = 0;
 
@@ -68,6 +72,7 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		const productionWithoutRadiation = manager.atomsPerSecond / manager.radiationMultiplier;
 
 		const radiationMult = radiationManager.tickOffline(deltaSeconds);
+		reactorFactorMs += periodicManager.reactorFactor(radiationManager.offlineAvgCpm) * deltaMs;
 		radMultiplierSum += radiationMult;
 		radSteps++;
 		radRegenTotal += radiationManager.regenRate * deltaSeconds;
@@ -98,6 +103,11 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 	const offlineAutoUpgradeInterval = autoUpgradeEnabled ? manager.autoUpgradeInterval * OFFLINE_AUTO_FACTOR : 0;
 	let nextAutoUpgradeAt = offlineAutoUpgradeInterval;
 
+	/** Overdrive keeps draining Higgs Bosons at real time while away, `elapsed` counts from the start of the window it paid over. */
+	const windowStart = manager.clock() - awayMs;
+	const higgsBefore = currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON);
+	for (const type of manager.overdriveActive) manager.renewOverdrive(type, windowStart);
+
 	let elapsed = 0;
 	const epsilon = 0.0001;
 
@@ -122,6 +132,12 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 			}
 		}
 
+		const nextOverdrive = Math.min(...manager.overdriveActive.map(type => (manager.overdrive[type]?.paidUntil ?? Infinity) - windowStart));
+		if (nextOverdrive < nextEvent - epsilon) {
+			nextEvent = nextOverdrive;
+			nextAutoBuyTypes = [];
+		}
+
 		const step = Math.min(nextEvent, appliedMs) - elapsed;
 		if (step > 0) {
 			updateIncome(step);
@@ -129,6 +145,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		}
 
 		if (elapsed + epsilon >= appliedMs) break;
+
+		for (const type of manager.overdriveActive) manager.renewOverdrive(type, windowStart + elapsed + epsilon);
 
 		if (offlineAutoUpgradeInterval > 0 && nextAutoUpgradeAt > 0 && nextAutoUpgradeAt <= elapsed + epsilon) {
 			autoUpgradePurchases += manager.purchaseAffordableUpgrades().length;
@@ -138,9 +156,8 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		nextAutoBuyTypes.forEach(generatorType => {
 			const interval = offlineAutoBuyIntervals[generatorType];
 			if (!interval || interval <= 0) return;
-			if (manager.purchaseGenerator(generatorType, 1)) {
-				autoBuyCounts[generatorType] = (autoBuyCounts[generatorType] || 0) + 1;
-			}
+			const bought = manager.autoBuyGenerator(generatorType);
+			if (bought > 0) autoBuyCounts[generatorType] = (autoBuyCounts[generatorType] || 0) + bought;
 			nextAutoBuyTimes[generatorType] = (nextAutoBuyTimes[generatorType] || interval) + interval;
 		});
 	}
@@ -169,10 +186,21 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		addCurrency(CurrenciesTypes.EXCITED_PHOTONS, expectedExcited);
 
 		if (manager.totalIonizesAllTime > 0) {
-			const rates = chromaticManager.autoLightPerSecond(photonAutoClicksPerSecond, OFFLINE_AUTO_FACTOR, manager.totalIonizesAllTime);
+			const rates = chromaticManager.autoLightPerSecond(photonAutoClicksPerSecond, OFFLINE_AUTO_FACTOR, manager);
 			for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, rates[color] * (appliedMs / 1000));
 		}
 	}
+
+	const passiveSeconds = (appliedMs / 1000) * OFFLINE_INCOME_MULTIPLIER;
+	addCurrency(CurrenciesTypes.STARLIGHT, cosmosManager.starlightPerSecond * passiveSeconds);
+	addCurrency(CurrenciesTypes.DECAY_EVENTS, periodicManager.decayEventsPerSecond * passiveSeconds);
+	for (const color of CHROMATIC_COLORS) addCurrency(CHROMATIC[color].currency, manager.passiveLight[color] * passiveSeconds);
+	addCurrency(CurrenciesTypes.BLUE_LIGHT, manager.cherenkovLightAt(radiationManager.offlineAvgCpm) * passiveSeconds);
+	cosmosManager.advance(appliedMs);
+	const forged = periodicManager.tick(appliedMs, reactorFactorMs / appliedMs);
+	/** The summary lists what the catch-up made, the watchers must not announce it again. */
+	cosmosManager.loads++;
+	periodicManager.loads++;
 
 	const levelBefore = manager.playerLevel;
 	const xpBefore = manager.totalXP;
@@ -216,8 +244,10 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 		awayMs,
 		capMs,
 		currencyGains,
+		forged,
 		incomeMultiplier: OFFLINE_INCOME_MULTIPLIER,
 		levelsGained,
+		overdriveBosonsSpent: higgsBefore - currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON),
 		photonAutoClickEnabled,
 		photonAutoClickFactor: OFFLINE_AUTO_FACTOR,
 		photonAutoClicks,

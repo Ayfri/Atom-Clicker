@@ -5,7 +5,7 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import type { NumberNotation } from '#lib/types.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { Hash, Lightbulb, MoonStar, RotateCcw } from '@lucide/svelte';
+	import { Coffee, Lightbulb, MoonStar, Numbers, RotateCcw } from '@lucide/svelte';
 
 	const notations: { id: NumberNotation; label: string }[] = [
 		{ id: 'suffix', label: '1.50Qa' },
@@ -18,7 +18,13 @@
 		<Switch bind:checked={gameManager.settings.gameplay.offlineProgressEnabled} label="Offline progress" />
 	</SettingRow>
 
-	<SettingRow description="How big numbers are written." icon={Hash} title="Number notation">
+	{#if 'wakeLock' in navigator}
+		<SettingRow description="Stop the screen from dimming and locking while the game is open." icon={Coffee} title="Keep screen on">
+			<Switch bind:checked={gameManager.settings.gameplay.keepScreenOn} label="Keep screen on" />
+		</SettingRow>
+	{/if}
+
+	<SettingRow description="How big numbers are written." icon={Numbers} title="Number notation">
 		<Tabs
 			buttonClass="px-3 py-1.5 font-mono text-sm"
 			class="shrink-0"

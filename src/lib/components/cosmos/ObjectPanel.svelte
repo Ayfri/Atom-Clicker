@@ -1,0 +1,139 @@
+<script lang="ts">
+	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+	import { CLICKABLE_OBJECTS, COSMOS_OBJECTS_BY_ID, SKY_CLICK_TIERS, STUDY_MS, studyCost } from '#data/cosmos.js';
+	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { formatNumber, formatNumberFull } from '#lib/utils.js';
+	import ActionButton from '#components/cosmos/ActionButton.svelte';
+	import SiteLine from '#components/cosmos/SiteLine.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import { ChevronDown, Orbit, X } from '@lucide/svelte';
+	import { slide } from 'svelte/transition';
+
+	interface Props {
+		id: string;
+		onClose: () => void;
+		onStudy: () => void;
+	}
+
+	let { id, onClose, onStudy }: Props = $props();
+
+	/** Stays open from one object to the next, the panel is not remounted when `id` changes. */
+	let detailsOpen = $state(false);
+
+	const object = $derived(COSMOS_OBJECTS_BY_ID[id]);
+	const level = $derived(cosmosManager.level(id));
+	const cost = $derived(studyCost(object, level));
+	const skyLight = $derived(cosmosManager.skyLightOf(id));
+	const affordable = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) >= cost);
+	const studying = $derived(cosmosManager.studying?.id === id);
+	const otherStudying = $derived(cosmosManager.studying !== null && !studying);
+	const tappable = $derived(CLICKABLE_OBJECTS.includes(object));
+	const taps = $derived(cosmosManager.tapsOf(id));
+	const nextTier = $derived(SKY_CLICK_TIERS.find(tier => taps < tier));
+</script>
+
+<!-- On phones the panel scrolls inside the height its wrapper leaves, so the pinned header keeps the close button in reach. -->
+<article class="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl bg-cosmos-hud/95 p-4 shadow-2xl ring-1 ring-white/10 md:overflow-visible">
+	<header class="sticky top-0 z-10 -mx-4 -mt-4 flex items-start gap-1 bg-cosmos-hud px-4 pt-4 pb-1">
+		<div class="min-w-0 flex-1">
+			<p class="text-[10px] font-semibold uppercase tracking-widest text-white/40">{object.year} · {object.discoverer}</p>
+			<h2
+				class="text-xl font-bold"
+				style:color={object.color}
+			>
+				{object.name}
+			</h2>
+		</div>
+		<button
+			class="grid size-9 shrink-0 place-items-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+			aria-label="Close"
+			onclick={onClose}
+		>
+			<X size={18} />
+		</button>
+	</header>
+
+	<div>
+		<p class="text-sm text-white/75">{object.fact}</p>
+		<button
+			class="-mb-1 flex min-h-8 items-center gap-1 text-xs text-accent-300 hover:text-accent-200"
+			aria-expanded={detailsOpen}
+			onclick={() => (detailsOpen = !detailsOpen)}
+		>
+			{detailsOpen ? 'Less' : `More about ${object.name}`}
+			<ChevronDown
+				class="transition-transform {detailsOpen ? 'rotate-180' : ''}"
+				size={14}
+			/>
+		</button>
+		{#if detailsOpen}
+			<p
+				class="max-h-40 overflow-y-auto overscroll-contain text-sm leading-relaxed text-white/70 md:max-h-56"
+				transition:slide={{ duration: 180 }}
+			>
+				{object.details}
+			</p>
+		{/if}
+	</div>
+
+	<dl class="grid grid-cols-2 gap-3 text-sm">
+		<div>
+			<dt class="text-[10px] font-semibold uppercase tracking-widest text-white/40">Radiates</dt>
+			<dd class="flex flex-col gap-0.5 font-mono tabular-nums">
+				<span class="flex items-center gap-1 text-cosmos-starlight">
+					<Currency
+						name={CurrenciesTypes.STARLIGHT}
+						size={14}
+					/>
+					{formatNumber(cosmosManager.starlightOf(id))}/s
+				</span>
+				{#each CHROMATIC_COLORS as color (color)}
+					{@const rate = skyLight[color] ?? 0}
+					{#if rate > 0}
+						<span
+							class="flex items-center gap-1"
+							style:color={CURRENCIES[CHROMATIC[color].currency].color}
+						>
+							<Currency
+								name={CHROMATIC[color].currency}
+								size={14}
+							/>
+							{formatNumber(rate)}/s
+						</span>
+					{/if}
+				{/each}
+			</dd>
+		</div>
+		<div>
+			<dt class="text-[10px] font-semibold uppercase tracking-widest text-white/40">Boost</dt>
+			<dd class="font-semibold text-white">+{Math.round(object.boost.amount * (level + 1) * 100)}% {object.boost.label}</dd>
+		</div>
+	</dl>
+
+	{#if tappable}
+		<p class="text-xs tabular-nums text-white/50">
+			{formatNumberFull(taps)} taps · {nextTier ? `next at ${formatNumberFull(nextTier)}` : 'all tiers'}
+		</p>
+	{/if}
+
+	<SiteLine
+		compact
+		objectId={id}
+	/>
+
+	<ActionButton
+		busyMs={studying ? STUDY_MS : 0}
+		class="w-full"
+		cost={studying ? undefined : { affordable, amount: cost, currency: CurrenciesTypes.STARLIGHT }}
+		disabled={!affordable || !cosmosManager.unlocked || otherStudying}
+		elapsedMs={STUDY_MS - (cosmosManager.studying?.leftMs ?? STUDY_MS)}
+		hint="cosmos-study"
+		icon={Orbit}
+		label={studying ? 'Studying…' : 'Study'}
+		onclick={onStudy}
+		sub="Lv {level}"
+		title={otherStudying ? 'Another object is being studied.' : undefined}
+	/>
+</article>

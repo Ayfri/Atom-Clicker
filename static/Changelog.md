@@ -1,3 +1,15 @@
+# What's new 07-11-2026
+
+- **The Cosmos**: Your first Ionize opens a whole sky above the realms, waiting to be rediscovered, and every find boosts the rest of the game.
+- **Periodic Table**: Somewhere in that sky lies the Periodic Table, to fill one element at a time.
+- **Reactor**: Once you have Ionized, a running reactor glows blue and makes Blue Light.
+- **Overdrive**: Spend Higgs Bosons to double any generator's output.
+- **Generators**: Auto-buy can buy in bulk, and new electron upgrades keep your generators through prestiges.
+- **Balance**: Generator boosts and the top generators are rebalanced, so a run started before this update is brought down once to what the new balance allows.
+- **Achievements & Daily Quests**: New achievements and two daily quests for the Cosmos.
+- **Quark Shop**: A Cosmos banner for the leaderboard.
+- **Install the Game**: Install Atom Clicker as an app from Settings on most browsers, and playing from it gives +10% production and 10 Quarks once per account.
+
 # What's new 13-10-2026
 
 - **Upgrades**: Each upgrade is now a single row that levels up along a bar, and tells you what opens its next levels.

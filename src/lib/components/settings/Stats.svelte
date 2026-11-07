@@ -8,16 +8,21 @@
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
 	import { CHROMATIC, CHROMATIC_COLORS, KILLS_PER_SPECTRUM_LEVEL } from '#data/chromatic.js';
-	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
+	import { BOOSTABLE_CURRENCIES, CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+	import { ELEMENT_COUNT } from '#data/elements.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { REALMS } from '#data/realms.js';
+	import { MAX_FORGES } from '#data/sites.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
 	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import { formatDuration, formatNumber, formatNumberFull } from '#lib/utils.js';
-	import { CalendarDays, CircleArrowUp, Clock, Factory, MousePointerClick, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
+	import { CalendarDays, CircleArrowUp, Clock, Factory, FlaskRound, MousePointerClick, Orbit, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
 	import { clock } from '#stores/clock.svelte.js';
 	import { type Component, type Snippet } from 'svelte';
 
@@ -30,7 +35,11 @@
 	const prismUnlocked = $derived(CHROMATIC_COLORS.some(color => chromaticManager.kills[color] > 0));
 	const whiteUnlocked = $derived(chromaticManager.recombinable > 0 || hasEarned(CurrenciesTypes.WHITE_LIGHT));
 	const radiationUnlocked = $derived(gameManager.features[FeatureTypes.RADIATION_REALM] || radiationManager.unlocked);
-	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
+	const sumOf = (counts: Record<string, number>) => Object.values(counts).reduce((total, count) => total + count, 0);
+	const instrumentsOwned = $derived(COSMOS_INSTRUMENTS.filter(instrument => cosmosManager.owns(instrument)).length);
+	const studyLevels = $derived(sumOf(cosmosManager.studies));
+	const skyTaps = $derived(sumOf(cosmosManager.clicks));
+	const dailyQuestsClaimed =$derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
 
 	const highlights = $derived([
 		{ icon: AtomIcon, label: 'Atoms / s', value: gameManager.atomsPerSecond },
@@ -48,7 +57,7 @@
 			{ label: 'Stability Field', pinned: gameManager.features[FeatureTypes.STABILITY_FIELD], value: gameManager.stabilityMultiplier },
 			{ label: 'Power-up duration', value: gameManager.powerUpDurationMultiplier },
 			{ label: 'Power-up effect', value: gameManager.powerUpEffectMultiplier },
-			...[CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS].map(type => ({
+			...BOOSTABLE_CURRENCIES.map(type => ({
 				label: `${type} boost`,
 				value: gameManager.getCurrencyBoostMultiplier(type),
 			})),
@@ -128,6 +137,15 @@
 		{#each extra as [label, value] (label)}
 			{@render row(label, formatNumber(value, 0))}
 		{/each}
+	</div>
+{/snippet}
+
+<!-- Starlight and Decay Events never reset, so a run share would always read full. -->
+{#snippet lasting(type: CurrencyName)}
+	{const earned = $derived(gameManager.currencies[type].earnedAllTime)}
+	<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+		{@render amount(type)}
+		{@render row('Earned all time', formatNumber(earned), formatNumberFull(earned))}
 	</div>
 {/snippet}
 
@@ -268,6 +286,42 @@
 					{@render row('Production multiplier',`×${formatNumber(radiationManager.radiationMultiplier)}`)}
 					{@render row('Ionized all time', formatNumber(gameManager.totalIonizesAllTime, 0))}
 				</div>
+			</div>
+		</section>
+	{/if}
+
+	{#if cosmosManager.unlocked}
+		<section>
+			{@render title(Orbit, 'Cosmos', CURRENCIES[CurrenciesTypes.STARLIGHT].color)}
+			<div class="grid gap-3 md:grid-cols-2">
+				{@render lasting(CurrenciesTypes.STARLIGHT)}
+				<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+					{@render bar('Objects in the sky', cosmosManager.objects.length, COSMOS_OBJECTS.length, CURRENCIES[CurrenciesTypes.STARLIGHT].color, `${cosmosManager.objects.length} / ${COSMOS_OBJECTS.length}`)}
+					{@render bar('Instruments', instrumentsOwned, COSMOS_INSTRUMENTS.length, CURRENCIES[CurrenciesTypes.STARLIGHT].color, `${instrumentsOwned} / ${COSMOS_INSTRUMENTS.length}`)}
+				</div>
+			</div>
+			<div class="mt-3 grid gap-x-8 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 md:grid-cols-2">
+				{@render row('Starlight / s', formatNumber(cosmosManager.starlightPerSecond))}
+				{@render row('Study levels', formatNumber(studyLevels, 0))}
+				{@render row('Sky taps', formatNumber(skyTaps, 0), formatNumberFull(skyTaps))}
+				{@render row('Guest stars caught', formatNumber(cosmosManager.guestStars, 0))}
+			</div>
+		</section>
+	{/if}
+
+	{#if periodicManager.unlocked}
+		<section>
+			{@render title(FlaskRound, 'Periodic Table', CURRENCIES[CurrenciesTypes.DECAY_EVENTS].color)}
+			<div class="grid gap-3 md:grid-cols-2">
+				{@render lasting(CurrenciesTypes.DECAY_EVENTS)}
+				<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+					{@render bar('Elements identified', periodicManager.identified.length, ELEMENT_COUNT, CURRENCIES[CurrenciesTypes.DECAY_EVENTS].color, `${periodicManager.identified.length} / ${ELEMENT_COUNT}`)}
+					{@render bar('Forges', periodicManager.forges, MAX_FORGES, CURRENCIES[CurrenciesTypes.DECAY_EVENTS].color, `${periodicManager.forges} / ${MAX_FORGES}`)}
+				</div>
+			</div>
+			<div class="mt-3 grid gap-x-8 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 md:grid-cols-2">
+				{@render row('Decay Events / s', formatNumber(periodicManager.decayEventsPerSecond))}
+				{@render row('Neutrinos caught', formatNumber(periodicManager.neutrinos, 0))}
 			</div>
 		</section>
 	{/if}

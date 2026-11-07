@@ -62,8 +62,9 @@
 	});
 
 	const keepBoosts = $derived(gameManager.quarkEntitlements.includes('convenience_keep_currency_boosts'));
+	const keepGenerators = $derived(gameManager.keepsGenerators(layer));
 	const resets: PrestigeListItem[] = $derived([
-		{ currencies: [CurrenciesTypes.ATOMS], label: 'Atoms, generators and Atom upgrades' },
+		{ currencies: [CurrenciesTypes.ATOMS], label: keepGenerators ? 'Atoms and Atom upgrades' : 'Atoms, generators and Atom upgrades' },
 		...(layer >= LAYERS.ELECTRONIZE ? [{ currencies: [CurrenciesTypes.PROTONS], label: 'Protons' }] : []),
 		...(gameManager.features[FeatureTypes.LEVELS] ? [{ label: 'Levels and XP' }] : []),
 		...(gameManager.boostPointsUsed > 0 && !keepBoosts ? [{ label: 'Currency boosts' }] : []),
@@ -78,6 +79,7 @@
 		...(layer < LAYERS.ELECTRONIZE && currenciesManager.getEarnedAllTime(CurrenciesTypes.ELECTRONS) > 0
 			? [{ currencies: [CurrenciesTypes.ELECTRONS], label: 'Electrons' }]
 			: []),
+		...(keepGenerators ? [{ label: 'Generators' }] : []),
 		{ label: gameManager.totalElectronizesAllTime > 0 ? 'Proton and Electron upgrades' : 'Proton upgrades' },
 		...(gameManager.realms[RealmTypes.PHOTONS]?.unlocked
 			? [{ currencies: [CurrenciesTypes.PHOTONS, CurrenciesTypes.EXCITED_PHOTONS], label: 'Photons and Photon upgrades' }]

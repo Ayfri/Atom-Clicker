@@ -5,8 +5,10 @@
 	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
 	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 	import { changelog } from '#stores/changelog.svelte.js';
@@ -18,13 +20,13 @@
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
 	import QuarkIcon from '#components/icons/Quark.svelte';
 	import NotificationDot from '#components/ui/NotificationDot.svelte';
-	import { Medal, Network, Orbit, Settings as SettingsIcon, Zap } from '@lucide/svelte';
+	import { FlaskRound, GraphHub, Medal, Orbit, Settings as SettingsIcon, Zap } from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 
 	type NavBarIcon = Component<{ class?: string; size?: number; style?: string }>;
 	type ModalLoader = () => Promise<{ default: Component<{ onClose: () => void }> }>;
 
-	interface Link {
+	interface LinkBase {
 		condition?: () => boolean;
 		/** Prestige actions are tinted and glow in this color when ready, and sit in their own group after the menus. */
 		glow?: string;
@@ -32,10 +34,11 @@
 		iconProps?: Record<string, unknown>;
 		id: string;
 		label: string;
-		/** Modals are code-split: none of their chunks (virtua) sit in the initial bundle. */
-		load: ModalLoader;
 		notification?: () => boolean;
 	}
+
+	/** A link opens either a modal, code-split so none of its chunks (virtua) sit in the initial bundle, or a page-level view. */
+	type Link = LinkBase & ({ load: ModalLoader; open?: never } | { load?: never; open: () => void });
 
 	const settingsLoader: ModalLoader = () => import('#components/modals/Settings.svelte');
 
@@ -53,7 +56,7 @@
 			condition: () => reveals.leaderboard,
 		},
 		{
-			icon: Network,
+			icon: GraphHub,
 			id: 'skill-tree',
 			label: 'Skill Tree',
 			load: () => import('#components/modals/SkillTree.svelte'),
@@ -84,6 +87,14 @@
 			load: () => import('#components/modals/Collider.svelte'),
 			condition: () => gameManager.features[FeatureTypes.COLLIDER],
 			notification: () => supabaseAuth.isAuthenticated && colliderManager.ready,
+		},
+		{
+			condition: () => periodicManager.unlocked,
+			icon: FlaskRound,
+			id: 'periodic-table',
+			label: 'Periodic Table',
+			notification: () => periodicManager.ready.length > 0,
+			open: () => realmManager.openTable(),
 		},
 		{
 			glow: PROTON_COLOR,
@@ -139,7 +150,7 @@
 		ui.registerSettings(settingsLoader);
 
 		// Chunks are warmed once the page is idle, so the split costs nothing on the first open.
-		const warm = () => [...links, settingsLink].forEach(link => ui.preloadModal(link.id, link.load));
+		const warm = () => [...links, settingsLink].forEach(link => link.load && ui.preloadModal(link.id, link.load));
 		if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 5000 });
 		else setTimeout(warm, 2000);
 	});
@@ -147,16 +158,17 @@
 
 {#snippet navButton(link: Link)}
 	{const notification = $derived(link.notification?.() ?? false)}
+	{const active = $derived(link.load ? ui.activeModalId === link.id : realmManager.tableOpen)}
 	<button
 		aria-label={link.label}
 		class={[
 			'group relative flex shrink-0 items-center justify-center rounded-xl transition-colors',
 			mobile.current ? 'h-12 max-w-16 min-w-0 flex-1' : 'size-12',
-			ui.activeModalId === link.id ? 'bg-white/10 text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
+			active ? 'bg-white/10 text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
 		]}
 		id="nav-{link.id}"
 		in:reveal={{ y: 0 }}
-		onclick={() => ui.openModalLazy(link.id, link.load)}
+		onclick={() => (link.load ? ui.openModalLazy(link.id, link.load) : link.open())}
 	>
 		<NotificationDot class="relative flex" color={link.glow} hasNotification={notification}>
 			<link.icon

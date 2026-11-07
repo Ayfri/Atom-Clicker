@@ -11,7 +11,7 @@
 	import { leaderboard, REFRESH_INTERVAL } from '#stores/leaderboard.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { ArrowLeft, Crosshair, Crown, Search, Trophy, Users } from '@lucide/svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { VList, type VListHandle } from 'virtua/svelte';
 
 	interface Props {
@@ -44,6 +44,13 @@
 			clearTimeout(introTimer);
 			leaderboard.endVisit();
 		};
+	});
+
+	/** Only once the session restore finished, so a signed-in player never gets prompted, and never next to the Login modal. */
+	$effect(() => {
+		if (supabaseAuth.loading || supabaseAuth.isAuthenticated || showLoginModal) return;
+		untrack(() => supabaseAuth.promptGoogleOneTap());
+		return () => supabaseAuth.cancelGoogleOneTap();
 	});
 
 	const me = $derived(leaderboard.playerIndex >= 0 ? leaderboard.entries[leaderboard.playerIndex] : null);

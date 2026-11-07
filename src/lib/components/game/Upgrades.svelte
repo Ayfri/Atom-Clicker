@@ -13,7 +13,8 @@
 	import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
 	import { bloomPurchase, buyAllFamilies } from '#helpers/upgradeFx.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
-	import { Bot, ChevronDown, Factory, MousePointerClick, ShieldCheck, TrendingUp, Wrench, Zap } from '@lucide/svelte';
+	import { Bot, ChevronDown, Eye, EyeOff, Factory, MousePointerClick, ShieldCheck, TrendingUp, Wrench, Zap } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 
 	const CATEGORY_ICONS = {
 		Automation: Bot,
@@ -42,6 +43,17 @@
 	);
 
 	const hasAutomation = $derived(gameManager.effects.has('auto_upgrade'));
+	/** Shared with the Photon and Prism panels, off by default so the list only holds what is left to buy. */
+	const showMaxed = $derived(gameManager.settings.upgrades.displayAlreadyBought);
+	/**
+	 * Families maxed when the toggle or the tab last changed. A row maxed since then stays as a dim line, so the rows below never
+	 * slide under a fast tap or while auto-upgrade buys.
+	 */
+	const hidden = $derived.by((): ReadonlySet<string> => {
+		if (showMaxed) return new Set();
+		void selectedCurrency;
+		return untrack(() => new Set(upgradeFamilies.views.filter(view => view.maxed).map(view => view.family.id)));
+	});
 
 	const affordableCount = $derived(realmManager.live(RealmTypes.ATOMS, () => upgradeFamilies.affordableCount(selectedCurrency)));
 
@@ -109,6 +121,21 @@
 				</HelpIcon>
 			</div>
 			<div class="flex items-center gap-1">
+				<button
+					aria-pressed={showMaxed}
+					class="-my-1 flex size-8 cursor-pointer items-center justify-center rounded-md border transition-colors duration-200 {showMaxed
+						? 'border-accent-500/30 bg-accent-500/15 text-accent-400 hover:bg-accent-500/25'
+						: 'border-white/10 text-white/50 hover:bg-white/5'}"
+					onclick={() => (gameManager.settings.upgrades.displayAlreadyBought = !showMaxed)}
+					title={showMaxed ? 'Hide bought upgrades' : 'Show bought upgrades'}
+					type="button"
+				>
+					{#if showMaxed}
+						<Eye size={16} />
+					{:else}
+						<EyeOff size={16} />
+					{/if}
+				</button>
 				{#if hasAutomation}
 					<AutoButton
 						description="Automatically buys the cheapest affordable upgrade."
@@ -131,7 +158,7 @@
 				<Currency name={tab.id} />
 			{/snippet}
 		</Tabs>
-		{#if affordableCount > 1}
+		{#if affordableCount > 0}
 			<button
 				class="ml-auto rounded-lg border border-accent-500/30 bg-accent-500/15 px-2 py-1 text-xs font-semibold text-accent-400 transition-all duration-200 hover:bg-accent-500/25 cursor-pointer"
 				onclick={event => buyAllFamilies(selectedCurrency, event)}
@@ -145,10 +172,11 @@
 	<div bind:this={list} id="upgrades-list" class="flex-1 lg:overflow-y-auto px-1 custom-scrollbar">
 		{#each visited as currency (currency)}
 			<div class={['flex flex-col gap-3', currency !== selectedCurrency && 'hidden']}>
-				{#each upgradeFamilies.categories(currency) as group (group.category)}
+				{#each upgradeFamilies.categories(currency, hidden) as group (group.category)}
 					{@const key = `${currency}:${group.category}`}
 					{@const open = !collapsed[key]}
 					{@const Icon = CATEGORY_ICONS[group.category]}
+					{@const buyable = realmManager.live(RealmTypes.ATOMS, () => group.views.filter(view => view.affordable).length)}
 					<section class="flex flex-col gap-1.5">
 						<button
 							aria-expanded={open}
@@ -158,6 +186,9 @@
 						>
 							<Icon class="text-accent-400" size={14} />
 							{group.category}
+							{#if buyable > 0}
+								<span class="text-accent-400 tabular-nums" title="{buyable} affordable">{buyable}</span>
+							{/if}
 							<span class="h-px flex-1 bg-white/10"></span>
 							<ChevronDown class="transition-transform {open ? '' : '-rotate-90'}" size={14} />
 						</button>
@@ -168,7 +199,7 @@
 						{/if}
 					</section>
 				{:else}
-					<p class="p-4 text-center text-xs text-white/40">Nothing to buy with {CURRENCIES[currency].name} yet.</p>
+					<p class="p-4 text-center text-xs text-white/40">Nothing to buy with {CURRENCIES[currency].name} right now.</p>
 				{/each}
 			</div>
 		{/each}

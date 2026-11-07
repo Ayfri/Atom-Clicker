@@ -1,8 +1,13 @@
+import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
+import { ELEMENT_COUNT } from '#data/elements.js';
+import { FORGE_MILESTONES } from '#data/sites.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import type { RunState } from './snapshots';
 import type { MilestoneDefinition, MilestoneHit } from './types';
 
@@ -25,9 +30,14 @@ const READERS = {
 	atoms: () => currenciesManager.getAmount(CurrenciesTypes.ATOMS),
 	atomsPerSecond: () => gameManager.atomsPerSecond,
 	boostPointsUsed: () => gameManager.boostPointsUsed,
+	discoveries: () => cosmosManager.discovered.length,
 	electronizes: () => gameManager.totalElectronizesAllTime,
 	electrons: () => currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
 	excitedPhotons: () => currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
+	forged: () => periodicManager.forged.size,
+	forges: () => periodicManager.forges,
+	identified: () => periodicManager.identified.length,
+	instruments: () => cosmosManager.instruments.length,
 	ionizes: () => gameManager.totalIonizesAllTime,
 	photonUpgradeLevels: () => gameManager.photonUpgradeLevels,
 	playerLevel: () => gameManager.playerLevel,
@@ -85,6 +95,19 @@ const MILESTONE_ENTRIES: MilestoneEntry[] = [
 	at('electronizes', 1, 'first_electronize', '1st Electronize', 'First Electronize', true),
 	at('electrons', 100, 'electrons_100', '100 Electrons', 'Earned 100 Electrons'),
 	at('ionizes', 1, 'first_ionize', '1st Ionize', 'First Ionize', true),
+	at('discoveries', 1, 'cosmos_first', '1st discovery', 'First Cosmos discovery'),
+	...COSMOS_INSTRUMENTS.flatMap((instrument, index) => {
+		const sky = COSMOS_OBJECTS.filter(object => !object.given && COSMOS_INSTRUMENTS.findIndex(({ era }) => era === object.era) <= index).length;
+		return [
+			...(index > 0 ? [at('instruments', index, `cosmos_${instrument.id}`, instrument.name, `Built ${instrument.name}`)] : []),
+			at('discoveries', sky, `cosmos_${instrument.id}_sky`, `${instrument.name} sky`, `Every object up to the ${instrument.name} discovered`),
+		];
+	}),
+	at('forged', 1, 'periodic_forged_1', '1st element forged', 'A site forged its first element'),
+	...FORGE_MILESTONES.map((_, i) => at('forges', i + 2, `periodic_forges_${i + 2}`, `${i + 2} forges`, `Owns ${i + 2} forges`)),
+	...[1, 10, 20, 30, 45, 60, 75, 90, 100, 110, ELEMENT_COUNT].map(count =>
+		at('identified', count, `periodic_${count}`, `${count} element${count === 1 ? '' : 's'}`, `Identified ${count} element${count === 1 ? '' : 's'}`),
+	),
 
 	feature(FeatureTypes.LEVELS, 'Skill Tree & Levels'),
 	feature(FeatureTypes.PURPLE_REALM, 'Photon Realm'),

@@ -1,6 +1,17 @@
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { isUuid } from '#helpers/clientInfo.js';
 import { IncidentKinds, stripUrlDetails } from '#helpers/perfIncidents.js';
+import {
+	MAX_EVIDENCE,
+	MAX_FILE_LENGTH,
+	MAX_FN_LENGTH,
+	MAX_INCIDENTS,
+	MAX_INVOKER_LENGTH,
+	MAX_SCRIPTS,
+	MAX_SOURCES,
+	MAX_SPANS,
+	MAX_TARGET_LENGTH,
+} from '#helpers/perfStats.js';
 import type {
 	DeviceInfo,
 	InAppBrowser,
@@ -23,14 +34,9 @@ const APP_VERSION_PATTERN = /^[\w.-]{1,64}$/;
 const IN_APP_BROWSERS: readonly string[] = ['facebook', 'instagram', 'line', 'linkedin', 'other-webview', 'snapchat', 'tiktok', 'twitter', 'wechat'];
 const MAX_AT_MS = 1e9;
 const MAX_COUNT = 1e6;
-const MAX_EVIDENCE = 12;
 const MAX_INCIDENT_MS = 60_000;
-const MAX_INCIDENTS = 6;
 const MAX_MS = 600_000;
 const MAX_REALMS = 8;
-const MAX_SCRIPTS = 3;
-const MAX_SOURCES = 12;
-const MAX_SPANS = 3;
 /** Session-long sums (tracked time, canvas bytes) outgrow a single window. */
 const MAX_TOTAL = 1e10;
 const REALMS: readonly string[] = Object.values(RealmTypes);
@@ -146,7 +152,7 @@ function parseInput(value: unknown): InputBreakdown | null {
 		delayMs: ranged(value.delayMs, 0, MAX_INCIDENT_MS),
 		presentationMs: ranged(value.presentationMs, 0, MAX_INCIDENT_MS),
 		processingMs: ranged(value.processingMs, 0, MAX_INCIDENT_MS),
-		target: text(value.target, 60),
+		target: text(value.target, MAX_TARGET_LENGTH),
 	};
 }
 
@@ -155,9 +161,9 @@ function parseScript(value: unknown): LoafScript | null {
 
 	return {
 		durationMs: ranged(value.durationMs, 0, MAX_INCIDENT_MS),
-		file: withoutQuery(value.file, 60) || null,
-		fn: text(value.fn, 60) || null,
-		invoker: withoutQuery(value.invoker, 80) ?? '',
+		file: withoutQuery(value.file, MAX_FILE_LENGTH) || null,
+		fn: text(value.fn, MAX_FN_LENGTH) || null,
+		invoker: withoutQuery(value.invoker, MAX_INVOKER_LENGTH) ?? '',
 	};
 }
 

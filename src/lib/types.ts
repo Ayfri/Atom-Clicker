@@ -5,6 +5,7 @@ import type { FeatureType } from '#data/features.js';
 import type { GeneratorType } from '#data/generators.js';
 import type { IconName } from '#data/iconNames.js';
 import type { RealmType } from '#data/realms.js';
+import type { SiteId } from '#data/sites.js';
 import type { UpgradeCategory } from '#data/upgrades.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import type { IconStackSpec } from '#helpers/iconStacks.js';
@@ -12,6 +13,9 @@ import type { LayerType } from '#helpers/statConstants.js';
 import type { ToastIcon } from '#stores/toasts.svelte.js';
 
 export interface Achievement {
+	/** The leaderboard audit refuses a claim whose condition is false on the submitted state. Only for conditions reading saved progress that never resets nor goes down,
+	 *  with the tier in the id: removing a counted entry (object, instrument) or raising a tier under the same id would refuse honest saves. */
+	audited?: boolean;
 	condition: (manager: GameManager) => boolean;
 	description: string;
 	hiddenCondition?: (manager: GameManager) => boolean;
@@ -32,6 +36,20 @@ export interface AchievementGroup {
 
 export interface ChromaticState {
 	kills: Record<ChromaticColor, number>;
+}
+
+/** Given objects and the naked eye are never stored, they are part of the sky from the start. */
+export interface CosmosState {
+	aperture: number;
+	/** Taps on sky objects, missing in older saves. */
+	clicks?: Record<string, number>;
+	discovered: string[];
+	/** Guest stars caught, missing in older saves. */
+	guestStars?: number;
+	instruments: string[];
+	/** Instrument paid for and still being built. */
+	research: { id: string; leftMs: number } | null;
+	studies: Record<string, number>;
 }
 
 /** `injections` and `readyInMs` stay at 0 for a signed-out player. */
@@ -67,6 +85,7 @@ export type EffectStat =
 	| 'auto_click'
 	| 'auto_speed'
 	| 'auto_upgrade'
+	| 'blue_light_gain'
 	| 'click'
 	| 'click_aps'
 	| 'electron_gain'
@@ -77,6 +96,7 @@ export type EffectStat =
 	| 'excited_photon_stability'
 	| 'generator'
 	| 'global'
+	| 'green_light_gain'
 	| 'photon_auto_click'
 	| 'photon_double_chance'
 	| 'photon_duration'
@@ -88,6 +108,7 @@ export type EffectStat =
 	| 'power_up_interval'
 	| 'power_up_multiplier'
 	| 'proton_gain'
+	| 'red_light_gain'
 	| 'stability_boost'
 	| 'stability_capacity'
 	| 'stability_speed'
@@ -132,9 +153,36 @@ export interface PhotonUpgrade {
 
 export type CurrencyBoosts = Partial<Record<CurrencyName, number>>;
 
+export interface PeriodicState {
+	/** Sources holding a forge, at most `forges` of them. Missing counts as none. */
+	active?: SiteId[];
+	/** Forges owned, 1 when missing. */
+	forges?: number;
+	/** Atomic numbers, ascending. */
+	identified: number[];
+	/** Whether the player has seen the Periodic Table's introduction, missing in saves from before it. */
+	introSeen?: boolean;
+	/** Neutrinos caught, missing in saves from before them. */
+	neutrinos?: number;
+	/** Share from 0 to 1 of each forged, unread element's reading cost already paid, missing in saves from before it. */
+	paid?: Partial<Record<number, number>>;
+	sites: Partial<Record<SiteId, SiteForge>>;
+	/** Center in nm of the Prism's tuning window over the spectrum, missing in saves from before it. */
+	tuning?: number;
+}
+
+/** A nucleosynthesis site's place in its chain: elements before `index` are forged, `progress` nuclei count toward the next one. */
+export interface SiteForge {
+	index: number;
+	level: number;
+	progress: number;
+}
+
 export interface RadiationState {
 	controlRodLevel: number;
 	mass: number;
+	/** Highest CPM since the last Ionize, it sizes the Starlight flash. */
+	peakCpm?: number;
 	unlocked: boolean;
 }
 
@@ -151,6 +199,7 @@ export interface GameState {
 	balanceVersion: number;
 	chromatic: ChromaticState;
 	chromaticUpgrades: Record<string, number>;
+	cosmos: CosmosState;
 	currencies: CurrencyStateMap;
 	currencyBoosts: CurrencyBoosts;
 	dailyStats: DailyStats;
@@ -159,8 +208,13 @@ export interface GameState {
 	highestAPSRun: number;
 	inGameTime: number;
 	integrityFlagged: boolean;
+	/** Generators carried into the current run by a retention upgrade, which this run never paid for. */
+	keptGenerators: Partial<Record<GeneratorType, number>>;
 	lastInteractionTime: number;
 	lastSave: number;
+	/** Generators under Overdrive, kept through the prestiges that keep generators. */
+	overdrive: Partial<Record<GeneratorType, OverdriveSlot>>;
+	periodic: PeriodicState;
 	photonUpgrades: Record<string, number>;
 	powerUpsCollected: number;
 	radiation: RadiationState;
@@ -187,6 +241,12 @@ export interface GameState {
 	version: number;
 }
 
+export interface OverdriveSlot {
+	active: boolean;
+	/** `GameManager.clock()` time the Higgs Boson already spent covers, a slot turned back on before it is free. */
+	paidUntil: number;
+}
+
 export interface OfflineProgressSummary {
 	appliedMs: number;
 	atomAutoClickEnabled: boolean;
@@ -199,8 +259,11 @@ export interface OfflineProgressSummary {
 	awayMs: number;
 	capMs: number;
 	currencyGains: CurrencyAmountMap;
+	/** Atomic numbers the Periodic Table forged while away. */
+	forged: number[];
 	incomeMultiplier: number;
 	levelsGained: number;
+	overdriveBosonsSpent: number;
 	photonAutoClickEnabled: boolean;
 	photonAutoClickFactor: number;
 	photonAutoClicks: number;
@@ -253,6 +316,8 @@ export interface Settings {
 		notation: NumberNotation;
 	};
 	gameplay: {
+		/** Holds a screen wake lock while the game is visible. */
+		keepScreenOn: boolean;
 		offlineProgressEnabled: boolean;
 	};
 	upgrades: {
