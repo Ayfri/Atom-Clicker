@@ -1,4 +1,4 @@
-# Unreleased
+# What's new 07-11-2026
 
 - **The Cosmos**: Your first Ionize opens a whole sky above the realms, waiting to be rediscovered, and every find boosts the rest of the game.
 - **Periodic Table**: Somewhere in that sky lies the Periodic Table, to fill one element at a time.
