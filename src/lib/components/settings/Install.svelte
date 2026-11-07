@@ -118,18 +118,33 @@
 
 	{#if status === 'pitch'}
 		<div class="rise flex w-full flex-col items-center gap-2" style:animation-delay="320ms">
-			<button
-				class="flex w-full max-w-60 items-center justify-center gap-2 rounded-xl bg-accent-500 py-2.5 font-semibold text-white shadow-[0_0_20px_rgb(74_144_226/0.35)] transition enabled:hover:bg-accent-400 enabled:hover:shadow-[0_0_28px_rgb(74_144_226/0.5)] disabled:cursor-default disabled:opacity-40 disabled:shadow-none"
-				disabled={!installStore.canInstall}
-				onclick={() => installStore.install()}
-				type="button"
-			>
-				<Download size={18} />
-				Install Atom Clicker
-			</button>
-			<p class="text-xs text-white/40">
-				{installStore.canInstall ? 'Free, takes a second, and your progress comes along.' : "Your browser's menu or address bar can install it too."}
-			</p>
+			{#if installStore.manual && !installStore.canInstall}
+				<p class="max-w-sm text-sm text-white/70">
+					{#if installStore.manual === 'firefox'}
+						Click <strong class="font-semibold text-white">Add tab to taskbar</strong> at the end of Firefox's address bar, then play from the window it opens.
+					{:else if installStore.manual === 'safari'}
+						On macOS Sonoma or later, choose <strong class="font-semibold text-white">File &gt; Add to Dock</strong> in Safari's menu bar, then play from the
+						Dock.
+					{:else}
+						Open your browser's <strong class="font-semibold text-white">Share</strong> menu, then
+						<strong class="font-semibold text-white">Add to Home Screen</strong>, and play from your home screen.
+					{/if}
+				</p>
+				<p class="text-xs text-white/40">Free, takes a second, and your progress comes along.</p>
+			{:else}
+				<button
+					class="flex w-full max-w-60 items-center justify-center gap-2 rounded-xl bg-accent-500 py-2.5 font-semibold text-white shadow-[0_0_20px_rgb(74_144_226/0.35)] transition enabled:hover:bg-accent-400 enabled:hover:shadow-[0_0_28px_rgb(74_144_226/0.5)] disabled:cursor-default disabled:opacity-40 disabled:shadow-none"
+					disabled={!installStore.canInstall}
+					onclick={() => installStore.install()}
+					type="button"
+				>
+					<Download size={18} />
+					Install Atom Clicker
+				</button>
+				<p class="text-xs text-white/40">
+					{installStore.canInstall ? 'Free, takes a second, and your progress comes along.' : "Your browser's menu or address bar can install it too."}
+				</p>
+			{/if}
 		</div>
 	{/if}
 

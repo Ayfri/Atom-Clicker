@@ -79,9 +79,9 @@
 						<div class="h-full bg-accent-400" style:width="{(progress / target) * 100}%"></div>
 					</div>
 				</div>
-				<span class="font-mono text-[10px] text-white/40">{formatNumber(progress)}/{formatNumber(target)}</span>
+				<span class="font-mono text-[11px] text-white/40">{formatNumber(progress)}/{formatNumber(target)}</span>
 				{#if quarksManager.claimedQuestIds.includes(quest.id)}
-					<span class="w-16 text-center text-[10px] text-green-400">Claimed</span>
+					<span class="w-16 text-center text-[11px] text-green-400">Claimed</span>
 				{:else}
 					<button
 						class="{btn} w-16"
@@ -110,7 +110,7 @@
 					<span class="size-4 shrink-0 rounded border border-white/10 bg-white/5"></span>
 				{/if}
 				<span class="min-w-0 flex-1 truncate {owned ? 'text-white' : 'text-white/50'}">
-					{item.name} <span class="text-[10px] text-white/30 uppercase">{item.type} {item.cost}q</span>
+					{item.name} <span class="text-[11px] text-white/45 uppercase">{item.type} {item.cost}q</span>
 				</span>
 				{#if item.theme}
 					{const realmId = $derived(item.theme.realmId)}
@@ -130,9 +130,9 @@
 
 <Section collapsed title="Quest pool inspector">
 	<input bind:value={inspectorDate} class="{field} mb-1.5 w-auto" type="date" />
-	<div class="flex flex-col gap-0.5 font-mono text-[11px] text-white/60">
+	<div class="flex flex-col gap-0.5 font-mono text-[12px] text-white/60">
 		{#each inspectorQuests as quest (quest.id)}
-			<span>{quest.id} <span class="text-white/30">target {formatNumber(getQuestTarget(quest, quarksManager.dailyQuestContext))}</span></span>
+			<span>{quest.id} <span class="text-white/45">target {formatNumber(getQuestTarget(quest, quarksManager.dailyQuestContext))}</span></span>
 		{/each}
 	</div>
 </Section>

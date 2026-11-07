@@ -1,15 +1,23 @@
 import { ACHIEVEMENTS } from '#data/achievements.js';
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '#data/chromatic.js';
+import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
+import { bestTuning, decayCost, ELEMENTS } from '#data/elements.js';
+import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { RealmTypes } from '#data/realms.js';
+import { DECAY_EVENTS_PER_SECOND, DECAY_SITES, MAX_UNREAD, siteStudyCost, type SiteId } from '#data/sites.js';
 import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 import { connectDeriveds } from '#helpers/reactiveRoot.svelte.js';
+import { OVERDRIVE_COST, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
+import { CosmosTracker } from './cosmos';
 import { MilestoneTracker } from './milestones';
 import { PurchasePlanner } from './purchases';
 import { DEFAULT_SEED, createRandom } from './random';
@@ -30,7 +38,7 @@ import {
 	type SpikeEvent,
 } from './types';
 
-const BOOST_PRIORITY: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS];
+const BOOST_PRIORITY: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.STARLIGHT];
 const HOUR_MS = 3_600_000;
 const IDLE_GAP_MIN_MS = 60_000;
 const PROGRESS_CHECK_TICKS = 500;
@@ -45,11 +53,16 @@ const PHOTON_AVERAGE_VALUE = (PHOTON_MIN_VALUE + PHOTON_MAX_VALUE) / 2;
 
 /** Prestige budgets are a pacing limit per play session, not a lifetime cap. */
 const PRESTIGE_WINDOW_MS = HOUR_MS;
+/** A reset gain that grew less than PLATEAU_GROWTH over PLATEAU_MS has stalled, a player takes it rather than wait for the ratio target. */
+const PLATEAU_GROWTH = 1.1;
+const PLATEAU_MS = HOUR_MS;
 
 const SPIKE_WINDOW_MS = 60_000;
 const SPIKE_MIN_HISTORY = 5;
 const SPIKE_MULTIPLIER = 4;
 const SPIKE_MIN_RATE = 50;
+/** Active time a discovery takes in the Cosmos: flying to the eyepiece, finding the signal, holding it and the discovery card. */
+const COSMOS_OBSERVE_MS = 45_000;
 
 interface PhotonRealmEffects {
 	excitedLifetimeMultiplier: number;
@@ -69,6 +82,9 @@ export class SimulationEngine {
 	private autoUpgradeInterval = 0;
 	private autoUpgradeNext = 0;
 	private readonly config: BenchmarkConfig;
+	private readonly cosmos = new CosmosTracker();
+	/** Last time each reset gain grew past PLATEAU_GROWTH, and the gain it grew to. */
+	private readonly gainPlateaus = { electronize: { gain: 0, since: 0 }, protonise: { gain: 0, since: 0 } };
 	private readonly idleGaps: IdleGap[] = [];
 	private idleMs = 0;
 	private idleStart = 0;
@@ -80,6 +96,8 @@ export class SimulationEngine {
 	private readonly milestones: MilestoneHit[] = [];
 	private readonly milestoneTracker = new MilestoneTracker();
 	private nextPowerUpTime = 0;
+	/** Active time spent on the current Cosmos signal, reset when it is discovered. */
+	private observedMs = 0;
 	private pendingAchievements = Object.entries(ACHIEVEMENTS);
 	private photonEffects: PhotonRealmEffects | null = null;
 	private photonEffectsSources: unknown = null;
@@ -122,7 +140,7 @@ export class SimulationEngine {
 	/** Mutates the global game managers for the duration of the run, then restores the state they started with. */
 	run(onProgress?: (progress: SimulationProgress) => void): SimulationResult {
 		const started = performance.now();
-		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager]);
+		const disconnect = connectDeriveds([gameManager, currenciesManager, radiationManager, chromaticManager, cosmosManager, periodicManager]);
 		const savedState = JSON.stringify(gameManager.getCurrentState());
 		gameManager.resetAll();
 		currenciesManager.hardReset();
@@ -187,7 +205,7 @@ export class SimulationEngine {
 			cancelled: false,
 			config: this.config,
 			durationMs: performance.now() - started,
-			insights: { activeMs: this.activeMs, idleGaps: this.idleGaps, prestiges: this.prestiges },
+			insights: { activeMs: this.activeMs, cosmos: this.cosmos.insights, idleGaps: this.idleGaps, prestiges: this.prestiges },
 			milestones: this.milestones,
 			snapshots: this.snapshots,
 			spikes: this.spikes,
@@ -217,6 +235,7 @@ export class SimulationEngine {
 			this.trackIdle(this.executeBotBehavior() > 0);
 			this.quests.steerDedicated();
 		}
+		this.cosmos.tick(this.config.tickRate);
 
 		this.flushSpikeWindowIfNeeded();
 		if (checkAchievements) this.checkAchievements();
@@ -310,13 +329,16 @@ export class SimulationEngine {
 		// Thresholds are ratios against the previous run's gain: an absolute proton count is meaningless once the curve takes off.
 		const protoniseGain = gameManager.protoniseProtonsGain;
 		const rawAps = gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1);
+		const protonisePlateau = this.plateaued('protonise', protoniseGain);
 		if (
 			canPrestige() &&
 			prestigeStrategy.autoProtonise &&
-			protoniseGain >= Math.max(1, this.lastProtoniseGain * prestigeStrategy.protoniseThreshold) &&
+			(protoniseGain >= Math.max(1, this.lastProtoniseGain * prestigeStrategy.protoniseThreshold) ||
+				(protonisePlateau && protoniseGain > Math.max(1, this.lastProtoniseGain))) &&
 			gameManager.protonise()
 		) {
 			this.lastProtoniseGain = protoniseGain;
+			this.restartPlateaus('protonise');
 			this.logPrestige('protonise', protoniseGain, rawAps);
 			this.record('protonise', `+${protoniseGain} protons`);
 			this.prestigesThisActiveWindow++;
@@ -324,16 +346,19 @@ export class SimulationEngine {
 		}
 
 		const electronizeGain = gameManager.electronizeElectronsGain;
+		const electronizePlateau = this.plateaued('electronize', electronizeGain);
 		if (
 			canPrestige() &&
 			prestigeStrategy.autoElectronize &&
-			electronizeGain >= Math.max(1, this.lastElectronizeGain * prestigeStrategy.electronizeThreshold) &&
+			(electronizeGain >= Math.max(1, this.lastElectronizeGain * prestigeStrategy.electronizeThreshold) ||
+				(electronizePlateau && electronizeGain > Math.max(1, this.lastElectronizeGain))) &&
 			!this.planner.canSpend(CurrenciesTypes.PROTONS) &&
 			gameManager.electronize()
 		) {
 			this.lastElectronizeGain = electronizeGain;
 			/** Electronize wipes protons, a threshold left on the last proton run would block every protonise after it. */
 			this.lastProtoniseGain = 0;
+			this.restartPlateaus('protonise', 'electronize');
 			this.logPrestige('electronize', electronizeGain, rawAps);
 			this.record('electronize', `+${electronizeGain} electrons`);
 			this.prestigesThisActiveWindow++;
@@ -345,9 +370,12 @@ export class SimulationEngine {
 		if (radiationManager.unlocked && !radiationManager.ionizeReady && radiationManager.cpmFor(radiationManager.mass, 1) >= line) {
 			radiationManager.setControlRodLevel((line * 1.01) / (radiationManager.mass * 10 * radiationManager.enrichmentBonus));
 		}
+		const starlightBefore = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
 		if (canPrestige() && radiationManager.ionizeReady && gameManager.ionize()) {
+			this.cosmos.log('ionize', `${currenciesManager.getAmount(CurrenciesTypes.STARLIGHT) - starlightBefore}`);
 			this.lastElectronizeGain = 0;
 			this.lastProtoniseGain = 0;
+			this.restartPlateaus('protonise', 'electronize');
 			this.logPrestige('ionize', 0, rawAps);
 			this.record('ionize', `#${gameManager.totalIonizesAllTime}`);
 			this.prestigesThisActiveWindow++;
@@ -365,6 +393,17 @@ export class SimulationEngine {
 				gameManager.purchaseGenerator(generator, amount);
 				this.state.everPurchasedGenerators.add(generator);
 				this.record('generator', `${generator} x${amount}`, { apsDelta: gameManager.atomsPerSecond - apsBefore, isFirstPurchase });
+				actionsThisTick++;
+			}
+		}
+		/** One more generator is overdriven once the bank covers an hour of drain for it on top of the ones already running. */
+		if (canAct() && gameManager.features[FeatureTypes.OVERDRIVE]) {
+			const running = gameManager.overdriveActive;
+			const idle = GENERATOR_TYPES.filter(type => !running.includes(type) && (gameManager.generators[type]?.count ?? 0) > 0);
+			const best = idle.sort((a, b) => gameManager.generatorProductions[b] - gameManager.generatorProductions[a])[0];
+			const hourlyDrain = (HOUR_MS / OVERDRIVE_PERIOD_MS) * OVERDRIVE_COST;
+			if (best && currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON) >= hourlyDrain * (running.length + 1) && gameManager.toggleOverdrive(best)) {
+				this.record('overdrive', best);
 				actionsThisTick++;
 			}
 		}
@@ -392,10 +431,74 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
+		// Identifying goes before the Prism upgrades, both spend Light and an element's bonus is permanent.
+		if (canAct() && periodicManager.unlocked) {
+			/** With the Prism Tuning, each element is read through its best window. */
+			const tuningOf = (z: number) => (periodicManager.tuned && ELEMENTS[z - 1].lines.length ? bestTuning(ELEMENTS[z - 1].lines) : null);
+			const z = periodicManager.ready.filter(other => periodicManager.canAfford(other, tuningOf(other))).sort((a, b) => ELEMENTS[a - 1].need - ELEMENTS[b - 1].need)[0];
+			if (z) {
+				const tuning = tuningOf(z);
+				if (tuning !== null) periodicManager.setTuning(tuning);
+				if (periodicManager.identify(z)) {
+					this.record('periodic', `identify ${ELEMENTS[z - 1].symbol}`);
+					actionsThisTick++;
+				}
+			}
+		}
+		/**
+		 * Every forge stays busy: a source that waits on another one gives its forge back, so the source it waits for can take it.
+		 * A full source keeps its forge, the bot reads first in this same pass and moving the forge would only fill another source while Light is short.
+		 */
+		if (periodicManager.unlocked) {
+			for (const id of periodicManager.active) {
+				if (!canAct()) break;
+				if (periodicManager.statuses[id].kind === 'waiting' && periodicManager.release(id)) {
+					this.record('periodic', `release ${id}`);
+					actionsThisTick++;
+				}
+			}
+			if (canAct() && periodicManager.buyForge()) {
+				this.record('periodic', `forge ${periodicManager.forges}`);
+				actionsThisTick++;
+			}
+			for (let site = this.bestForgeSite(); site && periodicManager.freeForges > 0 && canAct(); site = this.bestForgeSite()) {
+				if (!periodicManager.assign(site)) break;
+				this.record('periodic', `forge ${site}`);
+				actionsThisTick++;
+			}
+		}
 		if (canAct() && gameManager.totalIonizesAllTime > 0) {
 			const id = this.cheapestChromaticUpgrade();
 			if (id && chromaticManager.purchaseUpgrade(id)) {
 				this.record('chromatic_upgrade', id);
+				actionsThisTick++;
+			}
+		}
+		if (canAct() && cosmosManager.unlocked) {
+			const next = cosmosManager.canObserve ? cosmosManager.nextDiscovery : null;
+			const study = this.bestStudy();
+			const site = this.bestSiteStudy();
+			const instrument = cosmosManager.nextInstrument;
+			if (!next) this.observedMs = 0;
+			else if (this.observedMs > 0 || gameManager.startObservation()) this.observedMs += this.config.tickRate;
+			if (next && this.observedMs >= COSMOS_OBSERVE_MS && cosmosManager.discover(next.id)) {
+				this.observedMs = 0;
+				this.cosmos.log('discover', next.id);
+				this.record('cosmos', `discover ${next.id}`);
+				actionsThisTick++;
+			} else if (!next && (cosmosManager.nextDiscovery || (instrument && !cosmosManager.research)) && cosmosManager.purchaseAperture()) {
+				this.cosmos.log('aperture', `${cosmosManager.aperture + 1}`);
+				this.record('cosmos', `aperture ${cosmosManager.aperture + 1}`);
+				actionsThisTick++;
+			} else if (!cosmosManager.research && instrument && cosmosManager.purchaseInstrument(instrument.id)) {
+				this.cosmos.log('instrument', instrument.id);
+				this.record('cosmos', `instrument ${instrument.id}`);
+				actionsThisTick++;
+			} else if (site && periodicManager.study(site)) {
+				this.record('periodic', `study ${site}`);
+				actionsThisTick++;
+			} else if (study && gameManager.studyCosmosObject(study)) {
+				this.record('cosmos', `study ${study}`);
 				actionsThisTick++;
 			}
 		}
@@ -435,7 +538,7 @@ export class SimulationEngine {
 		let best: { cost: number; id: string } | null = null;
 		for (const upgrade of Object.values(CHROMATIC_UPGRADES)) {
 			const level = chromaticManager.level(upgrade.id);
-			if (level >= upgrade.maxLevel || !chromaticManager.isUnlocked(upgrade)) continue;
+			if (level >= upgrade.maxLevel || !chromaticManager.isUnlocked(upgrade) || (upgrade.table && !periodicManager.unlocked)) continue;
 			const cost = getChromaticUpgradeCost(upgrade, level);
 			const white = upgrade.currencies.includes(CurrenciesTypes.WHITE_LIGHT);
 			const reachable = white
@@ -444,6 +547,88 @@ export class SimulationEngine {
 			if (reachable && (!best || cost < best.cost)) best = { cost, id: upgrade.id };
 		}
 		if (best && CHROMATIC_UPGRADES[best.id].currencies.includes(CurrenciesTypes.WHITE_LIGHT)) chromaticManager.recombine();
+		return best?.id ?? null;
+	}
+
+	/** Tracks the peak, spending protons dips the Electronize gain without the run having stalled. */
+	private plateaued(layer: keyof SimulationEngine['gainPlateaus'], gain: number): boolean {
+		const plateau = this.gainPlateaus[layer];
+		if (gain > plateau.gain * PLATEAU_GROWTH) {
+			plateau.gain = gain;
+			plateau.since = gameManager.inGameTime;
+		}
+		return gameManager.inGameTime - plateau.since >= PLATEAU_MS;
+	}
+
+	private restartPlateaus(...layers: (keyof SimulationEngine['gainPlateaus'])[]) {
+		for (const layer of layers) this.gainPlateaus[layer] = { gain: 0, since: gameManager.inGameTime };
+	}
+
+	/** Starlight kept for the Aperture level or the instrument the Cosmos waits on, the next instrument needs the Aperture maxed first. */
+	private cosmosReserve(): number {
+		if (cosmosManager.nextDiscovery) return cosmosManager.canObserve ? 0 : cosmosManager.nextApertureCost;
+		const instrument = cosmosManager.research ? null : cosmosManager.nextInstrument;
+		if (!instrument) return 0;
+		return cosmosManager.apertureMaxed ? instrument.cost : cosmosManager.nextApertureCost;
+	}
+
+	/**
+	 * A study pays back in a time set by its level alone, so the lowest level goes first. While saving for the Aperture level or the
+	 * instrument that unlocks the next discovery, a study is only bought when it pays itself back before that purchase was affordable.
+	 */
+	private bestStudy(): string | null {
+		const reserve = this.cosmosReserve();
+		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
+		let best: { cost: number; id: string; level: number } | null = null;
+		for (const object of cosmosManager.objects) {
+			const level = cosmosManager.level(object.id);
+			const cost = studyCost(object, level);
+			const left = starlight - cost;
+			if (left < 0) continue;
+			const payback = (cost * (1 + level)) / cosmosManager.starlightOf(object.id);
+			if (left < reserve && payback > (reserve - left) / cosmosManager.starlightPerSecond) continue;
+			if (!best || level < best.level || (level === best.level && cost < best.cost)) best = { cost, id: object.id, level };
+		}
+		return best?.id ?? null;
+	}
+
+	/** The idle source whose next element finishes soonest, leaving out the ones that still wait on an element or a discovery, or hold too many unread elements. */
+	private bestForgeSite(): SiteId | null {
+		let best: { eta: number; id: SiteId } | null = null;
+		for (const id of periodicManager.open) {
+			const status = periodicManager.statuses[id];
+			const rate = periodicManager.rateOf(id);
+			if (status.kind !== 'idle' || status.missing.length || status.object || rate <= 0 || periodicManager.unreadOf(id).length >= MAX_UNREAD) continue;
+			const eta = (ELEMENTS[status.z - 1].need - status.progress) / rate;
+			if (!best || eta < best.eta) best = { eta, id };
+		}
+		return best?.id ?? null;
+	}
+
+	/**
+	 * The site holding a forge with the longest wait left, when studying it saves more than an hour and leaves the Starlight saved for the next
+	 * discovery. A study level divides the wait by `(level + 2) / (level + 1)`. A decay site also counts while an element waits for Decay
+	 * events, ranked by the hours its study saves on that wait, scaled by `level + 2` to stand on the same scale as a forge `eta`.
+	 */
+	private bestSiteStudy(): SiteId | null {
+		const reserve = this.cosmosReserve();
+		const starlight = currenciesManager.getAmount(CurrenciesTypes.STARLIGHT);
+		const held = currenciesManager.getAmount(CurrenciesTypes.DECAY_EVENTS);
+		const unaffordable = periodicManager.ready.map(z => decayCost(ELEMENTS[z - 1])).filter(cost => cost > held);
+		const deficit = unaffordable.length ? Math.min(...unaffordable) - held : 0;
+		const rate = periodicManager.decayEventsPerSecond;
+		let best: { eta: number; id: SiteId } | null = null;
+		for (const id of periodicManager.open) {
+			const level = periodicManager.forge(id).level;
+			if (starlight - siteStudyCost(level) < reserve) continue;
+			let eta = periodicManager.etaOf(id);
+			if (!Number.isFinite(eta) || eta / (level + 2) < 3600) eta = 0;
+			if (DECAY_SITES.includes(id) && deficit > 0) {
+				const saving = rate > 0 ? deficit / rate - deficit / (rate + DECAY_EVENTS_PER_SECOND) : Infinity;
+				if (saving >= 3600) eta = Math.max(eta, saving * (level + 2));
+			}
+			if (eta > 0 && (!best || eta > best.eta)) best = { eta, id };
+		}
 		return best?.id ?? null;
 	}
 
@@ -494,7 +679,7 @@ export class SimulationEngine {
 			const next = this.autoBuyNext[type];
 			if (next === undefined) this.autoBuyNext[type] = now + interval;
 			else if (now >= next) {
-				gameManager.purchaseGenerator(type, 1);
+				gameManager.autoBuyGenerator(type);
 				this.autoBuyNext[type] = Math.max(next + interval, now);
 			}
 		}
@@ -598,7 +783,7 @@ export class SimulationEngine {
 			this.chromaticHp[color] = pool - damage;
 
 			const breaks = damage / hp;
-			currenciesManager.add(CHROMATIC[color].currency, breaks * chromaticManager.lightFor(color, blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop, gameManager.totalIonizesAllTime));
+			currenciesManager.add(CHROMATIC[color].currency, breaks * chromaticManager.lightFor(color, blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop, gameManager));
 			kills[color] += breaks;
 			gameManager.countChromaticBreak(color, breaks);
 		});

@@ -1,9 +1,7 @@
 import type { RequestHandler } from './$types';
-import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { isQuarkAchievement, MAX_ACHIEVEMENT_IDS_PER_REQUEST, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { quarksService } from '#lib/server/supabase.server.js';
 import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
-
-const MAX_ACHIEVEMENT_IDS_PER_REQUEST = 250;
 
 export const POST: RequestHandler = verifiedHandler('Failed to grant achievement quarks', async ({ data, userId }) => {
 	const { achievementIds } = data;

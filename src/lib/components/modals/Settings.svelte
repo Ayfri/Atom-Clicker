@@ -39,7 +39,7 @@
 	let { onClose }: Props = $props();
 
 	/** Read once, so the Install tab stays after the browser's dialog used up the prompt. */
-	const canInstall = installStore.canInstall;
+	const canInstall = installStore.available;
 	/** Inside the installed app the same tab confirms the bonus instead of selling the install. */
 	const inApp = gameManager.installedApp;
 

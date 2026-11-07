@@ -4,7 +4,7 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/GameManager.svelte.js';
 import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, runSeconds } from '#helpers/runBounds.js';
 import { validateAndRepairGameState } from '#helpers/saves.js';
-import { APP_PRODUCTION_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import { APP_PRODUCTION_MULTIPLIER, OVERDRIVE_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import type { BotProfileId } from '#lib/simulation/presets.js';
 import { playHonestRun } from '../../../tests/simulatedRun.js';
 
@@ -84,6 +84,19 @@ describe('bounds', () => {
 		gameManager.installedApp = true;
 		expect(measureRunBounds(gameManager, Date.now(), 60)).toEqual({ ...bounds });
 		expect(gameManager.installedApp).toBe(true);
+	});
+
+	test('Overdrive on every generator is in the bound with the skill only, and measuring leaves the slots as they were', () => {
+		gameManager.generators = { crystal: { count: 5, level: 0, unlocked: true }, molecule: { count: 10, level: 0, unlocked: true } };
+		const slots = { molecule: { active: false, paidUntil: 7 } };
+		const plain = measureRunBounds(gameManager, Date.now(), 60).rate;
+
+		gameManager.overdrive = slots;
+		expect(measureRunBounds(gameManager, Date.now(), 60).rate).toBe(plain);
+
+		gameManager.skillUpgrades = ['higgsOverdrive'];
+		expect(measureRunBounds(gameManager, Date.now(), 60).rate).toBeCloseTo(plain * OVERDRIVE_MULTIPLIER, 6);
+		expect(gameManager.overdrive).toBe(slots);
 	});
 
 	test('ten molecules and a hundred clicks cannot reach the first Protonize in a minute', () => {

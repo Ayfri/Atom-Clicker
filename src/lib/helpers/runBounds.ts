@@ -1,4 +1,6 @@
 import { CurrenciesTypes } from '#data/currencies.js';
+import { FeatureTypes } from '#data/features.js';
+import { GENERATOR_TYPES } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/RadiationManager.svelte.js';
@@ -8,12 +10,13 @@ import { MAX_BOOST_POINTS, XP_PER_ATOM } from '#lib/constants.js';
  * Bumped by any balance change that lowers what a run can earn. Every save then rebases its current run once on load, and the
  * leaderboard refuses scores checked against an older version, so a nerf never leaves runs above what the game allows.
  */
-export const BALANCE_VERSION = 1;
+export const BALANCE_VERSION = 2;
 /**
  * Manual clicks per second a run is credited with, macros included. The click counter comes from the client and Click Mastery
  * turns it into a production multiplier, so clicks past this rate over the run's duration count for nothing.
+ * Taps on Cosmos objects are held to the same rate over the whole save.
  */
-const MAX_CLICKS_PER_SECOND = 100;
+export const MAX_CLICKS_PER_SECOND = 100;
 /** Margin over the best case, it absorbs float drift and small balance changes, never whole orders of magnitude. */
 export const RUN_BOUND_SLACK = 10;
 /** No save predates the first commit of the game. */
@@ -40,8 +43,9 @@ export interface RunBounds {
 
 /**
  * Best rates the loaded state can reach in a run of `seconds`: the whole boost pool on atoms, a full Stability Field, the reactor
- * at its CPM cap, the installed app bonus, auto-click on and no more clicks than the run had time for. Generators and upgrades are never sold, so within a
- * Protonize run these rates only grow and bound the whole run.
+ * at its CPM cap, the installed app bonus, Overdrive on every generator once the skill is owned, auto-click on and no more clicks
+ * than the run had time for. Generators and upgrades are never sold, so within a Protonize run these rates only grow and bound the
+ * whole run. Generators kept through a prestige count at their full rate from the start of the run, which only loosens the bound.
  */
 export function measureRunBounds(manager: GameManager, now: number, seconds: number): RunBounds {
 	const saved = {
@@ -52,6 +56,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		installedApp: manager.installedApp,
 		lastInteractionTime: manager.lastInteractionTime,
 		mass: radiationManager.mass,
+		overdrive: manager.overdrive,
 		tickTime: manager.tickTime,
 		totalClicksRun: manager.totalClicksRun,
 	};
@@ -62,6 +67,9 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		manager.installedApp = true;
 		manager.lastInteractionTime = 0;
 		manager.tickTime = now;
+		if (manager.features[FeatureTypes.OVERDRIVE]) {
+			manager.overdrive = Object.fromEntries(GENERATOR_TYPES.map(type => [type, { active: true, paidUntil: Infinity }]));
+		}
 		manager.currencyBoosts = { ...saved.currencyBoosts, [CurrenciesTypes.ATOMS]: Math.min(MAX_BOOST_POINTS, manager.boostPointsTotal) };
 		manager.totalClicksRun = Math.min(saved.totalClicksRun, (manager.autoClicksPerSecond + MAX_CLICKS_PER_SECOND) * seconds);
 		if (radiationManager.unlocked) {
@@ -91,6 +99,7 @@ export function measureRunBounds(manager: GameManager, now: number, seconds: num
 		manager.installedApp = saved.installedApp;
 		manager.lastInteractionTime = saved.lastInteractionTime;
 		manager.tickTime = saved.tickTime;
+		manager.overdrive = saved.overdrive;
 		manager.currencyBoosts = saved.currencyBoosts;
 		manager.totalClicksRun = saved.totalClicksRun;
 		radiationManager.mass = saved.mass;

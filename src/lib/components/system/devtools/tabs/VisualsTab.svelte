@@ -1,9 +1,17 @@
 <script lang="ts">
 	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 	import type { IconName } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
+	import { SITE_IDS, SITES } from '#data/sites.js';
+	import Blueprint from '#components/cosmos/Blueprint.svelte';
+	import Iris from '#components/cosmos/Iris.svelte';
+	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
+	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
 	import { tierIconStack } from '#helpers/iconStacks.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { btn, field } from '../shared.svelte';
@@ -15,8 +23,11 @@
 	const PAGE = 30;
 	const achievementStacks = Object.values(ACHIEVEMENTS).flatMap(({ iconStack, name }) => (iconStack ? [{ name, stack: iconStack }] : []));
 
+	let built = $state(0.5);
 	let color = $state('#ffffff');
 	let icon = $state<IconName>('molecule');
+	let irisMs = $state(0);
+	let irisRun = $state(0);
 	let label = $state('');
 	let overrideColor = $state(false);
 	let shown = $state(PAGE);
@@ -24,6 +35,12 @@
 
 	const toast = (type: 'error' | 'info' | 'success' | 'warning', infinite = false) =>
 		toastStore[type]({ duration: infinite ? 0 : undefined, message: `A ${infinite ? 'sticky ' : ''}${type} toast.`, title: `Test ${type}` });
+
+	function openIris() {
+		const run = ++irisRun;
+		irisMs = APERTURE_WIDEN_MS;
+		setTimeout(() => run === irisRun && (irisMs = 0), APERTURE_WIDEN_MS);
+	}
 </script>
 
 <Section title="Toasts and animations">
@@ -36,6 +53,12 @@
 		<button class="{btn} ml-auto" onclick={() => prestigeStore.trigger('protonise')}>Protonise anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('electronize')}>Electronize anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('ionize')}>Ionize anim</button>
+		<button
+			class={btn}
+			disabled={!periodicManager.unlocked || realmManager.introPlaying}
+			onclick={() => realmManager.playIntro()}
+			title={periodicManager.unlocked ? 'Plays over everything but this panel, close it with ² / `' : 'Needs the Spectroscope'}>Periodic Table intro</button
+		>
 	</div>
 </Section>
 
@@ -60,7 +83,7 @@
 			{const stack = $derived(tierIconStack(icon, index, tier, color))}
 			<div class="flex flex-col items-center gap-0.5">
 				<IconStack color={stack.color} count={stack.count} icon={stack.icon} label={stack.label} {size} />
-				<span class="font-mono text-[9px] text-white/30">{tier}</span>
+				<span class="font-mono text-[10px] text-white/45">{tier}</span>
 			</div>
 		{/each}
 	</div>
@@ -68,7 +91,7 @@
 
 <Section collapsed title="Achievement stacks ({Math.min(shown, achievementStacks.length)}/{achievementStacks.length})">
 	{#snippet actions()}
-		<label class="flex items-center gap-1 text-[11px] text-white/50">
+		<label class="flex items-center gap-1 text-[12px] text-white/50">
 			<input bind:checked={overrideColor} class="accent-accent-500" type="checkbox" />
 			Use picked color
 		</label>
@@ -77,7 +100,7 @@
 		{#each achievementStacks.slice(0, shown) as { name, stack } (name)}
 			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={name}>
 				<IconStack color={overrideColor ? color : stack.color} count={stack.count} icon={stack.icon} label={stack.label} {size} />
-				<span class="w-full truncate text-center text-[9px] text-white/40">{name}</span>
+				<span class="w-full truncate text-center text-[10px] text-white/40">{name}</span>
 			</div>
 		{/each}
 	</div>
@@ -86,13 +109,53 @@
 	{/if}
 </Section>
 
+<Section collapsed title="Cosmos">
+	<div class="mb-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
+		<span class="grid size-10 place-items-center rounded-lg bg-accent-500 text-white">
+			{#key irisRun}
+				<Iris durationMs={irisMs} size={28} />
+			{/key}
+		</span>
+		<button class={btn} onclick={openIris}>Widen {APERTURE_WIDEN_MS / 1000}s</button>
+		<input bind:value={built} class="ml-auto w-24 accent-accent-500" max="1" min="0" step="0.01" type="range" />
+		<span class="font-mono">{Math.round(built * 100)}% built</span>
+	</div>
+	<div class="mb-2 grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1">
+		{#each COSMOS_INSTRUMENTS.filter(instrument => instrument.cost > 0) as instrument (instrument.id)}
+			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={instrument.name}>
+				<Blueprint class="size-12" id={instrument.id} progress={built} />
+				<span class="w-full truncate text-center text-[10px] text-white/40">{instrument.name}</span>
+			</div>
+		{/each}
+	</div>
+	<div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1">
+		{#each COSMOS_OBJECTS as object (object.id)}
+			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={object.name}>
+				<SkyThumbnail color={object.color} id={object.id} small={!!object.orbits} />
+				<span class="w-full truncate text-center text-[10px] text-white/40">{object.name}</span>
+			</div>
+		{/each}
+	</div>
+</Section>
+
+<Section collapsed title="Periodic Table sources">
+	<div class="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-1">
+		{#each SITE_IDS as id (id)}
+			<div class="flex flex-col items-center gap-1 rounded bg-white/5 p-1.5" title={SITES[id].name}>
+				<SourceArt class="size-20" {id} />
+				<span class="w-full truncate text-center text-[10px] text-white/40">{SITES[id].name}</span>
+			</div>
+		{/each}
+	</div>
+</Section>
+
 <Section collapsed title="Icon registry ({ICON_NAMES.length})">
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1">
 		{#each ICON_NAMES as name (name)}
 			{const Icon = $derived(ICONS[name])}
 			<button class="flex cursor-pointer flex-col items-center gap-1 rounded bg-white/5 p-1.5 hover:bg-white/10" onclick={() => (icon = name)} title="Use in icon stacks">
 				<Icon {color} size={size * 0.6} />
-				<span class="w-full truncate text-center font-mono text-[9px] text-white/40">{name}</span>
+				<span class="w-full truncate text-center font-mono text-[10px] text-white/40">{name}</span>
 			</button>
 		{/each}
 	</div>

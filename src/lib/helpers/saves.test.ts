@@ -223,7 +223,7 @@ describe('save round trip', () => {
 	});
 
 	test('the radiation state carries no tick time', () => {
-		expect(gameManager.getCurrentState().radiation).toEqual({ controlRodLevel: 0.5, mass: 0, unlocked: false });
+		expect(gameManager.getCurrentState().radiation).toEqual({ controlRodLevel: 0.5, mass: 0, peakCpm: 0, unlocked: false });
 	});
 
 	test('a saved realm selection only loads once that realm is unlocked', () => {

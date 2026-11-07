@@ -65,7 +65,7 @@
 <div class="grid grid-cols-4 gap-px overflow-hidden rounded-lg bg-white/5 text-center">
 	{#each readouts as [label, value] (label)}
 		<div class="bg-accent-950/60 px-1 py-2">
-			<div class="text-[10px] tracking-wider text-white/40 uppercase">{label}</div>
+			<div class="text-[11px] tracking-wider text-white/50 uppercase">{label}</div>
 			<div class="truncate font-mono text-sm text-white">{value}</div>
 		</div>
 	{/each}

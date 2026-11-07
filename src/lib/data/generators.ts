@@ -57,7 +57,7 @@ export const GENERATORS: Record<GeneratorType, GeneratorData> = {
 			amount: 251_000,
 			currency: CurrenciesTypes.ATOMS
 		},
-		rate: 100,
+		rate: 200,
 	},
 	[GeneratorTypes.ROCK]: {
 		name: 'Rock',
@@ -66,7 +66,7 @@ export const GENERATORS: Record<GeneratorType, GeneratorData> = {
 			amount: 8_808_080,
 			currency: CurrenciesTypes.ATOMS
 		},
-		rate: 4000,
+		rate: 2000,
 	},
 	[GeneratorTypes.PLANET]: {
 		name: 'Planet',
@@ -90,7 +90,7 @@ export const GENERATORS: Record<GeneratorType, GeneratorData> = {
 		name: 'Neutron Star',
 		description: 'Ultra-dense atomic core',
 		cost: {
-			amount: 77_700_000_000,
+			amount: 172_000_000_000,
 			currency: CurrenciesTypes.ATOMS
 		},
 		rate: 1_700_000,
@@ -99,7 +99,7 @@ export const GENERATORS: Record<GeneratorType, GeneratorData> = {
 		name: 'Black Hole',
 		description: 'Cosmic atom collector',
 		cost: {
-			amount: 1_000_000_000_000,
+			amount: 3_000_000_000_000,
 			currency: CurrenciesTypes.ATOMS
 		},
 		rate: 12_000_000,

@@ -76,6 +76,8 @@ export interface SimulationSnapshot {
 	generatorsEverPurchased: string[];
 	generatorsPurchased: number;
 	clicks: number;
+	/** Absent on reports saved before the Cosmos was tracked. */
+	cosmos?: CosmosSnapshot;
 	dayNumber: number;
 	electrons: number;
 	electronizes: number;
@@ -123,13 +125,29 @@ export interface SimulationSnapshot {
 	upgrades: number;
 }
 
+export interface CosmosSnapshot {
+	aperture: number;
+	/** Multiplier the discovered objects and their studies put on each stat they boost. */
+	boosts: Record<string, number>;
+	discovered: number;
+	instruments: number;
+	ionizes: number;
+	starlight: number;
+	starlightEarned: number;
+	starlightPerSecond: number;
+	studyLevels: number;
+}
+
 export type SimulationActionType =
 	| 'achievement'
 	| 'chromatic_upgrade'
+	| 'cosmos'
 	| 'currency_boost'
 	| 'generator'
 	| 'electronize'
 	| 'ionize'
+	| 'overdrive'
+	| 'periodic'
 	| 'photon_upgrade'
 	| 'power_up'
 	| 'protonise'
@@ -204,9 +222,29 @@ export interface PrestigeEvent {
 	type: (typeof PRESTIGE_LAYERS)[number];
 }
 
+/** What the next discovery waits on: the signal being observed, an Aperture level, an instrument to buy or one being built. */
+export type CosmosBlocker = 'aperture' | 'instrument' | 'observe' | 'research' | 'widening';
+
+export interface CosmosEvent {
+	/** Object or instrument id, Aperture level, or the Starlight an Ionize flashed. */
+	detail: string;
+	kind: 'aperture' | 'discover' | 'instrument' | 'ionize';
+	starlightPerSecond: number;
+	timestamp: number;
+}
+
+export interface CosmosInsights {
+	/** Time spent on each blocker while the Cosmos is open and the sky still has something to discover. */
+	blockedMs: Record<CosmosBlocker, number>;
+	events: CosmosEvent[];
+	/** First Ionize, null when the run never opened the Cosmos. */
+	openedAt: number | null;
+}
+
 /** Run-wide pacing data. Optional because reports saved before it existed are still loaded from history. */
 export interface RunInsights {
 	activeMs: number;
+	cosmos?: CosmosInsights;
 	idleGaps: IdleGap[];
 	prestiges: PrestigeEvent[];
 }

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { CHROMATIC, CHROMATIC_UPGRADES, ChromaticColors, IONIZE_LIGHT_MILESTONES, ionizeLightMultiplier, ionizeMilestoneBonus } from '#data/chromatic.js';
+	import { IONIZE_STARLIGHT_STEP, ionizeStarlightMultiplier } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
 	import type { PrestigeListItem } from '#lib/types.js';
@@ -11,8 +13,9 @@
 	import IonizeIcon from '#components/icons/Ionize.svelte';
 	import PrestigeHoldButton from '#components/prestige/PrestigeHoldButton.svelte';
 	import ResetKeepGrid from '#components/prestige/ResetKeepGrid.svelte';
+	import Currency from '#components/ui/Currency.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { Rainbow } from '@lucide/svelte';
+	import { Rainbow, Sparkles } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -28,7 +31,7 @@
 	const MILESTONES = [
 		...Object.values(RADIATION_UPGRADES)
 			.flatMap(({ ionizes, name }) =>
-				ionizes ? [{ color: 'var(--color-radiation)', count: ionizes, reward: `Unlocks ${ionizes === 1 ? `the Prism and ${name}` : name}` }] : [],
+				ionizes ? [{ color: 'var(--color-radiation)', count: ionizes, reward: `Unlocks ${ionizes === 1 ? `the Prism, the Cosmos and ${name}` : name}` }] : [],
 			)
 			.sort((a, b) => a.count - b.count),
 		...IONIZE_LIGHT_MILESTONES.map((count, i) => ({
@@ -74,8 +77,15 @@
 		{ currencies: [], label: 'Photon upgrades' },
 		{ currencies: [], label: 'Proton and electron upgrades' },
 		{ currencies: [], label: 'Skills and achievements' },
-		...(ionizes > 0 ? [{ currencies: LIGHTS, label: 'Light and Prism upgrades' }] : []),
+		...(ionizes > 0 ?
+			[
+				{ currencies: LIGHTS, label: 'Light and Prism upgrades' },
+				{ currencies: [CurrenciesTypes.STARLIGHT], label: 'Starlight and the Cosmos' },
+			]
+		:	[]),
 	]);
+	/** Read at the count the Ionize reaches, the flash already pays with the next Starlight multiplier. */
+	const flash = $derived(cosmosManager.flashFor(radiationManager.flashCpm, radiationManager.ionizeCpm, ionizes + 1));
 
 	function handleIonize() {
 		prestigeStore.trigger('ionize');
@@ -85,8 +95,9 @@
 </script>
 
 <Modal
+	fit
 	{onClose}
-	width="sm"
+	width="md"
 >
 	{#snippet header()}
 		<h2 class="flex flex-1 items-baseline gap-3 text-2xl font-bold text-white">
@@ -97,8 +108,8 @@
 		</h2>
 	{/snippet}
 
-	<div class="flex flex-col gap-7">
-		<p class="text-center text-gray-300">Push the reactor past its limits and strip every atom of its electrons.</p>
+	<div class="flex flex-col gap-4">
+		<p class="text-center text-sm text-gray-300">Push the reactor past its limits and strip every atom of its electrons.</p>
 
 		<div class="flex items-center gap-5">
 			<div class="relative grid size-22 shrink-0 place-items-center">
@@ -159,7 +170,7 @@
 			</div>
 		</div>
 
-		<section class="flex flex-col gap-3">
+		<section class="flex flex-col gap-2">
 			<div class="flex items-baseline justify-between gap-2">
 				<h3 class="text-xs font-semibold uppercase tracking-wider text-white/40">Milestones</h3>
 				{#if lightBonus > 0}
@@ -207,17 +218,41 @@
 					Every milestone is reached.
 				{/if}
 			</p>
-			{#if ionizes > 0}
-				<p class="flex items-center gap-2 text-sm text-white/80">
-					<Rainbow
-						class="shrink-0 text-white/50"
-						size={16}
-					/>
-					<span class="flex-1">Light multiplier, +0.5 per Ionize</span>
-					<span class="font-mono tabular-nums text-white/50">x{formatNumber(ionizeLightMultiplier(ionizes))}</span>
-					<span class="text-white/30">→</span>
-					<span class="font-mono font-semibold tabular-nums text-white">x{formatNumber(ionizeLightMultiplier(ionizes + 1))}</span>
-				</p>
+			{#if ionizes > 0 || flash > 0}
+				<dl class="grid auto-cols-fr grid-flow-col gap-3 text-sm">
+					{#if ionizes > 0}
+						<div title="Every Ionize adds x0.5 to colored Light">
+							<dt class="flex items-center gap-1.5 text-xs text-white/50">
+								<Rainbow size={13} />
+								Light
+							</dt>
+							<dd class="font-mono tabular-nums text-white/50">
+								x{formatNumber(ionizeLightMultiplier(ionizes))} → <span class="font-semibold text-white">x{formatNumber(ionizeLightMultiplier(ionizes + 1))}</span>
+							</dd>
+						</div>
+						<div title="Every Ionize adds x{IONIZE_STARLIGHT_STEP} to Starlight">
+							<dt class="flex items-center gap-1.5 text-xs text-white/50">
+								<Sparkles size={13} />
+								Starlight
+							</dt>
+							<dd class="font-mono tabular-nums text-white/50">
+								x{formatNumber(ionizeStarlightMultiplier(ionizes))} → <span class="font-semibold text-white">x{formatNumber(ionizeStarlightMultiplier(ionizes + 1))}</span>
+							</dd>
+						</div>
+					{/if}
+					{#if flash > 0}
+						<div title="Grows with how far past the ionization line your core went this run">
+							<dt class="flex items-center gap-1.5 text-xs text-white/50">
+								<Currency
+									name={CurrenciesTypes.STARLIGHT}
+									size={13}
+								/>
+								Starlight flash
+							</dt>
+							<dd class="font-mono font-semibold tabular-nums text-white">+{formatNumber(flash)}</dd>
+						</div>
+					{/if}
+				</dl>
 			{/if}
 		</section>
 

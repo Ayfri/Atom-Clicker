@@ -3,6 +3,7 @@ import { FeatureTypes } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 import { add, mul } from '#helpers/effects.js';
+import { OVERDRIVE_COST, OVERDRIVE_MULTIPLIER, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 import type { SkillBranch, SkillUpgrade } from '#lib/types.js';
 
 const SKILL_GRID = {
@@ -92,6 +93,19 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['boostEvenSplit'],
 	},
 
+	higgsOverdrive: {
+		branch: 'boosts',
+		cost: { amount: 20, currency: CurrenciesTypes.HIGGS_BOSON },
+		description: `Overdrive any generator for ${OVERDRIVE_MULTIPLIER}x production, at ${OVERDRIVE_COST} Higgs Boson every ${OVERDRIVE_PERIOD_MS / 60_000} minutes each.`,
+		effects: [],
+		feature: FeatureTypes.OVERDRIVE,
+		icon: 'overdrive',
+		id: 'higgsOverdrive',
+		name: 'Higgs Overdrive',
+		position: gridPos(-0.7, -1.85),
+		requires: ['boostAssignAll'],
+	},
+
 	// REALMS (west)
 
 	purpleRealm: {
@@ -152,7 +166,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	autoUpgrade: {
 		branch: 'automation',
 		cost: { amount: 25, currency: CurrenciesTypes.ELECTRONS },
-		description: 'Automatically buys the cheapest available upgrade every 30 seconds',
+		description: 'Automatically buys the cheapest available upgrade every 30 seconds, sooner with Faster Auto Upgrade',
 		effects: [add('auto_upgrade', 0)],
 		icon: 'upgrade',
 		id: 'autoUpgrade',
@@ -170,7 +184,7 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 				{
 					branch: 'automation',
 					cost: { amount: 2 + i, currency: CurrenciesTypes.ELECTRONS },
-					description: `Automatically buys 1 ${name} every 30 seconds`,
+					description: `Automatically buys ${name} every 30 seconds, sooner with Faster Auto ${name}`,
 					effects: [add('auto_buy', 0, generatorType)],
 					icon: GENERATOR_ICON_NAMES[generatorType],
 					id,

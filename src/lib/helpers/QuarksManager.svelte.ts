@@ -10,7 +10,7 @@ import {
 	QUEST_POOL,
 	todayUtcDayKey,
 } from '#data/dailyQuests.js';
-import { isQuarkAchievement, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { isQuarkAchievement, MAX_ACHIEVEMENT_IDS_PER_REQUEST, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
 import type { RealmType } from '#data/realms.js';
@@ -69,9 +69,9 @@ class QuarksManager {
 		}),
 	);
 
-	hasClaimableQuest = $derived.by(() => {
-		return this.quests.some((quest) => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest));
-	});
+	claimableQuestCount = $derived(this.quests.filter((quest) => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest)).length);
+
+	hasClaimableQuest = $derived(this.claimableQuestCount > 0);
 
 	hasClaimableAchievement = $derived.by(() => {
 		return gameManager.achievements.some((id) => id in ACHIEVEMENTS && !this.claimedAchievementIds.includes(id));
@@ -318,21 +318,26 @@ class QuarksManager {
 		return result.granted;
 	}
 
-	/** Resolves to the Quarks the server granted, 0 when nothing was claimed. */
+	/** Sent in batches of the server's request limit, stopping at the first one that fails. Resolves to the Quarks the server granted, 0 when nothing was claimed. */
 	async claimAchievements(achievementIds: string[]): Promise<number> {
 		const idsToClaim = achievementIds.filter((id) => !this.claimedAchievementIds.includes(id));
 		if (idsToClaim.length === 0) return 0;
 		if (this.devOverride) return this.claimAchievementsLocally(idsToClaim);
 
-		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', { achievementIds: idsToClaim }, 'claim-achievements');
-		if (!result) return 0;
+		let granted = 0;
+		for (let start = 0; start < idsToClaim.length; start += MAX_ACHIEVEMENT_IDS_PER_REQUEST) {
+			const batch = idsToClaim.slice(start, start + MAX_ACHIEVEMENT_IDS_PER_REQUEST);
+			const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', { achievementIds: batch }, 'claim-achievements');
+			if (!result) break;
 
-		this.balance = result.balance;
-		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...idsToClaim])];
-		if (result.granted > 0) {
-			toastStore.info({ message: `${result.granted} achievement rewards claimed.`, title: `+${result.granted} Quarks` });
+			this.balance = result.balance;
+			this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...batch])];
+			granted += result.granted;
 		}
-		return result.granted;
+		if (granted > 0) {
+			toastStore.info({ message: `${granted} achievement rewards claimed.`, title: `+${granted} Quarks` });
+		}
+		return granted;
 	}
 
 	private claimAchievementsLocally(achievementIds: string[]): number {

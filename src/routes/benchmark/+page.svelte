@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BenchmarkCharts from '#lib/components/benchmark/BenchmarkCharts.svelte';
 	import BenchmarkConfigPanel from '#lib/components/benchmark/BenchmarkConfigPanel.svelte';
+	import BenchmarkCosmos from '#lib/components/benchmark/BenchmarkCosmos.svelte';
 	import BenchmarkExport from '#lib/components/benchmark/BenchmarkExport.svelte';
 	import BenchmarkResults from '#lib/components/benchmark/BenchmarkResults.svelte';
 	import BenchmarkTimeline from '#lib/components/benchmark/BenchmarkTimeline.svelte';
@@ -45,6 +46,7 @@
 				cancelled: !loadedReport.wasCompleted,
 				config: loadedReport.config,
 				durationMs: loadedReport.durationMs,
+				insights: loadedReport.insights,
 				milestones: loadedReport.milestones ?? [],
 				snapshots: loadedReport.snapshots,
 				spikes: loadedReport.spikes ?? [],
@@ -221,6 +223,7 @@
 
 			{#if shown}
 				<BenchmarkResults result={shown} />
+				<BenchmarkCosmos result={shown} />
 				<BenchmarkExport result={shown} />
 			{/if}
 

@@ -4,6 +4,7 @@ import type { Currency } from '#lib/types.js';
 export const CurrenciesTypes = {
 	ATOMS: 'Atoms',
 	BLUE_LIGHT: 'Blue Light',
+	DECAY_EVENTS: 'Decay Events',
 	ELECTRONS: 'Electrons',
 	EXCITED_PHOTONS: 'Excited Photons',
 	GREEN_LIGHT: 'Green Light',
@@ -11,10 +12,21 @@ export const CurrenciesTypes = {
 	PHOTONS: 'Photons',
 	PROTONS: 'Protons',
 	RED_LIGHT: 'Red Light',
+	STARLIGHT: 'Starlight',
 	WHITE_LIGHT: 'White Light',
 } as const;
 
 export type CurrencyName = typeof CurrenciesTypes[keyof typeof CurrenciesTypes];
+
+/** Currencies that take generator-level boost points, in the order the Currency Boosts menu lists them. */
+export const BOOSTABLE_CURRENCIES: readonly CurrencyName[] = [
+	CurrenciesTypes.ATOMS,
+	CurrenciesTypes.PROTONS,
+	CurrenciesTypes.ELECTRONS,
+	CurrenciesTypes.PHOTONS,
+	CurrenciesTypes.EXCITED_PHOTONS,
+	CurrenciesTypes.STARLIGHT,
+];
 
 export const CURRENCIES = {
 	[CurrenciesTypes.ATOMS]: {
@@ -32,6 +44,13 @@ export const CURRENCIES = {
 		layer: LAYERS.NEVER,
 		name: 'Blue Light',
 		stat: CurrenciesTypes.BLUE_LIGHT,
+	},
+	[CurrenciesTypes.DECAY_EVENTS]: {
+		color: '#c6f36b',
+		id: 'decay-events',
+		layer: LAYERS.NEVER,
+		name: 'Decay Events',
+		stat: CurrenciesTypes.DECAY_EVENTS,
 	},
 	[CurrenciesTypes.ELECTRONS]: {
 		color: '#45d945',
@@ -85,6 +104,14 @@ export const CURRENCIES = {
 		layer: LAYERS.NEVER,
 		name: 'Red Light',
 		stat: CurrenciesTypes.RED_LIGHT,
+	},
+	[CurrenciesTypes.STARLIGHT]: {
+		achievementTiers: [1_000_000, 1_000_000_000, 1_000_000_000_000, 100_000_000_000_000],
+		color: '#cfe8ff',
+		id: 'starlight',
+		layer: LAYERS.NEVER,
+		name: 'Starlight',
+		stat: CurrenciesTypes.STARLIGHT,
 	},
 	[CurrenciesTypes.WHITE_LIGHT]: {
 		achievementTiers: [1, 100, 10_000, 100_000],

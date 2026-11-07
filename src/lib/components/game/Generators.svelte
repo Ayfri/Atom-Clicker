@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { CurrenciesTypes } from '#data/currencies.js';
+	import { ELEMENT_GENERATOR_PERCENT, ELEMENTS, FAMILIES, GENERATOR_ELEMENTS } from '#data/elements.js';
+	import { FeatureTypes } from '#data/features.js';
 	import {
 		GENERATOR_LEVEL_MULTIPLIER,
 		GENERATOR_LEVEL_UP_COST,
@@ -10,14 +13,17 @@
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { GENERATOR_COST_MULTIPLIER } from '#lib/constants.js';
+	import { GENERATOR_COST_MULTIPLIER, OVERDRIVE_COST, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { AmbientField, ELECTRON_FLIGHT } from '#helpers/AmbientField.js';
 	import { AtomRenderer } from '#helpers/AtomRenderer.js';
+	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
+	import OverdriveButton from '#components/game/OverdriveButton.svelte';
 	import AutoButton from '#components/ui/AutoButton.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -81,6 +87,12 @@
 
 	const totalProduction = $derived(GENERATOR_TYPES.reduce((sum, type) => sum + gameManager.generatorProductions[type], 0));
 
+	const overdriven = $derived(new Set(gameManager.overdriveActive));
+	/** Higgs Bosons per hour the running Overdrives cost. */
+	const overdriveDrain = $derived(overdriven.size * OVERDRIVE_COST * (3_600_000 / OVERDRIVE_PERIOD_MS));
+	const higgsBosons = $derived(currenciesManager.getAmount(CurrenciesTypes.HIGGS_BOSON));
+	const overdriveHoursLeft = $derived(higgsBosons / overdriveDrain);
+
 	/** `count` and `level` are the generator's values from before the purchase. */
 	function playPurchase(type: GeneratorType, amount: number, count: number, level: number, origin: MouseEvent | { x: number; y: number }) {
 		const newLevel = gameManager.generators[type]?.level ?? 0;
@@ -119,16 +131,22 @@
 		if (gameManager.purchaseGenerator(type, amount)) playPurchase(type, amount, count, level, event);
 	}
 
+	function autoBuyDescription(name: string) {
+		const { autoBuyAmount } = gameManager;
+		if (autoBuyAmount === Infinity) return `Automatically buys as many ${name} as you can afford.`;
+		return `Automatically buys ${autoBuyAmount > 1 ? 'up to ' : ''}${autoBuyAmount} ${name} whenever you can afford it.`;
+	}
+
 	function formatShare(production: number) {
 		const share = (production / totalProduction) * 100;
 		return share < 1 ? '<1%' : `${Math.round(share)}%`;
 	}
 
 	$effect(() => {
-		autoBuyManager.onPurchase = (type, count, level) => {
+		autoBuyManager.onPurchase = (type, amount, count, level) => {
 			if (realmManager.selectedRealmId !== RealmTypes.ATOMS) return;
 			const row = document.querySelector(`[data-generator=${type}]`)?.getBoundingClientRect();
-			if (row?.width) playPurchase(type, 1, count, level, { x: row.x + row.width / 2, y: row.y + row.height / 2 });
+			if (row?.width) playPurchase(type, amount, count, level, { x: row.x + row.width / 2, y: row.y + row.height / 2 });
 		};
 		return () => (autoBuyManager.onPurchase = null);
 	});
@@ -170,6 +188,19 @@
 		{/if}
 	</div>
 
+	{#if gameManager.features[FeatureTypes.OVERDRIVE]}
+		<p class="flex flex-wrap items-center gap-x-1 text-xs text-white/50">
+			<Value class="font-medium text-white/70" currency={CurrenciesTypes.HIGGS_BOSON} value={higgsBosons} />
+			{#if overdriven.size > 0}
+				<span>
+					· {overdriven.size} overdriven · -{formatNumber(overdriveDrain, 0)}/h · ~{formatNumber(overdriveHoursLeft, overdriveHoursLeft < 10 ? 1 : 0)}h left
+				</span>
+			{:else}
+				<span>· No generator overdriven</span>
+			{/if}
+		</p>
+	{/if}
+
 	<div id="generators-list" class="flex flex-col gap-1.5 lg:overflow-y-auto custom-scrollbar px-1 flex-1">
 		{#each GENERATOR_TYPES as type (type)}
 			{const generator = $derived(GENERATORS[type])}
@@ -177,6 +208,7 @@
 			{const count = $derived(saveData?.count ?? 0)}
 			{const affordable = $derived(affordableGenerators.has(type))}
 			{const obfuscated = $derived(obfuscatedGenerators.has(type))}
+			{const affinities = $derived(periodicManager.unlocked && !obfuscated ? GENERATOR_ELEMENTS[type] : undefined)}
 			{const level = $derived(saveData?.level ?? 0)}
 			{const color = $derived(getGeneratorColor(level))}
 			{const nextColor = $derived(getGeneratorColor(level + 1))}
@@ -204,11 +236,11 @@
 						in:scale={{ duration: 150, start: 0.5 }}
 						out:fly={{ y: -20, duration: 300, opacity: 0, delay: 200 }}
 					>
-						+{autoPurchasedCount}
+						+{formatNumber(autoPurchasedCount, 0)}
 					</div>
 				{/if}
 				<div class="flex items-center gap-2.5">
-					<div class="grid size-9 shrink-0 place-items-center rounded-md bg-black/20">
+					<div class="grid size-9 shrink-0 place-items-center rounded-md bg-black/20 {overdriven.has(type) ? 'ring-1 ring-amber-400/60' : ''}">
 						{#if obfuscated}
 							<span class="text-sm text-white/40">?</span>
 						{:else}
@@ -225,32 +257,59 @@
 								<span class="ml-auto text-base font-bold tabular-nums text-white/90">{formatNumber(count, 0)}</span>
 							{/if}
 						</div>
-						<p class="flex items-center gap-1 text-xs text-white/50">
+						{#if affinities}
+								{const lit = $derived(affinities.filter(z => periodicManager.identifiedSet.has(z)).length)}
+								<p
+									class="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold leading-snug"
+									data-hint="generator-elements"
+									title="Each identified element adds +{ELEMENT_GENERATOR_PERCENT}% to this generator"
+								>
+									{#each affinities as z (z)}
+										{const element = ELEMENTS[z - 1]}
+										{const identified = $derived(periodicManager.identifiedSet.has(z))}
+										<span class={identified ? '' : 'text-white/20'} style:color={identified ? FAMILIES[element.family].color : undefined}>{element.symbol}</span>
+									{/each}
+									{#if lit > 0}
+										<span class="text-white/50">+{lit * ELEMENT_GENERATOR_PERCENT}%</span>
+									{/if}
+								</p>
+							{/if}
+							<p class="flex items-center gap-1 whitespace-nowrap text-xs text-white/50">
 							{#if production > 0}
 								<Value class="font-medium text-accent-300" postfix="/s" value={production} />
 								<span>· {formatShare(production)}</span>
 							{:else if !obfuscated}
 								<Value class="text-accent-300" postfix="/s each" prefix="+" value={gameManager.generatorUnitProductions[type]} />
 							{/if}
+							{#if count > 0}
+								<span class="ml-auto shrink-0 whitespace-nowrap text-[10px] text-(--next-color)" style="--next-color: {nextColor};">
+									{GENERATOR_LEVEL_UP_COST - levelProgress} to Lv {level + 1}
+								</span>
+							{/if}
 						</p>
 					</div>
 				</div>
 				<div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
-					<span class="flex items-center gap-1 {affordable ? 'text-white' : 'text-white/70'}">
+					<span class="flex min-w-0 items-center gap-1 whitespace-nowrap {affordable ? 'text-white' : 'text-white/70'}">
 						<Value currency={generator.cost.currency} value={gameManager.getGeneratorCost(type, purchaseAmount || 1)} />
 						{#if selectedPurchaseMode !== 'x1' && purchaseAmount > 0}
 							<span class="text-[10px] text-white/50">×{purchaseAmount}</span>
 						{/if}
 					</span>
-					<span class="flex items-center gap-2">
-						{#if count > 0}
-							<span class="text-[10px] text-(--next-color)" style="--next-color: {nextColor};">
-								{GENERATOR_LEVEL_UP_COST - levelProgress} to Lv {level + 1}
-							</span>
+					<span class="flex shrink-0 items-center gap-2">
+						{#if gameManager.features[FeatureTypes.OVERDRIVE] && count > 0}
+							<OverdriveButton
+								active={overdriven.has(type)}
+								onClick={e => {
+									e.stopPropagation();
+									gameManager.toggleOverdrive(type);
+								}}
+								paidUntil={gameManager.overdrive[type]?.paidUntil}
+							/>
 						{/if}
 						{#if automatedByUpgrade.has(type)}
 							<AutoButton
-								description="Automatically buys 1 {generator.name} whenever you can afford it."
+								description={autoBuyDescription(generator.name)}
 								interval={gameManager.autoBuyIntervals[type]}
 								nextFire={autoBuyManager.nextFireTimes.get(type)}
 								onClick={e => {

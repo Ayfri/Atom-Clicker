@@ -29,7 +29,7 @@
 		{const level = $derived(levels[item.id] ?? 0)}
 		<div class="grid grid-cols-[1fr_5rem_auto] items-center gap-2 rounded px-1 py-1 hover:bg-white/5" title={item.description(level)}>
 			<span class="truncate text-xs {level > 0 ? 'text-white' : 'text-white/45'}">
-				{item.name} <span class="font-mono text-[10px] text-white/25">{item.id}</span>
+				{item.name} <span class="font-mono text-[11px] text-white/40">{item.id}</span>
 			</span>
 			<NumberInput
 				label="{item.name} level"

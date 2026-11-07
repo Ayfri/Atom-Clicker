@@ -2,6 +2,7 @@ import { CurrenciesTypes } from '#data/currencies.js';
 import { FeatureTypes } from '#data/features.js';
 import { add, mul } from '#helpers/effects.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
+import { AUTO_BUY_BULK } from '#lib/constants.js';
 import type { PhotonUpgrade } from '#lib/types.js';
 import { formatNumber } from '#lib/utils.js';
 
@@ -11,6 +12,19 @@ const stabilityShare = (level: number) => (manager: GameManager) =>
 	1 + (manager.stabilityMultiplier - 1) * (STABILITY_EFFICIENCIES[level - 1] ?? 0.2);
 
 export const PHOTON_UPGRADES: Record<string, PhotonUpgrade> = {
+	auto_buy_bulk: {
+		id: 'auto_buy_bulk',
+		name: 'Bulk Assembly',
+		description: (level: number) => {
+			const amount = AUTO_BUY_BULK[level];
+			return `Auto-buy purchases ${amount === Infinity ? 'as many generators as you can afford' : `up to ${amount} generators`} at once`;
+		},
+		baseCost: 250_000_000,
+		costMultiplier: 4,
+		maxLevel: 4,
+		effects: () => [],
+		condition: (manager: GameManager) => manager.effects.targets('auto_buy').length > 0,
+	},
 	auto_clicker: {
 		id: 'auto_clicker',
 		name: 'Photon Auto Clicker',

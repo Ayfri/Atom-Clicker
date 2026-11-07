@@ -16,13 +16,3 @@
 	{/if}
 	<span aria-hidden="true" class="quark-wordmark">Quarks</span><span class="sr-only">Quarks</span>
 </span>
-
-<style>
-	.quark-wordmark {
-		background: linear-gradient(90deg, #4a9eff, #3ddc84, #ff4d4d);
-		background-clip: text;
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		filter: drop-shadow(0 0 4px rgba(61, 220, 132, 0.35)) drop-shadow(0 0 8px rgba(74, 158, 255, 0.2));
-	}
-</style>

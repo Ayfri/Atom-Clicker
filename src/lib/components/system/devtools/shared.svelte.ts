@@ -12,7 +12,7 @@ export const btn = `${base} bg-white/5 text-white/80 hover:bg-white/10 hover:tex
 export const btnAccent = `${base} bg-accent-500/20 text-accent-200 hover:bg-accent-500/35`;
 export const btnDanger = `${base} bg-red-500/15 text-red-300 hover:bg-red-500/25`;
 export const field =
-	'w-full min-w-0 rounded-md border border-white/10 bg-black/30 px-2.5 py-1.5 font-mono text-xs text-white outline-none transition-colors placeholder:text-white/30 focus:border-accent-400/60';
+	'w-full min-w-0 rounded-md border border-white/10 bg-black/30 px-2.5 py-1.5 font-mono text-xs text-white outline-none transition-colors placeholder:text-white/40 focus:border-accent-400/60';
 export const checkbox = 'size-4 cursor-pointer accent-accent-500';
 
 const SUFFIX_EXPONENTS = new Map(SUFFIXES.map((suffix, index) => [suffix.toLowerCase(), index * 3]));

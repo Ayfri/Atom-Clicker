@@ -53,7 +53,7 @@
 		</div>
 
 		<div class="flex-1 min-w-0 pr-6">
-			<h3 class="font-bold tracking-tight truncate {config.title}">{toast.title}</h3>
+			<h3 class="font-bold tracking-tight text-balance wrap-break-word {config.title}">{toast.title}</h3>
 			<p class="mt-1 leading-relaxed text-neutral-300 text-sm whitespace-pre-line">
 				{toast.message}
 			</p>

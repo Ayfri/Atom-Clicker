@@ -146,6 +146,24 @@
 				<path d="m172 43 9.5 5.5v11L172 65l-9.5-5.5v-11Z" fill="white" fill-opacity=".16" opacity=".86" />
 			</g>
 			<g fill="white"><circle cx="90" cy="36" r="2.5" opacity=".55" /><circle cx="30" cy="22" r="1.5" opacity=".42" /><circle cx="44" cy="54" r="1.75" opacity=".5" /><circle cx="214" cy="30" r="2" opacity=".55" /></g>
+		{:else if banner.pattern === 'galaxy'}
+			<!-- Cosmos: a narrow Milky Way band over a faint starfield, a distant Sun and a ringed planet. -->
+			<path d="M-8 70C60 52 140 30 248 2" stroke="#cfe8ff" stroke-width="20" opacity=".06" />
+			<path d="M-8 70C60 52 140 30 248 2" stroke="#cfe8ff" stroke-width="8" opacity=".1" />
+			<path d="M-8 71C60 53 140 31 248 3" stroke="#05070f" stroke-width="1.5" stroke-dasharray="10 4 3 6" opacity=".45" />
+			<g fill="#cfe8ff">
+				<circle cx="14" cy="12" r=".9" opacity=".7" /><circle cx="38" cy="30" r=".6" opacity=".5" /><circle cx="70" cy="9" r="1.1" opacity=".8" /><circle cx="96" cy="62" r=".7" opacity=".55" />
+				<circle cx="112" cy="20" r=".6" opacity=".45" /><circle cx="134" cy="54" r="1" opacity=".7" /><circle cx="150" cy="12" r=".7" opacity=".6" /><circle cx="172" cy="64" r=".8" opacity=".55" />
+				<circle cx="226" cy="50" r="1" opacity=".7" /><circle cx="84" cy="44" r=".5" opacity=".5" /><circle cx="122" cy="40" r=".6" opacity=".55" /><circle cx="160" cy="30" r=".5" opacity=".5" />
+			</g>
+			<path d="M100 20h8m-4-4v8m86 34h6m-3-3v6" stroke="#8ff5ff" stroke-width=".75" stroke-linecap="round" opacity=".7" />
+			<g fill="#ffb52e"><circle cx="206" cy="20" r="22" opacity=".08" /><circle cx="206" cy="20" r="12" opacity=".14" /><circle cx="206" cy="20" r="4.5" fill="#ff6a1a" opacity=".7" /></g>
+			<circle cx="206" cy="20" r="2.5" fill="#ffb52e" opacity=".95" />
+			<g transform="rotate(-14 58 48)">
+				<path d="M45 48a13 3.5 0 0 1 26 0" stroke="#6f8cff" stroke-width="1.25" opacity=".6" />
+				<circle cx="58" cy="48" r="6" fill="#05070f" opacity=".85" stroke="#cfe8ff" stroke-width=".5" stroke-opacity=".5" />
+				<path d="M45 48a13 3.5 0 0 0 26 0" stroke="#6f8cff" stroke-width="1.5" opacity=".85" />
+			</g>
 		{/if}
 	</svg>
 	<div class="absolute inset-0 bg-linear-to-b from-white/8 via-transparent to-black/18"></div>
