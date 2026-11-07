@@ -10,7 +10,7 @@
 	import SimulationWorker from '#lib/simulation/simulation.worker?worker';
 	import type { MilestoneHit, SimulationProgress, SimulationResult, SimulationSnapshot, SpikeEvent } from '#lib/simulation/types.js';
 	import { getReport, saveReport, type BenchmarkReport } from '#lib/stores/benchmarkHistory.svelte.js';
-	import { ChartLine, GitCompare, History, Save, X } from '@lucide/svelte';
+	import { ChartLine, GitCompare, RotateCcwClock, Save, X } from '@lucide/svelte';
 
 	interface LiveRun {
 		milestones: MilestoneHit[];
@@ -182,7 +182,7 @@
 					class="cursor-pointer flex gap-2 hover:bg-white/10 items-center px-4 py-2 rounded-xl text-gray-400 transition-colors {showHistoryPanel ? 'bg-white/10 text-white' : ''}"
 					onclick={() => (showHistoryPanel = !showHistoryPanel)}
 				>
-					<History size={18} />
+					<RotateCcwClock size={18} />
 					<span class="hidden md:inline">History</span>
 				</button>
 			</div>

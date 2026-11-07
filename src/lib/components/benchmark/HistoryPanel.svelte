@@ -8,7 +8,7 @@
 		renameReport,
 		type BenchmarkReportSummary,
 	} from '#lib/stores/benchmarkHistory.svelte.js';
-	import { Check, Eye, GitCompare, History, Pencil, Search, SlidersHorizontal, Trash2, X } from '@lucide/svelte';
+	import { Check, Eye, GitCompare, Pencil, RotateCcwClock, Search, SlidersHorizontal, Trash, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 
@@ -147,7 +147,7 @@
 <div class="backdrop-blur-xl bg-slate-900/95 border border-white/10 flex flex-col h-full overflow-hidden rounded-2xl">
 	<div class="border-b border-white/10 flex items-center justify-between px-4 py-3 shrink-0">
 		<div class="flex gap-2.5 items-center">
-			<History
+			<RotateCcwClock
 				class="text-gray-400"
 				size={18}
 			/>
@@ -226,7 +226,7 @@
 			</div>
 		{:else if reports.length === 0}
 			<div class="flex flex-col gap-2 items-center justify-center py-16 text-center text-gray-600">
-				<History
+				<RotateCcwClock
 					class="opacity-20"
 					size={40}
 				/>
@@ -356,7 +356,7 @@
 									class="cursor-pointer hover:bg-red-500/20 hover:text-red-400 ml-auto p-1.5 rounded-lg text-gray-600 transition-colors"
 									aria-label="Delete run"
 								>
-									<Trash2 size={14} />
+									<Trash size={14} />
 								</button>
 							{/if}
 						</div>

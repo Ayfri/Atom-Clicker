@@ -5,7 +5,7 @@
 	import { saveRecovery, type SaveErrorType } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { ArchiveArrowDown, CloudDownload, RefreshCw, Trash2, TriangleAlert } from '@lucide/svelte';
+	import { ArchiveArrowDown, CloudDownload, RefreshCw, Trash, TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -162,7 +162,7 @@
 				onclick={handleDismiss}
 			>
 				<div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-500/20">
-					<Trash2
+					<Trash
 						size={24}
 						class="text-red-400"
 					/>

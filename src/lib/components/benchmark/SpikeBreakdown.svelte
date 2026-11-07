@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AlertTriangle, Award, Flame, RotateCcw, Sparkles, Star, TrendingUp, Wrench, Zap } from '@lucide/svelte';
+	import { Award, Flame, RotateCcw, Sparkles, Star, TrendingUp, TriangleExclamationPoint, Wrench, Zap } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { GENERATOR_COLORS, GENERATORS, GeneratorTypes } from '#data/generators.js';
 	import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
@@ -176,7 +176,7 @@
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-wrap gap-x-4 gap-y-1 items-center">
 			<div class="flex gap-2 items-center">
-				<AlertTriangle class="shrink-0 text-amber-400" size={15} />
+				<TriangleExclamationPoint class="shrink-0 text-amber-400" size={15} />
 				<span class="font-semibold text-amber-300">Spike #{index + 1} at {formatSimTimePrecise(spike.timestamp)}</span>
 			</div>
 			<div class="flex gap-2 items-center font-mono text-xs">

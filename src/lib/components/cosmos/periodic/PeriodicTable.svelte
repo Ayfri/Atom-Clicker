@@ -46,7 +46,7 @@
 	import { formatNumber } from '#lib/utils.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { mobile } from '#stores/window.svelte.js';
-	import { ChevronDown, ChevronRight, ChevronsUp, CircleHelp, Cog, Factory, Lock, MousePointerClick, Shield, Star, X, Zap } from '@lucide/svelte';
+	import { ChevronDown, ChevronRight, ChevronsUp, CircleQuestionMark, Cog, Factory, Lock, MousePointerClick, Shield, Star, X, Zap } from '@lucide/svelte';
 	import { tick, untrack, type Component } from 'svelte';
 	import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { fade, fly, scale } from 'svelte/transition';
@@ -1361,7 +1361,7 @@
 				onclick={() => gameManager.tutorialManager.startTour('table:')}
 				title="Show the tips again"
 			>
-				<CircleHelp size={16} />
+				<CircleQuestionMark size={16} />
 			</button>
 			<button
 				class="grid size-9 place-items-center rounded-lg border border-accent-500/30 bg-accent-900/80 text-accent-300 transition-colors hover:bg-accent-800"
