@@ -1,14 +1,14 @@
 # Unreleased
 
-- **The Cosmos**: Your first Ionize opens a 3D sky above the realms, where you rediscover planets, moons, comets, nebulae, supernovae and even the Big Bang's afterglow in the order astronomers did, from the naked eye to LIGO, while ever fainter stars fill the sky as your sight sharpens. Every find radiates Starlight and boosts the rest of the game, and tapping objects or catching guest stars pays a little more.
-- **Periodic Table**: A spectroscope opens the Periodic Table, reachable from any realm, where stars, supernovae and colliding neutron stars forge every element and you read each one's light to light up its atom and boost your generators, and catching the neutrinos that zip across it pushes it ahead.
+- **The Cosmos**: Your first Ionize opens a whole sky above the realms, waiting to be rediscovered, and every find boosts the rest of the game.
+- **Periodic Table**: Somewhere in that sky lies the Periodic Table, to fill one element at a time.
 - **Reactor**: Once you have Ionized, a running reactor glows blue and makes Blue Light.
 - **Overdrive**: Spend Higgs Bosons to double any generator's output.
 - **Generators**: Auto-buy can buy in bulk, and new electron upgrades keep your generators through prestiges.
+- **Balance**: Generator boosts and the top generators are rebalanced, so a run started before this update is brought down once to what the new balance allows.
+- **Achievements & Daily Quests**: New achievements and two daily quests for the Cosmos.
 - **Quark Shop**: A Cosmos banner for the leaderboard.
-- **Achievements**: New achievements for your Cosmos discoveries, instruments, studies, Starlight, taps, guest stars and neutrinos.
-- **Daily Quests**: Two Cosmos quests, gather Starlight and study objects.
-- **Install the Game**: Install Atom Clicker as an app from Settings, also from Firefox on Windows, Safari on Mac and your iPhone's home screen, and playing from it gives +10% production and 10 Quarks once per account.
+- **Install the Game**: Install Atom Clicker as an app from Settings on most browsers, and playing from it gives +10% production and 10 Quarks once per account.
 
 # What's new 13-10-2026
 
