@@ -200,6 +200,9 @@
 		if (gameManager.purchaseSkill(skill.id)) refresh();
 	}
 
+	/** The tree mounts a frame after the modal: its hundreds of elements would otherwise delay the first paint of the click's flush. */
+	let treeMounted = $state(false);
+
 	refresh();
 	onMount(() => {
 		const interval = setInterval(() => {
@@ -207,7 +210,14 @@
 			refresh();
 			perfTracker.track('skilltree:refresh', start);
 		}, 1000);
-		return () => clearInterval(interval);
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		/** A timeout queued inside the rAF callback runs after that frame is painted. */
+		const frame = requestAnimationFrame(() => (timeout = setTimeout(() => (treeMounted = true))));
+		return () => {
+			clearInterval(interval);
+			cancelAnimationFrame(frame);
+			clearTimeout(timeout);
+		};
 	});
 </script>
 
@@ -291,46 +301,48 @@
 			class={['absolute top-0 left-0 origin-top-left', panZoom.moving && 'will-change-transform']}
 			style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})"
 		>
-			<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
-				{#each LINKS as { id, path, source, target } (id)}
-					{#if statuses[source].visible && statuses[target.id].visible}
-						<SkillEdge
-							color={SKILL_BRANCH_COLORS[target.branch]}
-							enterDelay={enterDelays.get(target.id) ?? 0}
-							path={path}
-							state={linkState(target)}
+			{#if treeMounted}
+				<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
+					{#each LINKS as { id, path, source, target } (id)}
+						{#if statuses[source].visible && statuses[target.id].visible}
+							<SkillEdge
+								color={SKILL_BRANCH_COLORS[target.branch]}
+								enterDelay={enterDelays.get(target.id) ?? 0}
+								path={path}
+								state={linkState(target)}
+							/>
+						{/if}
+					{/each}
+				</svg>
+				{#if !prefersReducedMotion.current}
+					{#each LINKS as link (link.id)}
+						{const state = $derived(linkState(link.target))}
+						{#if statuses[link.source].visible && state !== 'locked'}
+							{#each state === 'owned' ? [0, 0.5] : [0] as phase (phase)}
+								<span
+									{@attach flowAlong(link, state === 'owned' ? 140 : 80, phase)}
+									class={[
+										'absolute top-0 left-0 size-1.5 -translate-1/2 animate-[skill-appear_600ms_ease-out_1.4s_backwards] rounded-full bg-[color-mix(in_oklab,var(--c)_35%,white)]',
+										state === 'owned' ? 'opacity-85' : 'opacity-50',
+									]}
+									style:--c={SKILL_BRANCH_COLORS[link.target.branch]}
+								></span>
+							{/each}
+						{/if}
+					{/each}
+				{/if}
+				{#each SKILLS as skill (skill.id)}
+					{const status = $derived(statuses[skill.id])}
+					{#if status.visible}
+						<SkillNode
+							enterDelay={enterDelays.get(skill.id) ?? 0}
+							onUnlock={() => unlock(skill)}
+							skill={skill}
+							status={status}
 						/>
 					{/if}
 				{/each}
-			</svg>
-			{#if !prefersReducedMotion.current}
-				{#each LINKS as link (link.id)}
-					{const state = $derived(linkState(link.target))}
-					{#if statuses[link.source].visible && state !== 'locked'}
-						{#each state === 'owned' ? [0, 0.5] : [0] as phase (phase)}
-							<span
-								{@attach flowAlong(link, state === 'owned' ? 140 : 80, phase)}
-								class={[
-									'absolute top-0 left-0 size-1.5 -translate-1/2 animate-[skill-appear_600ms_ease-out_1.4s_backwards] rounded-full bg-[color-mix(in_oklab,var(--c)_35%,white)]',
-									state === 'owned' ? 'opacity-85' : 'opacity-50',
-								]}
-								style:--c={SKILL_BRANCH_COLORS[link.target.branch]}
-							></span>
-						{/each}
-					{/if}
-				{/each}
 			{/if}
-			{#each SKILLS as skill (skill.id)}
-				{const status = $derived(statuses[skill.id])}
-				{#if status.visible}
-					<SkillNode
-						enterDelay={enterDelays.get(skill.id) ?? 0}
-						onUnlock={() => unlock(skill)}
-						skill={skill}
-						status={status}
-					/>
-				{/if}
-			{/each}
 		</div>
 
 		<div class="absolute right-3 bottom-3 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-accent-900/90 text-white/80">
