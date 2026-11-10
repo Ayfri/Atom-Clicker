@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Prism**: Colored photons get tougher much more slowly and Spectrum now stops at 50, so every color stays breakable by hand, and Blue Coolant is far cheaper.
+
 # What's new 07-11-2026
 
 - **The Cosmos**: Your first Ionize opens a whole sky above the realms, waiting to be rediscovered, and every find boosts the rest of the game.
