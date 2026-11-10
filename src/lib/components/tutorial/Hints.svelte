@@ -90,8 +90,9 @@
 			current = null;
 			return;
 		}
-		untrack(pick);
+		/** Measuring a target forces a layout, so nothing is picked while a modal hides the hint, the effect re-runs on close. */
 		if (ui.activeModal) return;
+		untrack(pick);
 		const interval = setInterval(() => {
 			const start = performance.now();
 			pick();

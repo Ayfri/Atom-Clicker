@@ -4,11 +4,11 @@
 </script>
 
 <script lang="ts">
+	import { fade, fly, scale } from '#helpers/transitions.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { X } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
-	import { fade, fly, scale } from 'svelte/transition';
 
 	interface Props {
 		children?: Snippet;
