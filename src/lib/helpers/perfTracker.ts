@@ -167,12 +167,18 @@ export class PerfTracker {
 		return slots.filter(slot => slot.calls > 0).map(({ calls, maxMs, name, totalMs }) => ({ calls, maxMs, name, totalMs }));
 	}
 
-	/** `start` is a `performance.now()` taken before the work, the source name is always a constant. */
+	/**
+	 * `start` is a `performance.now()` taken before the work, the source name is always a constant. A call longer than `MAX_FREEZE_MS`
+	 * was suspended mid-run (device sleep, debugger), it counts as nothing, and a real script block past it loses its source name too
+	 * (PerfMonitor still keeps its LoAF frame as an incident when script and style/layout cover half of it).
+	 */
 	track(source: string, start: number) {
 		if (this.isPaused) return;
 
 		const now = performance.now();
 		const ms = now - start;
+		if (ms > MAX_FREEZE_MS) return;
+
 		const slot = this.slots.get(source) ?? this.createSlot(source);
 		slot.calls++;
 		slot.totalMs += ms;
