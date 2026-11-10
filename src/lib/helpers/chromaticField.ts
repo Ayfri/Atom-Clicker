@@ -1,6 +1,6 @@
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, type ChromaticColor, ChromaticColors } from '#data/chromatic.js';
 import { CURRENCIES } from '#data/currencies.js';
-import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
+import { chromaticManager, type LightSource } from '#helpers/ChromaticManager.svelte.js';
 import { drawLightIcon } from '#helpers/photonCanvas.js';
 
 export interface ChromaticPhoton {
@@ -134,8 +134,8 @@ export class ChromaticField {
 	}
 
 	/** Deals one tap and returns the break when it takes the last HP. A broken Blue photon leaves two halves behind. */
-	hit(photon: ChromaticPhoton, auto: boolean): ChromaticBreak | null {
-		photon.hp -= chromaticManager.tapDamage(photon.color, auto);
+	hit(photon: ChromaticPhoton, auto: boolean, source: Pick<LightSource, 'chromaticDamage'>): ChromaticBreak | null {
+		photon.hp -= chromaticManager.tapDamage(photon.color, auto, source);
 		photon.flash = FLASH_MS;
 		if (photon.hp > 0) return null;
 

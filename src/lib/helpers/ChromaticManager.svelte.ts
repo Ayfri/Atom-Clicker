@@ -14,6 +14,7 @@ import {
 	KILLS_PER_SPECTRUM_LEVEL,
 	SPECTRUM_DROP_GROWTH,
 	SPECTRUM_HP_GROWTH,
+	SPECTRUM_MAX,
 	WHITE_RECIPE,
 } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
@@ -22,8 +23,8 @@ import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import type { GameManager } from '#helpers/GameManager.svelte.js';
 import type { ChromaticState } from '#lib/types.js';
 
-/** The game state Light scales with, `gameManager` in the game. */
-type LightSource = Pick<GameManager, 'lightGain' | 'totalIonizesAllTime'>;
+/** The game state the Prism reads, `gameManager` in the game. */
+export type LightSource = Pick<GameManager, 'chromaticDamage' | 'lightGain' | 'totalIonizesAllTime'>;
 
 const EMPTY_KILLS: Record<ChromaticColor, number> = { blue: 0, green: 0, red: 0 };
 
@@ -36,7 +37,7 @@ class ChromaticManager {
 	excitationChance = $derived(0.01 * this.level('prism_excitation'));
 	/** Chance that collecting an Excited Photon lands one tap on a colored photon already on screen. */
 	resonanceChance = $derived(0.1 * this.level('prism_resonance'));
-	lifetimeBonus = $derived(1000 * this.level('prism_persistence'));
+	lifetimeBonus = $derived(1000 * this.level('prism_persistence') + 500 * this.level('prism_afterglow'));
 	maxOnScreen = $derived(CHROMATIC_MAX_ON_SCREEN + this.level('white_prism'));
 	/** Read by RadiationManager, the reactor formulas don't go through the effect system. */
 	reactorCapBonus = $derived(1 + 0.1 * this.level('blue_coolant'));
@@ -53,15 +54,15 @@ class ChromaticManager {
 	}
 
 	spectrumLevel(color: ChromaticColor): number {
-		return Math.floor(this.kills[color] / KILLS_PER_SPECTRUM_LEVEL);
+		return Math.min(SPECTRUM_MAX, Math.floor(this.kills[color] / KILLS_PER_SPECTRUM_LEVEL));
 	}
 
 	maxHp(color: ChromaticColor): number {
 		return CHROMATIC[color].hp * SPECTRUM_HP_GROWTH ** this.spectrumLevel(color);
 	}
 
-	tapDamage(color: ChromaticColor, auto: boolean): number {
-		const damage = 1 + this.level(`${color}_focus`);
+	tapDamage(color: ChromaticColor, auto: boolean, { chromaticDamage }: Pick<LightSource, 'chromaticDamage'>): number {
+		const damage = (1 + this.level(`${color}_focus`)) * chromaticDamage;
 		return auto ? damage * (CHROMATIC_AUTO_DAMAGE + 0.15 * this.level('prism_autofocus')) : damage;
 	}
 
@@ -82,7 +83,7 @@ class ChromaticManager {
 			const blue = color === ChromaticColors.BLUE;
 			const hp = this.maxHp(color) * (blue ? 1 + 2 * BLUE_HALF.hp : 1);
 			const drop = blue ? 2 * BLUE_HALF.drop : CHROMATIC[color].drop;
-			const breaks = Math.min(spawnsPerColor, (clicksPerColor * this.tapDamage(color, true)) / hp);
+			const breaks = Math.min(spawnsPerColor, (clicksPerColor * this.tapDamage(color, true, source)) / hp);
 			rates[color] = breaks * this.lightFor(color, drop, source);
 		}
 		return rates;
@@ -92,19 +93,21 @@ class ChromaticManager {
 		return !unlock || this.spectrumLevel(unlock.color) >= unlock.spectrum;
 	}
 
-	/** Turns every full set of WHITE_RECIPE Red, Green and Blue Light into White Light. */
-	recombine(): number {
-		const amount = this.recombinable;
+	/** Turns full sets of WHITE_RECIPE Red, Green and Blue Light into White Light, all of them unless `limit` caps the White made. */
+	recombine(limit = Infinity): number {
+		const amount = Math.min(this.recombinable, limit);
 		if (amount <= 0) return 0;
 		for (const color of CHROMATIC_COLORS) currenciesManager.remove(CHROMATIC[color].currency, amount * WHITE_RECIPE);
 		currenciesManager.add(CurrenciesTypes.WHITE_LIGHT, amount);
 		return amount;
 	}
 
-	/** Pays the Light of one break and counts it toward the color's spectrum level, unless it is a Blue half. */
-	collect({ color, drop, half }: ChromaticBreak, source: LightSource) {
-		currenciesManager.add(CHROMATIC[color].currency, this.lightFor(color, drop, source));
+	/** Pays the Light of one break and returns it, and counts the break toward the color's spectrum level unless it is a Blue half. */
+	collect({ color, drop, half }: ChromaticBreak, source: LightSource): number {
+		const amount = this.lightFor(color, drop, source);
+		currenciesManager.add(CHROMATIC[color].currency, amount);
 		if (!half) this.kills = { ...this.kills, [color]: this.kills[color] + 1 };
+		return amount;
 	}
 
 	canAfford(upgrade: ChromaticUpgrade): boolean {

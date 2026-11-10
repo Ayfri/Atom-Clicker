@@ -86,6 +86,7 @@ export type EffectStat =
 	| 'auto_speed'
 	| 'auto_upgrade'
 	| 'blue_light_gain'
+	| 'chromatic_damage'
 	| 'click'
 	| 'click_aps'
 	| 'electron_gain'

@@ -366,6 +366,9 @@ export class GameManager {
 
 	photonValueBonus = $derived(this.effects.value('photon_value', 0, this));
 
+	/** Multiplier on colored photon damage from outside the Prism, read by `chromaticManager.tapDamage`. */
+	chromaticDamage = $derived(this.effects.value('chromatic_damage', 1, this));
+
 	/** Multiplier on each color's Light from outside the Prism, read by `chromaticManager.lightFor`. */
 	lightGain = $derived<Record<ChromaticColor, number>>({
 		blue: this.effects.value('blue_light_gain', 1, this),

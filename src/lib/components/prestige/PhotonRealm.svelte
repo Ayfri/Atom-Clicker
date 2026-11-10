@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
+	import { CHROMATIC, CHROMATIC_COLORS, type ChromaticColor } from '#data/chromatic.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { RealmTypes } from '#data/realms.js';
@@ -12,6 +12,7 @@
 	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { mix } from '#helpers/nucleus.js';
 	import { ClickParticles } from '#helpers/particles.js';
 	import { perfTracker } from '#helpers/perfTracker.js';
 	import { drawPhotonIcon, pulseOpacity } from '#helpers/photonCanvas.js';
@@ -48,17 +49,25 @@
 		clickCircle(randomCircle, rect.left + randomCircle.x, rect.top + randomCircle.y, true);
 	}
 
+	/** A lighter shade of each Light, the pure colors read poorly as small text on the dark field. */
+	const LIGHT_LABEL_COLORS = Object.fromEntries(
+		CHROMATIC_COLORS.map(color => [color, mix(CURRENCIES[CHROMATIC[color].currency].color, '#ffffff', 0.4)]),
+	) as Record<ChromaticColor, string>;
+
 	const chromatic = new ChromaticField();
 	let lastHoveredChromaticId: number | null = null;
 	const prismUnlocked = $derived(gameManager.totalIonizesAllTime > 0);
 
 	function hitChromatic(photon: ChromaticPhoton, auto: boolean) {
-		const broken = chromatic.hit(photon, auto);
+		const broken = chromatic.hit(photon, auto, gameManager);
 		if (!broken) return;
-		chromaticManager.collect(broken, gameManager);
+		const light = chromaticManager.collect(broken, gameManager);
 		if (!broken.half) gameManager.countChromaticBreak(broken.color);
 		const rect = broken.drop > 0 && containerRect.current;
-		if (rect) ClickParticles.emit(RealmTypes.PHOTONS, rect.left + broken.x, rect.top + broken.y, CHROMATIC[broken.color].currency, 5);
+		if (rect) {
+			const { currency } = CHROMATIC[broken.color];
+			ClickParticles.emit(RealmTypes.PHOTONS, rect.left + broken.x, rect.top + broken.y, currency, 5, `+${formatNumber(light)}`, LIGHT_LABEL_COLORS[broken.color]);
+		}
 	}
 
 	$effect(() => {

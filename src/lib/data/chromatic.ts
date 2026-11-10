@@ -47,9 +47,15 @@ export const CHROMATIC_BASE_SPAWN_INTERVAL = 8000;
 export const CHROMATIC_MAX_ON_SCREEN = 5;
 /** The photon auto-clicker hits colored photons for this share of a tap. */
 export const CHROMATIC_AUTO_DAMAGE = 0.25;
-/** Breaks of one color that raise its spectrum level, which scales that color's HP faster than its drop. */
 export const KILLS_PER_SPECTRUM_LEVEL = 10;
-export const SPECTRUM_HP_GROWTH = 1.18;
+/** Kills keep counting past it, so raising the cap later needs no save migration. */
+export const SPECTRUM_MAX = 50;
+/**
+ * Below the drop growth, so pushing a color always pays. At +18% per level, players with Focus and Persistence maxed stall around spectrum 30-38 and only
+ * external autoclickers pass 45 (10-11-2026 cloud saves). At +10%, a maxed player breaks every color at SPECTRUM_MAX by hand, Red being the tightest:
+ * ~3.5k HP for 22 s of life, about 6.2 taps per second, less with the photon auto-clicker helping.
+ */
+export const SPECTRUM_HP_GROWTH = 1.1;
 export const SPECTRUM_DROP_GROWTH = 1.12;
 /** Ionize counts that raise colored Light, each one sets the bonus to 2% per Ionize: +10% at 5, +100% at 50. */
 export const IONIZE_LIGHT_MILESTONES = [5, 10, 20, 30, 50];
@@ -83,7 +89,7 @@ export const BOOST_SPECTRUM = 5;
 /** A boost a color gives the rest of the game once its spectrum reaches BOOST_SPECTRUM, paid in that color. */
 const colorBoost = (
 	color: ChromaticColor,
-	upgrade: Pick<ChromaticUpgrade, 'baseCost' | 'description' | 'effects' | 'id' | 'name'> & Partial<Pick<ChromaticUpgrade, 'maxLevel'>>,
+	upgrade: Pick<ChromaticUpgrade, 'baseCost' | 'description' | 'effects' | 'id' | 'name'> & Partial<Pick<ChromaticUpgrade, 'costMultiplier' | 'maxLevel'>>,
 ): ChromaticUpgrade => ({
 	costMultiplier: 1.6,
 	currencies: [CHROMATIC[color].currency],
@@ -139,6 +145,19 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'prism_persistence',
 			maxLevel: 10,
 			name: 'Prism Persistence',
+		},
+		{
+			baseCost: 1000,
+			costMultiplier: 1.4,
+			currencies: ALL_LIGHTS,
+			description: (level: number) => `Colored photons last ${formatNumber(0.5 * level, 1)}s longer`,
+			/**
+			 * Read by `chromaticManager.lifetimeBonus`. It leaves the circles alone: at +7.5 s they fill the 100-circle cap and a phone spends
+			 * ~3x longer per frame drawing the field (5 ms to 11-16 ms at 4x CPU throttling, 10-11-2026).
+			 */
+			id: 'prism_afterglow',
+			maxLevel: 15,
+			name: 'Afterglow',
 		},
 		{
 			baseCost: 60,
@@ -227,6 +246,8 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 		}),
 		colorBoost(ChromaticColors.BLUE, {
 			baseCost: 150,
+			/** Its 50 levels cost ~7.6e9 Blue Light at ×1.4, at ×1.6 they cost ~4e12, out of reach of any player. */
+			costMultiplier: 1.4,
 			description: level => `Raises the reactor output cap by ${level * 10}%`,
 			id: 'blue_coolant',
 			maxLevel: 50,
@@ -259,6 +280,16 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'white_prism',
 			maxLevel: 5,
 			name: 'Wider Prism',
+		},
+		{
+			baseCost: 2000,
+			costMultiplier: 1.4,
+			currencies: [CurrenciesTypes.WHITE_LIGHT],
+			description: (level: number) => `+${level} photon auto-clicks every 5 seconds`,
+			effects: (level: number) => [add('photon_auto_click', level)],
+			id: 'white_pulse',
+			maxLevel: 15,
+			name: 'White Pulse',
 		},
 	].map(upgrade => [upgrade.id, upgrade]),
 );

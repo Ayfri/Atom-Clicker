@@ -7,7 +7,7 @@
 	import Currency from '#components/ui/Currency.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
-	import { CHROMATIC, CHROMATIC_COLORS, KILLS_PER_SPECTRUM_LEVEL } from '#data/chromatic.js';
+	import { CHROMATIC, CHROMATIC_COLORS, KILLS_PER_SPECTRUM_LEVEL, SPECTRUM_MAX } from '#data/chromatic.js';
 	import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 	import { BOOSTABLE_CURRENCIES, CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { ELEMENT_COUNT } from '#data/elements.js';
@@ -245,14 +245,16 @@
 					{const type = $derived(CHROMATIC[color].currency)}
 					{const kills = $derived(chromaticManager.kills[color])}
 					{const earned = $derived(gameManager.currencies[type].earnedAllTime)}
+					{const spectrum = $derived(chromaticManager.spectrumLevel(color))}
+					{const progress = $derived(spectrum === SPECTRUM_MAX ? KILLS_PER_SPECTRUM_LEVEL : kills % KILLS_PER_SPECTRUM_LEVEL)}
 					<div class="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
 						{@render amount(type)}
 						{@render bar(
-							`Spectrum ${chromaticManager.spectrumLevel(color)}`,
-							kills % KILLS_PER_SPECTRUM_LEVEL,
+							`Spectrum ${spectrum}`,
+							progress,
 							KILLS_PER_SPECTRUM_LEVEL,
 							CURRENCIES[type].color,
-							`${kills % KILLS_PER_SPECTRUM_LEVEL} / ${KILLS_PER_SPECTRUM_LEVEL} breaks`,
+							spectrum === SPECTRUM_MAX ? 'Max' : `${progress} / ${KILLS_PER_SPECTRUM_LEVEL} breaks`,
 						)}
 						{@render row('Photons broken', formatNumber(kills, 0))}
 						{@render row('Light earned', formatNumber(earned), formatNumberFull(earned))}

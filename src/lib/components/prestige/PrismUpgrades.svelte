@@ -9,6 +9,7 @@
 		KILLS_PER_SPECTRUM_LEVEL,
 		SPECTRUM_DROP_GROWTH,
 		SPECTRUM_HP_GROWTH,
+		SPECTRUM_MAX,
 		WHITE_RECIPE,
 	} from '#data/chromatic.js';
 
@@ -41,8 +42,9 @@
 
 {#snippet spectrumHelp()}
 	<p class="text-xs text-white/80">
-		Every {KILLS_PER_SPECTRUM_LEVEL} breaks of a color raise its Spectrum, which is never reset. Each level: +{Math.round((SPECTRUM_HP_GROWTH - 1) * 100)}% HP,
-		+{Math.round((SPECTRUM_DROP_GROWTH - 1) * 100)}% Light. Spectrum {BOOST_SPECTRUM} unlocks its boosts for the other realms.
+		Every {KILLS_PER_SPECTRUM_LEVEL} breaks of a color raise its Spectrum, up to {SPECTRUM_MAX}, and it is never reset.
+		Each level: +{Math.round((SPECTRUM_HP_GROWTH - 1) * 100)}% HP, +{Math.round((SPECTRUM_DROP_GROWTH - 1) * 100)}% Light.
+		Spectrum {BOOST_SPECTRUM} unlocks its boosts for the other realms.
 	</p>
 {/snippet}
 
@@ -95,7 +97,7 @@
 		<section class="flex flex-col gap-1.5">
 			<h3 class="flex items-baseline justify-between text-xs">
 				<span class="font-semibold" style:color={CURRENCIES[CHROMATIC[color].currency].color}>{CHROMATIC[color].name}</span>
-				<span class="text-white/40">Spectrum {spectrum}</span>
+				<span class="text-white/40">Spectrum {spectrum}{spectrum === SPECTRUM_MAX ? ' · Max' : ''}</span>
 			</h3>
 			{#each byPrefix(`${color}_`).filter(visible) as upgrade (upgrade.id)}
 				{@render item(upgrade)}

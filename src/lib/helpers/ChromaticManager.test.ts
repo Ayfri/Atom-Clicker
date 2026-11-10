@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, KILLS_PER_SPECTRUM_LEVEL } from '#data/chromatic.js';
+import {
+	BLUE_HALF,
+	CHROMATIC,
+	CHROMATIC_AUTO_DAMAGE,
+	CHROMATIC_COLORS,
+	CHROMATIC_UPGRADES,
+	type ChromaticColor,
+	KILLS_PER_SPECTRUM_LEVEL,
+	SPECTRUM_MAX,
+} from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 import { ChromaticField } from '#helpers/chromaticField.js';
@@ -11,7 +20,7 @@ import { radiationManager } from '#helpers/RadiationManager.svelte.js';
 const WIDTH = 800;
 const HEIGHT = 600;
 /** No Ionize and no outside boost, the bare Prism formulas. */
-const bare = { lightGain: { blue: 1, green: 1, red: 1 }, totalIonizesAllTime: 0 };
+const bare = { chromaticDamage: 1, lightGain: { blue: 1, green: 1, red: 1 }, totalIonizesAllTime: 0 };
 
 const light = (color: ChromaticColor) => currenciesManager.getAmount(CHROMATIC[color].currency);
 const giveLight = (amounts: Record<ChromaticColor, number>) => {
@@ -36,7 +45,7 @@ function breakPhoton(field: ChromaticField, photon: ChromaticField['photons'][nu
 	let taps = 0;
 	let result = null;
 	while (!result && field.photons.includes(photon)) {
-		result = field.hit(photon, false);
+		result = field.hit(photon, false, gameManager);
 		taps++;
 	}
 	if (result) chromaticManager.collect(result, gameManager);
@@ -100,7 +109,53 @@ describe('upgrades', () => {
 	test('Focused Red raises red tap damage', () => {
 		currenciesManager.add(CHROMATIC.red.currency, 100);
 		expect(chromaticManager.purchaseUpgrade('red_focus')).toBe(true);
-		expect(chromaticManager.tapDamage('red', false)).toBe(2);
+		expect(chromaticManager.tapDamage('red', false, gameManager)).toBe(2);
+	});
+
+	test('Chromatic Lens opens at 3 Ionizes and doubles colored photon damage per level, auto-clicks included', () => {
+		currenciesManager.add(CurrenciesTypes.PROTONS, 1e20);
+		gameManager.totalIonizesAllTime = 2;
+		expect(gameManager.purchaseUpgrade('proton_chromatic_lens_1')).toBe(false);
+		gameManager.totalIonizesAllTime = 3;
+		expect(gameManager.purchaseUpgrade('proton_chromatic_lens_1')).toBe(true);
+		expect(currenciesManager.getAmount(CurrenciesTypes.PROTONS)).toBe(0);
+
+		currenciesManager.add(CurrenciesTypes.PROTONS, 8e23);
+		expect(gameManager.purchaseUpgrade('proton_chromatic_lens_2')).toBe(true);
+		expect(chromaticManager.tapDamage('red', false, gameManager)).toBe(4);
+		expect(chromaticManager.tapDamage('red', true, gameManager)).toBe(4 * CHROMATIC_AUTO_DAMAGE);
+
+		const field = new ChromaticField();
+		expect(breakPhoton(field, spawnColor(field, 'red'))).toBe(Math.ceil(CHROMATIC.red.hp / 4));
+	});
+
+	test('Afterglow lengthens colored photons and their Blue halves, never the circles', () => {
+		const durationBefore = gameManager.effects.value('photon_duration', 0, gameManager);
+		chromaticManager.upgradeLevels = { prism_afterglow: 3, prism_persistence: 2 };
+		expect(chromaticManager.lifetimeBonus).toBe(3500);
+		expect(gameManager.effects.value('photon_duration', 0, gameManager)).toBe(durationBefore);
+
+		const field = new ChromaticField();
+		const blue = spawnColor(field, 'blue');
+		expect(blue.maxLifetime).toBe(CHROMATIC.blue.lifetime + 3500);
+		field.hit(blue, false, { chromaticDamage: Infinity });
+		expect(field.photons.map(half => half.maxLifetime)).toEqual([BLUE_HALF.lifetime + 3500, BLUE_HALF.lifetime + 3500]);
+	});
+
+	test('White Pulse adds photon auto-clicks on top of the photon upgrades', () => {
+		gameManager.settings.automation.autoClickPhotons = true;
+		gameManager.photonUpgrades = { auto_clicker: 5, resonant_frequency: 5 };
+		chromaticManager.upgradeLevels = { white_pulse: 15 };
+		expect(gameManager.photonAutoClicksPer5Seconds).toBe(25);
+	});
+
+	test('collect returns the Light it paid, and nothing for a whole Blue', () => {
+		gameManager.totalIonizesAllTime = 2;
+		const paid = chromaticManager.collect({ color: 'red', drop: 3, half: false, x: 0, y: 0 }, gameManager);
+		expect(paid).toBeGreaterThan(0);
+		expect(light('red')).toBe(paid);
+		expect(chromaticManager.collect({ color: 'blue', drop: 0, half: false, x: 0, y: 0 }, gameManager)).toBe(0);
+		expect(light('blue')).toBe(0);
 	});
 
 	test('stop at their max level', () => {
@@ -110,11 +165,22 @@ describe('upgrades', () => {
 		expect(chromaticManager.level('red_focus')).toBe(CHROMATIC_UPGRADES.red_focus.maxLevel);
 	});
 
-	test('more spectrum levels make a color tougher faster than they make it pay', () => {
+	test('more spectrum levels make a color pay faster than they make it tougher', () => {
 		const hp = chromaticManager.maxHp('red');
 		const lightBefore = chromaticManager.lightFor('red', 1, bare);
 		chromaticManager.loadState({ kills: { blue: 0, green: 0, red: 10 * KILLS_PER_SPECTRUM_LEVEL } });
-		expect(chromaticManager.maxHp('red') / hp).toBeGreaterThan(chromaticManager.lightFor('red', 1, bare) / lightBefore);
+		expect(chromaticManager.maxHp('red') / hp).toBeLessThan(chromaticManager.lightFor('red', 1, bare) / lightBefore);
+	});
+
+	test('spectrum stops at SPECTRUM_MAX while breaks keep counting', () => {
+		const kills = (SPECTRUM_MAX + 13) * KILLS_PER_SPECTRUM_LEVEL;
+		chromaticManager.loadState({ kills: { blue: kills, green: 0, red: 0 } });
+		const hp = chromaticManager.maxHp('blue');
+		expect(chromaticManager.spectrumLevel('blue')).toBe(SPECTRUM_MAX);
+		chromaticManager.collect({ color: 'blue', drop: 1, half: false, x: 0, y: 0 }, bare);
+		expect(chromaticManager.kills.blue).toBe(kills + 1);
+		expect(chromaticManager.spectrumLevel('blue')).toBe(SPECTRUM_MAX);
+		expect(chromaticManager.maxHp('blue')).toBe(hp);
 	});
 
 	test('Prism Excitation takes 30 of each Light for a 1% chance', () => {
@@ -231,5 +297,11 @@ describe('offline Light', () => {
 		expect(fast.blue).toBeCloseTo((1000 / 8000 / 3) * 2, 9);
 		expect(chromaticManager.autoLightPerSecond(0.6, 1, bare).red).toBeCloseTo(((0.1 * 0.25) / 30) * 3, 9);
 		expect(chromaticManager.autoLightPerSecond(1e6, 120, bare).red / fast.red).toBeCloseTo(1 / 120, 9);
+	});
+
+	test('colored photon damage multiplies it until the spawn cap', () => {
+		const strong = { ...bare, chromaticDamage: 4 };
+		expect(chromaticManager.autoLightPerSecond(0.6, 1, strong).red / chromaticManager.autoLightPerSecond(0.6, 1, bare).red).toBeCloseTo(4, 9);
+		expect(chromaticManager.autoLightPerSecond(1e6, 1, strong).red).toBeCloseTo(chromaticManager.autoLightPerSecond(1e6, 1, bare).red, 9);
 	});
 });

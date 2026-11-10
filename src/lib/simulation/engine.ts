@@ -1,5 +1,5 @@
 import { ACHIEVEMENTS } from '#data/achievements.js';
-import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost } from '#data/chromatic.js';
+import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, ChromaticColors, getChromaticUpgradeCost, WHITE_RECIPE } from '#data/chromatic.js';
 import { studyCost } from '#data/cosmos.js';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { bestTuning, decayCost, ELEMENTS } from '#data/elements.js';
@@ -531,22 +531,22 @@ export class SimulationEngine {
 	}
 
 	/**
-	 * Cheapest Prism upgrade the bot can buy, recombining just enough White Light first when a White upgrade is the one
-	 * within reach, so the colors are not drained for nothing.
+	 * Cheapest Prism upgrade the bot can buy, priced in colored Light so a White cost counts the WHITE_RECIPE of each color it eats.
+	 * Recombines just enough White Light first when a White upgrade is the one within reach, so the colors are not drained for nothing.
 	 */
 	private cheapestChromaticUpgrade(): string | null {
-		let best: { cost: number; id: string } | null = null;
+		let best: { id: string; missingWhite: number; price: number } | null = null;
 		for (const upgrade of Object.values(CHROMATIC_UPGRADES)) {
 			const level = chromaticManager.level(upgrade.id);
 			if (level >= upgrade.maxLevel || !chromaticManager.isUnlocked(upgrade) || (upgrade.table && !periodicManager.unlocked)) continue;
 			const cost = getChromaticUpgradeCost(upgrade, level);
 			const white = upgrade.currencies.includes(CurrenciesTypes.WHITE_LIGHT);
-			const reachable = white
-				? currenciesManager.getAmount(CurrenciesTypes.WHITE_LIGHT) + chromaticManager.recombinable >= cost
-				: chromaticManager.canAfford(upgrade);
-			if (reachable && (!best || cost < best.cost)) best = { cost, id: upgrade.id };
+			const missingWhite = white ? Math.max(0, cost - currenciesManager.getAmount(CurrenciesTypes.WHITE_LIGHT)) : 0;
+			const reachable = white ? chromaticManager.recombinable >= missingWhite : chromaticManager.canAfford(upgrade);
+			const price = white ? cost * WHITE_RECIPE * CHROMATIC_COLORS.length : cost * upgrade.currencies.length;
+			if (reachable && (!best || price < best.price)) best = { id: upgrade.id, missingWhite, price };
 		}
-		if (best && CHROMATIC_UPGRADES[best.id].currencies.includes(CurrenciesTypes.WHITE_LIGHT)) chromaticManager.recombine();
+		if (best?.missingWhite) chromaticManager.recombine(Math.ceil(best.missingWhite));
 		return best?.id ?? null;
 	}
 
@@ -775,8 +775,8 @@ export class SimulationEngine {
 			const aged = this.chromaticHp[color] * (1 - Math.min(1, (deltaSeconds * 1000) / lifetime));
 			const pool = Math.min(aged + spawns * hp, (chromaticManager.maxOnScreen / CHROMATIC_COLORS.length) * hp);
 
-			const autoDamage = autoPerColor * chromaticManager.tapDamage(color, true);
-			const tap = chromaticManager.tapDamage(color, false);
+			const autoDamage = autoPerColor * chromaticManager.tapDamage(color, true, gameManager);
+			const tap = chromaticManager.tapDamage(color, false, gameManager);
 			const manualUsed = Math.min(manualLeft / (CHROMATIC_COLORS.length - index), Math.max(0, pool - autoDamage) / tap);
 			manualLeft -= manualUsed;
 			const damage = Math.min(pool, autoDamage + manualUsed * tap);
