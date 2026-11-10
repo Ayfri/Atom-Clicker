@@ -23,6 +23,7 @@ const ADD_TOTALS: Partial<Record<EffectStat, (value: number) => string>> = {
 
 /** What `mul` and `sum` effects multiply, a stat missing here never shows a total. */
 const MUL_LABELS: Partial<Record<EffectStat, string>> = {
+	chromatic_damage: 'colored photon damage',
 	click: 'click power',
 	electron_gain: 'electrons from Electronize',
 	global: 'production',

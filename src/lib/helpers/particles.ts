@@ -109,7 +109,7 @@ export class ClickParticles extends CanvasLoop {
 	}
 
 	/** Drops bursts for a realm, tab or canvas that is not on screen, so callers never have to check. */
-	static emit(realm: RealmType, x: number, y: number, currency: CurrencyName, count: number, text?: string) {
+	static emit(realm: RealmType, x: number, y: number, currency: CurrencyName, count: number, text?: string, textColor = 'white') {
 		const field = ClickParticles.current;
 		if (!field?.shown || realmManager.selectedRealmId !== realm) return;
 
@@ -127,7 +127,7 @@ export class ClickParticles extends CanvasLoop {
 			particle.vy = speed * particle.sin;
 		}
 
-		const label = text && field.texts.take(field.rasterizeText(text), x, y);
+		const label = text && field.texts.take(field.rasterizeText(text, textColor), x, y);
 		if (label) {
 			label.alpha = 1;
 			label.vy = -TEXT_SPEED;
@@ -226,10 +226,11 @@ export class ClickParticles extends CanvasLoop {
 
 	/**
 	 * Text on the on-page canvas forces a style recalc of the whole dirty document on every frame, a detached canvas has no
-	 * document style to resolve. Click power only changes on purchases, so each label is rasterized once.
+	 * document style to resolve. Click power and Light per break only change on purchases and Spectrum levels, so each label is rasterized once per color.
 	 */
-	private rasterizeText(text: string): Sprite {
-		let sprite = this.textSprites.get(text);
+	private rasterizeText(text: string, color: string): Sprite {
+		const key = `${color}|${text}`;
+		let sprite = this.textSprites.get(key);
 		if (sprite) return sprite;
 
 		const raster = document.createElement('canvas');
@@ -241,7 +242,7 @@ export class ClickParticles extends CanvasLoop {
 		raster.width = Math.round(width * this.ratio);
 		raster.height = Math.round(TEXT_HEIGHT * this.ratio);
 		ctx.scale(this.ratio, this.ratio);
-		ctx.fillStyle = 'white';
+		ctx.fillStyle = color;
 		ctx.font = TEXT_FONT;
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
@@ -249,7 +250,7 @@ export class ClickParticles extends CanvasLoop {
 
 		if (this.textSprites.size >= MAX_TEXT_SPRITES) this.textSprites.clear();
 		sprite = { height: TEXT_HEIGHT, source: raster, width };
-		this.textSprites.set(text, sprite);
+		this.textSprites.set(key, sprite);
 		return sprite;
 	}
 }

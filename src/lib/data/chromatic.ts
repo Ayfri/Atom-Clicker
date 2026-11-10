@@ -147,6 +147,19 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			name: 'Prism Persistence',
 		},
 		{
+			baseCost: 1000,
+			costMultiplier: 1.4,
+			currencies: ALL_LIGHTS,
+			description: (level: number) => `Colored photons last ${formatNumber(0.5 * level, 1)}s longer`,
+			/**
+			 * Read by `chromaticManager.lifetimeBonus`. It leaves the circles alone: at +7.5 s they fill the 100-circle cap and a phone spends
+			 * ~3x longer per frame drawing the field (5 ms to 11-16 ms at 4x CPU throttling, 10-11-2026).
+			 */
+			id: 'prism_afterglow',
+			maxLevel: 15,
+			name: 'Afterglow',
+		},
+		{
 			baseCost: 60,
 			costMultiplier: 1.8,
 			currencies: [CurrenciesTypes.BLUE_LIGHT],
@@ -267,6 +280,16 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			id: 'white_prism',
 			maxLevel: 5,
 			name: 'Wider Prism',
+		},
+		{
+			baseCost: 2000,
+			costMultiplier: 1.4,
+			currencies: [CurrenciesTypes.WHITE_LIGHT],
+			description: (level: number) => `+${level} photon auto-clicks every 5 seconds`,
+			effects: (level: number) => [add('photon_auto_click', level)],
+			id: 'white_pulse',
+			maxLevel: 15,
+			name: 'White Pulse',
 		},
 	].map(upgrade => [upgrade.id, upgrade]),
 );
