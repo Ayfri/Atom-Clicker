@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, KILLS_PER_SPECTRUM_LEVEL } from '#data/chromatic.js';
+import { CHROMATIC, CHROMATIC_COLORS, CHROMATIC_UPGRADES, type ChromaticColor, KILLS_PER_SPECTRUM_LEVEL, SPECTRUM_MAX } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 import { ChromaticField } from '#helpers/chromaticField.js';
@@ -110,11 +110,22 @@ describe('upgrades', () => {
 		expect(chromaticManager.level('red_focus')).toBe(CHROMATIC_UPGRADES.red_focus.maxLevel);
 	});
 
-	test('more spectrum levels make a color tougher faster than they make it pay', () => {
+	test('more spectrum levels make a color pay faster than they make it tougher', () => {
 		const hp = chromaticManager.maxHp('red');
 		const lightBefore = chromaticManager.lightFor('red', 1, bare);
 		chromaticManager.loadState({ kills: { blue: 0, green: 0, red: 10 * KILLS_PER_SPECTRUM_LEVEL } });
-		expect(chromaticManager.maxHp('red') / hp).toBeGreaterThan(chromaticManager.lightFor('red', 1, bare) / lightBefore);
+		expect(chromaticManager.maxHp('red') / hp).toBeLessThan(chromaticManager.lightFor('red', 1, bare) / lightBefore);
+	});
+
+	test('spectrum stops at SPECTRUM_MAX while breaks keep counting', () => {
+		const kills = (SPECTRUM_MAX + 13) * KILLS_PER_SPECTRUM_LEVEL;
+		chromaticManager.loadState({ kills: { blue: kills, green: 0, red: 0 } });
+		const hp = chromaticManager.maxHp('blue');
+		expect(chromaticManager.spectrumLevel('blue')).toBe(SPECTRUM_MAX);
+		chromaticManager.collect({ color: 'blue', drop: 1, half: false, x: 0, y: 0 }, bare);
+		expect(chromaticManager.kills.blue).toBe(kills + 1);
+		expect(chromaticManager.spectrumLevel('blue')).toBe(SPECTRUM_MAX);
+		expect(chromaticManager.maxHp('blue')).toBe(hp);
 	});
 
 	test('Prism Excitation takes 30 of each Light for a 1% chance', () => {

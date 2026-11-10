@@ -14,6 +14,7 @@ import {
 	KILLS_PER_SPECTRUM_LEVEL,
 	SPECTRUM_DROP_GROWTH,
 	SPECTRUM_HP_GROWTH,
+	SPECTRUM_MAX,
 	WHITE_RECIPE,
 } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
@@ -53,7 +54,7 @@ class ChromaticManager {
 	}
 
 	spectrumLevel(color: ChromaticColor): number {
-		return Math.floor(this.kills[color] / KILLS_PER_SPECTRUM_LEVEL);
+		return Math.min(SPECTRUM_MAX, Math.floor(this.kills[color] / KILLS_PER_SPECTRUM_LEVEL));
 	}
 
 	maxHp(color: ChromaticColor): number {
