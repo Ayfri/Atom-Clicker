@@ -147,6 +147,45 @@ describe('upgrade purchases', () => {
 		expect(affordable.map(upgrade => upgrade.id)).toEqual([]);
 	});
 
+	const candidates = () =>
+		Object.values(UPGRADES)
+			.filter(upgrade => !gameManager.upgrades.includes(upgrade.id) && (upgrade.condition?.(gameManager) ?? true))
+			.sort((a, b) => a.cost.amount - b.cost.amount);
+
+	test('a bank covering only some upgrades buys the cheapest ones, spends exactly their cost and counts them once', () => {
+		const [first, second, third] = candidates().filter(upgrade => upgrade.cost.currency === ATOMS);
+		expect(third).toBeDefined();
+		currenciesManager.add(ATOMS, first.cost.amount + second.cost.amount + third.cost.amount - 1);
+
+		expect(gameManager.purchaseAffordableUpgrades()).toEqual([first.id, second.id]);
+		expect(gameManager.upgrades).toEqual([first.id, second.id]);
+		expect(gameManager.atoms).toBeCloseTo(third.cost.amount - 1);
+		expect(gameManager.totalUpgradesPurchasedAllTime).toBe(2);
+		expect(gameManager.dailyStats.upgradesPurchased).toBe(2);
+	});
+
+	test('buying all at once matches buying the same candidates one by one', () => {
+		const fund = () => {
+			gameManager.resetAll();
+			currenciesManager.add(ATOMS, 400_000);
+			currenciesManager.add(PROTONS, 1e6);
+		};
+		fund();
+		const all = candidates();
+		const batch = gameManager.purchaseAffordableUpgrades();
+		const batchState = { atoms: gameManager.atoms, protons: currenciesManager.getAmount(PROTONS), total: gameManager.totalUpgradesPurchasedAllTime, upgrades: gameManager.upgrades };
+
+		fund();
+		const sequential = all.filter(upgrade => gameManager.canAfford(upgrade.cost) && gameManager.purchaseUpgrade(upgrade.id)).map(upgrade => upgrade.id);
+
+		expect(batch.length).toBeGreaterThan(1);
+		expect(batch).toEqual(sequential);
+		expect(batchState.upgrades).toEqual(gameManager.upgrades);
+		expect(batchState.total).toBe(gameManager.totalUpgradesPurchasedAllTime);
+		expect(batchState.atoms).toBeCloseTo(gameManager.atoms);
+		expect(batchState.protons).toBeCloseTo(currenciesManager.getAmount(PROTONS));
+	});
+
 	test('buying affordable upgrades for one currency never touches the others', () => {
 		currenciesManager.add(ATOMS, 1e12);
 		currenciesManager.add(PROTONS, 1e6);
