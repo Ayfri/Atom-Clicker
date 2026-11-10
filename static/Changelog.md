@@ -1,6 +1,6 @@
 # Unreleased
 
-- **Prism**: Colored photons get tougher much more slowly and Spectrum now stops at 50, so every color stays breakable by hand, and Blue Coolant is far cheaper.
+- **Prism**: Colored photons get tougher more slowly up to a Spectrum cap of 50, Blue Coolant is far cheaper, and new upgrades make colored photons last longer and break faster, and the auto-clicker faster.
 
 # What's new 07-11-2026
 
