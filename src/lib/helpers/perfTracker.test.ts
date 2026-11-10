@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { IncidentKinds } from '#helpers/perfIncidents.js';
-import { MAX_SOURCE_NAMES } from '#helpers/perfStats.js';
+import { MAX_FREEZE_MS, MAX_SOURCE_NAMES } from '#helpers/perfStats.js';
 import { PerfTracker } from '#helpers/perfTracker.js';
 import type { PerfWindow } from '#lib/types/session.js';
 
@@ -53,6 +53,17 @@ describe('track', () => {
 		tracker.track('loop:commit', performance.now() - 9);
 		tracker.commit(300);
 		expect(tracker.incidents.worst(1)[0].sources).toEqual([{ ms: 30, name: 'canvas:atom' }]);
+	});
+
+	test('a call longer than MAX_FREEZE_MS is a suspended device and counts as nothing', () => {
+		elapse(MAX_FREEZE_MS * 2);
+		tracker.track('canvas:atom', performance.now() - MAX_FREEZE_MS - 1);
+		expect(tracker.sessionSources()).toEqual([]);
+		tracker.commit(300);
+		expect(tracker.incidents.worst(1)[0].sources).toEqual([]);
+
+		tracker.track('canvas:atom', performance.now() - MAX_FREEZE_MS);
+		expect(tracker.sessionSources()).toEqual([{ calls: 1, maxMs: MAX_FREEZE_MS, name: 'canvas:atom', totalMs: MAX_FREEZE_MS }]);
 	});
 
 	test('a paused tracker ignores every call', () => {

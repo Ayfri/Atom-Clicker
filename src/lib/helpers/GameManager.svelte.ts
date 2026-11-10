@@ -863,16 +863,32 @@ export class GameManager {
 		return true;
 	}
 
-	/** Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline, or only those paid in `currency`. Returns the purchased ids. */
+	/**
+	 * Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline, or only those paid in `currency`. Returns the purchased ids.
+	 * Conditions are read once before buying: a purchase only opens conditions (owned upgrades, skills, counters), never closes one, and none reads a balance, so this matches re-checking each one.
+	 * The decisions follow a local balance and the state is written once, every write walks all the reactions of its field.
+	 */
 	purchaseAffordableUpgrades(currency?: CurrencyName): string[] {
 		const owned = new Set(this.upgrades);
 		const candidates = Object.values(UPGRADES)
 			.filter(upgrade => !owned.has(upgrade.id) && (!currency || upgrade.cost.currency === currency) && (upgrade.condition?.(this) ?? true))
 			.sort((a, b) => a.cost.amount - b.cost.amount);
+		const balances = new Map<CurrencyName, { remaining: number; spent: number }>();
 		const purchased: string[] = [];
-		for (const upgrade of candidates) {
-			if (this.canAfford(upgrade.cost) && this.purchaseUpgrade(upgrade.id)) purchased.push(upgrade.id);
+		for (const { cost, id } of candidates) {
+			let balance = balances.get(cost.currency);
+			if (!balance) balances.set(cost.currency, (balance = { remaining: currenciesManager.getAmount(cost.currency), spent: 0 }));
+			if (!(balance.remaining >= cost.amount)) continue;
+			balance.remaining -= cost.amount;
+			balance.spent += cost.amount;
+			purchased.push(id);
 		}
+		if (purchased.length === 0) return purchased;
+
+		for (const [type, { spent }] of balances) currenciesManager.remove(type, spent);
+		this.upgrades = [...this.upgrades, ...purchased];
+		this.totalUpgradesPurchasedAllTime += purchased.length;
+		if (!this.applyingOfflineProgress) this.dailyStats.upgradesPurchased += purchased.length;
 		return purchased;
 	}
 

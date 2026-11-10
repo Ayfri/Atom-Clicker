@@ -6,10 +6,10 @@
 	import { RealmTypes } from '#data/realms.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import type { FamilyView } from '#helpers/UpgradeFamilies.svelte.js';
+	import { fly, scale } from '#helpers/transitions.js';
 	import { buyFamily } from '#helpers/upgradeFx.js';
 	import { Check } from '@lucide/svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { fly, scale } from 'svelte/transition';
 
 	interface Props {
 		/** Levels the auto-upgrade bought a moment ago. */

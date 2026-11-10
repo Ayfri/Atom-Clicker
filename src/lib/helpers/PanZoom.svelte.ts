@@ -12,6 +12,9 @@ interface PanZoomOptions {
 	minZoom: number;
 }
 
+/** Pixels a pointer travels before a press becomes a drag: a tap's jitter stays below it, so it neither swallows the click nor flags `moving`. */
+const DRAG_THRESHOLD = 6;
+
 const midpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /**
@@ -142,7 +145,7 @@ export class PanZoom {
 	}
 
 	#onClickCapture = (event: MouseEvent) => {
-		if (this.#dragDistance > 6) event.stopPropagation();
+		if (this.#dragDistance > DRAG_THRESHOLD) event.stopPropagation();
 		this.#dragDistance = 0;
 	};
 
@@ -159,14 +162,15 @@ export class PanZoom {
 		const next = { x: event.clientX, y: event.clientY };
 		const other = [...this.#pointers].find(([id]) => id !== event.pointerId)?.[1];
 		this.#pointers.set(event.pointerId, next);
-		this.moving = true;
 
 		if (!other) {
 			this.#dragDistance += Math.abs(next.x - last.x) + Math.abs(next.y - last.y);
+			if (this.#dragDistance > DRAG_THRESHOLD) this.moving = true;
 			this.panBy(next.x - last.x, next.y - last.y);
 			return;
 		}
 
+		this.moving = true;
 		const rect = this.#element.getBoundingClientRect();
 		const before = midpoint(last, other);
 		const after = midpoint(next, other);

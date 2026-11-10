@@ -305,6 +305,7 @@ describe('buy all', () => {
 
 	test.each(setups)('buys what the old panel bought for %s, cheapest first', (currency, setup) => {
 		setup();
+		const funded = currenciesManager.getAmount(currency);
 		const expected = oldBuyAll(currency);
 		const balance = currenciesManager.getAmount(currency);
 		expect(expected.length).toBeGreaterThan(1);
@@ -313,7 +314,8 @@ describe('buy all', () => {
 		setup();
 		expect(upgradeFamilies.buyAll(currency)).toBe(expected.length);
 		expect(gameManager.upgrades).toEqual(expected);
-		expect(currenciesManager.getAmount(currency)).toBe(balance);
+		/** One write for the summed cost instead of one per purchase: the same balance up to float rounding. */
+		expect(Math.abs(currenciesManager.getAmount(currency) - balance)).toBeLessThanOrEqual(funded * 1e-12);
 
 		const costs = gameManager.upgrades.map(id => UPGRADES[id].cost.amount);
 		expect(costs).toEqual(costs.toSorted((a, b) => a - b));

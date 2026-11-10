@@ -203,3 +203,13 @@ test('offline purchases stay out of the daily quest counters', () => {
 	expect(gameManager.dailyStats.generatorsPurchased).toBe(0);
 	expect(gameManager.totalGeneratorsPurchasedAllTime).toBe(1);
 });
+
+test('offline upgrade purchases stay out of the daily quest counters', () => {
+	currenciesManager.add(CurrenciesTypes.ATOMS, 1e12);
+	gameManager.applyingOfflineProgress = true;
+	const bought = gameManager.purchaseAffordableUpgrades();
+	gameManager.applyingOfflineProgress = false;
+	expect(bought.length).toBeGreaterThan(0);
+	expect(gameManager.dailyStats.upgradesPurchased).toBe(0);
+	expect(gameManager.totalUpgradesPurchasedAllTime).toBeGreaterThan(0);
+});
