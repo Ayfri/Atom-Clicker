@@ -171,6 +171,7 @@ function parseLoaf(value: unknown): LoafBreakdown | null {
 	if (!isRecord(value)) return null;
 
 	return {
+		blockingMs: ranged(value.blockingMs, 0, MAX_INCIDENT_MS),
 		otherMs: ranged(value.otherMs, 0, MAX_INCIDENT_MS),
 		scriptMs: ranged(value.scriptMs, 0, MAX_INCIDENT_MS),
 		scripts: items(value.scripts, MAX_SCRIPTS, parseScript),
@@ -215,9 +216,9 @@ function parseSource(value: unknown): PerfSourceStat | null {
 
 const blocked = (value: unknown) => ({ count: isRecord(value) ? ranged(value.count, 0, MAX_TOTAL) : 0, ms: isRecord(value) ? ranged(value.ms, 0, MAX_TOTAL) : 0 });
 
-/** Totals of the older report shape have no `blocked` and are refused, a tab on an old build gets a 400 until it reloads. */
+/** Totals of an older report shape (no `blocked` or no `ignored`) are refused because their counters follow other rules, a tab on an old build gets a 400 until it reloads. */
 function parseTotals(value: unknown): PerfTotals | null {
-	if (!isRecord(value) || !isRecord(value.blocked)) return null;
+	if (!isRecord(value) || !isRecord(value.blocked) || !isRecord(value.ignored)) return null;
 
 	return {
 		blocked: {
@@ -228,6 +229,7 @@ function parseTotals(value: unknown): PerfTotals | null {
 		},
 		commitLagP95Ms: ranged(value.commitLagP95Ms, 0, MAX_MS),
 		eventTiming: value.eventTiming === true,
+		ignored: blocked(value.ignored),
 		inputP95Ms: ranged(value.inputP95Ms, 0, MAX_MS),
 		jankRatio: share(value.jankRatio),
 		loaf: value.loaf === true,
@@ -249,9 +251,12 @@ function parsePerf(value: unknown): SessionPerf | null {
 	};
 }
 
-/** Groups the sessions of one device without storing an IP: a hash of the user agent, screen and language. */
-export async function deviceKey({ language, pixelRatio, screenHeight, screenWidth, userAgent }: DeviceInfo): Promise<string> {
-	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${userAgent}|${screenWidth}x${screenHeight}@${pixelRatio}|${language}`));
+/**
+ * Groups the sessions of one device without storing an IP, from the random id the browser keeps, or from the user agent, screen and
+ * language when it keeps none (identical machines then share a key: one key held 1,039 sessions in 10 days).
+ */
+export async function deviceKey({ language, pixelRatio, screenHeight, screenWidth, userAgent }: DeviceInfo, deviceId: string | null): Promise<string> {
+	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(deviceId ?? `${userAgent}|${screenWidth}x${screenHeight}@${pixelRatio}|${language}`));
 	return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 
@@ -261,7 +266,7 @@ export function parseSessionStart(body: unknown): SessionStartPayload | null {
 
 	const device = parseDevice(body.device);
 	const game = parseGame(body.game);
-	return device && game ? { device, game } : null;
+	return device && game ? { device, deviceId: isUuid(body.deviceId) ? body.deviceId : null, game } : null;
 }
 
 /** The session id and write key must be UUIDs, the degraded flag, problem and cause are never read from the client. */

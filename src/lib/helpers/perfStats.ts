@@ -92,5 +92,6 @@ export function isDegraded(windows: readonly PerfWindow[]): boolean {
 }
 
 export function rankSources(stats: readonly PerfSourceStat[], limit: number): PerfSourceStat[] {
-	return stats.toSorted((a, b) => b.totalMs - a.totalMs || b.maxMs - a.maxMs).slice(0, limit);
+	/** A copy and `sort` instead of `toSorted`, which Chrome before 110 and Safari before 16 lack. */
+	return [...stats].sort((a, b) => b.totalMs - a.totalMs || b.maxMs - a.maxMs).slice(0, limit);
 }

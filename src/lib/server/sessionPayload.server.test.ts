@@ -4,6 +4,8 @@ import type { DeviceInfo, PerfIncident, PerfWindow, SessionGame, SessionPerf } f
 
 const SESSION_ID = '3f2b8c1e-4d5a-4e6f-9a7b-1c2d3e4f5a6b';
 const WRITE_KEY = '9a1d7c52-8e3b-4f10-b6a2-5d4c3b2a1f0e';
+const DEVICE_ID = '0b6c2f84-1d3e-4a57-8c9d-7e5f4a3b2c1d';
+const OTHER_DEVICE_ID = '5e8a1c93-6b2d-4f70-9a14-3c7d8e9f0a1b';
 
 const device: DeviceInfo = {
 	appVersion: '1760000000000',
@@ -49,7 +51,7 @@ const incident: PerfIncident = {
 	atMs: 34_000,
 	durationMs: 992,
 	input: { delayMs: 6, presentationMs: 446, processingMs: 540, target: 'Atom' },
-	loaf: { otherMs: 4, scriptMs: 540, scripts: [{ durationMs: 512, file: 'Atom.js', fn: 'Gr', invoker: 'event-listener:DIV.onclick' }], styleLayoutMs: 40 },
+	loaf: { blockingMs: 480, otherMs: 4, scriptMs: 540, scripts: [{ durationMs: 512, file: 'Atom.js', fn: 'Gr', invoker: 'event-listener:DIV.onclick' }], styleLayoutMs: 40 },
 	modal: 'skill-tree',
 	realm: 'atoms',
 	sources: [{ ms: 38, name: 'svelte:flush' }],
@@ -64,6 +66,7 @@ const perf: SessionPerf = {
 		blocked: { frame: { count: 1, ms: 200 }, freeze: { count: 1, ms: 1_200 }, input: { count: 21, ms: 9_800 }, stall: { count: 0, ms: 0 } },
 		commitLagP95Ms: 20,
 		eventTiming: true,
+		ignored: { count: 4, ms: 5_200 },
 		inputP95Ms: 100,
 		jankRatio: 0.01,
 		loaf: true,
@@ -76,12 +79,18 @@ const withIncident = (overrides: Record<string, unknown>) => update({ perf: { ..
 
 describe('parseSessionStart', () => {
 	test('a clean payload round trips', () => {
-		expect(parseSessionStart({ device, game })).toEqual({ device, game });
+		expect(parseSessionStart({ device, deviceId: DEVICE_ID, game })).toEqual({ device, deviceId: DEVICE_ID, game });
+	});
+
+	test('a device id that is not a UUID or is missing becomes null', () => {
+		expect(parseSessionStart({ device, deviceId: 'a'.repeat(36), game })?.deviceId).toBeNull();
+		expect(parseSessionStart({ device, deviceId: 42, game })?.deviceId).toBeNull();
+		expect(parseSessionStart({ device, game })?.deviceId).toBeNull();
 	});
 
 	test('unknown keys are dropped, a client user id never gets through', () => {
 		const parsed = parseSessionStart({ device: { ...device, evil: 1 }, game: { ...game, extra: 'x' }, userId: 'someone' });
-		expect(parsed).toEqual({ device, game });
+		expect(parsed).toEqual({ device, deviceId: null, game });
 		expect(JSON.stringify(parsed)).not.toContain('someone');
 	});
 
@@ -148,10 +157,22 @@ describe('parseSessionUpdate', () => {
 		expect(parseSessionUpdate({ game, sessionId: SESSION_ID, writeKey: WRITE_KEY })).toBeNull();
 	});
 
-	test('totals of the older report shape are refused', () => {
-		const { blocked: _, ...old } = perf.totals;
-		expect(update({ perf: { ...perf, totals: old } })).toBeNull();
-		expect(update({ perf: { ...perf, totals: { ...old, blocked: 'x' } } })).toBeNull();
+	test('totals of an older report shape are refused', () => {
+		const { blocked: _, ...withoutBlocked } = perf.totals;
+		expect(update({ perf: { ...perf, totals: withoutBlocked } })).toBeNull();
+		expect(update({ perf: { ...perf, totals: { ...withoutBlocked, blocked: 'x' } } })).toBeNull();
+
+		const { ignored: __, ...withoutIgnored } = perf.totals;
+		expect(update({ perf: { ...perf, totals: withoutIgnored } })).toBeNull();
+		expect(update({ perf: { ...perf, totals: { ...withoutIgnored, ignored: 'x' } } })).toBeNull();
+	});
+
+	test('the ignored totals and the blocking time of a frame are clamped', () => {
+		const parsed = update({
+			perf: { ...perf, incidents: [{ ...incident, loaf: { ...incident.loaf, blockingMs: 1e9 } }], totals: { ...perf.totals, ignored: { count: -3, ms: 1e12 } } },
+		});
+		expect(parsed?.perf.totals.ignored).toEqual({ count: 0, ms: 1e10 });
+		expect(parsed?.perf.incidents[0].loaf?.blockingMs).toBe(60_000);
 	});
 
 	test('a source name that is not a plain identifier is dropped', () => {
@@ -241,7 +262,7 @@ describe('parseSessionUpdate', () => {
 					action: long(80),
 					atMs: 999_999_999.9,
 					input: { delayMs: 59_999.9, presentationMs: 59_999.9, processingMs: 59_999.9, target: long(60) },
-					loaf: { otherMs: 59_999.9, scriptMs: 59_999.9, scripts: [script, script, script], styleLayoutMs: 59_999.9 },
+					loaf: { blockingMs: 59_999.9, otherMs: 59_999.9, scriptMs: 59_999.9, scripts: [script, script, script], styleLayoutMs: 59_999.9 },
 					modal: long(40),
 					sources: Array.from({ length: 3 }, () => ({ ms: 59_999.9, name: long(40) })),
 				})),
@@ -257,12 +278,18 @@ describe('parseSessionUpdate', () => {
 });
 
 describe('deviceKey', () => {
-	test('is a stable 32 character hex string that changes with the device', async () => {
-		const parsed = parseSessionStart({ device, game });
-		if (!parsed) throw new Error('fixture refused');
-		const key = await deviceKey(parsed.device);
+	test('without a device id it is a stable 32 character hex string that changes with the device', async () => {
+		const key = await deviceKey(device, null);
 		expect(key).toMatch(/^[0-9a-f]{32}$/);
-		expect(await deviceKey(parsed.device)).toBe(key);
-		expect(await deviceKey({ ...parsed.device, screenWidth: 400 })).not.toBe(key);
+		expect(await deviceKey(device, null)).toBe(key);
+		expect(await deviceKey({ ...device, screenWidth: 400 }, null)).not.toBe(key);
+	});
+
+	test('two devices with identical device info but other ids get other keys, one id keeps one key', async () => {
+		const key = await deviceKey(device, DEVICE_ID);
+		expect(key).toMatch(/^[0-9a-f]{32}$/);
+		expect(await deviceKey(device, OTHER_DEVICE_ID)).not.toBe(key);
+		expect(await deviceKey({ ...device, screenWidth: 400, userAgent: 'other' }, DEVICE_ID)).toBe(key);
+		expect(key).not.toBe(await deviceKey(device, null));
 	});
 });

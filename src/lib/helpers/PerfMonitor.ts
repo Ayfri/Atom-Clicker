@@ -43,8 +43,15 @@ interface LoafScriptTiming {
 }
 
 interface LoafTiming extends PerformanceEntry {
+	blockingDuration: number;
 	scripts: readonly LoafScriptTiming[];
 	styleAndLayoutStart: number;
+}
+
+/** What the `atomic-clicker-perf` record holds: the day of the last degraded report and the random id of this browser. */
+interface StoredPerf {
+	degradedAt?: number;
+	deviceId?: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -123,7 +130,7 @@ export class PerfMonitor {
 
 			const authHeaders = await supabaseAuth.authHeaders().catch(() => ({}));
 			const headers = { ...authHeaders, 'Content-Type': 'application/json' };
-			const payload: SessionStartPayload = { device, game: this.gameContext() };
+			const payload: SessionStartPayload = { device, deviceId: this.deviceId(), game: this.gameContext() };
 
 			const response = await fetch('/api/sessions', { body: JSON.stringify(payload), headers, method: 'POST' });
 			if (!response.ok) return;
@@ -179,6 +186,15 @@ export class PerfMonitor {
 			sources: rankSources(perfTracker.sessionSources(), MAX_SOURCES),
 			totals: { ...perfTracker.totals(), eventTiming: this.eventTiming, loaf: this.loafSupported },
 		};
+	}
+
+	/** Groups the sessions of one browser: identical machines share a user agent and a screen, so the server cannot tell them apart without it. */
+	private deviceId(): string | null {
+		const stored = getJSON<StoredPerf>(STORAGE_KEY, {});
+		if (isUuid(stored.deviceId)) return stored.deviceId;
+
+		const deviceId = crypto.randomUUID();
+		return setItem(STORAGE_KEY, JSON.stringify({ ...stored, deviceId })) ? deviceId : null;
 	}
 
 	/** Game context is read at report time only, nothing here runs on a hot path. */
@@ -268,6 +284,7 @@ export class PerfMonitor {
 			perfTracker.incidents.observe({
 				end,
 				loaf: {
+					blockingMs: Math.round(entry.blockingDuration),
 					otherMs: Math.max(0, Math.round(entry.duration - scriptMs - styleLayoutMs)),
 					scriptMs: Math.round(scriptMs),
 					scripts: scripts.slice(0, MAX_SCRIPTS),
@@ -303,7 +320,7 @@ export class PerfMonitor {
 	 * evidence, so the server still flags the session. The day only starts once the server took the report.
 	 */
 	private reportDegraded() {
-		const { degradedAt = 0 } = getJSON<{ degradedAt?: number }>(STORAGE_KEY, {});
+		const { degradedAt = 0 } = getJSON<StoredPerf>(STORAGE_KEY, {});
 		if (this.reportedThisLoad || Date.now() - degradedAt < DAY_MS) return;
 
 		this.reportedThisLoad = true;
@@ -344,7 +361,7 @@ export class PerfMonitor {
 				if (response.status === 404) this.rejected = true;
 				if (response.ok && carriesDegraded && this.cooldownPending) {
 					this.cooldownPending = false;
-					setItem(STORAGE_KEY, JSON.stringify({ degradedAt: Date.now() }));
+					setItem(STORAGE_KEY, JSON.stringify({ ...getJSON<StoredPerf>(STORAGE_KEY, {}), degradedAt: Date.now() }));
 				}
 			})
 			.catch(() => {});

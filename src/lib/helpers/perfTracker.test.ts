@@ -133,14 +133,15 @@ describe('frame', () => {
 		expect(tracker.incidents.blocked[IncidentKinds.FRAME]).toEqual({ count: 1, ms: 200 });
 	});
 
-	test('a gap under 150 ms is only a jank, one over a second is an incident but no frame, past 10 s it is ignored', () => {
+	test('a gap under 150 ms is only a jank, one over a second with a free main thread is reported as ignored, past 10 s it is dropped', () => {
 		tracker.frame(1_149, 1_000);
 		expect(tracker.incidents.worst(1)).toEqual([]);
 		tracker.frame(3_000, 1_149);
-		expect(tracker.incidents.blocked[IncidentKinds.FREEZE].count).toBe(1);
+		expect(tracker.incidents.worst(1)).toEqual([]);
+		expect(tracker.totals().ignored).toEqual({ count: 1, ms: 1_851 });
 		expect(tracker.totals().jankRatio).toBe(1);
 		tracker.frame(20_000, 3_000);
-		expect(tracker.incidents.blocked[IncidentKinds.FREEZE].count).toBe(1);
+		expect(tracker.totals().ignored.count).toBe(1);
 	});
 });
 

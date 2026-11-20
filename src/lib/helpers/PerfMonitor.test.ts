@@ -221,6 +221,54 @@ describe('analytics switch', () => {
 	});
 });
 
+describe('device id', () => {
+	const startPayload = () => fetchCalls[0].body as { deviceId: string | null };
+
+	test('a random id is created once, kept in the perf record and reused by the next page load', async () => {
+		await startAndOpen();
+		const { deviceId } = startPayload();
+		expect(deviceId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+		expect(JSON.parse(storage.get(STORAGE_KEY) ?? '{}').deviceId).toBe(deviceId);
+
+		monitor.stop();
+		fetchCalls = [];
+		monitor = new PerfMonitor();
+		await startAndOpen();
+		expect(startPayload().deviceId).toBe(deviceId);
+	});
+
+	test('an unusable stored id is replaced and the degraded cooldown stays', async () => {
+		storage.set(STORAGE_KEY, JSON.stringify({ degradedAt: 5, deviceId: 'not-an-id' }));
+		await startAndOpen();
+		const { deviceId } = startPayload();
+		expect(deviceId).not.toBe('not-an-id');
+		expect(JSON.parse(storage.get(STORAGE_KEY) ?? '{}')).toEqual({ degradedAt: 5, deviceId });
+	});
+
+	test('the id survives the write of the degraded day', async () => {
+		await startAndOpen();
+		const { deviceId } = startPayload();
+		feed(3);
+		await settle();
+		expect(updates()).toHaveLength(1);
+		const record = JSON.parse(storage.get(STORAGE_KEY) ?? '{}');
+		expect(record.deviceId).toBe(deviceId);
+		expect(record.degradedAt).toBeGreaterThan(0);
+	});
+
+	test('the payload carries null when the id cannot be stored', async () => {
+		stub(globalThis, 'localStorage', {
+			getItem: () => null,
+			removeItem: () => {},
+			setItem: () => {
+				throw new Error('quota');
+			},
+		});
+		await startAndOpen();
+		expect(startPayload().deviceId).toBeNull();
+	});
+});
+
 describe('listeners and environment', () => {
 	test('start registers the capture listeners and the environment, stop removes them', () => {
 		monitor.start();
@@ -275,7 +323,7 @@ describe('listeners and environment', () => {
 		const [events, frames] = FakeObserver.instances;
 		const entry = (startTime: number) => ({ duration: 300, interactionId: 1, name: 'click', processingEnd: startTime + 200, processingStart: startTime + 10, startTime, target: null });
 		events.deliver(entry(perfTracker.resumedAt - 100));
-		frames.deliver({ duration: 400, scripts: [], startTime: perfTracker.resumedAt - 500, styleAndLayoutStart: 0 });
+		frames.deliver({ blockingDuration: 300, duration: 400, scripts: [], startTime: perfTracker.resumedAt - 500, styleAndLayoutStart: 0 });
 		expect(perfTracker.incidents.worst(1)).toEqual([]);
 
 		events.deliver(entry(perfTracker.resumedAt + 100));
@@ -288,19 +336,27 @@ describe('listeners and environment', () => {
 		const startTime = perfTracker.resumedAt + 100;
 		const inputP95 = perfTracker.totals().inputP95Ms;
 		events.deliver({ duration: 12_000, interactionId: 1, name: 'click', processingEnd: startTime + 11_000, processingStart: startTime + 10, startTime, target: null });
-		frames.deliver({ duration: 12_000, scripts: [], startTime, styleAndLayoutStart: 0 });
+		frames.deliver({ blockingDuration: 0, duration: 12_000, scripts: [], startTime, styleAndLayoutStart: 0 });
 		expect(perfTracker.incidents.worst(1)).toEqual([]);
 		expect(perfTracker.totals().inputP95Ms).toBe(inputP95);
 
-		frames.deliver({ duration: 10_000, scripts: [], startTime, styleAndLayoutStart: 0 });
-		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 10_000 });
+		frames.deliver({ blockingDuration: 9_000, duration: 10_000, scripts: [], startTime, styleAndLayoutStart: 0 });
+		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 10_000, loaf: { blockingMs: 9_000 } });
+	});
+
+	test('a Long Animation Frame of a second or more that blocked nothing, with the timer on time, counts as an ignored gap', async () => {
+		await startAndOpen();
+		const [, frames] = FakeObserver.instances;
+		frames.deliver({ blockingDuration: 0, duration: 1_500, scripts: [], startTime: perfTracker.resumedAt + 100, styleAndLayoutStart: 0 });
+		expect(perfTracker.incidents.worst(1)).toEqual([]);
+		expect(monitor.summary().totals.ignored).toEqual({ count: 1, ms: 1_500 });
 	});
 
 	test('a frame longer than 10 s that is mostly script stays an incident', async () => {
 		await startAndOpen();
 		const [, frames] = FakeObserver.instances;
 		const startTime = perfTracker.resumedAt + 100;
-		frames.deliver({ duration: 12_000, scripts: [{ duration: 11_000, invoker: 'tick', invokerType: 'user-callback', sourceFunctionName: 'tick' }], startTime, styleAndLayoutStart: 0 });
+		frames.deliver({ blockingDuration: 11_000, duration: 12_000, scripts: [{ duration: 11_000, invoker: 'tick', invokerType: 'user-callback', sourceFunctionName: 'tick' }], startTime, styleAndLayoutStart: 0 });
 		expect(perfTracker.incidents.worst(1)[0]).toMatchObject({ durationMs: 12_000, loaf: { scriptMs: 11_000 } });
 	});
 

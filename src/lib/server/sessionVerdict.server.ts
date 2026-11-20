@@ -65,7 +65,7 @@ const plural = (count: number, [one, many]: readonly [string, string]) => `${cou
 
 const invokerName = (invoker: string) => invoker.replace(/^event-listener:/, '');
 
-/** Render time against JavaScript time over a set of incidents, taken from the best breakdown each one has. */
+/** Render time against script time over a set of incidents, taken from the best breakdown each one has. */
 function renderDominates(incidents: readonly PerfIncident[]): boolean {
 	let js = 0;
 	let render = 0;
@@ -83,7 +83,7 @@ function renderDominates(incidents: readonly PerfIncident[]): boolean {
 	return render > 0 && render >= 2 * js;
 }
 
-/** Steady jank with a late timer is JavaScript, with an on-time timer it is rendering. */
+/** Steady jank with a late timer is the main thread being busy, with an on-time timer it is rendering. */
 function steadyProblem(lagMs: number, jank: number): SessionProblem | null {
 	if (jank >= JANK_RATIO_BAD) return lagMs <= 50 ? 'render-bound' : 'low-frame-rate';
 	return lagMs > LAG_BAD_MS ? 'low-frame-rate' : null;
@@ -126,7 +126,7 @@ function momentText(incident: PerfIncident, index: number): string {
 		lines.push(`   delay ${duration(input.delayMs)}, handlers ${duration(input.processingMs)}, presentation ${duration(input.presentationMs)}${restText(rest, incident.durationMs)}`);
 	} else if (loaf) {
 		const rest = incident.durationMs - loaf.scriptMs - loaf.styleLayoutMs - loaf.otherMs;
-		lines.push(`   script ${duration(loaf.scriptMs)}, style/layout ${duration(loaf.styleLayoutMs)}, other ${duration(loaf.otherMs)}${restText(rest, incident.durationMs)}`);
+		lines.push(`   script ${duration(loaf.scriptMs)}, style/layout ${duration(loaf.styleLayoutMs)}, other ${duration(loaf.otherMs)} (blocking ${duration(loaf.blockingMs)})${restText(rest, incident.durationMs)}`);
 	}
 
 	const scripts = (incident.loaf?.scripts ?? []).slice(0, SCRIPTS_SHOWN).map(({ durationMs, file, fn, invoker }) =>
@@ -139,7 +139,7 @@ function momentText(incident: PerfIncident, index: number): string {
 }
 
 function buildSummary(perf: SessionPerf, game: SessionGame, problem: SessionProblem | null, cause: string | null): string {
-	const { blocked, commitLagP95Ms, jankRatio, visibleMs } = perf.totals;
+	const { blocked, commitLagP95Ms, ignored, jankRatio, visibleMs } = perf.totals;
 	const count = KINDS.reduce((sum, kind) => sum + blocked[kind].count, 0);
 	const blockedMs = KINDS.reduce((sum, kind) => sum + blocked[kind].ms, 0);
 	const parts = KINDS.filter(kind => blocked[kind].count > 0).map(kind => plural(blocked[kind].count, KIND_NOUNS[kind]));
@@ -149,7 +149,7 @@ function buildSummary(perf: SessionPerf, game: SessionGame, problem: SessionProb
 
 	const share = (totalMs: number) => percent(visibleMs > 0 ? totalMs / visibleMs : 0);
 	const sources = rankSources(perf.sources, SOURCES_SHOWN).map(({ name, totalMs }) => `${code(name, 40)} ${share(totalMs)}`);
-	const steady = `Steady load: timer lag p95 ${Math.round(commitLagP95Ms)} ms, ${percent(jankRatio)} janky frames${sources.length ? `, main thread ${sources.join(', ')}` : ''}`;
+	const steady = `Steady load: timer lag p95 ${Math.round(commitLagP95Ms)} ms, ${percent(jankRatio)} janky frames${sources.length ? `, main thread ${sources.join(', ')}` : ''}${ignored.count > 0 ? `, ${plural(ignored.count, ['idle gap', 'idle gaps'])} ignored (${duration(ignored.ms)})` : ''}`;
 
 	const context = [
 		`${game.realm} realm`,

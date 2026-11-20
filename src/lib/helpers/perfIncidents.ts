@@ -8,12 +8,17 @@ export const INCIDENT_MIN_MS = 150;
 export const SPAN_MIN_MS = 10;
 const ACTION_RING = 4;
 const ACTION_WINDOW_MS = 1_000;
+/** `blockingDuration` leaves out the first 50 ms of each task, so one 150 ms task blocks 100 ms. */
+const BLOCKING_MIN_MS = 100;
 const FREEZE_MS = 1_000;
 const MAX_KEPT = 12;
 /** The 20 ms commit step, a 16 ms frame and the 8 ms Event Timing rounding. */
 const MERGE_SLACK_MS = 50;
-/** Blocks that can still receive a late view, apart from the worst ones that are reported. */
-const RECENT_MAX = 8;
+/**
+ * Blocks that can still receive a late view, apart from the worst ones that are reported. A Long Animation Frame can arrive many blocks late
+ * on a saturated main thread, and one that finds its block gone from this list counts as a second block.
+ */
+const RECENT_MAX = 32;
 const SPAN_RING = 32;
 
 /** Which observer saw a block. A block takes one view of the exclusive kinds, so consecutive gaps of one observer never chain into one. */
@@ -50,7 +55,6 @@ interface Block {
 	input: InputBreakdown | null;
 	kept: boolean;
 	loaf: LoafBreakdown | null;
-	long: boolean;
 	modal: string | null;
 	realm: RealmType;
 	sources: { ms: number; name: string }[];
@@ -84,18 +88,35 @@ const inputMs = ({ delayMs, presentationMs, processingMs }: InputBreakdown) => d
 export const stripUrlDetails = (value: string) => value.replace(/(https?:\/\/[^\s?#]*)#\S*/g, '$1').replace(/\?\S*/g, '');
 
 /**
- * Input beats freeze beats stall: a late timer or a Long Animation Frame is JavaScript, otherwise only the frames were late (compositor or
- * GPU). An interaction only names a block it covers at least half of, a 200 ms click inside a 5 s freeze stays a freeze.
+ * The main thread is proven busy by a late timer, by a Long Animation Frame that blocked (`BLOCKING_MIN_MS`) or by handlers that ran
+ * `INCIDENT_MIN_MS`. A Long Animation Frame alone proves nothing: its duration includes the wait for the frame to be presented (2,294 kept
+ * incidents had the timer on time and a frame that was 95% wait), and its `blockingDuration` alone cannot clear a late timer (0 for a 1.74 s
+ * scene build that ran after a WebGPU promise). With a free main thread, a gap under a second is a `frame` (compositor or GPU) and a gap of a
+ * second or more counts as nothing (`null`): the window is not painting (occluded, display off, throttled: 500 of 4,018 timer-on-time
+ * incidents lasted 1 s or more, among them 10 s Event Timing entries of an occluded Safari window, and a GPU hang that long with a free main
+ * thread is dropped with them). A busy block is an input, a freeze (a second or more) or a stall. An interaction only names a block it covers
+ * at least half of, a 200 ms click inside a 5 s freeze stays a freeze.
  */
-export function incidentKind({ durationMs, input, loaf, timerLate }: Pick<PerfIncident, 'durationMs' | 'input' | 'loaf' | 'timerLate'>): IncidentKind {
+export function incidentKind({ durationMs, input, loaf, timerLate }: Pick<PerfIncident, 'durationMs' | 'input' | 'loaf' | 'timerLate'>): IncidentKind | null {
+	const busy = timerLate || (loaf?.blockingMs ?? 0) >= BLOCKING_MIN_MS || (input?.processingMs ?? 0) >= INCIDENT_MIN_MS;
+	if (!busy && durationMs >= FREEZE_MS) return null;
 	if (input && inputMs(input) >= SLOW_INPUT_MS && inputMs(input) * 2 >= durationMs) return IncidentKinds.INPUT;
-	if (durationMs >= FREEZE_MS) return IncidentKinds.FREEZE;
-	return timerLate || loaf ? IncidentKinds.STALL : IncidentKinds.FRAME;
+	if (!busy) return IncidentKinds.FRAME;
+	return durationMs >= FREEZE_MS ? IncidentKinds.FREEZE : IncidentKinds.STALL;
 }
 
-const kindOf = (block: Block) => incidentKind({ durationMs: block.end - block.start, input: block.input, loaf: block.loaf, timerLate: block.timerLate });
-
 const lengthOf = (block: Block) => block.end - block.start;
+
+/** The length is rounded like the `durationMs` of a reported incident, the server reruns `incidentKind` on it and a 999.6 ms block must get the same kind there. */
+const kindOf = ({ end, input, loaf, start, timerLate }: Part) => incidentKind({ durationMs: Math.round(end - start), input: input ?? null, loaf: loaf ?? null, timerLate });
+
+/** Handlers that ran `INCIDENT_MIN_MS` prove the main thread was busy, the kind the server derives from the sent input needs that proof to stay in it. */
+const proves = ({ processingMs }: InputBreakdown) => processingMs >= INCIDENT_MIN_MS;
+
+/** An input beats another when it proves busy handlers and the other does not, between two of the same sort the longer one wins. */
+const outranks = (input: InputBreakdown, other: InputBreakdown) => (proves(input) === proves(other) ? inputMs(input) > inputMs(other) : proves(input));
+
+const unionOf = (block: Block, start: number, end: number) => Math.max(end, block.end) - Math.min(start, block.start);
 
 const emptyBlocked = (): Record<IncidentKind, { count: number; ms: number }> => ({
 	[IncidentKinds.FRAME]: { count: 0, ms: 0 },
@@ -108,7 +129,7 @@ const emptyBlocked = (): Record<IncidentKind, { count: number; ms: number }> => 
 const viewOf = ({ input, loaf, timerLate }: Resolved) => (input ? Views.INPUT : loaf ? Views.LOAF : timerLate ? Views.COMMIT : Views.FRAME);
 
 /**
- * Keeps the worst main thread blocks of the session, each counted once however many observers saw it (commit timer, rAF gap, Long
+ * Keeps the worst counted main thread blocks of the session, each counted once however many observers saw it (commit timer, rAF gap, Long
  * Animation Frame, Event Timing), which deliver late and in any order, so views merge by time overlap into the recent blocks, whether
  * or not they made the worst list. Allocates only when an incident is created or widened, `span` and `action` are O(1) writes into
  * preallocated slots.
@@ -116,7 +137,9 @@ const viewOf = ({ input, loaf, timerLate }: Resolved) => (input ? Views.INPUT : 
 export class IncidentLog {
 	environment: IncidentEnvironment | null = null;
 	readonly blocked = emptyBlocked();
-	/** Incidents that crossed one second, counted once each. */
+	/** Blocks the main thread was free in, they count as nothing (see `incidentKind`). */
+	readonly ignored = { count: 0, ms: 0 };
+	/** Counted incidents that crossed one second, counted once each. */
 	longBlocks = 0;
 
 	private readonly actions: ActionEntry[] = Array.from({ length: ACTION_RING }, () => ({ at: -1, label: null, target: null }));
@@ -141,9 +164,25 @@ export class IncidentLog {
 	observe(observation: IncidentObservation) {
 		const resolved: Resolved = { ...observation, timerLate: observation.timerLate ?? false };
 		const views = viewOf(resolved);
-		const target = this.recent.find(block => this.fits(block, resolved.start, resolved.end, views));
+		let target: Block | null = null;
+		let tooLong = false;
+		for (let index = 0; index < this.recent.length; index++) {
+			const block = this.recent[index];
+			if (!this.joins(block, resolved, views)) continue;
+			if (unionOf(block, resolved.start, resolved.end) > MAX_FREEZE_MS) {
+				tooLong = true;
+				continue;
+			}
+			target = block;
+			break;
+		}
+
 		if (!target) {
-			this.create(resolved, views);
+			/**
+			 * A view that can only join blocks it would stretch past `MAX_FREEZE_MS` is dropped: such a block already counts the time they share,
+			 * and Event Timing gives one entry per event of an interaction, each as long as the gap, so counting one apart counts that time again.
+			 */
+			if (!tooLong) this.create(resolved, views);
 			return;
 		}
 
@@ -153,11 +192,10 @@ export class IncidentLog {
 		// A view can bridge two blocks that were separate until it widened this one.
 		for (let index = this.recent.length - 1; index >= 0; index--) {
 			const other = this.recent[index];
-			if (other === target || !this.fits(target, other.start, other.end, other.views)) continue;
+			if (other === target || !this.joins(target, other, other.views) || unionOf(target, other.start, other.end) > MAX_FREEZE_MS) continue;
 			this.recent.splice(index, 1);
 			this.absorb(target, other);
 		}
-		this.retain(target);
 	}
 
 	reset() {
@@ -165,6 +203,8 @@ export class IncidentLog {
 		this.head = 0;
 		this.kept.length = 0;
 		this.recent.length = 0;
+		this.ignored.count = 0;
+		this.ignored.ms = 0;
 		this.longBlocks = 0;
 		for (const entry of this.actions) {
 			entry.at = -1;
@@ -188,8 +228,9 @@ export class IncidentLog {
 	}
 
 	worst(limit: number): PerfIncident[] {
-		return this.kept
-			.toSorted((a, b) => lengthOf(b) - lengthOf(a))
+		/** `toSorted` is missing on Chrome before 110 and Safari before 16, a copy and `sort` run everywhere. */
+		return [...this.kept]
+			.sort((a, b) => lengthOf(b) - lengthOf(a))
 			.slice(0, limit)
 			.map(block => ({
 				action: block.action,
@@ -209,21 +250,26 @@ export class IncidentLog {
 	private absorb(target: Block, other: Block) {
 		this.release(other);
 		this.release(target);
-		if (other.long && target.long) this.longBlocks--;
-		else if (other.long) target.long = true;
-		if (other.kept) this.kept.splice(this.kept.indexOf(other), 1);
+		if (other.kept) this.unkeep(other);
 		this.merge(target, other, other.views);
 	}
 
-	/** Adds the block to `blocked` under its current kind, `release` takes it back before the kind or span changes. */
+	/**
+	 * Adds the block to `blocked` under its current kind (or to `ignored`), and to the worst list when it counts. `release` takes
+	 * exactly this back and is always called before a block changes, so a late view that changes its kind or length keeps the numbers exact.
+	 */
 	private claim(block: Block) {
-		const stat = this.blocked[kindOf(block)];
+		const kind = kindOf(block);
+		const stat = kind ? this.blocked[kind] : this.ignored;
 		stat.count++;
 		stat.ms += lengthOf(block);
-		if (!block.long && lengthOf(block) >= FREEZE_MS) {
-			block.long = true;
-			this.longBlocks++;
+		if (!kind) {
+			if (block.kept) this.unkeep(block);
+			return;
 		}
+
+		if (lengthOf(block) >= FREEZE_MS) this.longBlocks++;
+		this.retain(block);
 	}
 
 	/** The spans that overlap `[start, end]`, summed by name over their overlapping part, the longest few. */
@@ -248,7 +294,6 @@ export class IncidentLog {
 			input: input ?? null,
 			kept: false,
 			loaf: loaf ?? null,
-			long: false,
 			modal: this.environment?.modal() ?? null,
 			realm: this.environment?.realm() ?? RealmTypes.ATOMS,
 			sources: this.collect(start, end),
@@ -260,17 +305,6 @@ export class IncidentLog {
 		this.claim(block);
 		this.recent.push(block);
 		if (this.recent.length > RECENT_MAX) this.recent.shift();
-		this.retain(block);
-	}
-
-	/**
-	 * Views only merge when they really overlap (the overlap, slack included, covers half of the shorter span), come from different
-	 * observers, and the union stays under `MAX_FREEZE_MS`: gaps that merely touch are separate incidents.
-	 */
-	private fits(block: Block, start: number, end: number, views: number): boolean {
-		if (block.views & views & EXCLUSIVE_VIEWS) return false;
-		if (Math.max(end, block.end) - Math.min(start, block.start) > MAX_FREEZE_MS) return false;
-		return Math.min(end, block.end) - Math.max(start, block.start) + MERGE_SLACK_MS >= Math.min(end - start, lengthOf(block)) / 2;
 	}
 
 	/** Widens `target` over a view or another block and counts it again, the caller released it first. A part that starts earlier brings its action along. */
@@ -283,11 +317,31 @@ export class IncidentLog {
 		target.end = Math.max(target.end, part.end);
 		target.timerLate ||= part.timerLate;
 		target.views |= views;
-		if (part.input && (!target.input || inputMs(part.input) > inputMs(target.input))) target.input = part.input;
+		if (part.input && (!target.input || outranks(part.input, target.input))) target.input = part.input;
 		target.loaf = part.loaf ?? target.loaf;
 		target.sources = this.collect(target.start, target.end);
 		if (!target.action) this.readAction(target);
 		this.claim(target);
+	}
+
+	/**
+	 * A part joins a block when they overlap, and when exactly one of them is an idle gap (counts as nothing alone) only if the other covers
+	 * half of their union: a few hundred ms of proof must not turn a 10 s gap the main thread was free in into a counted block.
+	 */
+	private joins(block: Block, part: Part, views: number): boolean {
+		if (!this.overlaps(block, part.start, part.end, views)) return false;
+
+		const blockIdle = kindOf(block) === null;
+		if (blockIdle === (kindOf(part) === null)) return true;
+
+		const busy = blockIdle ? part : block;
+		return (busy.end - busy.start) * 2 >= unionOf(block, part.start, part.end);
+	}
+
+	/** Views only merge when they come from different observers and the overlap, slack included, covers half of the shorter span: gaps that merely touch stay apart. */
+	private overlaps(block: Block, start: number, end: number, views: number): boolean {
+		if (block.views & views & EXCLUSIVE_VIEWS) return false;
+		return Math.min(end, block.end) - Math.max(start, block.start) + MERGE_SLACK_MS >= Math.min(end - start, lengthOf(block)) / 2;
 	}
 
 	/** The latest action up to the block's start (an action during the block, such as a tap queued behind it, doesn't explain it). */
@@ -308,9 +362,11 @@ export class IncidentLog {
 	}
 
 	private release(block: Block) {
-		const stat = this.blocked[kindOf(block)];
+		const kind = kindOf(block);
+		const stat = kind ? this.blocked[kind] : this.ignored;
 		stat.count--;
 		stat.ms -= lengthOf(block);
+		if (kind && lengthOf(block) >= FREEZE_MS) this.longBlocks--;
 	}
 
 	/** A block joins the worst list when there is room or it is longer than the shortest one, which then drops out of the report. */
@@ -331,5 +387,10 @@ export class IncidentLog {
 		this.kept[smallest].kept = false;
 		this.kept[smallest] = block;
 		block.kept = true;
+	}
+
+	private unkeep(block: Block) {
+		this.kept.splice(this.kept.indexOf(block), 1);
+		block.kept = false;
 	}
 }

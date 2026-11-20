@@ -27,6 +27,7 @@ const totals = (overrides: Partial<PerfTotals> = {}): PerfTotals => ({
 	blocked: { frame: none, freeze: none, input: none, stall: none },
 	commitLagP95Ms: 16,
 	eventTiming: true,
+	ignored: none,
 	inputP95Ms: 200,
 	jankRatio: 0.035,
 	loaf: true,
@@ -85,7 +86,7 @@ function chromebook(): SessionPerf {
 	log.action('tap:', atom, 34_000);
 	log.span('svelte:flush', 34_900, 34_938);
 	log.observe({ end: 34_992, start: 34_020, timerLate: true });
-	log.observe({ end: 34_990, loaf: { otherMs: 20, scriptMs: 512, scripts: [{ durationMs: 512, file: 'Atom.js', fn: 'Gr', invoker: 'event-listener:DIV.onclick' }], styleLayoutMs: 40 }, start: 34_010 });
+	log.observe({ end: 34_990, loaf: { blockingMs: 450, otherMs: 20, scriptMs: 512, scripts: [{ durationMs: 512, file: 'Atom.js', fn: 'Gr', invoker: 'event-listener:DIV.onclick' }], styleLayoutMs: 40 }, start: 34_010 });
 	log.observe({ end: 34_992, input: { delayMs: 6, presentationMs: 446, processingMs: 540, target: 'Atom' }, start: 34_000 });
 
 	log.action('prestige:protonise', null, 40_000);
@@ -97,7 +98,7 @@ function chromebook(): SessionPerf {
 	modal = 'skill-tree';
 	log.action('tap:', element('Skill Tree'), 50_000);
 	log.action('modal:skill-tree', null, 50_030);
-	log.observe({ end: 51_240, loaf: { otherMs: 40, scriptMs: 1_020, scripts: [{ durationMs: 610, file: 'app.js', fn: null, invoker: 'event-listener:#document.onclick' }], styleLayoutMs: 140 }, start: 50_040 });
+	log.observe({ end: 51_240, loaf: { blockingMs: 900, otherMs: 40, scriptMs: 1_020, scripts: [{ durationMs: 610, file: 'app.js', fn: null, invoker: 'event-listener:#document.onclick' }], styleLayoutMs: 140 }, start: 50_040 });
 	log.observe({ end: 51_240, start: 50_060, timerLate: true });
 	log.observe({ end: 51_240, input: { delayMs: 10, presentationMs: 140, processingMs: 1_090, target: 'Skill Tree' }, start: 50_000 });
 
@@ -126,7 +127,7 @@ describe('incident based problems', () => {
 		const freeze = incident({
 			action: 'modal:skill-tree',
 			durationMs: 1_800,
-			loaf: { otherMs: 0, scriptMs: 300, scripts: [], styleLayoutMs: 1_500 },
+			loaf: { blockingMs: 1_500, otherMs: 0, scriptMs: 300, scripts: [], styleLayoutMs: 1_500 },
 			sources: [{ ms: 900, name: 'skilltree:grid' }],
 		});
 		const verdict = judgeSession(perf({ incidents: [freeze, freeze], totals: totals({ blocked: { frame: none, freeze: { count: 2, ms: 3_600 }, input: { count: 3, ms: 600 }, stall: none } }) }), game);
@@ -152,13 +153,13 @@ describe('incident based problems', () => {
 		const tap = incident({ durationMs: 5_163, input: { delayMs: 13, presentationMs: 195, processingMs: 0, target: 'Atom' } });
 		expect(judgeSession(perf({ incidents: [tap] }), game).summary).toContain('delay 13 ms, handlers 0 ms, presentation 195 ms, rest 5.0 s');
 
-		const loaf = incident({ durationMs: 900, loaf: { otherMs: 20, scriptMs: 300, scripts: [], styleLayoutMs: 100 } });
-		expect(judgeSession(perf({ incidents: [loaf] }), game).summary).toContain('script 300 ms, style/layout 100 ms, other 20 ms, rest 480 ms');
+		const loaf = incident({ durationMs: 900, loaf: { blockingMs: 250, otherMs: 20, scriptMs: 300, scripts: [], styleLayoutMs: 100 } });
+		expect(judgeSession(perf({ incidents: [loaf] }), game).summary).toContain('script 300 ms, style/layout 100 ms, other 20 ms (blocking 250 ms), rest 480 ms');
 
-		const covered = incident({ durationMs: 900, loaf: { otherMs: 20, scriptMs: 700, scripts: [], styleLayoutMs: 100 } });
+		const covered = incident({ durationMs: 900, loaf: { blockingMs: 250, otherMs: 20, scriptMs: 700, scripts: [], styleLayoutMs: 100 } });
 		expect(judgeSession(perf({ incidents: [covered] }), game).summary).not.toContain('rest');
 
-		const quarter = incident({ durationMs: 2_000, loaf: { otherMs: 100, scriptMs: 1_000, scripts: [], styleLayoutMs: 600 } });
+		const quarter = incident({ durationMs: 2_000, loaf: { blockingMs: 250, otherMs: 100, scriptMs: 1_000, scripts: [], styleLayoutMs: 600 } });
 		expect(judgeSession(perf({ incidents: [quarter] }), game).summary).not.toContain('rest');
 
 		const small = incident({ durationMs: 300, input: { delayMs: 5, presentationMs: 100, processingMs: 100, target: 'Atom' } });
@@ -173,15 +174,35 @@ describe('incident based problems', () => {
 		expect(verdict.summary).toContain('2 glows, 0 blurs');
 	});
 
+	test('a Long Animation Frame that blocked nothing with the timer on time is a render bound frame, not script', () => {
+		const frame = incident({ durationMs: 340, loaf: { blockingMs: 0, otherMs: 300, scriptMs: 20, scripts: [], styleLayoutMs: 20 }, timerLate: false });
+		const verdict = judgeSession(perf({ incidents: [frame], totals: totals({ blocked: { frame: { count: 5, ms: 1_700 }, freeze: none, input: none, stall: none } }) }), game);
+		expect(verdict.problem).toBe('render-bound');
+		expect(verdict.cause).toBe('no action > render');
+		expect(verdict.summary).toContain('script 20 ms, style/layout 20 ms, other 300 ms (blocking 0 ms)');
+	});
+
+	test('a late timer keeps a Long Animation Frame without blocking time a stall', () => {
+		const stall = incident({ durationMs: 340, loaf: { blockingMs: 0, otherMs: 300, scriptMs: 20, scripts: [], styleLayoutMs: 20 }, timerLate: true });
+		const verdict = judgeSession(perf({ incidents: [stall], totals: stalls(4, 1_600) }), game);
+		expect(verdict.problem).toBe('low-frame-rate');
+	});
+
+	test('the idle gaps that count as nothing are listed with the steady load', () => {
+		expect(judgeSession(perf(), game).summary).not.toContain('idle gap');
+		expect(judgeSession(perf({ totals: totals({ ignored: { count: 3, ms: 4_200 } }) }), game).summary).toContain('`canvas:ambient-atoms` 0.8%, 3 idle gaps ignored (4.2 s)');
+		expect(judgeSession(perf({ totals: totals({ ignored: { count: 1, ms: 1_500 } }) }), game).summary).toContain('1 idle gap ignored (1.5 s)');
+	});
+
 	test('style and layout time of twice the script time makes a stall render bound', () => {
-		const stall = incident({ action: 'realm:photons', loaf: { otherMs: 0, scriptMs: 100, scripts: [], styleLayoutMs: 250 } });
+		const stall = incident({ action: 'realm:photons', loaf: { blockingMs: 0, otherMs: 0, scriptMs: 100, scripts: [], styleLayoutMs: 250 } });
 		const verdict = judgeSession(perf({ incidents: [stall], totals: stalls(4, 1_600) }), game);
 		expect(verdict.problem).toBe('render-bound');
 		expect(verdict.cause).toBe('realm:photons > render');
 	});
 
 	test('a stall dominated by script stays low frame rate and names its script', () => {
-		const stall = incident({ action: 'tap:Buy #', loaf: { otherMs: 0, scriptMs: 300, scripts: [{ durationMs: 300, file: null, fn: 'buy', invoker: 'user-callback:setInterval' }], styleLayoutMs: 50 } });
+		const stall = incident({ action: 'tap:Buy #', loaf: { blockingMs: 250, otherMs: 0, scriptMs: 300, scripts: [{ durationMs: 300, file: null, fn: 'buy', invoker: 'user-callback:setInterval' }], styleLayoutMs: 50 } });
 		const verdict = judgeSession(perf({ incidents: [stall], totals: stalls(4, 1_600) }), game);
 		expect(verdict.problem).toBe('low-frame-rate');
 		expect(verdict.cause).toBe('tap:Buy # > user-callback:setInterval (buy)');
@@ -244,7 +265,7 @@ describe('client text', () => {
 		const attack = incident({
 			action: hostile,
 			input: { delayMs: 1, presentationMs: 1, processingMs: 300, target: hostile },
-			loaf: { otherMs: 0, scriptMs: 300, scripts: [{ durationMs: 300, file: hostile, fn: hostile, invoker: hostile }], styleLayoutMs: 0 },
+			loaf: { blockingMs: 250, otherMs: 0, scriptMs: 300, scripts: [{ durationMs: 300, file: hostile, fn: hostile, invoker: hostile }], styleLayoutMs: 0 },
 			modal: hostile,
 			sources: [{ ms: 5, name: 'canvas:atom' }],
 		});
@@ -265,7 +286,7 @@ describe('client text', () => {
 			atMs: 999_999_999,
 			durationMs: 59_999,
 			input: { delayMs: 59_999, presentationMs: 59_999, processingMs: 59_999, target: long(60) },
-			loaf: { otherMs: 59_999, scriptMs: 59_999, scripts: [script, script, script], styleLayoutMs: 59_999 },
+			loaf: { blockingMs: 59_999, otherMs: 59_999, scriptMs: 59_999, scripts: [script, script, script], styleLayoutMs: 59_999 },
 			modal: long(40),
 			sources: Array.from({ length: 3 }, () => ({ ms: 59_999, name: long(40) })),
 		});

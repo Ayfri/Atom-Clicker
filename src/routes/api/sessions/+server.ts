@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		const writeKey = await sessionsService.start({
 			app_version: device.appVersion,
 			device: device as unknown as Json,
-			device_key: await deviceKey(device),
+			device_key: await deviceKey(device, payload.deviceId),
 			game: payload.game as unknown as Json,
 			id: device.sessionId,
 			in_app_browser: device.inAppBrowser,

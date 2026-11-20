@@ -61,6 +61,8 @@ export interface LoafScript {
 }
 
 export interface LoafBreakdown {
+	/** The frame's `blockingDuration`: what its tasks ran past 50 ms each, about 0 for a frame that only waited to be presented. */
+	blockingMs: number;
 	otherMs: number;
 	scriptMs: number;
 	scripts: LoafScript[];
@@ -104,6 +106,8 @@ export interface PerfTotals {
 	blocked: Record<IncidentKind, { count: number; ms: number }>;
 	commitLagP95Ms: number;
 	eventTiming: boolean;
+	/** Gaps the main thread was free in, which count as nothing (see `incidentKind`). */
+	ignored: { count: number; ms: number };
 	inputP95Ms: number;
 	jankRatio: number;
 	loaf: boolean;
@@ -121,6 +125,8 @@ export interface SessionPerf {
 
 export interface SessionStartPayload {
 	device: DeviceInfo;
+	/** Random id the browser keeps, null when it could not store one. */
+	deviceId: string | null;
 	game: SessionGame;
 }
 

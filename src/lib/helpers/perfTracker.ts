@@ -16,7 +16,8 @@ const newSlot = (name: string): Slot => ({ calls: 0, maxMs: 0, name, totalMs: 0 
 
 /**
  * Records where the main thread time goes: named hot paths report `performance.now() - start`, the commit loop its lateness, rAF
- * loops their frame gaps, and blocks of 150 ms or more become incidents. Nothing runs until the monitor resumes it, so importing it
+ * loops their frame gaps, and blocks of 150 ms or more become incidents, except a gap of a second or more the main thread was free in
+ * (`incidentKind`). Nothing runs until the monitor resumes it, so importing it
  * costs nothing, and every call is O(1) without allocation. iOS rounds `performance.now()` to about 1 ms, so totals average out and
  * per-call maximums stay coarse. Everything counts unpaused time only, which `visibleMs` adds up.
  */
@@ -65,6 +66,7 @@ export class PerfTracker {
 				[IncidentKinds.STALL]: { ...blocked[IncidentKinds.STALL] },
 			},
 			commitLagP95Ms: this.sessionLag.percentile(0.95),
+			ignored: { ...this.incidents.ignored },
 			inputP95Ms: this.inputs.percentile(0.95),
 			jankRatio: this.sessionFrames > 0 ? this.sessionJanks / this.sessionFrames : 0,
 			visibleMs: this.isPaused ? this.visibleMs : this.visibleMs + performance.now() - this.resumeStamp,
@@ -191,6 +193,7 @@ export class PerfTracker {
 		return blocked[IncidentKinds.FRAME].ms + blocked[IncidentKinds.FREEZE].ms + blocked[IncidentKinds.INPUT].ms + blocked[IncidentKinds.STALL].ms;
 	}
 
+	/** A window's `blockedMs` and `freezeCount` can come out below 0 when a block counted in an earlier window turns ignored by a late view, the server clamps them at 0. */
 	private closeWindow(observedMs: number) {
 		const closed: PerfWindow = {
 			blockedMs: this.blockedMs() - this.windowStartBlockedMs,
