@@ -452,7 +452,8 @@
 			);
 		const at = centerOf(`[data-cell="${target.z}"]`);
 		if (at) {
-			particles?.burst(at, lines.map(wavelengthColor), 36, { speed: 220 });
+			/** An element without spectral lines (read with Decay events) bursts in its family color, an empty list gives sparks no color. */
+			particles?.burst(at, lines.length ? lines.map(wavelengthColor) : [FAMILIES[target.family].color], 36, { speed: 220 });
 			schedule(() => particles?.burst(at, [FAMILIES[target.family].color, '#ffffff'], 16, { speed: 90 }), 350);
 		}
 
