@@ -320,9 +320,15 @@ export class CosmosScene {
 		]);
 		const building = performance.now();
 		const scene = new CosmosScene(canvas, renderer, options, maps);
+		const built = performance.now();
+		/**
+		 * The build and the first render are two tasks with a frame in between: in one task they blocked 1.3 s at 4x CPU throttle. The 1 ms
+		 * delay queues the render behind the timers that came due during the build, a zero delay runs before them.
+		 */
+		await new Promise<void>(resolve => setTimeout(resolve, 1));
 		const compiling = performance.now();
 		scene.#compileHidden();
-		performance.measure('cosmos:build', { end: compiling, start: building });
+		performance.measure('cosmos:build', { end: built, start: building });
 		performance.measure('cosmos:compile', { start: compiling });
 		performance.measure('cosmos:ready', { start });
 		scene.#start();
