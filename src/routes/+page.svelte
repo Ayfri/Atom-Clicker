@@ -10,7 +10,7 @@
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
 	import { setGlobals } from '#lib/globals.js';
-	import { getItem, isLocalStorageUnavailable, setItem } from '#lib/utils/safeLocalStorage.js';
+	import { getItem, isLocalStorageUnavailable, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
@@ -50,10 +50,10 @@
 
 	/** A reload of the tab reopens the Cosmos if it was open. */
 	const COSMOS_OPEN_KEY = 'cosmos-open';
-	realmManager.cosmosOpen = sessionStorage.getItem(COSMOS_OPEN_KEY) !== null;
+	realmManager.cosmosOpen = getItem(COSMOS_OPEN_KEY, 'sessionStorage') !== null;
 	$effect(() => {
-		if (realmManager.cosmosOpen) sessionStorage.setItem(COSMOS_OPEN_KEY, '1');
-		else sessionStorage.removeItem(COSMOS_OPEN_KEY);
+		if (realmManager.cosmosOpen) setItem(COSMOS_OPEN_KEY, '1', 'sessionStorage');
+		else removeItem(COSMOS_OPEN_KEY, 'sessionStorage');
 	});
 
 	autoBuyManager.init();

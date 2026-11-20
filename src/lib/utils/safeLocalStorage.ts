@@ -2,15 +2,23 @@
  * `localStorage` throws a `SecurityError` on property access, not just on read or write, when site
  * data is blocked or when the page runs in a cross-origin iframe with third-party storage partitioned
  * off. Every access goes through here so a module-level singleton can never kill the app at import time.
+ * `sessionStorage` is blocked the same way, pass it as `area`.
  */
+
+type StorageArea = 'localStorage' | 'sessionStorage';
 
 let unavailable = false;
 
-function storage(): Storage | null {
+/** Only `localStorage` feeds the "progress is not persisted" warning, a blocked `sessionStorage` loses nothing saved. */
+function fail(area: StorageArea): void {
+	if (area === 'localStorage') unavailable = true;
+}
+
+function storage(area: StorageArea = 'localStorage'): Storage | null {
 	try {
-		return typeof localStorage === 'undefined' ? null : localStorage;
+		return typeof globalThis[area] === 'undefined' ? null : globalThis[area];
 	} catch {
-		unavailable = true;
+		fail(area);
 		return null;
 	}
 }
@@ -25,35 +33,35 @@ export function isLocalStorageUnavailable(): boolean {
 	return unavailable;
 }
 
-export function getItem(key: string): string | null {
+export function getItem(key: string, area: StorageArea = 'localStorage'): string | null {
 	try {
-		return storage()?.getItem(key) ?? null;
+		return storage(area)?.getItem(key) ?? null;
 	} catch {
-		unavailable = true;
+		fail(area);
 		return null;
 	}
 }
 
-export function setItem(key: string, value: string): boolean {
+export function setItem(key: string, value: string, area: StorageArea = 'localStorage'): boolean {
 	try {
-		const store = storage();
+		const store = storage(area);
 		if (!store) return false;
 		store.setItem(key, value);
 		return true;
 	} catch {
-		unavailable = true;
+		fail(area);
 		return false;
 	}
 }
 
-export function removeItem(key: string): boolean {
+export function removeItem(key: string, area: StorageArea = 'localStorage'): boolean {
 	try {
-		const store = storage();
+		const store = storage(area);
 		if (!store) return false;
 		store.removeItem(key);
 		return true;
 	} catch {
-		unavailable = true;
+		fail(area);
 		return false;
 	}
 }

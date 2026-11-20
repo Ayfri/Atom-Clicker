@@ -16,7 +16,7 @@
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
-	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+	import { getItem, getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
@@ -70,7 +70,7 @@
 		const hud = { arrow, progress };
 		const target = canvas;
 		const discovered = untrack(() => [...cosmosManager.discovered]);
-		const focus = untrack(() => realmManager.cosmosFocus) ?? sessionStorage.getItem(FOCUS_KEY) ?? undefined;
+		const focus = untrack(() => realmManager.cosmosFocus) ?? getItem(FOCUS_KEY, 'sessionStorage') ?? undefined;
 		untrack(() => (realmManager.cosmosFocus = null));
 		let created: CosmosScene | null = null;
 		let disposed = false;
@@ -194,7 +194,7 @@
 	});
 
 	$effect(() => {
-		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
+		if (scene?.mode === 'overview') setItem(FOCUS_KEY, scene.focused, 'sessionStorage');
 	});
 
 	$effect(() => {
