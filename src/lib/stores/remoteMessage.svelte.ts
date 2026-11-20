@@ -83,7 +83,7 @@ class RemoteMessageStore {
 		if (this.interval) return;
 
 		this.fetchMessage();
-		this.interval = setInterval(() => this.fetchMessage(), 30000); // 30 seconds
+		this.interval = setInterval(() => this.fetchMessage(), 30_000);
 	}
 
 	stopPolling() {

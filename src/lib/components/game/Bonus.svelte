@@ -41,15 +41,15 @@
 	const left = $derived(`calc(${MARGIN}px + ${x} * (100% - ${MARGIN * 2}px))`);
 	const top = $derived(`calc(${MARGIN}px + ${y} * (100dvh - ${MARGIN * 2}px))`);
 
-	let spawnTimeout: ReturnType<typeof setTimeout> | null = null;
-	let fadeTimeout: ReturnType<typeof setTimeout> | null = null;
-	let disappearTimeout: ReturnType<typeof setTimeout> | null = null;
-	let messageTimeout: ReturnType<typeof setTimeout> | null = null;
-	let collectTimeout: ReturnType<typeof setTimeout> | null = null;
+	let spawnTimeout: ReturnType<typeof setTimeout> | undefined;
+	let fadeTimeout: ReturnType<typeof setTimeout> | undefined;
+	let disappearTimeout: ReturnType<typeof setTimeout> | undefined;
+	let messageTimeout: ReturnType<typeof setTimeout> | undefined;
+	let collectTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	function spawnBonusAtom() {
-		if (fadeTimeout) clearTimeout(fadeTimeout);
-		if (disappearTimeout) clearTimeout(disappearTimeout);
+		clearTimeout(fadeTimeout);
+		clearTimeout(disappearTimeout);
 
 		x = Math.random();
 		y = Math.random();
@@ -87,13 +87,13 @@
 		gameManager.incrementBonusHiggsBosonClicks();
 		quarksManager.collectHiggsBoson();
 
-		if (messageTimeout) clearTimeout(messageTimeout);
+		clearTimeout(messageTimeout);
 		messageTimeout = setTimeout(() => (messageShown = false), messageDuration);
 
-		if (fadeTimeout) clearTimeout(fadeTimeout);
-		if (disappearTimeout) clearTimeout(disappearTimeout);
+		clearTimeout(fadeTimeout);
+		clearTimeout(disappearTimeout);
 
-		if (collectTimeout) clearTimeout(collectTimeout);
+		clearTimeout(collectTimeout);
 		collectTimeout = setTimeout(() => {
 			showBonus = false;
 			scheduleNextSpawn();
@@ -101,23 +101,23 @@
 	}
 
 	function scheduleNextSpawn() {
-		if (spawnTimeout) clearTimeout(spawnTimeout);
+		clearTimeout(spawnTimeout);
 		spawnTimeout = setTimeout(spawnBonusAtom, randomBetween(gameManager.powerUpInterval[0], gameManager.powerUpInterval[1]));
 	}
 
 	function forceSpawn() {
-		if (spawnTimeout) clearTimeout(spawnTimeout);
+		clearTimeout(spawnTimeout);
 		spawnBonusAtom();
 	}
 
 	onMount(() => {
 		scheduleNextSpawn();
 		return () => {
-			if (spawnTimeout) clearTimeout(spawnTimeout);
-			if (fadeTimeout) clearTimeout(fadeTimeout);
-			if (disappearTimeout) clearTimeout(disappearTimeout);
-			if (messageTimeout) clearTimeout(messageTimeout);
-			if (collectTimeout) clearTimeout(collectTimeout);
+			clearTimeout(spawnTimeout);
+			clearTimeout(fadeTimeout);
+			clearTimeout(disappearTimeout);
+			clearTimeout(messageTimeout);
+			clearTimeout(collectTimeout);
 		};
 	});
 </script>

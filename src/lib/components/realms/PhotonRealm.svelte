@@ -6,20 +6,19 @@
 	import { AmbientField } from '#helpers/canvas/AmbientField.js';
 	import { CachedRect } from '#helpers/CachedRect.svelte.js';
 	import { pixelRatio } from '#helpers/canvas/CanvasLoop.js';
-	import { ChromaticField, type ChromaticPhoton } from '#helpers/canvas/chromaticField.js';
+	import { ChromaticField, type ChromaticPhoton } from '#helpers/canvas/ChromaticField.js';
 	import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
 	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { mix } from '#helpers/canvas/nucleus.js';
-	import { ClickParticles } from '#helpers/canvas/particles.js';
+	import { ClickParticles } from '#helpers/canvas/ClickParticles.js';
 	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { drawPhotonIcon, pulseOpacity } from '#helpers/canvas/photonCanvas.js';
 	import type { NumberNotation } from '#lib/types/game.js';
 	import { formatNumber } from '#lib/utils.js';
-	import { ui } from '#stores/ui.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile, ui } from '#stores/ui.svelte.js';
 	import Ambient from '#components/game/Ambient.svelte';
 	import PhotonCounter from '#components/photon/PhotonCounter.svelte';
 	import PhotonUpgrades from '#components/photon/PhotonUpgrades.svelte';
@@ -35,12 +34,12 @@
 		const targets = validCircles.length + chromatic.photons.length;
 		if (targets === 0) return;
 
-		// Colored photons share the draw with the circles, one auto-click chips at their HP instead of collecting.
+		/** Colored photons share the draw with the circles, one auto-click chips at their HP instead of collecting. */
 		const pick = Math.floor(Math.random() * targets);
 		if (pick >= validCircles.length) return hitChromatic(chromatic.photons[pick - validCircles.length], true);
 		const randomCircle = validCircles[pick];
 
-		// Hidden, the click spawns no particles, and measuring the translated realm forced a layout on every auto-click.
+		/** Hidden, the click spawns no particles, and measuring the translated realm forced a layout on every auto-click. */
 		if (!visible) return clickCircle(randomCircle, 0, 0, true);
 
 		const rect = containerRect.current;
@@ -97,7 +96,7 @@
 		type?: 'normal' | 'excited';
 	}
 
-	// Circles are drawn to a canvas, so they deliberately stay out of the reactive graph.
+	/** Circles are drawn to a canvas, so they deliberately stay out of the reactive graph. */
 	let circles: Circle[] = [];
 	let nextId = 0;
 	let canvas = $state<HTMLCanvasElement>();
@@ -119,8 +118,7 @@
 	const MAX_SIZE = 80;
 	const MIN_PHOTONS = 1;
 	const MAX_PHOTONS = 10;
-	// The icon's outer ring is drawn at the very edge of `size`, so a bare radius makes a 30px photon a 28px target. Pad it to
-	// a comfortable thumb size on phones.
+	/** The icon's outer ring is drawn at the very edge of `size`, so a bare radius makes a 30px photon a 28px target. Pad it to a thumb size. */
 	const HIT_PADDING = 6;
 	const MIN_HIT_RADIUS = 22;
 
@@ -137,7 +135,7 @@
 
 	/** Phones get smaller photons, a narrow field fits fewer and MIN_HIT_RADIUS keeps them easy to tap. */
 	const sizeMultiplier = $derived(gameManager.effects.value('photon_size', 1, gameManager) * (mobile.current ? 0.75 : 1));
-	const circleLifetime = $derived(BASE_CIRCLE_LIFETIME +gameManager.effects.value('photon_duration', 0, gameManager));
+	const circleLifetime = $derived(BASE_CIRCLE_LIFETIME + gameManager.effects.value('photon_duration', 0, gameManager));
 	const excitedLifetimeMultiplier = $derived(gameManager.effects.value('excited_photon_duration', 1, gameManager));
 
 	function getCircleValue(circle: Circle) {
@@ -194,7 +192,7 @@
 		label.font = font;
 		const width = Math.ceil(label.measureText(text).width) + padding * 2;
 		const height = FONT_SIZE + padding * 2;
-		// Resizing resets the context, so the text state is set afterwards.
+		/** Resizing resets the context, so the text state is set afterwards. */
 		image.width = Math.ceil(width * labelRatio);
 		image.height = Math.ceil(height * labelRatio);
 
@@ -204,16 +202,16 @@
 		label.textBaseline = 'middle';
 		label.fillStyle = excited ? '#FFD700' : '#ffffff';
 		label.shadowColor = 'rgba(0, 0, 0, 0.8)';
-		// Shadow blur ignores the transform, so the blur stays in device pixels whatever the label ratio.
+		/** Shadow blur ignores the transform, so the blur stays in device pixels whatever the label ratio. */
 		label.shadowBlur = LABEL_SHADOW_BLUR;
 		label.fillText(text, width / 2, height / 2);
 
-		// An ImageBitmap blits ~10% faster than the OffscreenCanvas it comes from.
+		/** An ImageBitmap blits ~10% faster than the OffscreenCanvas it comes from. */
 		return { bitmap: image.transferToImageBitmap(), height, width };
 	}
 
 	function spawnCircle() {
-		// The canvas size is already tracked by the ResizeObserver, reading a fresh rect here forced a layout per spawn.
+		/** The canvas size is already tracked by the ResizeObserver, reading a fresh rect here forced a layout per spawn. */
 		if (!container || canvasWidth === 0) return;
 		if (circles.length >= MAX_CIRCLES) return;
 
@@ -225,20 +223,14 @@
 		const baseSize = Math.random() * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
 		const basePhotons = Math.floor(Math.random() * (MAX_PHOTONS - MIN_PHOTONS + 1)) + MIN_PHOTONS;
 
-		let finalPhotons = basePhotons;
+		/** Excited photons give 1 excited photon currency (or 2 if double chance), plus a share of the max photon value. */
+		const finalPhotons = isExcited
+			? (Math.random() < gameManager.excitedPhotonDoubleChance ? 2 : 1) + (MAX_PHOTONS + photonValueBonus) * gameManager.excitedPhotonFromMaxBonus
+			: Math.random() < gameManager.photonDoubleChance
+				? (basePhotons + photonValueBonus) * 2
+				: basePhotons + photonValueBonus;
 
-		if (isExcited) {
-			// Excited photons give 1 excited photon currency (or 2 if double chance), plus a share of the max photon value
-			const baseExcited = Math.random() < gameManager.excitedPhotonDoubleChance ? 2 : 1;
-			finalPhotons = baseExcited + (MAX_PHOTONS + photonValueBonus) * gameManager.excitedPhotonFromMaxBonus;
-		} else {
-			finalPhotons = Math.random() < gameManager.photonDoubleChance ? (basePhotons + photonValueBonus) * 2 : basePhotons + photonValueBonus;
-		}
-
-		let maxLifetime = circleLifetime;
-		if (isExcited) {
-			maxLifetime *= excitedLifetimeMultiplier;
-		}
+		const maxLifetime = isExcited ? circleLifetime * excitedLifetimeMultiplier : circleLifetime;
 
 		const circle: Circle = {
 			id: nextId++,
@@ -247,7 +239,7 @@
 			size: baseSize * sizeMultiplier,
 			photons: Math.floor(finalPhotons),
 			lifetime: 0,
-			maxLifetime: maxLifetime,
+			maxLifetime,
 			rotation: Math.random() * 360,
 			spin: (Math.random() < 0.5 ? -1 : 1) * (MIN_SPIN + Math.random() * (MAX_SPIN - MIN_SPIN)),
 			phase: Math.random() * Math.PI * 2,
@@ -281,7 +273,7 @@
 		ClickParticles.emit(RealmTypes.PHOTONS, x, y, currencyType, Math.floor(circle.photons / 2) + 1);
 		AmbientField.emit(RealmTypes.PHOTONS, isAuto ? 'hum' : 'spark', { x, y }, { color: CURRENCIES[currencyType].color });
 
-		// Excited stabilization: interacting with the realm resets/collapses it
+		/** Excited stabilization: interacting with the realm resets/collapses it. */
 		const excitedStabilizationLevel = gameManager.photonUpgrades['excited_stabilization'] || 0;
 		if (excitedStabilizationLevel > 0) {
 			if (gameManager.features[isAuto ? FeatureTypes.STABLE_PHOTON_AUTO_CLICK : FeatureTypes.STABLE_PHOTON_CLICK]) return;
@@ -296,7 +288,7 @@
 		const deltaTime = Math.max(0, currentTime - lastUpdateTime);
 		lastUpdateTime = currentTime;
 
-		// In-place compaction, this runs ~60 times per second on up to 100 circles.
+		/** In-place compaction, this runs ~60 times per second on up to 100 circles. */
 		let alive = 0;
 		for (const circle of circles) {
 			circle.lifetime += deltaTime;
@@ -310,7 +302,7 @@
 		return Math.max(0, 1 - circle.lifetime / circle.maxLifetime);
 	}
 
-	/** Pops in past full size then settles (ease-out-back). */
+	/** Ease-out-back, the pop-in overshoots full size then settles. */
 	function scale(circle: Circle) {
 		if (circle.lifetime >= POP_DURATION) return 1;
 		const t = circle.lifetime / POP_DURATION - 1;
@@ -344,7 +336,7 @@
 	function render() {
 		if (!canvas || !ctx) return;
 
-		// Nothing to show: skip the clear entirely once the last circle is gone.
+		/** Nothing to show: skip the clear entirely once the last circle is gone. */
 		const hasCircles = circles.length > 0 || !chromatic.empty;
 		if (!hasCircles && !hadCircles) return;
 		hadCircles = hasCircles;
@@ -370,7 +362,7 @@
 			drawPhotonIcon(ctx, excited, size, excited ? alpha * pulseOpacity(circle.lifetime) : alpha);
 			ctx.restore();
 
-			// `alpha` is also the remaining lifetime, so the ring drains clockwise from the top as the photon fades.
+			/** `alpha` is also the remaining lifetime, so the ring drains clockwise from the top as the photon fades. */
 			ctx.globalAlpha = alpha * 0.5;
 			ctx.lineWidth = 1.5;
 			ctx.strokeStyle = CURRENCIES[excited ? CurrenciesTypes.EXCITED_PHOTONS : CurrenciesTypes.PHOTONS].color;
@@ -392,7 +384,7 @@
 
 	function circleAt(x: number, y: number) {
 		const still = prefersReducedMotion.current;
-		// Later circles are drawn on top, so they take the pointer first.
+		/** Later circles are drawn on top, so they take the pointer first. */
 		for (let i = circles.length - 1; i >= 0; i--) {
 			const circle = circles[i];
 			const radius = Math.max(MIN_HIT_RADIUS, (circle.size * scale(circle)) / 2 + HIT_PADDING);
@@ -416,13 +408,13 @@
 	}
 
 	function handleClick(event: MouseEvent) {
-		// A drag that already collected photons must not also count as a tap.
+		/** A drag that already collected photons must not also count as a tap. */
 		if (collectedWhileDown) {
 			collectedWhileDown = false;
 			return;
 		}
 
-		// Colored photons are drawn above the circles, so they take the tap first.
+		/** Colored photons are drawn above the circles, so they take the tap first. */
 		const photon = chromaticFromEvent(event);
 		if (photon) return hitChromatic(photon, false);
 		const circle = circleFromEvent(event);
@@ -441,7 +433,7 @@
 	}
 
 	function handlePointerMove(event: PointerEvent) {
-		// Dragging over a colored photon deals one hit per entry, it has to be left and re-entered to hit again.
+		/** Dragging over a colored photon deals one hit per entry, it has to be left and re-entered to hit again. */
 		const photon = chromaticFromEvent(event);
 		if (photon) {
 			hovering = true;
@@ -457,7 +449,7 @@
 		const circle = circleFromEvent(event);
 		hovering = circle !== null;
 
-		// Only fires when entering a new circle. Touch only emits moves while pressed, so this doubles as swipe-to-collect on mobile.
+		/** Only fires when entering a new circle. Touch only emits moves while pressed, so this doubles as swipe-to-collect on mobile. */
 		if (circle && circle.id !== lastHoveredId && hoverCollection) {
 			clickCircle(circle, event.clientX, event.clientY, false);
 			if (pointerDown) collectedWhileDown = true;
@@ -476,7 +468,7 @@
 		lastHoveredChromaticId = null;
 	}
 
-	// Every realm stays mounted, the hidden ones are only translated off screen, so the canvas has to know.
+	/** Every realm stays mounted, the hidden ones are only translated off screen, so the canvas has to know. */
 	const visible = $derived(realmManager.selectedRealmId === RealmTypes.PHOTONS);
 
 	const drawn = $derived(visible && !ui.covered);
@@ -499,7 +491,7 @@
 
 		ctx = canvas.getContext('2d');
 
-		// The first observation fires right after `observe`, so it also sets the initial size.
+		/** The first observation fires right after `observe`, so it also sets the initial size. */
 		const observer = new ResizeObserver(([entry]) => resizeCanvas(entry.contentRect));
 		if (container) observer.observe(container);
 
@@ -524,12 +516,12 @@
 	/** The loop stops once the field is empty, an idle pending rAF still costs a main frame per vsync. Spawns wake it back up. */
 	function wake() {
 		if (frame || !canvas || !drawn) return;
-		// Nothing aged while stopped, the first delta must not count the idle time.
+		/** Nothing aged while stopped, the first delta must not count the idle time. */
 		lastUpdateTime = performance.now();
 		frame = requestAnimationFrame(loop);
 	}
 
-	// Draw on the browser's own frame cadence, and not at all while the tab or the realm is hidden or a modal covers it.
+	/** Draws on the browser's own frame cadence, and not at all while the tab or the realm is hidden or a modal covers it. */
 	$effect(() => {
 		if (!canvas || !drawn) return;
 		frame = requestAnimationFrame(loop);
@@ -564,7 +556,7 @@
 		return shades.map(([shade, color]) => `--color-realm-${shade}: ${color};`).join(' ');
 	});
 
-	// Collecting by dragging over photons also has to suppress the page scroll on touch devices.
+	/** Collecting by dragging over photons also has to suppress the page scroll on touch devices. */
 	const hoverCollection = $derived(gameManager.features[FeatureTypes.HOVER_COLLECTION]);
 
 	const photonAutoClicksPer5Seconds = $derived(gameManager.photonAutoClicksPer5Seconds);

@@ -32,10 +32,7 @@ const highlightPattern = new RegExp(
 	'g',
 );
 
-/**
- * Wraps known currency names in a colored `<strong>` so tutorial/help copy (plain strings, not
- * Svelte snippets) can call out "Neutrons", "Electrons" etc. the same way CurrencyLabel does inline.
- */
+/** Wraps currency names in a colored `<strong>` so plain-string tutorial copy calls them out the way `CurrencyLabel` does inline. */
 export function highlightCurrencies(text: string): string {
 	return escapeHtml(text).replace(highlightPattern, name => `<strong ${spellings.get(name)}>${name}</strong>`);
 }

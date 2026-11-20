@@ -14,7 +14,7 @@ export type ChromaticColor = (typeof ChromaticColors)[keyof typeof ChromaticColo
 
 export const CHROMATIC_COLORS = Object.values(ChromaticColors);
 
-export interface ChromaticDefinition {
+interface ChromaticDefinition {
 	currency: CurrencyName;
 	/** Light per break before levels and upgrades, 0 for Blue, whose two halves pay instead. */
 	drop: number;
@@ -51,9 +51,9 @@ export const KILLS_PER_SPECTRUM_LEVEL = 10;
 /** Kills keep counting past it, so raising the cap later needs no save migration. */
 export const SPECTRUM_MAX = 50;
 /**
- * Below the drop growth, so pushing a color always pays. At +18% per level, players with Focus and Persistence maxed stall around spectrum 30-38 and only
- * external autoclickers pass 45 (10-11-2026 cloud saves). At +10%, a maxed player breaks every color at SPECTRUM_MAX by hand, Red being the tightest:
- * ~3.5k HP for 22 s of life, about 6.2 taps per second, less with the photon auto-clicker helping.
+ * Below the drop growth, so pushing a color always pays. At +18% per level, maxed Focus and Persistence players stall around spectrum 30-38
+ * and only external autoclickers pass 45 (10-11-2026 cloud saves). At +10% a maxed player breaks every color at SPECTRUM_MAX by hand,
+ * Red being the tightest: ~3.5k HP in 22 s of life, about 6.2 taps per second, less with the photon auto-clicker.
  */
 export const SPECTRUM_HP_GROWTH = 1.1;
 export const SPECTRUM_DROP_GROWTH = 1.12;
@@ -78,7 +78,7 @@ export interface ChromaticUpgrade {
 	name: string;
 	/** Hidden until the Periodic Table opens, `PrismUpgrades` and the simulation bot check it. */
 	table?: boolean;
-	/** Hidden until this color reaches the spectrum level, the phase 2 boosts wait for a color to be farmed first. */
+	/** Hidden until this color reaches the spectrum level, so the color boosts wait for a color to be farmed first. */
 	unlock?: { color: ChromaticColor; spectrum: number };
 }
 
@@ -235,9 +235,9 @@ export const CHROMATIC_UPGRADES: Record<string, ChromaticUpgrade> = Object.fromE
 			name: 'Green Charge',
 		}),
 		/**
-	 * The reactor reads these two levels itself, its formulas don't go through the effect system. Blue Coolant goes past 20 levels:
-	 * each one adds about one Ionize step of cap, and the ionization line keeps rising past what Pumps and Fusion Ignition reach.
-	 */
+		 * The reactor reads these two levels itself, its formulas don't go through the effect system. Blue Coolant goes past 20 levels:
+		 * each one adds about one Ionize step of cap, and the ionization line keeps rising past what Pumps and Fusion Ignition reach.
+		 */
 		colorBoost(ChromaticColors.BLUE, {
 			baseCost: 100,
 			description: level => `+${level * 10}% reactor output`,

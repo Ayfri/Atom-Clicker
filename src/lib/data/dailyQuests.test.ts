@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { COSMOS_QUEST_SECONDS, type DailyQuestContext, type DailyStats, DAILY_QUEST_COUNT, getDailyCap, getDailyQuestCount, getQuestProgress, getQuestTarget, pickDailyQuests, QUEST_POOL } from '#data/dailyQuests.js';
-import { statsConfig } from '#helpers/statConstants.js';
+import { statsConfig } from '#helpers/stats.js';
 
 const context: DailyQuestContext = {
 	chromaticSpawnBoost: 1,

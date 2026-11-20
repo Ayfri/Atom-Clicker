@@ -6,7 +6,7 @@
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/canvas/AtomRenderer.js';
 	import { CachedRect } from '#helpers/CachedRect.svelte.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
-	import { ClickParticles } from '#helpers/canvas/particles.js';
+	import { ClickParticles } from '#helpers/canvas/ClickParticles.js';
 	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
@@ -83,7 +83,7 @@
 			if (count < 1) return;
 			pending -= count;
 
-			// Auto-click atoms are credited with production by the commit loop in +page.svelte, this interval only drives the counters and the visuals.
+			/** Auto-click atoms are credited with production by the commit loop in +page.svelte, this interval only drives the counters and the visuals. */
 			gameManager.incrementClicks(true, count);
 			const rect = atomRect.current;
 			if (!rect) return;

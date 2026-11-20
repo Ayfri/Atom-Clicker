@@ -19,9 +19,8 @@ import { reveals } from '#helpers/reveals.svelte.js';
 import { APP_PRODUCTION_PERCENT, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import { installStore } from '#stores/install.svelte.js';
 import { neutrino } from '#stores/neutrino.svelte.js';
-import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
-import { ui } from '#stores/ui.svelte.js';
+import { photonUpgradesTab, ui } from '#stores/ui.svelte.js';
 
 type HintScope = RealmType | 'cosmos' | 'table';
 

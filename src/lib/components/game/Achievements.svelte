@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Achievement, AchievementGroup } from '#lib/types/game.js';
 	import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS } from '#data/achievements.js';
-	import { isQuarkAchievement } from '#data/quarkAchievements.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { gatherSparks, quarkFlight } from '#helpers/quarkFlight.js';
 	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
@@ -21,7 +20,7 @@
 	const TOTAL_ACHIEVEMENTS = Object.keys(ACHIEVEMENTS).length;
 
 	const claimableAchievementIds = $derived(
-		gameManager.achievements.filter(id => isQuarkAchievement(id) && !quarksManager.claimedAchievementIds.includes(id)),
+		gameManager.achievements.filter(id => id in ACHIEVEMENTS && !quarksManager.claimedAchievementIds.includes(id)),
 	);
 	const canClaimAchievements = $derived(quarksManager.hasSynced && claimableAchievementIds.length > 0);
 	const claimable = $derived(new Set(canClaimAchievements ? claimableAchievementIds : []));
@@ -176,7 +175,8 @@
 									>
 										+1 <Quark size={14} />
 									</button>
-								{/if}							</div>
+								{/if}
+							</div>
 						</div>
 					{/each}
 				</div>

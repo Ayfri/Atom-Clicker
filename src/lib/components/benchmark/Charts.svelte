@@ -1,8 +1,9 @@
 <script lang="ts">
-	import BaseChart, { type ChartSeries } from '#lib/components/benchmark/BaseChart.svelte';
-	import ComparisonChart from '#lib/components/benchmark/ComparisonChart.svelte';
 	import { GENERATORS, GENERATOR_COLORS, GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '#data/generators.js';
-	import { totalActionCount, type SimulationSnapshot } from '#lib/simulation/types.js';
+	import { HOUR_MS, totalActionCount, type SimulationSnapshot } from '#lib/simulation/types.js';
+	import BaseChart from './BaseChart.svelte';
+	import ComparisonChart from './ComparisonChart.svelte';
+	import type { ChartSeries } from './plot.js';
 
 	interface SeriesDef {
 		color: string;
@@ -119,10 +120,10 @@
 					useLog: true,
 				},
 				{
-					buildCustomSeries: groupSeries(TIER_COLORS, i => `Tier ${i * 10 + 1}–${i * 10 + 10} ×`, s => s.groupContributions.globalBoostTiers),
+					buildCustomSeries: groupSeries(TIER_COLORS, i => `Tier ${i * 10 + 1}-${i * 10 + 10} ×`, s => s.groupContributions.globalBoostTiers),
 					description: 'global_boost_1..50 folded into tiers of 10. Each line = product of the owned upgrades in that range.',
 					series: [],
-					title: 'Global Boost Upgrades — Tier Products (Log Scale)',
+					title: 'Global Boost Upgrades, Tier Products (Log Scale)',
 					useLog: true,
 				},
 				{
@@ -325,7 +326,7 @@
 
 	const hasComparison = $derived(comparisonSnapshots.length > 0);
 	const comparisonDurationHours = $derived(
-		comparisonSnapshots.length > 0 ? comparisonSnapshots[comparisonSnapshots.length - 1].timestamp / 3_600_000 : 0,
+		comparisonSnapshots.length > 0 ? comparisonSnapshots[comparisonSnapshots.length - 1].timestamp / HOUR_MS : 0,
 	);
 
 	const primaryIntervalMin = $derived(snapshotInterval / 60);
@@ -350,7 +351,7 @@
 		primary: ChartSeries[];
 	}
 
-	// Consecutive `half` charts share a row; everything else spans the full width.
+	/** Consecutive `half` charts share a row, everything else spans the full width. */
 	function toRows(charts: ChartEntry[]): ChartEntry[][] {
 		const rows: ChartEntry[][] = [];
 		for (const entry of charts) {

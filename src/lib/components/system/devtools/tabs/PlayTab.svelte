@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
-	import { POWER_UPS } from '#data/powerUp.js';
 	import OfflineProgress from '#components/modals/OfflineProgress.svelte';
 	import Currency from '#components/ui/Currency.svelte';
+	import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
+	import { POWER_UPS } from '#data/powerUp.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
-	import { applyOfflineProgress } from '#helpers/save/offlineProgress.js';
 	import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+	import { applyOfflineProgress } from '#helpers/save/offlineProgress.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
-	import { btn, btnAccent, setCurrency } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
+	import { btn, btnAccent, setCurrency } from '../shared.svelte.js';
 
 	const currencies = Object.keys(CURRENCIES) as CurrencyName[];
 	const SKIPS = [

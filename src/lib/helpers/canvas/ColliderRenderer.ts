@@ -33,7 +33,6 @@ const VIEW_WIDTH = 120;
  * with a flash, a shockwave, debris jets and energy running back down the ring. The loop only runs during the animation.
  */
 export class ColliderRenderer extends CanvasLoop {
-	private readonly ctx: CanvasRenderingContext2D;
 	/** x, y, vx, vy, remaining life, lifespan per slot, a spent life marks a free slot. */
 	private readonly sparks = new Float32Array(MAX_SPARKS * 6);
 	private beams = false;
@@ -48,9 +47,6 @@ export class ColliderRenderer extends CanvasLoop {
 
 	constructor(canvas: HTMLCanvasElement) {
 		super(canvas, 'canvas:collider');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.observe();
 	}
 

@@ -1,17 +1,17 @@
 import { CurrenciesTypes } from '#data/currencies.js';
 import { GENERATOR_LEVEL_UP_COST, GENERATOR_TYPES } from '#data/generators.js';
 import { RealmTypes } from '#data/realms.js';
-import type { GameState, Generator } from '#lib/types/game.js';
 import { checkStatePlausibility } from '#helpers/audit/plausibility.js';
-import { statsConfig } from '#helpers/statConstants.js';
 import { getItem } from '#helpers/safeLocalStorage.js';
 import { unwrapStoredSave, wrapSaveForStorage } from '#helpers/save/saveIntegrity.js';
+import { statsConfig } from '#helpers/stats.js';
+import type { GameState } from '#lib/types/game.js';
 import type { SaveErrorType } from '#stores/saveRecovery.svelte.js';
 
 export const SAVE_KEY = 'atomic-clicker-save';
 export const SAVE_VERSION = 31;
 
-export interface LoadSaveResult {
+interface LoadSaveResult {
 	errorDetails?: string;
 	errorType?: SaveErrorType;
 	integrityTampered?: boolean;
@@ -31,13 +31,11 @@ export function loadSavedState(): LoadSaveResult {
 
 	try {
 		rawData = getItem(SAVE_KEY);
-		if (!rawData) {
-			return { state: null, success: true }; // No save exists, not an error
-		}
+		/** No save yet is a fresh start, not an error. */
+		if (!rawData) return { state: null, success: true };
 
 		const { payload, tampered: integrityTampered } = unwrapStoredSave(rawData);
 
-		// Step 1: Try to parse JSON
 		let parsedData: unknown;
 		try {
 			parsedData = JSON.parse(payload);
@@ -52,13 +50,12 @@ export function loadSavedState(): LoadSaveResult {
 			};
 		}
 
-		// Step 2: Try to migrate
 		let migratedState: GameState | undefined;
 		try {
 			migratedState = migrateSavedState(parsedData);
 		} catch (migrateError) {
 			console.error('Failed to migrate save:', migrateError);
-			// Try to recover without migration if it's already current version
+			/** A save already at the current version loads as is when its migration throws. */
 			const version = isObject(parsedData) ? parsedData.version : undefined;
 			if (version === SAVE_VERSION) {
 				migratedState = parsedData as GameState;
@@ -83,7 +80,6 @@ export function loadSavedState(): LoadSaveResult {
 			};
 		}
 
-		// Step 3: Repair, every broken field falls back to its default
 		const { repairs, state } = validateAndRepairGameState(migratedState);
 		if (repairs.length > 0) console.log('Game state repaired:', repairs);
 		return { integrityTampered, integrityWarnings: checkStatePlausibility(state!), state, success: true };
@@ -177,13 +173,11 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 	if (!isObject(savedState)) return undefined;
 	const state = savedState as LegacySave;
 
-	// Generators were stored under `buildings` until v26.
+	/** Saves up to v25 keep generators under `buildings`, later ones under `generators`, a state with neither has nothing to migrate. */
 	if (!('buildings' in state) && !('generators' in state)) return state as unknown as GameState;
 
-	if (state.version === 1) {
-		// Hard reset due to balancing
-		return undefined;
-	}
+	/** v1 saves are dropped, a balance change made them unplayable. */
+	if (state.version === 1) return undefined;
 
 	/** Each step only renames or reshapes data, stats added since the save's version are filled by validateAndRepairGameState. */
 	while (state.version && state.version < SAVE_VERSION) {
@@ -200,18 +194,14 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 13) {
-			// Initialize earned stats from current balance as a baseline
+			/** Saves before v14 never tracked these totals, so the current balance and holdings become the baseline. */
 			state.totalAtomsEarned = state.atoms || 0;
 			state.totalAtomsEarnedAllTime = state.atoms || 0;
-			// Count total buildings currently owned as baseline
 			const buildingsOwned = Object.values(state.buildings || {}).reduce((acc, b) => acc + (b?.count || 0), 0);
 			state.totalBuildingsPurchased = buildingsOwned;
-			// Initialize clicks all time from current run
 			state.totalClicksAllTime = state.totalClicks || 0;
-			// Initialize currency earned from current balance
 			state.totalElectronsEarned = state.electrons || 0;
 			state.totalProtonsEarned = state.protons || 0;
-			// Count upgrades owned as baseline
 			state.totalUpgradesPurchased = (state.upgrades?.length || 0) + (state.skillUpgrades?.length || 0);
 		}
 
@@ -256,7 +246,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				}
 			}
 
-			// Initialize new stats
+			/** Run and all-time totals are separate stats from v16 on, the new ones start from the old totals. */
 			state.totalBonusHiggsBosonClickedAllTime = state.totalBonusHiggsBosonClickedRun || 0;
 			state.totalElectronizesRun = state.totalElectronizesAllTime || 0;
 			state.totalElectronsEarnedRun = state.totalElectronsEarnedAllTime || 0;
@@ -335,15 +325,10 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 20) {
-			// Major migration: Convert old skill-point system to new currency-based skill system
-			// 1. Move legacy skills that are now upgrades
-			// 2. Convert feature upgrades to new skill IDs
-			// 3. Initialize currencyBoosts
-
+			/** Saves before v21 use the skill-point system: its stat skills are upgrades now, and feature upgrades are skills. */
 			const upgrades = new Set(state.upgrades ?? []);
 			const skillUpgrades = new Set(state.skillUpgrades ?? []);
 
-			// Legacy skills that should be moved to upgrades (from previous system)
 			const legacySkillToUpgradeIds = [
 				'atomicFusion',
 				'bonusHiggsBosonSpeed0',
@@ -361,7 +346,6 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				'xpBoost2',
 			];
 
-			// Move legacy skills to upgrades
 			legacySkillToUpgradeIds.forEach(id => {
 				if (skillUpgrades.has(id)) {
 					upgrades.add(id);
@@ -369,7 +353,6 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				}
 			});
 
-			// Map old upgrade IDs to new skill IDs (features are now skills)
 			const upgradeToSkillMap: Record<string, string> = {
 				feature_levels: 'unlockLevels',
 				feature_offline_progress: 'offlineProgress',
@@ -378,7 +361,6 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				stability_unlock: 'stabilityField',
 			};
 
-			// Convert old feature upgrades to skills
 			Object.entries(upgradeToSkillMap).forEach(([oldId, newId]) => {
 				if (upgrades.has(oldId)) {
 					skillUpgrades.add(newId);
@@ -386,7 +368,6 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 				}
 			});
 
-			// Convert photon upgrade feature to skill
 			const photonUpgrades = state.photonUpgrades ?? {};
 			if ((photonUpgrades.feature_hover_collection ?? 0) > 0) {
 				skillUpgrades.add('hoverCollection');
@@ -397,12 +378,12 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 22) {
-			// Existing saves shouldn't see the first-time tutorial
+			/** Saves from before v23 never show the first-time tutorial. */
 			state.tutorial = { active: false, completed: true, step: 0 };
 		}
 
 		if (state.version === 24) {
-			// The guided walkthrough became contextual hints, a finished walkthrough already taught the Atom realm ones
+			/** Saves before v25 hold a guided walkthrough, replaced by contextual hints: a finished walkthrough counts as the Atom realm hints seen. */
 			const completedHints = ['atoms:click', 'atoms:building', 'atoms:upgrade', 'atoms:protonise', 'atoms:skill-tree'];
 			state.tutorial = {
 				enabled: true,
@@ -411,7 +392,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 25) {
-			// Buildings were renamed to generators, achievement and daily quest ids stay as they are since the quark claims server keys on them
+			/** Saves before v26 call generators `buildings`, achievement and daily quest ids keep the old name because the quark claims server keys on them. */
 			state.generators = state.buildings ?? {};
 			state.totalGeneratorsPurchasedAllTime = state.totalBuildingsPurchasedAllTime ?? 0;
 			delete state.buildings;
@@ -430,7 +411,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 26) {
-			// Generators stored a copy of their base rate and cost, which kept rebalances from reaching existing saves
+			/** Saves before v27 store a copy of each generator's base rate and cost, which kept rebalances from reaching them. */
 			for (const generator of Object.values(state.generators ?? {})) {
 				delete generator.cost;
 				delete generator.rate;
@@ -438,7 +419,7 @@ export function migrateSavedState(savedState: unknown): GameState | undefined {
 		}
 
 		if (state.version === 27) {
-			// Stat boosts left the skill tree for the upgrade lists and the photon shop, automation and stability unlocks became skills
+			/** Saves before v28 hold stat boosts in the skill tree and automation and stability unlocks in the upgrades and the photon shop, the current layout is the reverse. */
 			const skillToUpgrade: Record<string, string> = {
 				atomicStability: 'atomic_stability',
 				biologicalAmplifier: 'biological_amplifier',

@@ -52,7 +52,7 @@ export function gatherSparks(sources: { x: number; y: number }[], target: Elemen
 				opacity: t < 0.15 ? t / 0.15 : t > 0.9 ? 0.4 : 1,
 				transform: `${translate} scale(${t < 0.15 ? 0.3 + (t / 0.15) * 0.9 : 1.2 - 0.6 * t})`,
 			}));
-			const animation = spark.animate(keyframes, { delay: (index / sampled.length) * cascade + Math.random() * 120, duration, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'backwards' });
+			const animation = spark.animate(keyframes, { delay: (index / sampled.length) * cascade + Math.random() * JITTER_MS, duration, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'backwards' });
 			return animation.finished.then(() => {
 				spark.remove();
 				bump(target);

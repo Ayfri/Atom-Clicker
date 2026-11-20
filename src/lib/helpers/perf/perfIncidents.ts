@@ -12,7 +12,7 @@ const ACTION_WINDOW_MS = 1_000;
 const BLOCKING_MIN_MS = 100;
 const FREEZE_MS = 1_000;
 const MAX_KEPT = 12;
-/** The 20 ms commit step, a 16 ms frame and the 8 ms Event Timing rounding. */
+/** Tolerance when matching the views of one block: a 20 ms commit step, a 16 ms frame and 8 ms of Event Timing rounding add up to about 50 ms. */
 const MERGE_SLACK_MS = 50;
 /**
  * Blocks that can still receive a late view, apart from the worst ones that are reported. A Long Animation Frame can arrive many blocks late
@@ -88,14 +88,17 @@ const inputMs = ({ delayMs, presentationMs, processingMs }: InputBreakdown) => d
 export const stripUrlDetails = (value: string) => value.replace(/(https?:\/\/[^\s?#]*)#\S*/g, '$1').replace(/\?\S*/g, '');
 
 /**
- * The main thread is proven busy by a late timer, by a Long Animation Frame that blocked (`BLOCKING_MIN_MS`) or by handlers that ran
- * `INCIDENT_MIN_MS`. A Long Animation Frame alone proves nothing: its duration includes the wait for the frame to be presented (2,294 kept
- * incidents had the timer on time and a frame that was 95% wait), and its `blockingDuration` alone cannot clear a late timer (0 for a 1.74 s
- * scene build that ran after a WebGPU promise). With a free main thread, a gap under a second is a `frame` (compositor or GPU) and a gap of a
- * second or more counts as nothing (`null`): the window is not painting (occluded, display off, throttled: 500 of 4,018 timer-on-time
- * incidents lasted 1 s or more, among them 10 s Event Timing entries of an occluded Safari window, and a GPU hang that long with a free main
- * thread is dropped with them). A busy block is an input, a freeze (a second or more) or a stall. An interaction only names a block it covers
- * at least half of, a 200 ms click inside a 5 s freeze stays a freeze.
+ * The main thread is proven busy by a late timer, a Long Animation Frame that blocked (`BLOCKING_MIN_MS`) or handlers that ran
+ * `INCIDENT_MIN_MS`. A Long Animation Frame alone proves nothing: its duration includes the wait for presentation (2,294 kept incidents
+ * had the timer on time and a frame that was 95% wait), and its `blockingDuration` cannot clear a late timer (0 for a 1.74 s scene build
+ * that ran after a WebGPU promise).
+ *
+ * With a free main thread, a gap under a second is a `frame` (compositor or GPU) and a gap of a second or more counts as nothing (`null`):
+ * the window is not painting (occluded, display off, throttled). 500 of 4,018 timer-on-time incidents lasted 1 s or more, among them 10 s
+ * Event Timing entries of an occluded Safari window, and a GPU hang that long is dropped with them.
+ *
+ * A busy block is an input, a freeze (a second or more) or a stall. An interaction only names a block it covers at least half of,
+ * a 200 ms click inside a 5 s freeze stays a freeze.
  */
 export function incidentKind({ durationMs, input, loaf, timerLate }: Pick<PerfIncident, 'durationMs' | 'input' | 'loaf' | 'timerLate'>): IncidentKind | null {
 	const busy = timerLate || (loaf?.blockingMs ?? 0) >= BLOCKING_MIN_MS || (input?.processingMs ?? 0) >= INCIDENT_MIN_MS;
@@ -107,7 +110,7 @@ export function incidentKind({ durationMs, input, loaf, timerLate }: Pick<PerfIn
 
 const lengthOf = (block: Block) => block.end - block.start;
 
-/** The length is rounded like the `durationMs` of a reported incident, the server reruns `incidentKind` on it and a 999.6 ms block must get the same kind there. */
+/** The length is rounded like a reported `durationMs`: the server reruns `incidentKind` on it, so a 999.6 ms block must get the same kind there. */
 const kindOf = ({ end, input, loaf, start, timerLate }: Part) => incidentKind({ durationMs: Math.round(end - start), input: input ?? null, loaf: loaf ?? null, timerLate });
 
 /** Handlers that ran `INCIDENT_MIN_MS` prove the main thread was busy, the kind the server derives from the sent input needs that proof to stay in it. */
@@ -129,10 +132,9 @@ const emptyBlocked = (): Record<IncidentKind, { count: number; ms: number }> => 
 const viewOf = ({ input, loaf, timerLate }: Resolved) => (input ? Views.INPUT : loaf ? Views.LOAF : timerLate ? Views.COMMIT : Views.FRAME);
 
 /**
- * Keeps the worst counted main thread blocks of the session, each counted once however many observers saw it (commit timer, rAF gap, Long
- * Animation Frame, Event Timing), which deliver late and in any order, so views merge by time overlap into the recent blocks, whether
- * or not they made the worst list. Allocates only when an incident is created or widened, `span` and `action` are O(1) writes into
- * preallocated slots.
+ * Keeps the worst counted main thread blocks of the session, each counted once however many observers saw it (commit timer, rAF gap,
+ * Long Animation Frame, Event Timing). Observers deliver late and in any order, so views merge by time overlap into the recent blocks,
+ * worst or not. Allocates only when an incident is created or widened: `span` and `action` write into preallocated slots.
  */
 export class IncidentLog {
 	environment: IncidentEnvironment | null = null;
@@ -189,7 +191,7 @@ export class IncidentLog {
 		this.release(target);
 		this.merge(target, resolved, views);
 
-		// A view can bridge two blocks that were separate until it widened this one.
+		/** A view can bridge two blocks that were separate until it widened this one. */
 		for (let index = this.recent.length - 1; index >= 0; index--) {
 			const other = this.recent[index];
 			if (other === target || !this.joins(target, other, other.views) || unionOf(target, other.start, other.end) > MAX_FREEZE_MS) continue;

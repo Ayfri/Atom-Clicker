@@ -18,7 +18,7 @@ const isNumber = (value: unknown): value is number => typeof value === 'number';
 /** A value that must never exceed its limit, labels only feed the warning text. */
 type Bound = [label: string, value: unknown, limitLabel: string, limit: unknown];
 
-export interface Implausibility {
+interface Implausibility {
 	label: string;
 	limit: number;
 	limitLabel: string;

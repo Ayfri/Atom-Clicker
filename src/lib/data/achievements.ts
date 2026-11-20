@@ -440,7 +440,7 @@ function createCurrencyAchievements(types: CurrencyName[], audited = false): Ach
 					description = () => `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
 				}
 
-				// Quark claims store these ids server-side, so the prefixes never change.
+				/** Quark claims store these ids server-side, so the prefixes never change. */
 				let prefix = currency.id.replaceAll('-', '_');
 				if (currency.name === CurrenciesTypes.ATOMS) prefix = 'atoms';
 				if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) prefix = 'excited_photons';

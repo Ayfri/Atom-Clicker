@@ -1,10 +1,10 @@
-import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
+import type { Provider, Session, SupabaseClient, User } from '@supabase/supabase-js';
 import { browser } from '$app/env';
 import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
 import type { GameState } from '#lib/types/game.js';
 import type { Database, Profile } from '#lib/types/supabase.js';
 import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#helpers/safeLocalStorage.js';
-import { multiTabDetector } from '#stores/multiTab.svelte.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/save/saves.js';
 
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
@@ -35,17 +35,13 @@ class SupabaseAuth {
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 	private initialized = false;
 
-	/**
-	 * Initializes the Supabase client and sets up auth listeners.
-	 * Must be called in a browser environment.
-	 */
 	async init() {
 		if (!browser || this.initialized) {
 			this.loading = false;
 			return;
 		}
 
-		// Not available in Web Workers, and blocked outright when site data is disabled or storage is partitioned
+		/** localStorage isn't available in Web Workers, and is blocked outright when site data is disabled or storage is partitioned. */
 		if (!isLocalStorageAvailable()) {
 			console.warn('SupabaseAuth: localStorage not available, skipping init');
 			this.loading = false;
@@ -53,17 +49,17 @@ class SupabaseAuth {
 		}
 
 		try {
-			// Kept out of the initial bundle: the client weighs ~60 kB gzipped and nothing renders through it.
+			/** Kept out of the initial bundle: the client weighs ~60 kB gzipped and nothing renders through it. */
 			const { createClient } = await import('@supabase/supabase-js');
 			this.supabase = createClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
 				auth: {
 					autoRefreshToken: true,
-					persistSession: true,
 					detectSessionInUrl: true,
+					persistSession: true,
 				},
 			});
 
-			multiTabDetector.init();
+			this.warnWhenOtherTabIsOpen();
 
 			this.initialized = true;
 
@@ -90,6 +86,23 @@ class SupabaseAuth {
 		}
 	}
 
+	private warnWhenOtherTabIsOpen() {
+		const channel = new BroadcastChannel('atom_clicker_tabs');
+		let warned = false;
+		channel.onmessage = ({ data }) => {
+			if (data === 'ping') channel.postMessage('pong');
+			else if (data === 'pong' && !warned) {
+				warned = true;
+				toastStore.warning({
+					duration: 0,
+					message: 'Game is already open in another tab. Auth and Cloud Save might not work correctly.',
+					title: 'Auth warning',
+				});
+			}
+		};
+		channel.postMessage('ping');
+	}
+
 	private async handleAuthStateChange(user: User | null) {
 		try {
 			if (user) {
@@ -104,13 +117,13 @@ class SupabaseAuth {
 
 				console.log('Auth state change for user:', user.id);
 
-				let { data: profile, error } = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
+				let { data: profile, error } = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 
-				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
+				/** A trigger creates the profile row, so it can lag a sign up: retry once after 1 s. */
 				if (error && error.code === 'PGRST116') {
 					console.log('Profile not found yet, retrying in 1s...');
 					await new Promise((resolve) => setTimeout(resolve, 1000));
-					const retry = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
+					const retry = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
 					profile = retry.data;
 					error = retry.error;
 				}
@@ -119,8 +132,8 @@ class SupabaseAuth {
 					this.profile = profile;
 					console.log('Found profile:', profile.username);
 
-					// Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence.
-					void (this.supabase!).from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id);
+					/** Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence. */
+					void this.supabase!.from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id);
 
 					this.startHeartbeat();
 				} else {
@@ -180,10 +193,7 @@ class SupabaseAuth {
 		}
 	}
 
-	/**
-	 * Returns a fresh access token for authenticating requests to our own API routes.
-	 * Reads from Supabase (which auto-refreshes) rather than the cached session, so it stays valid.
-	 */
+	/** Read through supabase-js, which refreshes an expired token, instead of from the cached session. */
 	private async getAccessToken(): Promise<string | null> {
 		if (!this.supabase) return null;
 		const { data: { session } } = await this.supabase.auth.getSession();
@@ -203,22 +213,22 @@ class SupabaseAuth {
 			if (!this.supabase) return;
 		}
 
-		// Google refuses to render inside a frame, so embeds (itch.io, galaxy.click) log in through a popup that posts the callback URL back.
+		/** Google refuses to render inside a frame, so embeds (itch.io, galaxy.click) log in through a popup that posts the callback URL back. */
 		const embedded = window.self !== window.top;
-		// Opened synchronously in the click handler, popup blockers reject a window.open that comes after an await.
+		/** Opened synchronously in the click handler, popup blockers reject a window.open that comes after an await. */
 		const popup = embedded ? window.open('', 'atom-clicker-login', 'popup,width=520,height=700') : null;
 
 		try {
 			const { data, error } = await this.supabase.auth.signInWithOAuth({
-				provider,
 				options: {
-					redirectTo: `${window.location.origin}/callback`,
 					queryParams: {
 						access_type: 'offline',
 						prompt: 'consent',
 					},
+					redirectTo: `${window.location.origin}/callback`,
 					skipBrowserRedirect: embedded,
 				},
+				provider,
 			});
 
 			if (error) {
@@ -279,7 +289,7 @@ class SupabaseAuth {
 	 * Shown by the screens where signing in matters (Leaderboard, Profile), which call `cancelGoogleOneTap` when they close.
 	 */
 	async promptGoogleOneTap() {
-		// FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't.
+		/** FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't. */
 		if (!PUBLIC_GOOGLE_CLIENT_ID || !this.supabase || this.isAuthenticated || this.signedOut || this.oneTapPrompted || window.self !== window.top) return;
 		this.oneTapPrompted = true;
 		const run = ++this.oneTapRun;
@@ -288,7 +298,7 @@ class SupabaseAuth {
 			await (this.oneTapSetup ??= this.setupGoogleOneTap(PUBLIC_GOOGLE_CLIENT_ID));
 			if (run === this.oneTapRun) window.google!.accounts.id.prompt();
 		} catch (err) {
-			// Content blockers commonly block the Google script, the regular sign in dialog still works without it.
+			/** Content blockers commonly block the Google script, the regular sign in dialog still works without it. */
 			console.warn('Google One Tap unavailable:', err);
 		}
 	}
@@ -316,7 +326,8 @@ class SupabaseAuth {
 			const accessToken = hash.get('access_token');
 			const refreshToken = hash.get('refresh_token');
 			try {
-				if (code) await (this.supabase!).auth.exchangeCodeForSession(code); else if (accessToken && refreshToken) await (this.supabase!).auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+				if (code) await this.supabase!.auth.exchangeCodeForSession(code);
+				else if (accessToken && refreshToken) await this.supabase!.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
 			} catch(err) {
 				console.error('Popup sign in error:', err);
 				this.error = err as Error;

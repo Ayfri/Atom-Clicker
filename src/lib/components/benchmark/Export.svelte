@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Check, Copy, Download, FileText } from '@lucide/svelte';
 	import { buildMarkdownReport } from '#lib/simulation/markdownReport.js';
 	import type { SimulationResult } from '#lib/simulation/types.js';
+	import { Check, Copy, Download, FileText } from '@lucide/svelte';
 
 	let { result }: { result: SimulationResult } = $props();
 

@@ -9,7 +9,7 @@ import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
-import { LAYERS } from '#helpers/statConstants.js';
+import { LAYERS } from '#helpers/stats.js';
 import {
 	APP_PRODUCTION_MULTIPLIER,
 	ELECTRONS_PROTONS_REQUIRED,

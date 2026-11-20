@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import Atom from '#components/icons/Atom.svelte';
 	import { getAuthConnection } from '#components/modals/Login.svelte';
 	import Avatar from '#components/ui/Avatar.svelte';
 	import { AUTH_CALLBACK_MESSAGE, supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { Check, X } from '@lucide/svelte';
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -29,7 +29,7 @@
 	}
 
 	onMount(async () => {
-		// Opened as a login popup by an embedded game: hand the callback URL to the opener, which holds the PKCE verifier, and close.
+		/** Opened as a login popup by an embedded game: hand the callback URL to the opener, which holds the PKCE verifier, and close. */
 		if (window.opener && window.name === 'atom-clicker-login') {
 			window.opener.postMessage({ type: AUTH_CALLBACK_MESSAGE, url: window.location.href }, window.location.origin);
 			window.close();

@@ -1,9 +1,9 @@
 import { dev } from '$app/env';
-import { supabaseAdmin } from './supabase.server';
-import type { Json } from '#lib/types/supabase.js';
 import { isNoiseError } from '#helpers/errorNoise.js';
+import { supabaseAdmin } from '#lib/server/supabase.server.js';
+import type { Json } from '#lib/types/supabase.js';
 
-export interface ServerErrorReport {
+interface ServerErrorReport {
 	browserInfo?: Record<string, unknown> | null;
 	errorMessage: string;
 	gameState?: Record<string, unknown> | null;
@@ -14,9 +14,6 @@ export interface ServerErrorReport {
 
 const DEDUP_WINDOW_MINUTES = 5;
 
-/**
- * Checks if a similar error was already logged recently
- */
 async function isDuplicateError(errorMessage: string, stackTrace: string | null): Promise<boolean> {
 	const windowStart = new Date(Date.now() - DEDUP_WINDOW_MINUTES * 60 * 1000).toISOString();
 
@@ -31,9 +28,7 @@ async function isDuplicateError(errorMessage: string, stackTrace: string | null)
 	return (data?.length ?? 0) > 0;
 }
 
-/**
- * Logs an error to Supabase (Discord notification handled by PostgreSQL trigger)
- */
+/** The Discord notification is a Postgres trigger on the insert. */
 export async function logError(report: ServerErrorReport): Promise<{ id: string } | null> {
 	if (dev) {
 		console.log('[ErrorHandler] Skipping error log in dev mode:', report.errorMessage.substring(0, 50));
@@ -42,12 +37,11 @@ export async function logError(report: ServerErrorReport): Promise<{ id: string 
 
 	const { browserInfo, errorMessage, gameState, stackTrace, url, userId } = report;
 
-	// Filtered here as well so reports from builds that predate the client-side filter stay out of Discord
+	/** Filtered here as well so reports from builds that predate the client-side filter stay out of Discord. */
 	if (isNoiseError(errorMessage, stackTrace ?? null)) return null;
 
 	if (await isDuplicateError(errorMessage, stackTrace || null)) return null;
 
-	// The Discord notification is a Postgres trigger on this insert
 	const { data, error: dbError } = await supabaseAdmin
 		.from('error_logs')
 		.insert({

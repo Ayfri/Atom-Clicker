@@ -2,8 +2,8 @@ import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { RUN_COUNTERS, TIME_TOLERANCE_MS } from '#helpers/audit/plausibility.js';
 import { fieldOf, patchFor } from '#helpers/audit/stateFixes.js';
 import { type AuditContext, inspectScore, runSpending } from '#lib/server/audit/scoreAudit.server.js';
-import type { CurrencyState, GameState } from '#lib/types/game.js';
 import type { DevAuditReport, StateFix, StateFixTarget } from '#lib/types/audit.js';
+import type { CurrencyState, GameState } from '#lib/types/game.js';
 
 /** Each pass can expose a check the earlier ones hid, or move a cap the next one has to follow. */
 const MAX_PASSES = 10;

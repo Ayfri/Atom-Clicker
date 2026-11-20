@@ -45,7 +45,7 @@
 
 	let selectedPurchaseMode: PurchaseMode = $state('x1');
 
-	// The rows re-render on every atom commit, so the automation lookup is folded once instead of scanning every upgrade per row.
+	/** The rows re-render on every atom commit, so the automation lookup is folded once instead of scanning every upgrade per row. */
 	const automatedByUpgrade = $derived(new Set(gameManager.effects.targets('auto_buy')));
 
 	const hiddenGenerators = $derived(
@@ -55,7 +55,7 @@
 	);
 
 	const obfuscatedGenerators = $derived(new Set(hiddenGenerators));
-	// The first hidden generator is teased rather than fully hidden, so the player always sees the next thing to unlock.
+	/** The first hidden generator is teased rather than fully hidden, so the player always sees the next thing to unlock. */
 	const fullyHiddenGenerators = $derived(new Set(hiddenGenerators.slice(1)));
 
 	const purchaseAmounts = $derived(
@@ -97,8 +97,7 @@
 	function playPurchase(type: GeneratorType, amount: number, count: number, level: number, origin: MouseEvent | { x: number; y: number }) {
 		const newLevel = gameManager.generators[type]?.level ?? 0;
 
-		// The new electrons wait for a group of comets, each landing on the slot where one of them grows in. A level up empties
-		// the orbit instead, its comets then rain evenly over it.
+		/** The new electrons wait for a group of comets, each landing on the slot where one of them grows in. A level up empties the orbit instead, its comets then rain evenly over it. */
 		const renderer = AtomRenderer.current;
 		const line = GENERATOR_TYPES.filter(other => gameManager.generators[other]).indexOf(type);
 		const before = count % GENERATOR_LEVEL_UP_COST;
@@ -115,7 +114,7 @@
 			:	undefined;
 		const burst = { flight: ELECTRON_FLIGHT, target };
 		const extra = Math.min(8, Math.round(Math.log2(amount)));
-		// A level up changes the generator color, so it blooms in the new one.
+		/** A level up changes the generator color, so it blooms in the new one. */
 		const arrivals =
 			newLevel > level ?
 				AmbientField.emit(RealmTypes.ATOMS, 'bloom', origin, { ...burst, color: getGeneratorColor(newLevel), surge: 12 })
@@ -258,23 +257,23 @@
 							{/if}
 						</div>
 						{#if affinities}
-								{const lit = $derived(affinities.filter(z => periodicManager.identifiedSet.has(z)).length)}
-								<p
-									class="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold leading-snug"
-									data-hint="generator-elements"
-									title="Each identified element adds +{ELEMENT_GENERATOR_PERCENT}% to this generator"
-								>
-									{#each affinities as z (z)}
-										{const element = ELEMENTS[z - 1]}
-										{const identified = $derived(periodicManager.identifiedSet.has(z))}
-										<span class={identified ? '' : 'text-white/20'} style:color={identified ? FAMILIES[element.family].color : undefined}>{element.symbol}</span>
-									{/each}
-									{#if lit > 0}
-										<span class="text-white/50">+{lit * ELEMENT_GENERATOR_PERCENT}%</span>
-									{/if}
-								</p>
-							{/if}
-							<p class="flex items-center gap-1 whitespace-nowrap text-xs text-white/50">
+							{const lit = $derived(affinities.filter(z => periodicManager.identifiedSet.has(z)).length)}
+							<p
+								class="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold leading-snug"
+								data-hint="generator-elements"
+								title="Each identified element adds +{ELEMENT_GENERATOR_PERCENT}% to this generator"
+							>
+								{#each affinities as z (z)}
+									{const element = ELEMENTS[z - 1]}
+									{const identified = $derived(periodicManager.identifiedSet.has(z))}
+									<span class={identified ? '' : 'text-white/20'} style:color={identified ? FAMILIES[element.family].color : undefined}>{element.symbol}</span>
+								{/each}
+								{#if lit > 0}
+									<span class="text-white/50">+{lit * ELEMENT_GENERATOR_PERCENT}%</span>
+								{/if}
+							</p>
+						{/if}
+						<p class="flex items-center gap-1 whitespace-nowrap text-xs text-white/50">
 							{#if production > 0}
 								<Value class="font-medium text-accent-300" postfix="/s" value={production} />
 								<span>· {formatShare(production)}</span>

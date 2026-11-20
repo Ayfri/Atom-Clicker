@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { RotateCcw, Target } from '@lucide/svelte';
+	import { HOUR_MS, type MilestoneHit, type SimulationProgress } from '#lib/simulation/types.js';
 	import { formatDuration, formatNumber, formatSimTimePrecise } from '#lib/utils.js';
-	import type { MilestoneHit, SimulationProgress } from '#lib/simulation/types.js';
+	import { RotateCcw, Target } from '@lucide/svelte';
 
 	interface Props {
 		elapsedTime: number;
@@ -15,8 +15,8 @@
 
 	/** Milestones within 3% of the run share a marker, measured from the group's first item so chains cannot stretch forever. */
 	const groupedMilestones = $derived.by(() => {
-		const totalMs = targetHours * 3600 * 1000;
-		const sorted = [...milestones].sort((a, b) => a.timeReached - b.timeReached);
+		const totalMs = targetHours * HOUR_MS;
+		const sorted = milestones.toSorted((a, b) => a.timeReached - b.timeReached);
 		const threshold = totalMs * 0.03;
 
 		const groups: { items: MilestoneHit[]; position: number }[] = [];
@@ -34,8 +34,6 @@
 
 		return groups;
 	});
-
-	let hoveredIdx = $state<number | null>(null);
 </script>
 
 <section class="backdrop-blur-xl bg-white/5 border border-white/10 p-4 rounded-2xl">
@@ -65,15 +63,11 @@
 				style="width: {isRunning ? (progress?.percent ?? 0) : 100}%"
 			></div>
 
-			{#each groupedMilestones as group, idx (group.items[0].milestone.id)}
+			{#each groupedMilestones as group (group.items[0].milestone.id)}
 				{const isCluster = $derived(group.items.length > 1)}
-				{const tooltipVisible = $derived(hoveredIdx === idx)}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
-					class="-translate-x-1/2 absolute top-0 z-10 cursor-default"
+					class="-translate-x-1/2 absolute cursor-default group top-0 z-10"
 					style="left: {group.position}%"
-					onmouseenter={() => (hoveredIdx = idx)}
-					onmouseleave={() => (hoveredIdx = null)}
 				>
 					<div
 						class="h-6 w-0.5 {isCluster
@@ -102,36 +96,34 @@
 						{/if}
 					</div>
 
-					{#if tooltipVisible}
-						<div
-							class="absolute z-50 bg-gray-900 border border-white/15 rounded-xl shadow-2xl p-3 pointer-events-none"
-							style="min-width: 13rem; max-width: 18rem; bottom: calc(100% + 22px); left: 50%; transform: translateX(-50%)"
-						>
-							{#if isCluster}
-								<p class="text-[10px] text-gray-400 mb-2 font-semibold">
-									{group.items.length} milestones ~{formatSimTimePrecise(group.items[0].timeReached)}
-								</p>
-								<ol class="flex flex-col gap-1">
-									{#each group.items as item, i (item.milestone.id)}
-										<li class="flex gap-2 items-baseline text-[10px]">
-											<span class="text-gray-600 font-mono shrink-0">{i + 1}.</span>
-											<span class="text-gray-200 flex-1">{item.milestone.name}</span>
-											<span class="text-gray-500 font-mono shrink-0 ml-2"
-												>{formatSimTimePrecise(item.timeReached)}</span
-											>
-										</li>
-									{/each}
-								</ol>
-							{:else}
-								<p class="text-[10px] text-gray-200 font-semibold mb-0.5">
-									{group.items[0].milestone.name}
-								</p>
-								<p class="text-[10px] text-gray-500 font-mono">
-									{formatSimTimePrecise(group.items[0].timeReached)}
-								</p>
-							{/if}
-						</div>
-					{/if}
+					<div
+						class="absolute z-50 bg-gray-900 border border-white/15 hidden group-hover:block rounded-xl shadow-2xl p-3 pointer-events-none"
+						style="min-width: 13rem; max-width: 18rem; bottom: calc(100% + 22px); left: 50%; transform: translateX(-50%)"
+					>
+						{#if isCluster}
+							<p class="text-[10px] text-gray-400 mb-2 font-semibold">
+								{group.items.length} milestones ~{formatSimTimePrecise(group.items[0].timeReached)}
+							</p>
+							<ol class="flex flex-col gap-1">
+								{#each group.items as item, i (item.milestone.id)}
+									<li class="flex gap-2 items-baseline text-[10px]">
+										<span class="text-gray-600 font-mono shrink-0">{i + 1}.</span>
+										<span class="text-gray-200 flex-1">{item.milestone.name}</span>
+										<span class="text-gray-500 font-mono shrink-0 ml-2"
+											>{formatSimTimePrecise(item.timeReached)}</span
+										>
+									</li>
+								{/each}
+							</ol>
+						{:else}
+							<p class="text-[10px] text-gray-200 font-semibold mb-0.5">
+								{group.items[0].milestone.name}
+							</p>
+							<p class="text-[10px] text-gray-500 font-mono">
+								{formatSimTimePrecise(group.items[0].timeReached)}
+							</p>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		</div>

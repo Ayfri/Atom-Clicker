@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { CurrenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
-import { LAYERS } from '#helpers/statConstants.js';
+import { LAYERS } from '#helpers/stats.js';
 
 const { ATOMS, ELECTRONS, PHOTONS, PROTONS, RED_LIGHT } = CurrenciesTypes;
 

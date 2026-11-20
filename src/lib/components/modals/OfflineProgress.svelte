@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PhotonIcon from '#components/icons/Photon.svelte';
+	import Currency from '#components/ui/Currency.svelte';
+	import Modal from '#components/ui/Modal.svelte';
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { ELEMENTS } from '#data/elements.js';
 	import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
@@ -6,9 +9,6 @@
 	import { ICONS } from '#data/icons.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
-	import PhotonIcon from '#components/icons/Photon.svelte';
-	import Currency from '#components/ui/Currency.svelte';
-	import Modal from '#components/ui/Modal.svelte';
 	import { ArrowBigUp, CircleArrowUp, Factory, FlaskRound, Hourglass, MousePointerClick, Radiation, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
@@ -206,16 +206,16 @@
 						</li>
 					{/if}
 					{#if forgedSymbols.length > 0}
-							<li class="flex items-center gap-2">
-								<FlaskRound class="shrink-0 text-accent-300" size={16} />
-								<span>
-									Forged while away: <b class="text-white">{forgedSymbols.slice(0, MAX_FORGED_SHOWN).join(', ')}</b>{forgedSymbols.length > MAX_FORGED_SHOWN
-										? ` and ${forgedSymbols.length - MAX_FORGED_SHOWN} more`
-										: ''}
-								</span>
-							</li>
-						{/if}
-						{#if summary.radiationActive}
+						<li class="flex items-center gap-2">
+							<FlaskRound class="shrink-0 text-accent-300" size={16} />
+							<span>
+								Forged while away: <b class="text-white">{forgedSymbols.slice(0, MAX_FORGED_SHOWN).join(', ')}</b>{forgedSymbols.length > MAX_FORGED_SHOWN
+									? ` and ${forgedSymbols.length - MAX_FORGED_SHOWN} more`
+									: ''}
+							</span>
+						</li>
+					{/if}
+					{#if summary.radiationActive}
 						<li class="flex items-center gap-2">
 							<Radiation class="shrink-0 text-radiation" size={16} />
 							<span>

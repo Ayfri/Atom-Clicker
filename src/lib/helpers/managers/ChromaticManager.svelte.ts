@@ -18,7 +18,7 @@ import {
 	WHITE_RECIPE,
 } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
-import type { ChromaticBreak } from '#helpers/canvas/chromaticField.js';
+import type { ChromaticBreak } from '#helpers/canvas/ChromaticField.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import type { GameManager } from '#helpers/managers/GameManager.svelte.js';
 import type { ChromaticState } from '#lib/types/game.js';

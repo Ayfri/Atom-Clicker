@@ -22,9 +22,9 @@
 	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { formatDuration, formatNumber, formatNumberFull } from '#lib/utils.js';
-	import { CalendarDays, CircleArrowUp, Clock, Factory, FlaskRound, MousePointerClick, Orbit, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
 	import { clock } from '#stores/clock.svelte.js';
-	import { type Component, type Snippet } from 'svelte';
+	import { CalendarDays, CircleArrowUp, Clock, Factory, FlaskRound, MousePointerClick, Orbit, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
+	import type { Component, Snippet } from 'svelte';
 
 	type TitleIcon = Component<{ class?: string; color?: string; size?: number }>;
 
@@ -39,7 +39,7 @@
 	const instrumentsOwned = $derived(COSMOS_INSTRUMENTS.filter(instrument => cosmosManager.owns(instrument)).length);
 	const studyLevels = $derived(sumOf(cosmosManager.studies));
 	const skyTaps = $derived(sumOf(cosmosManager.clicks));
-	const dailyQuestsClaimed =$derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
+	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
 
 	const highlights = $derived([
 		{ icon: AtomIcon, label: 'Atoms / s', value: gameManager.atomsPerSecond },

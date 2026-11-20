@@ -12,7 +12,7 @@
 	import { effectBreakdown } from '#helpers/effects.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
-	import { LAYERS } from '#helpers/statConstants.js';
+	import { LAYERS } from '#helpers/stats.js';
 	import type { EffectStat, PrestigeListItem } from '#lib/types/game.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
@@ -94,7 +94,8 @@
 
 	function handlePrestige() {
 		prestigeStore.trigger(animation);
-		setTimeout(onPrestige, 2000); // Wait for the flash
+		/** The reset waits for the flash to cover the screen. */
+		setTimeout(onPrestige, 2000);
 		onClose();
 	}
 </script>

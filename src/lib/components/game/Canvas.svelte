@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { particlesEnabled } from '#helpers/canvas/CanvasLoop.js';
-	import { ClickParticles } from '#helpers/canvas/particles.js';
+	import { ClickParticles } from '#helpers/canvas/ClickParticles.js';
 	import { ui } from '#stores/ui.svelte.js';
 
 	$effect(() => {

@@ -1,12 +1,12 @@
+import { autoLevel, clamp, type GlobeLut, globeLut, MAP_HEIGHT, MAP_WIDTH, rockLut, shadeGlobe } from '#components/cosmos/skyGlobe.js';
 import { pixelRatio } from '#helpers/canvas/CanvasLoop.js';
-import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
-import { autoLevel, type GlobeLut, globeLut, MAP_HEIGHT, MAP_WIDTH, rockLut, shadeGlobe } from '#components/cosmos/skyGlobe.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { ROCK_SHAPES } from '#lib/cosmos/rockShapes.js';
 import { ui } from '#stores/ui.svelte.js';
 import { prefersReducedMotion } from 'svelte/motion';
 
-export type ThumbKind = 'flat' | 'globe';
+type ThumbKind = 'flat' | 'globe';
 
 type Pixels = Uint8ClampedArray<ArrayBuffer>;
 
@@ -42,8 +42,6 @@ const TURN_S = 24;
 
 const sources = new Map<string, Promise<Pixels | null>>();
 let queue: Promise<unknown> = Promise.resolve();
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 async function fetchBitmap(id: string, options?: ImageBitmapOptions) {
 	const response = await fetch(`/cosmos/${id}.webp`, { cache: 'force-cache' });
@@ -98,13 +96,10 @@ function loadSource(id: string, kind: ThumbKind, size: number) {
 	if (cached) return cached;
 
 	const decode = () => (kind === 'flat' ? decodeFlat(id, size) : id === 'earth' ? decodeEarth() : decodeMap(id));
-	const loaded = queue.then(decode).then(
-		pixels => pixels,
-		() => {
-			sources.delete(key);
-			return null;
-		},
-	);
+	const loaded = queue.then(decode).catch(() => {
+		sources.delete(key);
+		return null;
+	});
 	queue = loaded;
 	sources.set(key, loaded);
 	return loaded;
@@ -206,16 +201,8 @@ class SkyThumbnails {
 	};
 
 	#update() {
-		let moving = this.#active && !document.hidden && !prefersReducedMotion.current;
-		if (moving) {
-			moving = false;
-			for (const { lut, source, visible } of this.#entries.values()) {
-				if (lut && source && visible) {
-					moving = true;
-					break;
-				}
-			}
-		}
+		const moving =
+			this.#active && !document.hidden && !prefersReducedMotion.current && this.#entries.values().some(({ lut, source, visible }) => lut && source && visible);
 		if (moving && !this.#timer) {
 			this.#last = performance.now();
 			this.#timer = window.setInterval(this.#tick, FRAME_MS);

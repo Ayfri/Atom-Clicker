@@ -89,7 +89,8 @@
 
 	function handleIonize() {
 		prestigeStore.trigger('ionize');
-		setTimeout(() => gameManager.ionize(), 2000); // Wait for the flash
+		/** The reset waits for the flash to cover the screen. */
+		setTimeout(() => gameManager.ionize(), 2000);
 		onClose();
 	}
 </script>

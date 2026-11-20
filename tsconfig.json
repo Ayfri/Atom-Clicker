@@ -2,6 +2,9 @@
 	"extends": "$app/tsconfig",
 	"compilerOptions": {
 		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
 		"strict": true
 	},
 	"include": ["src", "tests", "*"],

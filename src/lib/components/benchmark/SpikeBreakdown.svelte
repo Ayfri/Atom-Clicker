@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Award, Flame, RotateCcw, Sparkles, Star, TrendingUp, TriangleExclamationPoint, Wrench, Zap } from '@lucide/svelte';
 	import type { Component } from 'svelte';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
 	import { GENERATOR_COLORS, GENERATORS, GeneratorTypes } from '#data/generators.js';
 	import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
 	import { UPGRADES } from '#data/upgrades.js';
-	import { ACHIEVEMENTS } from '#data/achievements.js';
 	import BlackHoleIcon from '#components/icons/generators/BlackHole.svelte';
 	import CrystalIcon from '#components/icons/generators/Crystal.svelte';
 	import MicroorganismIcon from '#components/icons/generators/Microorganism.svelte';
@@ -15,9 +15,9 @@
 	import PlanetIcon from '#components/icons/generators/Planet.svelte';
 	import RockIcon from '#components/icons/generators/Rock.svelte';
 	import StarIcon from '#components/icons/generators/Star.svelte';
-	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
 	import type { SimulationAction, SpikeEvent } from '#lib/simulation/types.js';
 	import type { EffectStat } from '#lib/types/game.js';
+	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
 
 	let { index, spike }: { index: number; spike: SpikeEvent } = $props();
 
@@ -120,13 +120,8 @@
 			}
 		}
 
-		const groups: Record<string, ResolvedAction[]> = {};
-		for (const item of byKey.values()) {
-			const t = item.raw.type;
-			groups[t] ??= [];
-			groups[t].push(item);
-		}
-		for (const list of Object.values(groups)) {
+		const groups = Map.groupBy(byKey.values(), item => item.raw.type);
+		for (const list of groups.values()) {
 			if (list[0]?.raw.type === 'generator') {
 				list.sort((a, b) => GENERATOR_TYPE_ORDER.indexOf(a.raw.details?.split(' ')[0] ?? '') - GENERATOR_TYPE_ORDER.indexOf(b.raw.details?.split(' ')[0] ?? ''));
 			} else {
@@ -141,8 +136,8 @@
 
 	const TYPE_LABELS: Record<string, string> = {
 		achievement: 'Achievements',
-		generator: 'Generators',
 		electronize: 'Electronize',
+		generator: 'Generators',
 		photon_upgrade: 'Photon Upgrades',
 		power_up: 'Power-ups',
 		protonise: 'Protonise',
@@ -152,8 +147,8 @@
 
 	const TYPE_COLORS: Record<string, string> = {
 		achievement: 'text-purple-400 bg-purple-500/15 border-purple-500/25',
-		generator: 'text-green-400 bg-green-500/15 border-green-500/25',
 		electronize: 'text-blue-400 bg-blue-500/15 border-blue-500/25',
+		generator: 'text-green-400 bg-green-500/15 border-green-500/25',
 		photon_upgrade: 'text-yellow-400 bg-yellow-500/15 border-yellow-500/25',
 		power_up: 'text-orange-400 bg-orange-500/15 border-orange-500/25',
 		protonise: 'text-amber-400 bg-amber-500/15 border-amber-500/25',
@@ -206,7 +201,7 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#each Object.entries(groupedActions) as [type, items] (type)}
+		{#each groupedActions as [type, items] (type)}
 			{const Icon = $derived(TYPE_ICONS[type])}
 			<div class="flex flex-col gap-1.5">
 				<div class="flex gap-2 items-center">

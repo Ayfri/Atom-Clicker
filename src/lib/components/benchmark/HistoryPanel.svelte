@@ -1,6 +1,4 @@
 <script lang="ts">
-	import type { BenchmarkConfig } from '#lib/simulation/types.js';
-	import { formatNumber } from '#lib/utils.js';
 	import {
 		clearAllReports,
 		deleteReport,
@@ -8,6 +6,8 @@
 		renameReport,
 		type BenchmarkReportSummary,
 	} from '#lib/simulation/benchmarkHistory.js';
+	import type { BenchmarkConfig } from '#lib/simulation/types.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { Check, Eye, GitCompare, Pencil, RotateCcwClock, Search, SlidersHorizontal, Trash, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
@@ -58,9 +58,10 @@
 			const q = searchQuery.toLowerCase();
 			list = list.filter(r => r.name.toLowerCase().includes(q));
 		}
-		if (sortBy === 'aps') return [...list].sort((a, b) => b.finalAPS - a.finalAPS);
-		if (sortBy === 'milestones') return [...list].sort((a, b) => b.milestoneCount - a.milestoneCount);
-		return list; // 'date' already newest-first from listReports
+		if (sortBy === 'aps') return list.toSorted((a, b) => b.finalAPS - a.finalAPS);
+		if (sortBy === 'milestones') return list.toSorted((a, b) => b.milestoneCount - a.milestoneCount);
+		/** `listReports` already returns the newest first. */
+		return list;
 	});
 
 	async function handleDelete(id: string) {

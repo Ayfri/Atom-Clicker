@@ -41,7 +41,7 @@ const BAND_ALPHAS = Array.from({ length: DEPTH_BANDS }, (_, band) => 1 - (0.6 * 
 const DESIGN_SIZE = 450;
 /** Per second, how fast each electron closes the gap to its slot and size. */
 const ELECTRON_EASE = 8;
-/** A shell shows `count % GENERATOR_LEVEL_UP_COST` electrons, this only bounds the per-shell buffer. */
+/** Electrons drawn per shell at most: a shell count goes up to `GENERATOR_LEVEL_UP_COST - 1`, the rest is not drawn. */
 const MAX_ELECTRONS = 32;
 const FOCAL_LENGTH = 650;
 /** Aura sprites are baked at the brightest click impulse and dimmed with `globalAlpha`, which cannot go above 1. */
@@ -91,7 +91,7 @@ function spin(line: number, time: number) {
 
 /**
  * Draws the clickable atom on a Canvas2D: a spinning ball of nucleons wrapped in one tilted orbit per generator,
- * spread over every inclination so the shells outline a sphere. Electrons are filled as one path per shell and depth band:
+ * spread over every inclination so the shells outline a sphere. Electrons are filled as one path per shell and depth band because
  * a drawImage per electron cost ~5µs, 4.5ms a frame with every shell full. Nucleons are pre-rendered sprites.
  */
 export class AtomRenderer extends CanvasLoop {
@@ -104,7 +104,6 @@ export class AtomRenderer extends CanvasLoop {
 	private readonly balls = new Map<string, HTMLCanvasElement[]>();
 	private readonly bases: { u: Vector; v: Vector }[];
 	private readonly byDepth = (a: number, b: number) => this.nucleonPoints[b * 3 + 2] - this.nucleonPoints[a * 3 + 2];
-	private readonly ctx: CanvasRenderingContext2D;
 	/** Electron count drawn per shell. */
 	private readonly electronCounts: Uint8Array;
 	/** x, y, radius and depth band of each electron per shell, rewritten every frame into the same buffers. */
@@ -137,9 +136,6 @@ export class AtomRenderer extends CanvasLoop {
 
 	constructor(canvas: HTMLCanvasElement, scene: AtomScene, shellSlots: number) {
 		super(canvas, 'canvas:atom');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.scene = scene;
 
 		this.bases = Array.from({ length: shellSlots }, (_, line) => {
@@ -161,7 +157,7 @@ export class AtomRenderer extends CanvasLoop {
 		this.observe();
 	}
 
-	destroy() {
+	override destroy() {
 		super.destroy();
 		if (AtomRenderer.current === this) AtomRenderer.current = null;
 	}
@@ -304,7 +300,7 @@ export class AtomRenderer extends CanvasLoop {
 			if (!this.bases[line]) continue;
 			const releases = this.releases[line];
 			for (; releases.length > 0 && now >= releases[0].at; releases.shift()) this.released[line] = releases[0].goal;
-			// A held shell only grows as its comets land, then goes to the real count with the last purchase.
+			/** A held shell only grows as its comets land, then goes to the real count with the last purchase. */
 			const goal = Math.min(shell.count, MAX_ELECTRONS, releases.length > 0 ? this.released[line] : MAX_ELECTRONS);
 			this.goals[line] = goal;
 			const scales = this.scales[line];
@@ -329,8 +325,10 @@ export class AtomRenderer extends CanvasLoop {
 			ctx.strokeStyle = palette.orbitBack;
 			this.strokeOrbit(points, true, scales[0]);
 
-			// Each electron eases to its even slot on its own: a group joining is born in its final slots and grows at once,
-			// while the others slide over to make room. Leaving electrons shrink where they are.
+			/**
+			 * Each electron eases to its even slot on its own: a group joining is born in its final slots and grows at once,
+			 * while the others slide over to make room. Leaving electrons shrink where they are.
+			 */
 			const offsets = this.offsets[line];
 			const start = spin(line, time);
 			const electronRadius = unit * (2.3 + line * 0.12);
@@ -362,14 +360,14 @@ export class AtomRenderer extends CanvasLoop {
 
 		this.drawNucleus(dt, nucleons, nucleusRadius / packNucleus(nucleons).extent, center, time, scene);
 
-		// Electron 0 is the first to grow and shrinks with the last, so its size fades the whole shell in and out.
+		/** Electron 0 is the first to grow and shrinks with the last, so its size fades the whole shell in and out. */
 		for (const { color, line } of scene.shells) {
 			if (this.bases[line] && this.electronCounts[line] > 0) {
 				ctx.strokeStyle = this.palette(color).orbitFront;
 				this.strokeOrbit(this.orbitPoints[line], false, this.scales[line][0]);
 			}
 		}
-		// Later shells' front bands go first, so the first shells stay on top.
+		/** Later shells' front bands go first, so the first shells stay on top. */
 		for (let i = scene.shells.length - 1; i >= 0; i--) {
 			const { color, line } = scene.shells[i];
 			if (!this.bases[line] || this.electronCounts[line] === 0) continue;

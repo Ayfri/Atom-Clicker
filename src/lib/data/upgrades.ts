@@ -95,7 +95,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 			familyName: `${generator.name} Boost`,
 			gate: {
 				open: (i, state) => state.totalProtonisesAllTime >= boostTierProtonises(i),
-				// A gate opens tiers up to 5 x (protonises + 1), so the first closed tier always needs exactly one more.
+				/** A gate opens tiers up to 5 x (protonises + 1), so the first closed tier always needs exactly one more. */
 				reason: () => 'More levels after your next Protonize',
 			},
 			icon,
@@ -118,7 +118,7 @@ function createGeneratorUpgrades(generatorType: GeneratorType, index: number): U
 		{
 			category: 'Generators',
 			condition: isGeneratorUnlocked(generatorType),
-			// 30x per generator so the last masteries wait for later protonise runs instead of all landing at 5e14 atoms.
+			/** 30x per generator so the last masteries wait for later protonise runs instead of all landing at 5e14 atoms. */
 			cost: { amount: 5_000_000 * 30 ** index, currency: CurrenciesTypes.ATOMS },
 			description: `+10% ${generator.name} production per ${generator.name} level`,
 			effects: [mul('generator', manager => 1 + levels(manager) * 0.1, generatorType)],
@@ -462,7 +462,7 @@ function createProtonUpgrades(): Upgrade[] {
 			},
 			effects: i => [add('start_atoms', 10 ** (3 + i))],
 		}),
-		// Level 1 is the Auto Clicker skill, these start at level 2.
+		/** Level 1 is the Auto Clicker skill, these start at level 2. */
 		...createUpgrades({
 			category: 'Click',
 			id: 'proton_auto_click',
@@ -614,7 +614,7 @@ function createElectronUpgrades(): Upgrade[] {
 				effects: [add('auto_buy', -5000, generatorType)],
 			};
 		}),
-		// Level 1 is the Auto Upgrade skill, these start at level 2.
+		/** Level 1 is the Auto Upgrade skill, these start at level 2. */
 		...createUpgrades({
 			category: 'Automation',
 			id: 'electron_auto_upgrade',

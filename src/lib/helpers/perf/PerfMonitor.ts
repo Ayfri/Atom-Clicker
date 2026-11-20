@@ -1,6 +1,7 @@
 import { FeatureTypes } from '#data/features.js';
 import { getDeviceInfo, isCrawler, isUuid, SESSION_ID } from '#helpers/clientInfo.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 import { INCIDENT_MIN_MS, stripUrlDetails } from '#helpers/perf/perfIncidents.js';
 import {
 	EVENT_DURATION_THRESHOLD,
@@ -20,9 +21,8 @@ import {
 	WARMUP_MS,
 } from '#helpers/perf/perfStats.js';
 import { perfTracker } from '#helpers/perf/perfTracker.js';
-import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
-import type { LoafScript, PerfWindow, SessionGame, SessionPerf, SessionStartPayload, SessionStartResponse, SessionUpdatePayload } from '#lib/types/session.js';
 import { getJSON, setItem } from '#helpers/safeLocalStorage.js';
+import type { LoafScript, PerfWindow, SessionGame, SessionPerf, SessionStartPayload, SessionStartResponse, SessionUpdatePayload } from '#lib/types/session.js';
 import { privacy } from '#stores/privacy.svelte.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { ui } from '#stores/ui.svelte.js';
@@ -373,7 +373,7 @@ export class PerfMonitor {
 			observer.observe(init);
 			this.observers.push(observer);
 		} catch {
-			// An entry type the browser lists but refuses to observe only costs its own numbers.
+			/** An entry type the browser lists but refuses to observe only costs its own numbers. */
 		}
 	}
 }

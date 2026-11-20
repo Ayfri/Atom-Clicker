@@ -10,19 +10,16 @@ import {
 	QUEST_POOL,
 	todayUtcDayKey,
 } from '#data/dailyQuests.js';
-import { isQuarkAchievement, MAX_ACHIEVEMENT_IDS_PER_REQUEST, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
-import { APP_REWARD_QUARKS } from '#data/quarks.js';
+import { APP_REWARD_QUARKS, MAX_ACHIEVEMENT_IDS_PER_REQUEST, QUARK_ACHIEVEMENT_REWARD } from '#data/quarks.js';
 import { getQuarkShopItem } from '#data/quarkShop.js';
 import type { RealmType } from '#data/realms.js';
-import { statsConfig } from '#helpers/statConstants.js';
-import type { EffectSource } from '#lib/types/game.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { obfuscateClientData } from '#helpers/obfuscation.js';
 import { getItem, setItem } from '#helpers/safeLocalStorage.js';
-import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { statsConfig } from '#helpers/stats.js';
+import type { EffectSource } from '#lib/types/game.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
-
-/** GameManager never imports this module: the simulation worker imports GameManager without auth or DOM, so this pushes into `quarkBoostSources`. */
 
 interface QuarksApiState {
 	balance: number;
@@ -36,8 +33,8 @@ interface QuarksApiState {
 	quests: DailyQuest[];
 }
 
+/** GameManager never imports this module: the simulation worker imports GameManager without auth or DOM, so this pushes into `quarkBoostSources`. */
 class QuarksManager {
-	pendingActions = $state<string[]>([]);
 	/** Only known once `claimAppReward()` ran, which only happens inside the installed app. */
 	appRewardClaimed = $state(false);
 	balance = $state(0);
@@ -45,9 +42,8 @@ class QuarksManager {
 	claimedQuestIds = $state<string[]>([]);
 	dayKey = $state('');
 	/**
-	 * DevTools-only local override mode: every method operates purely in-memory and skips the
-	 * network. Never persisted (not to the save blob, not to localStorage), and the setter is
-	 * guarded by `dev` as defence in depth so it cannot survive into a production build.
+	 * DevTools-only local mode: every method works in memory and skips the network. Never persisted (not in the save, not in localStorage),
+	 * and `setDevOverride` refuses outside `dev` as defence in depth, so it cannot survive into a production build.
 	 */
 	devOverride = $state(false);
 	entitlements = $state<string[]>([]);
@@ -56,6 +52,7 @@ class QuarksManager {
 	hasSynced = $state(false);
 	lastSyncError = $state<string | null>(null);
 	loading = $state(false);
+	pendingActions = $state<string[]>([]);
 	quests = $state<DailyQuest[]>(QUEST_POOL.slice(0, DAILY_QUEST_COUNT));
 	private syncPromise: Promise<void> | null = null;
 
@@ -63,19 +60,16 @@ class QuarksManager {
 
 	dailyQuestContext = $derived(gameManager.dailyQuestContext(this.dailyQuestCount > DAILY_QUEST_COUNT));
 
-	ownedBoostSources = $derived.by<EffectSource[]>(() => this.entitlements.flatMap((id) => {
-		const item = getQuarkShopItem(id);
+	ownedBoostSources = $derived.by<EffectSource[]>(() =>
+		this.entitlements.flatMap(id => {
+			const item = getQuarkShopItem(id);
 			return item?.effects ? [{ effects: item.effects, id: item.id, name: item.name }] : [];
 		}),
 	);
 
-	claimableQuestCount = $derived(this.quests.filter((quest) => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest)).length);
+	claimableQuestCount = $derived(this.quests.filter(quest => !this.claimedQuestIds.includes(quest.id) && this.isQuestComplete(quest)).length);
 
 	hasClaimableQuest = $derived(this.claimableQuestCount > 0);
-
-	hasClaimableAchievement = $derived.by(() => {
-		return gameManager.achievements.some((id) => id in ACHIEVEMENTS && !this.claimedAchievementIds.includes(id));
-	});
 
 	setDevOverride(value: boolean) {
 		if (!dev) return;
@@ -108,7 +102,7 @@ class QuarksManager {
 		this.applyBoostEffects();
 	}
 
-	/** Pushes owned boost/convenience effects and entitlements into GameManager. Called whenever `entitlements` changes. */
+	/** Pushes the owned boost effects and entitlements into GameManager, called whenever `entitlements` changes. */
 	private applyBoostEffects() {
 		gameManager.quarkBoostSources = this.ownedBoostSources;
 		gameManager.quarkEntitlements = this.entitlements;
@@ -121,13 +115,13 @@ class QuarksManager {
 	getTarget(quest: DailyQuest): number {
 		const frozen = gameManager.dailyStats.questTargets[quest.id];
 		if (typeof frozen === 'number') return frozen;
-		// Not frozen yet (e.g. before the first sync), fall back to a live estimate.
+		/** Not frozen yet (before the first sync), so it falls back to a live estimate. */
 		return getQuestTarget(quest, this.dailyQuestContext);
 	}
 
 	getProgress(quest: DailyQuest): number {
 		if (quest.metric === 'otherDailyQuestsCompleted') {
-			return this.quests.filter((otherQuest) => otherQuest.id !== quest.id && this.isQuestComplete(otherQuest)).length;
+			return this.quests.filter(otherQuest => otherQuest.id !== quest.id && this.isQuestComplete(otherQuest)).length;
 		}
 		return getQuestProgress(quest.metric, gameManager.dailyStats);
 	}
@@ -135,7 +129,7 @@ class QuarksManager {
 	private selectDailyQuests(dayKey: string): DailyQuest[] {
 		const storedQuestIds = gameManager.dailyStats.dayKey === dayKey ? gameManager.dailyStats.questIds ?? [] : [];
 		if (storedQuestIds.length === this.dailyQuestCount) {
-			return storedQuestIds.map((id) => QUEST_POOL.find((quest) => quest.id === id)).filter((quest): quest is DailyQuest => !!quest);
+			return storedQuestIds.map(id => QUEST_POOL.find(quest => quest.id === id)).filter((quest): quest is DailyQuest => !!quest);
 		}
 		return pickDailyQuests(dayKey, this.dailyQuestCount, this.dailyQuestContext);
 	}
@@ -150,7 +144,7 @@ class QuarksManager {
 
 		gameManager.dailyStats = {
 			...gameManager.dailyStats,
-			questIds: this.quests.map((quest) => quest.id),
+			questIds: this.quests.map(quest => quest.id),
 			questTargets
 		};
 	}
@@ -173,7 +167,7 @@ class QuarksManager {
 		gameManager.dailyStats = {
 			...statsConfig.dailyStats.defaultValue,
 			dayKey: serverDayKey,
-			questIds: this.quests.map((quest) => quest.id),
+			questIds: this.quests.map(quest => quest.id),
 			questTargets
 		};
 	}
@@ -213,7 +207,7 @@ class QuarksManager {
 				this.clear();
 				return;
 			}
-			const response = await fetch('/api/quarks', { headers: headers ?? undefined });
+			const response = await fetch('/api/quarks', { headers });
 			if (!response.ok) throw new Error(`Sync failed with status ${response.status}`);
 
 			const data: QuarksApiState = await response.json();
@@ -224,8 +218,7 @@ class QuarksManager {
 			this.entitlements = data.entitlements;
 			this.equippedBanner = data.equippedBanner;
 			this.equippedThemes = data.equippedThemes;
-			// Quests carry a `description` function, which JSON can't transport - recompute them
-			// client-side from the (deterministic, seeded) pool instead of trusting the wire payload.
+			/** Quests carry a `description` function JSON can't transport, so they are recomputed from the seeded pool instead of the wire payload. */
 			this.quests = this.selectDailyQuests(data.dayKey);
 			this.persistDailyQuestSelection(data.dayKey);
 			this.lastSyncError = null;
@@ -263,18 +256,18 @@ class QuarksManager {
 				return null;
 			}
 			return result as T;
-		} catch (error) {
+		} catch {
 			toastStore.error({ message: 'Network error while talking to Quarks.', title: 'Quarks' });
 			return null;
 		} finally {
-			this.pendingActions = this.pendingActions.filter((id) => id !== actionId);
+			this.pendingActions = this.pendingActions.filter(id => id !== actionId);
 		}
 	}
 
 	async claimQuest(questId: string) {
 		if (this.devOverride) {
 			if (this.claimedQuestIds.includes(questId)) return;
-			const quest = this.quests.find((q) => q.id === questId);
+			const quest = this.quests.find(q => q.id === questId);
 			if (!quest) return;
 			this.balance += quest.reward;
 			this.claimedQuestIds = [...this.claimedQuestIds, questId];
@@ -288,7 +281,7 @@ class QuarksManager {
 			this.balance = result.balance;
 			this.claimedQuestIds = [...this.claimedQuestIds, questId];
 
-			const quest = this.quests.find((q) => q.id === questId);
+			const quest = this.quests.find(q => q.id === questId);
 
 			toastStore.info({
 				message: quest
@@ -320,7 +313,7 @@ class QuarksManager {
 
 	/** Sent in batches of the server's request limit, stopping at the first one that fails. Resolves to the Quarks the server granted, 0 when nothing was claimed. */
 	async claimAchievements(achievementIds: string[]): Promise<number> {
-		const idsToClaim = achievementIds.filter((id) => !this.claimedAchievementIds.includes(id));
+		const idsToClaim = achievementIds.filter(id => !this.claimedAchievementIds.includes(id));
 		if (idsToClaim.length === 0) return 0;
 		if (this.devOverride) return this.claimAchievementsLocally(idsToClaim);
 
@@ -341,7 +334,7 @@ class QuarksManager {
 	}
 
 	private claimAchievementsLocally(achievementIds: string[]): number {
-		const granted = achievementIds.filter(isQuarkAchievement).length * QUARK_ACHIEVEMENT_REWARD;
+		const granted = achievementIds.filter(id => id in ACHIEVEMENTS).length * QUARK_ACHIEVEMENT_REWARD;
 		this.balance += granted;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...achievementIds])];
 		return granted;
@@ -417,7 +410,7 @@ class QuarksManager {
 		if (this.devOverride) {
 			if (!this.entitlements.includes(itemId) || !item) return;
 			this.balance += item.cost;
-			this.entitlements = this.entitlements.filter((id) => id !== itemId);
+			this.entitlements = this.entitlements.filter(id => id !== itemId);
 			this.quests = this.selectDailyQuests(this.dayKey);
 			this.applyBoostEffects();
 			return;
@@ -428,7 +421,7 @@ class QuarksManager {
 
 		if (result.status === 'ok') {
 			this.balance = result.balance;
-			this.entitlements = this.entitlements.filter((id) => id !== itemId);
+			this.entitlements = this.entitlements.filter(id => id !== itemId);
 			this.quests = this.selectDailyQuests(this.dayKey);
 			this.applyBoostEffects();
 		} else {
@@ -447,10 +440,7 @@ class QuarksManager {
 
 	async equipTheme(realmId: RealmType, itemId: string | null) {
 		if (this.devOverride) {
-			const next = { ...this.equippedThemes };
-			if (itemId) next[realmId] = itemId;
-			else delete next[realmId];
-			this.equippedThemes = next;
+			this.previewTheme(realmId, itemId);
 			return;
 		}
 
@@ -471,7 +461,7 @@ class QuarksManager {
 
 	async equipBanner(itemId: string | null) {
 		if (this.devOverride) {
-			this.equippedBanner = itemId;
+			this.previewBanner(itemId);
 			return;
 		}
 

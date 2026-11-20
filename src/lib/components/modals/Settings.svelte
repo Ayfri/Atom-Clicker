@@ -84,7 +84,7 @@
 	const current = $derived(tabs.find(tab => tab.id === shownTab));
 </script>
 
-<Modal {onClose} containerClass="!p-0" width="xl">
+<Modal containerClass="p-0!" {onClose} width="xl">
 	{#snippet header()}
 		<div class="flex min-w-0 flex-1 items-center gap-1">
 			{#if current && narrow.current}

@@ -5,10 +5,10 @@
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
 	import Quark from '#components/icons/Quark.svelte';
 	import WhiteLightIcon from '#components/icons/WhiteLight.svelte';
+	import LeaderboardRow from '#components/leaderboard/LeaderboardRow.svelte';
 	import Login from '#components/modals/Login.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
-	import LeaderboardRow from '#components/leaderboard/LeaderboardRow.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -20,8 +20,8 @@
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 	import { formatNumber } from '#lib/utils.js';
-	import { createCurrentPlayerPreview } from '#lib/utils/leaderboard-preview.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import {
 		Check,
@@ -38,7 +38,7 @@
 		Target,
 		Undo2,
 	} from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
 
@@ -94,6 +94,20 @@
 		const remainingMs = 86_400_000 - (now % 86_400_000);
 		return `${Math.floor(remainingMs / 3_600_000)}h ${Math.floor((remainingMs % 3_600_000) / 60_000)}m`;
 	});
+
+	/** Atoms are read untracked, otherwise every 50 Hz commit rebuilds each banner preview row. */
+	function createCurrentPlayerPreview(bannerId: string): LeaderboardEntry {
+		return {
+			atoms: untrack(() => gameManager.atoms),
+			equippedBanner: bannerId,
+			is_online: supabaseAuth.isAuthenticated,
+			lastSeen: Date.now(),
+			level: gameManager.playerLevel,
+			picture: supabaseAuth.avatarUrl ?? undefined,
+			rank: 1,
+			username: supabaseAuth.displayName ?? 'Preview Player',
+		};
+	}
 
 	onMount(() => {
 		const interval = setInterval(() => (now = Date.now()), 30_000);

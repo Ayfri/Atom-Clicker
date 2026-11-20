@@ -11,7 +11,7 @@ import {
 } from '#data/chromatic.js';
 import { CurrenciesTypes } from '#data/currencies.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
-import { ChromaticField } from '#helpers/canvas/chromaticField.js';
+import { ChromaticField } from '#helpers/canvas/ChromaticField.js';
 import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';

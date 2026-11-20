@@ -13,8 +13,7 @@
 	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 	import { changelog } from '#stores/changelog.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
-	import { ui } from '#stores/ui.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile, ui } from '#stores/ui.svelte.js';
 	import ElectronizeIcon from '#components/icons/Electronize.svelte';
 	import IonizeIcon from '#components/icons/Ionize.svelte';
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
@@ -149,7 +148,7 @@
 	onMount(() => {
 		ui.registerSettings(settingsLoader);
 
-		// Chunks are warmed once the page is idle, so the split costs nothing on the first open.
+		/** Chunks are warmed once the page is idle, so the split costs nothing on the first open. */
 		const warm = () => [...links, settingsLink].forEach(link => link.load && ui.preloadModal(link.id, link.load));
 		if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 5000 });
 		else setTimeout(warm, 2000);
@@ -216,7 +215,7 @@
 {/if}
 
 <style>
-	/* Label anchor, small triangle */
+	/* Draws the small triangle that anchors the label. */
 	.label::after {
 		content: '';
 		position: absolute;

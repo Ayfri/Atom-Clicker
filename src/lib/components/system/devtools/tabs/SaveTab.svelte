@@ -2,18 +2,18 @@
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
-	import { SAVE_KEY, SAVE_VERSION } from '#helpers/save/saves.js';
-	import { statsConfig } from '#helpers/statConstants.js';
-	import type { GameState } from '#lib/types/game.js';
-	import type { StateFix } from '#lib/types/audit.js';
-	import { formatNumber } from '#lib/utils.js';
 	import { getItem } from '#helpers/safeLocalStorage.js';
+	import { SAVE_KEY, SAVE_VERSION } from '#helpers/save/saves.js';
+	import { statsConfig } from '#helpers/stats.js';
+	import type { StateFix } from '#lib/types/audit.js';
+	import type { GameState } from '#lib/types/game.js';
+	import { formatNumber } from '#lib/utils.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { integrityCheck } from '../integrity.svelte.js';
-	import { btn, btnAccent, btnDanger, field, reloadWithSave, snapshots } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
+	import { btn, btnAccent, btnDanger, field, reloadWithSave, snapshots } from '../shared.svelte.js';
 
 	const saveSize = $derived.by(() => {
 		gameManager.lastSave;

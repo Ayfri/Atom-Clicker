@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { ELEMENTS } from '#data/elements.js';
 	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/canvas/AtomRenderer.js';
-	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { Hand } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { nucleonsOf, partialShells, shellsOf, type StageKind } from './atoms.js';
+	import { BARE_COLOR, nucleonsOf, partialShells, shellsOf, type StageKind } from './atoms.js';
 	import type { Point } from './TableParticles.js';
 
 	interface Props {
@@ -30,18 +30,17 @@
 
 	let { class: className, color, kind, paid, payable, progress, siteColor, z, onfeed, onpour, onrefuse }: Props = $props();
 
-	const BARE_COLOR = '#c3cad6';
-	const SHELL_SLOTS = 7;
+	const FEED_EVERY = 110;
 	/** Seconds of holding that pay a whole reading from nothing, each frame pays its share. */
 	const HOLD_SECONDS = 4;
-	const FEED_EVERY = 110;
+	const SHELL_SLOTS = 7;
 
-	let host = $state<HTMLButtonElement>();
-	let renderer = $state.raw<AtomRenderer>();
-	let holding = $state(false);
-	let heldZ = 0;
-	let lastFeed = 0;
 	let frame = 0;
+	let heldZ = 0;
+	let holding = $state(false);
+	let host = $state<HTMLButtonElement>();
+	let lastFeed = 0;
+	let renderer = $state.raw<AtomRenderer>();
 
 	const shells = $derived(shellsOf(z));
 	const total = $derived(shells.reduce((sum, count) => sum + count, 0));
@@ -170,45 +169,45 @@
 	onpointerup={release}
 >
 	<!-- A waiting element has no nucleus yet, so no renderer runs for it. -->
-	{#if kind !== 'waiting'}
+	{#if kind === 'waiting'}
+		<span class="absolute inset-[22%] rounded-full border-2 border-dashed border-amber-300/40"></span>
+		<span class="pointer-events-none text-4xl font-black text-amber-200/70 lg:text-7xl">?</span>
+	{:else}
 		<canvas
 			class="pointer-events-none absolute top-1/2 left-1/2 -translate-1/2"
 			style:height="{100 * CANVAS_OVERFLOW}%"
 			style:width="{100 * CANVAS_OVERFLOW}%"
 			{@attach mount}
 		></canvas>
-	{/if}
-	{#if kind === 'waiting'}
-		<span class="absolute inset-[22%] rounded-full border-2 border-dashed border-amber-300/40"></span>
-		<span class="pointer-events-none text-4xl font-black text-amber-200/70 lg:text-7xl">?</span>
-	{:else if kind === 'ready'}
-		<span class={['absolute inset-[6%] rounded-full', payable && paid === 0 && !holding ? 'calling border-2 border-white/40 group-hover:border-white/80' : 'border border-white/10']}></span>
-		<svg
-			class="absolute inset-[6%] -rotate-90"
-			viewBox="0 0 100 100"
-		>
-			<circle
-				cx="50"
-				cy="50"
-				fill="none"
-				r="49"
-				stroke={color}
-				stroke-dasharray={2 * Math.PI * 49}
-				stroke-dashoffset={2 * Math.PI * 49 * (1 - paid)}
-				stroke-linecap="round"
-				stroke-width="1.5"
-			/>
-		</svg>
-		{#if !holding}
-			<span
-				class={[
-					'pointer-events-none absolute bottom-[3%] left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#05070f]/85 px-2.5 py-1 text-xs font-bold whitespace-nowrap ring-1 ring-white/20',
-					payable ? 'text-white group-hover:ring-white/60' : 'text-white/45',
-				]}
+		{#if kind === 'ready'}
+			<span class={['absolute inset-[6%] rounded-full', payable && paid === 0 && !holding ? 'calling border-2 border-white/40 group-hover:border-white/80' : 'border border-white/10']}></span>
+			<svg
+				class="absolute inset-[6%] -rotate-90"
+				viewBox="0 0 100 100"
 			>
-				<Hand size={12} />
-				{paid > 0 ? 'Hold to continue' : 'Hold to read'}
-			</span>
+				<circle
+					cx="50"
+					cy="50"
+					fill="none"
+					r="49"
+					stroke={color}
+					stroke-dasharray={2 * Math.PI * 49}
+					stroke-dashoffset={2 * Math.PI * 49 * (1 - paid)}
+					stroke-linecap="round"
+					stroke-width="1.5"
+				/>
+			</svg>
+			{#if !holding}
+				<span
+					class={[
+						'pointer-events-none absolute bottom-[3%] left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#05070f]/85 px-2.5 py-1 text-xs font-bold whitespace-nowrap ring-1 ring-white/20',
+						payable ? 'text-white group-hover:ring-white/60' : 'text-white/45',
+					]}
+				>
+					<Hand size={12} />
+					{paid > 0 ? 'Hold to continue' : 'Hold to read'}
+				</span>
+			{/if}
 		{/if}
 	{/if}
 </button>

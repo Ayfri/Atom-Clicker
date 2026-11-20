@@ -173,7 +173,6 @@ export class AmbientField extends CanvasLoop {
 	/** Comets that landed this frame, reused so arrivals allocate nothing. */
 	private readonly arrivals: Mote[] = [];
 	private bursts = 0;
-	private readonly ctx: CanvasRenderingContext2D;
 	private dust = 0;
 	/** Dust owed by the spawn rate, spawned once it reaches a whole mote. */
 	private dustDebt = 0;
@@ -191,13 +190,10 @@ export class AmbientField extends CanvasLoop {
 		ambience: Ambience,
 	) {
 		super(canvas, `canvas:ambient-${scope}`);
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.accent = accent;
 		this.ambience = ambience;
 		AmbientField.fields.set(scope, this);
-		// The field mounts while its realm swings in, a rect measured mid-transform is dropped once it settles.
+		/** The field mounts while its realm swings in, a rect measured mid-transform is dropped once it settles. */
 		this.settleTimeout = setTimeout(() => (this.rect = null), REALM_SWITCH_MS + 50);
 		this.observe();
 	}
@@ -208,7 +204,7 @@ export class AmbientField extends CanvasLoop {
 		return field?.shown ? field.burst(preset, origin, burst) : [];
 	}
 
-	destroy() {
+	override destroy() {
 		super.destroy();
 		clearTimeout(this.settleTimeout);
 		if (AmbientField.fields.get(this.scope) === this) AmbientField.fields.delete(this.scope);
@@ -231,7 +227,7 @@ export class AmbientField extends CanvasLoop {
 		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 		for (const { boxSize, boxX, boxY } of this.motes) if (boxSize > 0) ctx.clearRect(boxX, boxY, boxSize, boxSize);
 
-		// An empty field starts with dust already mid-life, a realm never opens on a blank background.
+		/** An empty field starts with dust already mid-life, a realm never opens on a blank background. */
 		if (this.dust === 0) for (let i = 0; i < density; i++) this.spawnDust(Math.random(), DUST_LIFE);
 		this.dustDebt += (dt * density * pace) / DUST_MEAN_LIFE;
 		for (; this.dustDebt >= 1; this.dustDebt--) if (this.dust < density) this.spawnDust(0, DUST_LIFE);
@@ -313,7 +309,7 @@ export class AmbientField extends CanvasLoop {
 	}
 
 	/** Motes caught by a hidden tab or realm are dropped rather than frozen on the canvas. */
-	protected paused() {
+	protected override paused() {
 		this.motes.length = 0;
 		this.bursts = this.dust = 0;
 		this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -322,7 +318,7 @@ export class AmbientField extends CanvasLoop {
 
 	protected resize(width: number, height: number) {
 		this.fit(width, height, MAX_PIXEL_RATIO);
-		// Resizing resets the context state and clears the canvas.
+		/** Resizing resets the context state and clears the canvas. */
 		this.ctx.globalCompositeOperation = 'lighter';
 		for (const mote of this.motes) mote.boxSize = 0;
 		this.rect = null;
@@ -332,7 +328,7 @@ export class AmbientField extends CanvasLoop {
 	private burst(name: AmbientPreset, origin: Origin, { angle = -Math.PI / 2, color = this.accent, count, flight, surge = 0, target }: AmbientBurst): number[] {
 		const preset: Preset = PRESETS[name];
 		const { x, y } = this.locate(origin);
-		// Comets skip the cooldown and cap: an electron waits for each one, a dropped comet would let it pop in unannounced.
+		/** Comets skip the cooldown and cap: an electron waits for each one, a dropped comet would let it pop in unannounced. */
 		const targets = target === undefined ? [] : 'x' in target ? [target] : target;
 		const arrivals = targets.map(point => this.launch(color, x, y, this.locate(point), flight ?? between(COMET_LIFE)));
 
@@ -396,7 +392,7 @@ export class AmbientField extends CanvasLoop {
 			const speed = between(preset.speed);
 			this.motes.push(this.mote({ ...base, life: between(preset.life), size: between(preset.size), vx: Math.cos(direction) * speed, vy: Math.sin(direction) * speed }));
 		}
-		// Counted now, so the next frame draws at full rate and a burst in the same frame respects the cap.
+		/** Counted now, so the next frame draws at full rate and a burst in the same frame respects the cap. */
 		this.bursts += total + (preset.ring ? 1 : 0);
 	}
 

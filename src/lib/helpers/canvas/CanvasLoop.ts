@@ -91,11 +91,17 @@ export abstract class CanvasLoop {
 	private sized = false;
 	private visible = false;
 
+	protected readonly ctx: CanvasRenderingContext2D;
+
 	/** `source` names the loop in the performance reports, e.g. `canvas:atom`. */
 	protected constructor(
 		protected readonly canvas: HTMLCanvasElement,
 		private readonly source: string,
-	) {}
+	) {
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('Canvas2D is not available');
+		this.ctx = ctx;
+	}
 
 	destroy() {
 		cancelAnimationFrame(this.frame);

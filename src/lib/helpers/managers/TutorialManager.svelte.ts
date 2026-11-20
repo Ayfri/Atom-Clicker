@@ -1,6 +1,6 @@
 import type { TutorialState } from '#lib/types/game.js';
 
-export function createDefaultTutorialState(): TutorialState {
+function createDefaultTutorialState(): TutorialState {
 	return { enabled: true, seen: [] };
 }
 

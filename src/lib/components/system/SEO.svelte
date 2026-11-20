@@ -1,7 +1,7 @@
 <script>
-	import { page } from '$app/state';
 	import { PUBLIC_SUPABASE_URL } from '$app/env/public';
-	import { VERSION } from "@sveltejs/kit";
+	import { page } from '$app/state';
+	import { VERSION } from '@sveltejs/kit';
 
 	const site = 'https://atom-clicker.ayfri.com';
 	const name = 'Atom Clicker';
@@ -81,5 +81,5 @@
 
 	<title>{name}</title>
 
-	{@html `<script type="application/ld+json">${JSON.stringify(structuredData)}</script>`}
+	{@html `<script type="application/ld+json">${JSON.stringify(structuredData)}<\/script>`}
 </svelte:head>

@@ -84,7 +84,6 @@ export class ClickParticles extends CanvasLoop {
 
 	/** Box around everything drawn on the last frame, in CSS px: a burst covers a small area, clearing the whole screen filled it all for nothing. */
 	private bottom = -Infinity;
-	private readonly ctx: CanvasRenderingContext2D;
 	private readonly icons = new Pool(MAX_ICONS);
 	/** Keyed by currency id, filled as the SVGs load: a click before that only gets its label. */
 	private readonly iconSprites = new Map<string, Sprite>();
@@ -96,9 +95,6 @@ export class ClickParticles extends CanvasLoop {
 
 	constructor(canvas: HTMLCanvasElement) {
 		super(canvas, 'canvas:particles');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		ClickParticles.current = this;
 		this.observe();
 		for (const { id } of Object.values(CURRENCIES)) {
@@ -135,7 +131,7 @@ export class ClickParticles extends CanvasLoop {
 		field.update();
 	}
 
-	destroy() {
+	override destroy() {
 		super.destroy();
 		if (ClickParticles.current === this) ClickParticles.current = null;
 	}
@@ -166,7 +162,7 @@ export class ClickParticles extends CanvasLoop {
 			ctx.globalAlpha = particle.alpha;
 			ctx.setTransform(ratio * cos, ratio * sin, -ratio * sin, ratio * cos, ratio * particle.x, ratio * particle.y);
 			ctx.drawImage(sprite.source, -width / 2, -height / 2, width, height);
-			// At least half the diagonal, so it bounds the sprite at any rotation without a square root.
+			/** At least half the diagonal, so it bounds the sprite at any rotation without a square root. */
 			this.cover(particle.x, particle.y, (width + height) / 2);
 		}
 
@@ -191,7 +187,7 @@ export class ClickParticles extends CanvasLoop {
 	}
 
 	/** Particles caught by a hidden tab or a covering modal are dropped rather than frozen on the canvas. */
-	protected paused() {
+	protected override paused() {
 		this.icons.clear();
 		this.texts.clear();
 		this.ctx.setTransform(1, 0, 0, 1, 0, 0);

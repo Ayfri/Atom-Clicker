@@ -24,18 +24,18 @@ import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 import { FORGE_MILESTONES, SITE_IDS, siteStudyCost } from '#data/sites.js';
 import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
-import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
-import { EffectTable } from '#helpers/effects.js';
-import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { findImplausible } from '#helpers/audit/plausibility.js';
-import { IONIZE_CPM, IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import { BALANCE_VERSION, MAX_CLICKS_PER_SECOND, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds, type RunBounds } from '#helpers/audit/runBounds.js';
+import { EffectTable } from '#helpers/effects.js';
+import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { IONIZE_CPM, IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import { SAVE_VERSION, validateAndRepairGameState } from '#helpers/save/saves.js';
-import { statsConfig } from '#helpers/statConstants.js';
+import { statsConfig } from '#helpers/stats.js';
 import { levelFromTotalXP } from '#helpers/xp.js';
 import { GENERATOR_COST_MULTIPLIER, MAX_BOOST_POINTS } from '#lib/constants.js';
-import type { EffectSource, GameState } from '#lib/types/game.js';
 import type { AuditCheck } from '#lib/types/audit.js';
+import type { EffectSource, GameState } from '#lib/types/game.js';
 
 /** Client clocks drift, a run start or save date this far ahead of the server is still taken as honest. */
 const CLOCK_TOLERANCE_MS = 10 * 60_000;
@@ -93,8 +93,8 @@ const STRUCTURE_LABELS: Record<string, string> = {
 /** Every Quark boost at once, the server bounds the best case instead of reading which ones the player owns. */
 const QUARK_SOURCES: EffectSource[] = Object.values(QUARK_SHOP).flatMap(item => (item.effects ? [{ effects: item.effects, id: item.id, name: item.name }] : []));
 
-/** What the server keeps of an accepted submission to check the next one against. */
-export interface ScoreSnapshot {
+/** What the server keeps of an accepted submission to check the next one against. A type alias, not an interface, so it is assignable to the `Json` column. */
+export type ScoreSnapshot = {
 	atomsEarnedRun: number;
 	clicksAllTime: number;
 	clicksRun: number;
@@ -107,7 +107,7 @@ export interface ScoreSnapshot {
 	/** Run start the server credited, never earlier than the client's own claim allowed. */
 	runStartedAt: number;
 	startDate: number;
-}
+};
 
 export interface PreviousScore {
 	receivedAt: number;
@@ -155,10 +155,10 @@ function priced(price: (level: number) => number, count: number, budget: number)
 }
 
 /**
- * `measure` loads the Cosmos and the Periodic Table with their boosts into the bound that atoms are checked against, so what they own must fit what the player earned.
- * Starlight pays the studies, source studies, instruments and Aperture levels, Light and Decay events pay the elements, and `maxStarlightEarned` bounds what was earned.
- * Always lower bounds of what was spent, so an honest state passes: the forge price follows Starlight income at purchase and is left out, so is the instrument still
- * being built, and the Light uses the cheapest Prism tuning. `since` is the seconds since the save start.
+ * `measure` loads the Cosmos and Periodic Table boosts into the atoms bound, so what they own must fit what the player earned: Starlight pays studies,
+ * source studies, instruments and Aperture levels, Light and Decay events pay the elements, and `maxStarlightEarned` bounds the Starlight.
+ * Every price is a lower bound of what was spent so an honest state passes: the forge price (it follows Starlight income at purchase) and the
+ * instrument being built are left out, and Light uses the cheapest Prism tuning. `since` is the seconds since the save start.
  */
 function discoveryIssues(state: GameState, since: number): string[] {
 	const issues: string[] = [];
@@ -319,9 +319,9 @@ const atMaxLevel = (registry: Record<string, { maxLevel: number }>): Record<stri
 
 /**
  * Most Starlight the loaded Cosmos could have earned in `saveSeconds`. Discoveries, studies and Ionizes never go down, so today's rate at full boost
- * bounds every past second, sky tap and guest star, and offline time pays a tenth of it so it fits in the seconds. Radiation upgrades reset on every
- * Ionize, so the flashes use the reactor cap with every radiation and Prism upgrade maxed. Reads the loaded game singleton and leaves it forced
- * to the best case, `measure` wipes it afterwards.
+ * bounds every past second, sky tap and guest star (offline time pays a tenth of it, so it fits in the seconds). Radiation upgrades reset on every
+ * Ionize, so each flash uses the reactor cap with every radiation and Prism upgrade maxed. Reads the loaded game singleton (the state must already be
+ * loaded) and leaves it forced to the best case, `measure` wipes it.
  */
 function maxStarlightEarned(saveSeconds: number): number {
 	gameManager.currencyBoosts = { [CurrenciesTypes.STARLIGHT]: MAX_BOOST_POINTS };
@@ -343,8 +343,8 @@ function maxStarlightEarned(saveSeconds: number): number {
 
 /**
  * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
- * Server-compiled `$state` fields hold the objects they are given, so without the copy the wipe would zero the audited state too.
- * Also returns the claimed achievements flagged `audited` whose condition is false on the loaded state, read before the bounds measurement overrides the managers.
+ * The copy is needed because server-compiled `$state` fields hold the objects they are given, so the wipe would zero the audited state too.
+ * Also returns the claimed `audited` achievements whose condition is false on the loaded state, read before the bounds measurement overrides the managers.
  */
 function measure(
 	state: GameState,
@@ -413,7 +413,7 @@ export function inspectScore(raw: unknown, context: AuditContext): ScoreInspecti
 		return { ...emptyAudit(state), checks, issues, maxEarnedRun: null };
 	}
 
-	/** The save start is client-set, but no click predates it, and the epoch clamp in `runSeconds` bounds a forged one. A device clock running ahead stamps a later start, so the margin is the date one. */
+	/** The client sets the save start, but no click predates it and `runSeconds` clamps a forged epoch. A device clock running ahead stamps a later start, so the margin is the date tolerance. */
 	const saveSeconds = runSeconds(0, state.startDate, now + DATE_TOLERANCE_MS);
 	for (const issue of structureIssues(state, now, saveSeconds)) fail(issue, null, null, STRUCTURE_LABELS[issue] ?? issue);
 	for (const { label, limit, limitLabel, value } of findImplausible(state)) fail('plausibility', value, limit, `${label} vs ${limitLabel}`);
@@ -437,9 +437,8 @@ export function inspectScore(raw: unknown, context: AuditContext): ScoreInspecti
 	const sinceLast = previous ? (now - previous.receivedAt) / 1000 : 0;
 
 	/**
-	 * The client sets its own run start and save start, so a run is only as old as the server can tell: one the last accepted
-	 * submission covered keeps the start credited then, one that began since, or from a save the server never saw, began after
-	 * that submission, and a first submission's run began after the account.
+	 * The client sets its own run start and save start, so a run is only as old as the server can tell. The same run keeps the start credited last time,
+	 * a run begun since (or from a save the server never saw) began after the last submission, and a first submission's run began after the account.
 	 */
 	const runStart = sameRun ? previousSnapshot.runStartedAt : state.runStartedAt > 0 ? Math.min(state.runStartedAt, now) - CLOCK_TOLERANCE_MS : 0;
 	const knownSince = sameRun ? null : (previous?.receivedAt ?? accountCreatedAt);

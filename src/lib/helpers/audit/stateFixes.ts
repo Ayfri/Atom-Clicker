@@ -1,5 +1,5 @@
-import type { GameState } from '#lib/types/game.js';
 import type { StateFix, StateFixTarget } from '#lib/types/audit.js';
+import type { GameState } from '#lib/types/game.js';
 
 export const fieldOf = (state: GameState, target: StateFixTarget): number => ('currency' in target ? state.currencies[target.currency][target.field] : state[target.key]);
 

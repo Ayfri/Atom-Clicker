@@ -20,9 +20,9 @@ import {
 import { CurrenciesTypes } from '#data/currencies.js';
 import type { LightColor } from '#data/elements.js';
 import { GUEST_STAR_INTERVAL_MS, GUEST_STAR_REWARD_SECONDS } from '#data/guestStars.js';
+import { MAX_CLICKS_PER_SECOND } from '#helpers/audit/runBounds.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
-import { MAX_CLICKS_PER_SECOND } from '#helpers/audit/runBounds.js';
 import type { CosmosState, EffectSource } from '#lib/types/game.js';
 
 /** Everything here is kept through every prestige. */

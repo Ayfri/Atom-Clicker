@@ -1,5 +1,9 @@
+import { CurrenciesTypes } from '#data/currencies.js';
 import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { type Component, untrack } from 'svelte';
+import { MediaQuery } from 'svelte/reactivity';
+
+type PhotonUpgradesTab = typeof CurrenciesTypes.EXCITED_PHOTONS | typeof CurrenciesTypes.PHOTONS | 'prism';
 
 type ModalComponent = Component<{ onClose: () => void }>;
 type ModalLoader = () => Promise<{ default: ModalComponent }>;
@@ -94,5 +98,23 @@ class UIStore {
 		this.#activeTab = null;
 	}
 }
+
+/**
+ * Single source of truth for the mobile/desktop split, mirrored by every `@media` block that stacks a layout.
+ * 64rem is Tailwind's `lg` edge: the three column desktop grid needs ~1008px before the side nav clips it.
+ * matchMedia rather than an innerWidth comparison, so JS and CSS flip on the exact same pixel.
+ */
+export const mobile = new MediaQuery('(width < 64rem)', true);
+
+let selectedPhotonUpgradesTab = $state<PhotonUpgradesTab>(CurrenciesTypes.PHOTONS);
+
+export const photonUpgradesTab = {
+	get selected() {
+		return selectedPhotonUpgradesTab;
+	},
+	set selected(value: PhotonUpgradesTab) {
+		selectedPhotonUpgradesTab = value;
+	},
+};
 
 export const ui = new UIStore();

@@ -16,7 +16,7 @@ function pulseEase(progress: number): number {
 	const x2 = 0.6;
 	const bezier = (t: number, a: number, b: number) => 3 * (1 - t) * (1 - t) * t * a + 3 * (1 - t) * t * t * b + t * t * t;
 
-	// Newton-Raphson on x(t) = progress, the curve is monotonic so a few iterations are plenty.
+	/** Newton-Raphson on x(t) = progress, the curve is monotonic so a few iterations are plenty. */
 	let t = progress;
 	for (let i = 0; i < 5; i++) {
 		const x = bezier(t, x1, x2);
@@ -86,7 +86,7 @@ export function drawPhotonIcon(ctx: CanvasRenderingContext2D, excited: boolean, 
 	ctx.lineCap = 'round';
 	ctx.lineJoin = 'round';
 
-	// Outer disc: fill-opacity 0.1 plus a 1px stroke.
+	/** Outer disc: fill-opacity 0.1 plus a 1px stroke, like the SVG icon. */
 	ctx.beginPath();
 	ctx.arc(12, 12, 10, 0, Math.PI * 2);
 	ctx.globalAlpha = alpha * 0.1;
@@ -96,7 +96,7 @@ export function drawPhotonIcon(ctx: CanvasRenderingContext2D, excited: boolean, 
 	ctx.stroke();
 
 	if (excited) {
-		// Core dot, then the two crossing waves.
+		/** Core dot, then the two crossing waves. */
 		ctx.globalAlpha = alpha * 0.3;
 		ctx.beginPath();
 		ctx.arc(12, 12, 2, 0, Math.PI * 2);
@@ -115,7 +115,7 @@ export function drawPhotonIcon(ctx: CanvasRenderingContext2D, excited: boolean, 
 		ctx.bezierCurveTo(15, 9, 17, 15, 20, 15);
 		ctx.stroke();
 	} else {
-		// Single wave, then the core dot.
+		/** Single wave, then the core dot. */
 		ctx.lineWidth = 2;
 		ctx.beginPath();
 		ctx.moveTo(3, 12);

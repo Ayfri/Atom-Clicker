@@ -15,7 +15,7 @@
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal, unfold } from '#helpers/reveals.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile } from '#stores/ui.svelte.js';
 
 	const DEFAULT_ACCENT = '#39ff14';
 
@@ -28,13 +28,14 @@
 	const cherenkov = $derived(realmManager.live(RealmTypes.RADIATION, () => gameManager.cherenkovLight));
 
 	const hasMass = $derived(mass > 0);
+	const upgradesOwned = $derived(Object.keys(radiationManager.upgradeLevels).length);
 
 	/** Fallout thickens with the reactor output and every Reactor Upgrade owned, an empty core leaves a single mote. */
 	const ambience = $derived({
 		colors: [accent],
 		density:
 			hasMass ?
-				2 + Math.round(8 * Math.min(1, cpm / radiationManager.maxCpm)) + Math.min(6, Object.keys(radiationManager.upgradeLevels).length)
+				2 + Math.round(8 * Math.min(1, cpm / radiationManager.maxCpm)) + Math.min(6, upgradesOwned)
 			:	1,
 	});
 	/**
@@ -42,9 +43,7 @@
 	 * power under 10 CPM does not hide them again, once true the derived has no dependency left.
 	 */
 	let upgradesReached = false;
-	const showUpgrades = $derived(
-		(upgradesReached ||= radiationManager.ionizes > 0 || cpm >= 10 || Object.keys(radiationManager.upgradeLevels).length > 0),
-	);
+	const showUpgrades = $derived((upgradesReached ||= radiationManager.ionizes > 0 || cpm >= 10 || upgradesOwned > 0));
 
 	const status = $derived(
 		!hasMass ? { color: 'text-white/50', detail: 'inject fuel to start', label: 'Core empty' }

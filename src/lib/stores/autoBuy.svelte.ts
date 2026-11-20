@@ -30,7 +30,7 @@ class AutoBuyManager {
 
 	/**
 	 * Schedules live in `nextFireTimes` instead of one `setInterval` per generator: every upgrade purchase rebuilds the
-	 * interval map, and restarting the timers on each rebuild pushed pending auto-buys back for as long as upgrades kept coming.
+	 * interval map, and restarting the timers on each rebuild would push pending auto-buys back for as long as upgrades kept coming.
 	 */
 	private check() {
 		const now = Date.now();

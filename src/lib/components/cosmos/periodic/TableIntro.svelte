@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cellCenter, GRID_AT, GRID_COLUMNS, GRID_ROWS, IntroGrid, symbolSize } from '#components/cosmos/periodic/IntroGrid.js';
 	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
-	import { SPECTRUM } from '#components/cosmos/periodic/sky.js';
+	import { SPECTRUM } from '#components/cosmos/periodic/spectrum.js';
 	import { TableParticles } from '#components/cosmos/periodic/TableParticles.js';
 	import { elementBySymbol, ELEMENTS, FAMILIES, lineX } from '#data/elements.js';
 	import { SITE_IDS, SITES } from '#data/sites.js';

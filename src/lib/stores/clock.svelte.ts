@@ -1,7 +1,6 @@
 import { browser } from '$app/env';
 
-// Shared ticking clock used to drive reactive countdowns (e.g. "next auto-buy in Xs" tooltips)
-// without every consumer spinning up its own setInterval.
+/** Shared 1 s clock behind reactive countdowns (the "next auto-buy in Xs" tooltips), so no consumer runs its own setInterval. */
 class Clock {
 	now = $state(Date.now());
 

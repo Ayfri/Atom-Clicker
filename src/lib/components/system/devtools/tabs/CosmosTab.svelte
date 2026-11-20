@@ -16,7 +16,7 @@
 	import LevelList from '../LevelList.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
-	import { btn, btnAccent, setCurrency } from '../shared.svelte';
+	import { btn, btnAccent, setCurrency } from '../shared.svelte.js';
 	import ToggleGrid from '../ToggleGrid.svelte';
 
 	/** Studies have no cap in the game, the list needs one for its max button. */

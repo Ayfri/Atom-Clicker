@@ -14,7 +14,7 @@ class PrivacyStore {
 	set analytics(value: boolean) {
 		this.#analytics = value;
 		setItem(KEY, value ? 'on' : 'off');
-		(window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = !value;
+		window[`ga-disable-${GA_ID}`] = !value;
 	}
 }
 

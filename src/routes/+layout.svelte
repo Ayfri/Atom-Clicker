@@ -1,11 +1,10 @@
 <script lang="ts">
 	import '../app.css';
-	import { browser } from '$app/env';
+	import { browser, dev } from '$app/env';
 	import { beforeNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import PrestigeAnimation from '#components/prestige/PrestigeAnimation.svelte';
 	import Analytics from '#components/system/Analytics.svelte';
-	import DevTools from '#components/system/devtools/DevTools.svelte';
 	import SEO from '#components/system/SEO.svelte';
 	import Hints from '#components/tutorial/Hints.svelte';
 	import TooltipPortal from '#components/ui/TooltipPortal.svelte';
@@ -21,7 +20,7 @@
 
 	let { children }: Props = $props();
 
-	// The error page and the benchmark analysis tool stand alone, none of the in-game overlays belong there.
+	/** The error page and the benchmark analysis tool stand alone, none of the in-game overlays belong there. */
 	const isStandalone = $derived(!!page.error || page.url.pathname.startsWith('/benchmark'));
 
 	let mounted = $state(false);
@@ -29,8 +28,8 @@
 
 	onMount(() => (mounted = true));
 
-	// The old build's chunks are gone from Cloudflare, so a client-side navigation would hit a dead import
-	beforeNavigate((navigation) => {
+	/** The old build's chunks are gone from Cloudflare, so a client-side navigation would hit a dead import. */
+	beforeNavigate(navigation => {
 		if (navigation.shallow) return;
 
 		if (updated.current && navigation.to?.url) {
@@ -45,9 +44,9 @@
 		toastStore.info({
 			action: () => location.reload(),
 			actionLabel: 'Reload',
-			title: 'New Version Available',
-			message: 'Reload to get the latest version, your progress is saved.',
 			duration: 0,
+			message: 'Reload to get the latest version, your progress is saved.',
+			title: 'New Version Available',
 		});
 	});
 </script>
@@ -77,7 +76,12 @@
 	/>
 	{@render children?.()}
 	{#if !isStandalone}
-		<DevTools />
+		{#if dev}
+			<!-- Lazy so the panel and its tabs stay out of the game chunk. -->
+			{#await import('#components/system/devtools/DevToolsPanel.svelte') then { default: DevToolsPanel }}
+				<DevToolsPanel />
+			{/await}
+		{/if}
 		<Hints />
 	{/if}
 	<TooltipPortal />

@@ -1,6 +1,16 @@
-<script lang="ts">
-	import type { BannerDefinition } from '#data/quarkShop.js';
+<script lang="ts" module>
+	import { getQuarkShopItem, type BannerDefinition } from '#data/quarkShop.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 
+	/** The banner a player shows, read from the Quark Shop state for the player's own row. */
+	export function bannerOf(entry: LeaderboardEntry): BannerDefinition | undefined {
+		const item = getQuarkShopItem((entry.self ? quarksManager.equippedBanner : entry.equippedBanner) ?? '');
+		return item?.type === 'banner' ? item.banner : undefined;
+	}
+</script>
+
+<script lang="ts">
 	interface Props {
 		banner: BannerDefinition;
 		class?: string;

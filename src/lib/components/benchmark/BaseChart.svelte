@@ -1,14 +1,7 @@
 ﻿<script lang="ts">
+	import { HOUR_MS } from '#lib/simulation/types.js';
 	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
-	import type { Attachment } from 'svelte/attachments';
-
-	export interface ChartSeries {
-		color: string;
-		data: number[];
-		fillOpacity?: number;
-		label: string;
-		visible?: boolean;
-	}
+	import { areaPath, type ChartSeries, linePath, observeWidth, type Plot, transformValue, yOf } from './plot.js';
 
 	interface Props {
 		description?: string;
@@ -27,14 +20,7 @@
 	let hoveredIndex = $state<number | null>(null);
 	let hiddenLabels = $state<Set<string>>(new Set());
 
-	/** Skips the 0 width of a hidden chart, where `bind:clientWidth` would collapse it. */
-	const resize: Attachment<HTMLElement> = node => {
-		const observer = new ResizeObserver(([entry]) => {
-			if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
-		});
-		observer.observe(node);
-		return () => observer.disconnect();
-	};
+	const resize = observeWidth(width => (containerWidth = width));
 
 	const chartWidth = $derived(Math.max(0, containerWidth - padding.left - padding.right));
 	const chartHeight = $derived(Math.max(0, height - padding.top - padding.bottom));
@@ -48,7 +34,7 @@
 			hasData = true;
 
 			for (const val of s.data) {
-				const v = transformValue(val);
+				const v = transformValue(val, useLog);
 				if (v > max) max = v;
 			}
 		});
@@ -57,40 +43,12 @@
 		max = max * 1.1;
 		return max < 0.0001 ? 1 : max;
 	});
+	const plot = $derived<Plot>({ height: chartHeight, maxVal, useLog, width: chartWidth });
 
 	const hasVisibleSeries = $derived(series.some(s => !hiddenLabels.has(s.label) && s.data?.length > 0));
 
 	const dataLen = $derived(series[0]?.data.length ?? 0);
 	const denominator = $derived(dataLen > 1 ? dataLen - 1 : 1);
-
-	function transformValue(val: number): number {
-		if (!useLog) return val;
-		return Math.log10(Math.max(val, 1));
-	}
-
-	function getLinePath(data: number[]): string {
-		if (data.length === 0) return '';
-
-		return data
-			.map((val, i) => {
-				const x = dataLen > 1 ? (chartWidth * i) / denominator : 0;
-				const v = Math.max(0, transformValue(val));
-				const ratio = v / maxVal;
-				const y = chartHeight - chartHeight * ratio;
-				return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
-			})
-			.join(' ');
-	}
-
-	function getAreaPath(data: number[]): string {
-		const linePath = getLinePath(data);
-		if (!linePath) return '';
-
-		const firstX = 0;
-		const lastX = dataLen > 1 ? chartWidth : 0;
-
-		return `${linePath} L ${lastX},${chartHeight} L ${firstX},${chartHeight} Z`;
-	}
 
 	function handlePointerMove(e: PointerEvent) {
 		if (!hasVisibleSeries) return;
@@ -124,14 +82,11 @@
 
 	const tooltipData = $derived.by(() => {
 		if (hoveredIndex === null) return [];
+		const index = hoveredIndex;
 		return series
-			.map(s => ({
-				s,
-				val: s.data[hoveredIndex!] ?? 0,
-				visible: !hiddenLabels.has(s.label),
-			}))
-			.filter(item => item.visible && item.val !== undefined)
-			.sort((a, b) => b.val - a.val);
+			.filter(s => !hiddenLabels.has(s.label))
+			.map(s => ({ s, val: s.data[index] ?? 0 }))
+			.toSorted((a, b) => b.val - a.val);
 	});
 
 	const tooltipX = $derived(hoveredIndex !== null ? (chartWidth * hoveredIndex) / denominator : 0);
@@ -147,7 +102,7 @@
 		return `left: ${finalLeft}px; top: ${padding.top + 10}px; width: ${ttWidth}px;`;
 	});
 
-	const simulatedTimeMs = $derived(hoveredIndex !== null ? (totalHours * hoveredIndex * 3600000) / denominator : 0);
+	const simulatedTimeMs = $derived(hoveredIndex !== null ? (totalHours * hoveredIndex * HOUR_MS) / denominator : 0);
 </script>
 
 <div class="flex flex-col gap-4 w-full">
@@ -296,7 +251,7 @@
 						{#if !hiddenLabels.has(s.label) && s.data?.length > 0}
 							{#if s.fillOpacity && s.fillOpacity > 0 && s.data.length > 1}
 								<path
-									d={getAreaPath(s.data)}
+									d={areaPath(s.data, dataLen, 1, plot)}
 									fill={s.color}
 									fill-opacity={s.fillOpacity}
 								></path>
@@ -304,7 +259,7 @@
 
 							{#if s.data.length > 1}
 								<path
-									d={getLinePath(s.data)}
+									d={linePath(s.data, dataLen, 1, plot)}
 									fill="none"
 									stroke={s.color}
 									stroke-width="2.5"
@@ -312,11 +267,9 @@
 									stroke-linejoin="round"
 								></path>
 							{:else}
-								{const val = $derived(Math.max(0, transformValue(s.data[0])))}
-								{const y = $derived(chartHeight - chartHeight * (val / maxVal))}
 								<circle
 									cx="0"
-									cy={y}
+									cy={yOf(s.data[0], plot)}
 									r="4"
 									fill={s.color}
 								></circle>
@@ -336,11 +289,9 @@
 						></line>
 
 						{#each tooltipData as { s, val } (s.label)}
-							{const v = $derived(Math.max(0, transformValue(val)))}
-							{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
 							<circle
 								cx={tooltipX}
-								cy={y}
+								cy={yOf(val, plot)}
 								r="4"
 								fill={s.color}
 								stroke="#1e293b"

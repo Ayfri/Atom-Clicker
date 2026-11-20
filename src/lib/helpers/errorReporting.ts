@@ -1,8 +1,8 @@
 import { browser, dev } from '$app/env';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-import { getBrowserInfo, isCrawler, type BrowserInfo } from '#helpers/clientInfo.js';
-import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { type BrowserInfo, getBrowserInfo, isCrawler } from '#helpers/clientInfo.js';
 import { isNoiseError } from '#helpers/errorNoise.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 interface ErrorReport {
@@ -43,14 +43,8 @@ function captureGameState(): Record<string, unknown> | null {
 			achievements: state.achievements?.length ?? 0,
 			activePowerUps: state.activePowerUps?.length ?? 0,
 			atoms: amount(CurrenciesTypes.ATOMS),
-			generators: Object.entries(state.generators || {}).reduce(
-				(acc, [key, generator]) => {
-					if (generator) {
-						acc[key] = { count: generator.count, level: generator.level };
-					}
-					return acc;
-				},
-				{} as Record<string, { count: number; level: number }>
+			generators: Object.fromEntries(
+				Object.entries(state.generators || {}).flatMap(([key, generator]) => (generator ? [[key, { count: generator.count, level: generator.level }] as const] : [])),
 			),
 			electronizes: state.totalElectronizesAllTime ?? 0,
 			electrons: amount(CurrenciesTypes.ELECTRONS),
@@ -63,7 +57,7 @@ function captureGameState(): Record<string, unknown> | null {
 			protons: amount(CurrenciesTypes.PROTONS),
 			radiationMass: state.radiation?.mass ?? 0,
 			radiationUnlocked: state.radiation?.unlocked ?? false,
-			// Every realm stays mounted, so this is the visible one only
+			/** Every realm stays mounted, so this is the visible one only. */
 			realm: state.selectedRealmId ?? null,
 			saveTampered: gameManager.integrityFlagged,
 			saveWarnings: gameManager.saveIntegrityWarnings,
@@ -106,7 +100,7 @@ export async function reportError(error: Error | string): Promise<void> {
 		if (isNoiseError(report.errorMessage, report.stackTrace)) return;
 		if (isDuplicateError(report.errorMessage, report.stackTrace)) return;
 
-		// The server attributes the report to the session behind this token, so an unauthenticated report stays anonymous.
+		/** The server attributes the report to the session behind this token, so an unauthenticated report stays anonymous. */
 		const authHeaders = await supabaseAuth.authHeaders().catch(() => ({}));
 
 		await fetch('/api/errors', {
@@ -141,7 +135,7 @@ export function initGlobalErrorHandlers(): void {
 	});
 
 	window.addEventListener('error', (event) => {
-		// Script loading errors carry no error object and nothing actionable
+		/** Script loading errors carry no error object and nothing actionable. */
 		if (!event.error) return;
 		reportError(event.error);
 	});

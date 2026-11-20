@@ -3,7 +3,7 @@
  * obfuscation.ts, just catches naive hand-editing of the save through DevTools.
  */
 
-import { simpleHash } from '../signing.js';
+import { simpleHash } from '#helpers/signing.js';
 
 const WRAPPER_VERSION = 1;
 
@@ -26,7 +26,7 @@ export function wrapSaveForStorage(payload: string): string {
 	return JSON.stringify(wrapped);
 }
 
-export interface UnwrappedSave {
+interface UnwrappedSave {
 	payload: string;
 	tampered: boolean;
 }
@@ -42,7 +42,7 @@ export function unwrapStoredSave(raw: string): UnwrappedSave {
 			};
 		}
 	} catch {
-		// Not wrapped JSON, fall through and treat raw as the payload itself.
+		/** Not wrapped JSON, so the raw string is the payload itself. */
 	}
 
 	return { payload: raw, tampered: false };

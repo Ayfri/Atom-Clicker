@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
-	import { ui } from '#stores/ui.svelte.js';
 	import Neutrino from '#components/cosmos/periodic/Neutrino.svelte';
 	import PeriodicTable from '#components/cosmos/periodic/PeriodicTable.svelte';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import { ui } from '#stores/ui.svelte.js';
 	import { cubicInOut } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 

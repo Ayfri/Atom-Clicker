@@ -52,18 +52,14 @@ class RadiationManager {
 		return Math.min(1, Math.sqrt(this.regenRate / expectedBurn));
 	});
 
-	decayRate = $derived.by(() => {
-		return this.mass * this.decayRatePercent;
-	});
+	decayRate = $derived(this.mass * this.decayRatePercent);
 
 	regenRate = $derived.by(() => {
 		const level = this.upgradeLevels['breeder_reactor'] || 0;
 		return level * 0.2;
 	});
 
-	netMassChange = $derived.by(() => {
-		return this.regenRate - this.decayRate;
-	});
+	netMassChange = $derived(this.regenRate - this.decayRate);
 
 	maxCpm = $derived.by(() => {
 		const baseCpm = 1000;
@@ -183,7 +179,7 @@ class RadiationManager {
 
 		if (seconds > 0) {
 			if (k > 0.000001) {
-				// m(t) = R/k + (m0 - R/k) * e^(-kt), averaged over [0, t] as R/k + (m0 - R/k) / (kt) * (1 - e^(-kt))
+				/** m(t) = R/k + (m0 - R/k) * e^(-kt), averaged over [0, t] as R/k + (m0 - R/k) / (kt) * (1 - e^(-kt)). */
 				const equilibrium = R / k;
 				const m0 = this.mass;
 				const expFactor = Math.exp(-k * seconds);

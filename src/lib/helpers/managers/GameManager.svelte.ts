@@ -12,6 +12,21 @@ import { POWER_UP_DEFAULT_INTERVAL, POWER_UP_MIN_INTERVAL } from '#data/powerUp.
 import { REALMS, type RealmType, RealmTypes } from '#data/realms.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { KEEP_GENERATOR_UPGRADES, UPGRADES } from '#data/upgrades.js';
+import { checkStatePlausibility } from '#helpers/audit/plausibility.js';
+import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds } from '#helpers/audit/runBounds.js';
+import { EffectTable, mul } from '#helpers/effects.js';
+import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+import { TutorialManager } from '#helpers/managers/TutorialManager.svelte.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
+import { setItem } from '#helpers/safeLocalStorage.js';
+import { applyOfflineProgress } from '#helpers/save/offlineProgress.js';
+import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/save/saves.js';
+import { LAYERS, type LayerType, statsConfig } from '#helpers/stats.js';
+import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '#helpers/xp.js';
 import {
 	APP_PRODUCTION_MULTIPLIER,
 	AUTO_BUY_BULK,
@@ -29,7 +44,6 @@ import type {
 	CosmosState,
 	CurrencyBoosts,
 	EffectSource,
-	FeatureState,
 	GameState,
 	Generator,
 	OfflineProgressSummary,
@@ -42,22 +56,6 @@ import type {
 	SkillUpgrade,
 } from '#lib/types/game.js';
 import { numberNotation } from '#lib/utils.js';
-import { setItem } from '#helpers/safeLocalStorage.js';
-import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
-import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
-import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
-import { EffectTable, mul } from '#helpers/effects.js';
-import { applyOfflineProgress } from '#helpers/save/offlineProgress.js';
-import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
-import { perfTracker } from '#helpers/perf/perfTracker.js';
-import { checkStatePlausibility } from '#helpers/audit/plausibility.js';
-import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
-import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
-import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, RUN_BOUND_SLACK, runSeconds } from '#helpers/audit/runBounds.js';
-import { SAVE_KEY, SAVE_VERSION, loadSavedState, serializeSaveState } from '#helpers/save/saves.js';
-import { LAYERS, type LayerType, statsConfig } from '#helpers/statConstants.js';
-import { TutorialManager } from '#helpers/managers/TutorialManager.svelte.js';
-import { levelFromTotalXP, totalXPForLevel, xpForLevel } from '#helpers/xp.js';
 import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
@@ -75,9 +73,11 @@ function scheduleExpiry(callback: () => void, delay: number) {
 export class GameManager {
 	achievements = $state.raw<string[]>([]);
 	activePowerUps = $state.raw<PowerUp[]>([]);
-	balanceVersion = $state(BALANCE_VERSION);
 	/** Guards dailyStats increments during applyOfflineProgress, which reuses purchaseGenerator/purchaseUpgrade directly. */
 	applyingOfflineProgress = false;
+	balanceVersion = $state(BALANCE_VERSION);
+	/** Set by RealmManager, which GameManager never imports: a loaded save can lock the Table, so what shows it closes first. */
+	beforeLoad: () => void = () => {};
 	/** The simulation swaps this for its own clock, a 24h benchmark run finishes in seconds of wall time. */
 	clock: () => number = () => Date.now();
 	/** Pushed in by ColliderManager, it stays at 0 in the simulation, which has no server to read the shared counter from. */
@@ -112,7 +112,7 @@ export class GameManager {
 	settings = $state<Settings>(structuredClone(statsConfig.settings.defaultValue));
 	skillUpgrades = $state.raw<string[]>([]);
 	startDate = $state(Date.now());
-	/** Clock of the last tick: stability read the live clock, so every click moved it by a few ms and reran the whole production chain. */
+	/** Clock of the last tick: stability reads this, not the live clock, which every click would move by a few ms and rerun the whole production chain. */
 	tickTime = $state(Date.now());
 	totalClicksAllTime = $state(0);
 	totalClicksRun = $state(0);
@@ -376,7 +376,7 @@ export class GameManager {
 		red: this.effects.value('red_light_gain', 1, this),
 	});
 
-	/** Light per second each color earns with no click: the Table's lamps and the sky times the stat-only Light gain, outside every Prism multiplier. */
+	/** Light per second each color earns with no click: the Table's lamps and the sky, times the Light gain stat, outside every Prism multiplier. */
 	passiveLight = $derived<Record<ChromaticColor, number>>({
 		blue: (periodicManager.lampLight.blue + cosmosManager.skyLight.blue) * this.lightGain.blue,
 		green: (periodicManager.lampLight.green + cosmosManager.skyLight.green) * this.lightGain.green,
@@ -465,7 +465,7 @@ export class GameManager {
 		if (added > 0) this.currencyBoosts = { ...this.currencyBoosts, [currency]: points + added };
 	}
 
-	/** Buys one auto-buy batch of a generator, as many as the Bulk Assembly level allows and the bank pays for, and returns how many were built. */
+	/** Buys one auto-buy batch of a generator, up to the Bulk Assembly level and what the bank pays for, and returns how many were built. */
 	autoBuyGenerator(type: GeneratorType): number {
 		const max = this.getMaxAffordableGenerator(type);
 		/** An overflowed bank makes the max infinite and spending from it would store NaN atoms. */
@@ -581,8 +581,8 @@ export class GameManager {
 	}
 
 	/**
-	 * Layer 4 prestige once the reactor held its ionization line for a minute. The core and the electrons that fuel it are emptied too,
-	 * neither resets by layer, and a kept electron bank refuelled the reactor for another Ionize a minute later.
+	 * Layer 4 prestige once the reactor held its ionization line for a minute. The core and the electrons are emptied here, no layer resets
+	 * them, and a kept electron bank would refuel the reactor for another Ionize a minute later.
 	 */
 	ionize() {
 		if (!radiationManager.ionizeReady) return false;
@@ -725,9 +725,8 @@ export class GameManager {
 	}
 
 	/**
-	 * A run carried over from an older, more generous balance can hold far more atoms than its generators make today, which the
-	 * leaderboard would refuse until the next Protonize. Those atoms are cut to what the run could earn under the current balance,
-	 * the same bound the server checks, and the untouched save is kept aside.
+	 * Cuts the atoms of a run carried over from an older, more generous balance to what it could earn today (the bound the server checks),
+	 * which the leaderboard would otherwise refuse until the next Protonize. The untouched save is kept aside.
 	 */
 	private rebaseRun() {
 		const now = this.clock();
@@ -773,7 +772,7 @@ export class GameManager {
 	}
 
 	loadSaveData(data: Partial<GameState>) {
-		realmManager.resetTable();
+		this.beforeLoad();
 		for (const key of Object.keys(statsConfig)) {
 			if (!(key in data)) continue;
 			switch (key) {
@@ -864,9 +863,10 @@ export class GameManager {
 	}
 
 	/**
-	 * Buys every affordable upgrade, cheapest first, the way auto-upgrade does online and offline, or only those paid in `currency`. Returns the purchased ids.
-	 * Conditions are read once before buying: a purchase only opens conditions (owned upgrades, skills, counters), never closes one, and none reads a balance, so this matches re-checking each one.
-	 * The decisions follow a local balance and the state is written once, every write walks all the reactions of its field.
+	 * Buys every affordable upgrade (only those paid in `currency` when given), cheapest first, like auto-upgrade does online and offline.
+	 * Returns the purchased ids. Conditions are read once up front: a purchase only opens conditions (owned upgrades, skills, counters),
+	 * never closes one, and none reads a balance, so this matches re-checking each one.
+	 * Decisions follow a local balance and the state is written once, because every write walks all the reactions of its field.
 	 */
 	purchaseAffordableUpgrades(currency?: CurrencyName): string[] {
 		const owned = new Set(this.upgrades);
@@ -945,9 +945,9 @@ export class GameManager {
 	}
 
 	/**
-	 * Pays the next period of an active Overdrive once `now` reaches the end of the paid one, and turns it off when the bank cannot pay.
-	 * A gap longer than a period (a frozen tab, time away) costs one Higgs Boson, never the periods it skipped. A `paidUntil` that is not a
-	 * number (an edited save) counts as 0, so it is paid once and rewritten instead of charging every tick.
+	 * Pays the next Overdrive period once `now` reaches the end of the paid one, and turns it off when the bank cannot pay.
+	 * A gap longer than a period (frozen tab, time away) costs one Higgs Boson, never the skipped periods. A `paidUntil` that is not a
+	 * number (edited save) counts as 0, so it is paid once and rewritten instead of charging every tick.
 	 */
 	renewOverdrive(type: GeneratorType, now: number) {
 		const slot = this.overdrive[type];
@@ -1048,9 +1048,8 @@ export class GameManager {
 	}
 
 	/**
-	 * `skipProduction` is what the browser passes: there generator and auto-click atoms are summed per commit in
-	 * `+page.svelte` for a smooth counter and XP bar, crediting them here too would pay them twice. The simulation has no
-	 * commit loop and pays here.
+	 * `skipProduction` is what the browser passes: generator and auto-click atoms are summed per commit in `+page.svelte` for a smooth
+	 * counter and XP bar, so crediting them here too would pay them twice. The simulation has no commit loop and pays here.
 	 */
 	tick(deltaTime = 1000, skipAchievements = false, skipProduction = false) {
 		const seconds = deltaTime / 1000;
@@ -1099,7 +1098,7 @@ export class GameManager {
 			:	[...automation.generators, generatorType];
 	}
 
-	/** Turning a generator on pays its first period unless the last one is still running, turning it off keeps what was paid. Returns whether it changed. */
+	/** On pays the first period unless the last one still runs, off keeps what was paid. Returns whether it changed. */
 	toggleOverdrive(type: GeneratorType): boolean {
 		const slot = this.overdrive[type];
 		if (slot?.active) {

@@ -1,7 +1,7 @@
 /**
- * The level curve is a pure function of the level, and `playerLevel` is re-derived on every tick because XP moves
- * with every atom earned. Walking the curve level by level made that O(level) with two `Math.pow` per step, so the
- * per-level cost and its running total are memoized once and the level itself comes out of a binary search.
+ * The level curve is a pure function of the level, and `playerLevel` is re-derived on every tick because XP moves with every atom
+ * earned. Walking it level by level costs O(level) with two `Math.pow` per step, so the per-level cost and its running total are
+ * memoized once and the level itself comes out of a binary search.
  */
 const XP_BASE = 100;
 const XP_POLY = 1.1;
@@ -38,7 +38,7 @@ export function totalXPForLevel(level: number): number {
 export function levelFromTotalXP(totalXP: number): number {
 	if (!Number.isFinite(totalXP) || totalXP <= 0) return 0;
 	let level = 1;
-	// The curve is exponential, so doubling reaches any reachable level in a handful of steps.
+	/** The curve is exponential, so doubling reaches any reachable level in a handful of steps. */
 	extendTo(level);
 	while (cumulativeCosts[level] <= totalXP) {
 		level *= 2;

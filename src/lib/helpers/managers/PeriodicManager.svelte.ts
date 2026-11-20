@@ -31,10 +31,10 @@ import {
 	SITES,
 	type SiteId,
 } from '#data/sites.js';
+import { mul } from '#helpers/effects.js';
 import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
 import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
-import { mul } from '#helpers/effects.js';
 import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import type { EffectSource, EffectStat, PeriodicState, SiteForge } from '#lib/types/game.js';
 
@@ -252,10 +252,10 @@ class PeriodicManager {
 	}
 
 	/**
-	 * Online ticks and offline catch-up both land here, a long gap finishes elements until the source holds `MAX_UNREAD` unread ones, then it stops and the rest of the gap is lost.
-	 * A finished chain frees its forge. Returns the elements forged.
+	 * Advances every active source by `deltaMs` (online ticks and offline catch-up alike), frees the forge of a finished chain and returns the elements forged.
+	 * A source stops once it holds `MAX_UNREAD` unread elements and the rest of the gap is lost.
 	 * Each source runs on its own clock and passes repeat while one finishes an element, so a step waiting on another source starts when that element is made, whatever the order of `active`.
-	 * `reactor` is the reactor factor the whole gap runs at, the offline catch-up passes its time-weighted average because the live power is the one at the end of the gap.
+	 * `reactor` is the reactor factor of the whole gap, offline passes its time-weighted average because the live power is the one at the end of the gap.
 	 */
 	tick(deltaMs: number, reactor?: number): number[] {
 		if (!this.unlocked || !this.active.length) return [];
@@ -310,7 +310,8 @@ class PeriodicManager {
 	}
 
 	/**
-	 * Drops unknown sites and Z from a tampered or future save, identified elements the chain never forged, paid shares that are not a part of a ready element's cost,
+	 * Drops what a tampered or future save can't hold: unknown sites and Z, identified elements the chain never forged,
+	 * paid shares that are not a part of a ready element's cost (outside (0, 1), or of an identified or unforged element),
 	 * and forges on sources that are closed, finished or beyond the forges owned.
 	 */
 	loadState(state: PeriodicState) {
@@ -326,7 +327,7 @@ class PeriodicManager {
 		this.sites = sites;
 		const { tuning } = state;
 		this.tuning = typeof tuning === 'number' && tuning >= TUNING.min && tuning <= TUNING.max ? tuning : TUNING_DEFAULT;
-		this.identified = [...new Set(state.identified ?? [])].filter(z => this.forged.has(z)).sort((a, b) => a - b);
+		this.identified = [...new Set(state.identified ?? []).intersection(this.forged)].sort((a, b) => a - b);
 		this.paid = Object.fromEntries(
 			Object.entries(state.paid ?? {})
 				.map(([z, share]) => [Number(z), share] as const)

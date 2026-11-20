@@ -15,7 +15,7 @@ export function connectDeriveds(targets: object[]): () => void {
 					try {
 						(target as Record<string, unknown>)[key];
 					} catch {
-						// A getter that needs the browser is not a derived worth connecting.
+						/** A getter that needs the browser is not a derived worth connecting. */
 					}
 				}
 			}

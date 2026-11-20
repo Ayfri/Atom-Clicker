@@ -1,8 +1,8 @@
 import { browser } from '$app/env';
 import { colliderBonus } from '#data/collider.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
-import type { ColliderState } from '#lib/types/game.js';
 import { obfuscateClientData } from '#helpers/obfuscation.js';
+import type { ColliderState } from '#lib/types/game.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 

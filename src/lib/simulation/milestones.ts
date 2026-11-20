@@ -1,17 +1,15 @@
 import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { ELEMENT_COUNT } from '#data/elements.js';
 import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
-import { ELEMENT_COUNT } from '#data/elements.js';
 import { FORGE_MILESTONES } from '#data/sites.js';
 import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
-import type { RunState } from './snapshots';
-import type { MilestoneDefinition, MilestoneHit } from './types';
-
-const DAY_MS = 86_400_000;
+import type { RunState } from './snapshots.js';
+import { DAY_MS, type MilestoneDefinition, type MilestoneHit } from './types.js';
 
 type Reader = (run: RunState) => number;
 

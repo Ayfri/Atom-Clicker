@@ -77,7 +77,7 @@ export class ReactorRenderer extends CanvasLoop {
 	static current: ReactorRenderer | null = null;
 
 	private readonly appear = new Float32Array(MAX_NUCLEONS);
-	private readonly ctx: CanvasRenderingContext2D;
+	private readonly byDepth = (a: number, b: number) => this.nucleonPoints[b * 3 + 2] - this.nucleonPoints[a * 3 + 2];
 	/** Fuel electrons flying to the core: x, y, vx, vy per slot, a zero speed marks a free slot. */
 	private readonly fuel = new Float32Array(MAX_FUEL * 4);
 	private readonly nucleonBases: Vector[] = Array.from({ length: MAX_NUCLEONS }, () => ({ x: 0, y: 0, z: 0 }));
@@ -111,9 +111,6 @@ export class ReactorRenderer extends CanvasLoop {
 		scene: ReactorScene,
 	) {
 		super(canvas, 'canvas:reactor');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.state = scene;
 		this.power = scene.power;
 		this.output = scene.output;
@@ -128,7 +125,7 @@ export class ReactorRenderer extends CanvasLoop {
 		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 	}
 
-	destroy() {
+	override destroy() {
 		super.destroy();
 		if (ReactorRenderer.current === this) ReactorRenderer.current = null;
 	}
@@ -160,7 +157,7 @@ export class ReactorRenderer extends CanvasLoop {
 	}
 
 	/** Streaks and fuel in flight are dropped while off screen, they would all land at once on return. */
-	protected paused() {
+	protected override paused() {
 		this.rays.fill(0);
 		this.fuel.fill(0);
 	}
@@ -442,7 +439,7 @@ export class ReactorRenderer extends CanvasLoop {
 			nucleonPoints[i * 3 + 2] = y0 * sinB + z1 * cosB;
 			nucleonOrder.push(i);
 		}
-		nucleonOrder.sort((a, b) => nucleonPoints[b * 3 + 2] - nucleonPoints[a * 3 + 2]);
+		nucleonOrder.sort(this.byDepth);
 
 		const step = Math.round(this.heat * HEAT_STEPS_PER_UNIT);
 		const extent = Math.max(1, packNucleus(count).extent - NUCLEON_RADIUS);

@@ -1,8 +1,7 @@
-// Lightweight tamper/replay guard for leaderboard payloads in transit.
-// This runs identically on client and server, so it is NOT a secret and NOT a
-// security boundary - request identity is enforced via Supabase auth tokens
-// server-side, see src/lib/server/obfuscation.server.ts.
-
+/**
+ * Lightweight tamper/replay guard for leaderboard payloads in transit. It runs identically on client and server, so it is NOT a secret
+ * and NOT a security boundary: request identity is enforced through Supabase auth tokens server-side, see `server/request.server.ts`.
+ */
 export function simpleHash(str: string): number {
 	let hash = 0;
 	for (let i = 0; i < str.length; i++) {

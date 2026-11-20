@@ -24,7 +24,6 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<!-- Hexagonal lattice structure -->
 	<g opacity="0.4">
 		<polygon
 			points="12,3 17,6 17,12 12,15 7,12 7,6"
@@ -36,13 +35,10 @@
 		></polygon>
 	</g>
 
-	<!-- Top hexagon outline -->
 	<polygon points="12,3 17,6 17,12 12,15 7,12 7,6"></polygon>
 
-	<!-- Bottom hexagon outline -->
 	<polygon points="12,9 17,12 17,18 12,21 7,18 7,12"></polygon>
 
-	<!-- Connection nodes -->
 	<circle
 		cx="12"
 		cy="3"

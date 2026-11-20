@@ -1,12 +1,15 @@
+<script lang="ts" module>
+	/** One formatter shared by every row instead of one per mounted row. */
+	const relativeTime = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+</script>
+
 <script lang="ts">
-	import Avatar from '#components/ui/Avatar.svelte';
-	import LeaderboardBannerBackdrop from '#components/leaderboard/LeaderboardBannerBackdrop.svelte';
+	import LeaderboardBannerBackdrop, { bannerOf } from '#components/leaderboard/LeaderboardBannerBackdrop.svelte';
 	import LevelChip from '#components/leaderboard/LevelChip.svelte';
+	import { podiumColor } from '#components/leaderboard/Podium.svelte';
+	import Avatar from '#components/ui/Avatar.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
-	import { podiumColor } from '#data/leaderboard.js';
-	import { getQuarkShopItem, type BannerDefinition } from '#data/quarkShop.js';
-	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 
@@ -17,20 +20,11 @@
 
 	let { entry, onclick }: Props = $props();
 
-	const relativeTime = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-
-	function getBanner(entry: LeaderboardEntry): BannerDefinition | null {
-		const bannerId = entry.self ? quarksManager.equippedBanner : entry.equippedBanner;
-		if (!bannerId) return null;
-		const item = getQuarkShopItem(bannerId);
-		return item?.type === 'banner' && item.banner ? item.banner : null;
-	}
-
-	let banner = $derived(getBanner(entry));
-	let delta = $derived(leaderboard.rankDelta(entry));
-	let isNew = $derived(delta === null && !!entry.userId && leaderboard.previousRanks !== null);
-	let metal = $derived(podiumColor(entry.rank));
-	let lastSeen = $derived(entry.lastSeen ? relativeTime.format(Math.round((entry.lastSeen - Date.now()) / 86_400_000), 'day') : null);
+	const banner = $derived(bannerOf(entry));
+	const delta = $derived(leaderboard.rankDelta(entry));
+	const isNew = $derived(delta === null && !!entry.userId && leaderboard.previousRanks !== null);
+	const lastSeen = $derived(entry.lastSeen ? relativeTime.format(Math.round((entry.lastSeen - Date.now()) / 86_400_000), 'day') : null);
+	const metal = $derived(podiumColor(entry.rank));
 </script>
 
 <svelte:element

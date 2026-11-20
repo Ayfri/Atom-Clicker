@@ -1,9 +1,8 @@
 import type { RequestHandler } from './$types';
 import { auditScore } from '#lib/server/audit/scoreAudit.server.js';
+import { verifiedHandler } from '#lib/server/request.server.js';
 import { leaderboardService, supabaseAdmin } from '#lib/server/supabase.server.js';
-import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
-import { addRankToLeaderboard } from '#lib/utils/number-parser.js';
 
 const MAX_PICTURE_LENGTH = 2048;
 const MAX_USERNAME_LENGTH = 50;
@@ -36,6 +35,19 @@ export const GET: RequestHandler = async () => {
 	}
 };
 
+/** Leaderboard atoms arrive as strings (plain, decimal or scientific), anything unreadable or infinite ranks as 0. */
+function parseAtomsValue(atoms: string): number {
+	const value = Number.parseFloat(atoms);
+	return Number.isFinite(value) ? value : 0;
+}
+
+function addRankToLeaderboard<T extends { atoms: string }>(entries: T[]): (T & { rank: number })[] {
+	return entries
+		.map(entry => ({ entry, value: parseAtomsValue(entry.atoms) }))
+		.sort((a, b) => b.value - a.value)
+		.map(({ entry }, index) => ({ ...entry, rank: index + 1 }));
+}
+
 async function fetchLeaderboard(): Promise<LeaderboardResponse> {
 	const [rawLeaderboard, totalUsers, { count: rankedCount }] = await Promise.all([
 		leaderboardService.getLeaderboard(1000),
@@ -45,18 +57,18 @@ async function fetchLeaderboard(): Promise<LeaderboardResponse> {
 	]);
 
 	const entries = addRankToLeaderboard(rawLeaderboard).map((entry) => {
-		// Online means the flag is set and the heartbeat is fresh, so a closed tab times out after 2 minutes.
+		/** Online means the flag is set and the heartbeat is fresh, so a closed tab times out after 2 minutes. */
 		const lastSeen = new Date(entry.updated_at).getTime();
 		const isTrulyOnline = entry.is_online && (Date.now() - lastSeen < 120_000);
 
 		return {
 			atoms: parseFloat(entry.atoms),
 			equippedBanner: entry.equipped_banner ?? null,
-			level: entry.level,
 			is_online: isTrulyOnline,
-			picture: entry.picture || '',
 			/** last_updated only moves on a new record, updated_at follows every heartbeat and cloud save. */
 			lastSeen: new Date(entry.updated_at ?? entry.last_updated).getTime(),
+			level: entry.level,
+			picture: entry.picture || '',
 			rank: entry.rank,
 			userId: entry.id,
 			username: entry.username || 'Anonymous',

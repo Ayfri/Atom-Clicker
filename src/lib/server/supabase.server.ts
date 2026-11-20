@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { COLLIDER_COOLDOWN_SECONDS } from '#data/collider.js';
 import type { PreviousScore, ScoreAudit } from '#lib/server/audit/scoreAudit.server.js';
 import type { ColliderState } from '#lib/types/game.js';
-import type { Database, Json } from '#lib/types/supabase.js';
+import type { Database } from '#lib/types/supabase.js';
 import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
@@ -75,6 +75,7 @@ export const leaderboardService = {
 			throw error;
 		}
 
+		/** The generated types give every RPC a `Json` result and `overrideTypes` rejects it, so each payload is cast to its SQL function's shape. */
 		return data as unknown as ScoreContext;
 	},
 
@@ -85,7 +86,7 @@ export const leaderboardService = {
 			p_issues: audit.issues,
 			p_level: audit.level,
 			p_picture: picture,
-			p_snapshot: audit.snapshot as unknown as Json,
+			p_snapshot: audit.snapshot,
 			p_user_id: userId,
 			p_username: username,
 			p_valid: audit.issues.length === 0,

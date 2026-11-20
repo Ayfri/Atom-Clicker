@@ -26,7 +26,7 @@ export class CachedRect {
 			};
 		});
 
-		// A rect measured while the realm swings in is transformed, so it is dropped again once the realm has settled.
+		/** A rect measured while the realm swings in is transformed, so it is dropped again once the realm has settled. */
 		$effect(() => {
 			realmManager.selectedRealmId;
 			this.invalidate();

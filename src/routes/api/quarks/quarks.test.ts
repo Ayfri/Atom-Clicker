@@ -1,7 +1,6 @@
 import { afterAll, beforeEach, describe, expect, mock, setSystemTime, spyOn, test } from 'bun:test';
 import { DAILY_QUEST_COUNT, getDailyCap, pickDailyQuests } from '#data/dailyQuests.js';
-import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
-import { APP_REWARD_QUARKS } from '#data/quarks.js';
+import { APP_REWARD_QUARKS, QUARK_ACHIEVEMENT_REWARD } from '#data/quarks.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
 import { obfuscateClientData } from '#helpers/obfuscation.js';
 

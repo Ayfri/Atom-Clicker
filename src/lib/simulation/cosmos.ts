@@ -1,8 +1,8 @@
 import { COSMOS_INSTRUMENTS, COSMOS_OBJECTS, COSMOS_OBJECTS_BY_ID } from '#data/cosmos.js';
 import { CurrenciesTypes } from '#data/currencies.js';
+import { EffectTable } from '#helpers/effects.js';
 import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
 import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
-import { EffectTable } from '#helpers/effects.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import type { CosmosBlocker, CosmosEvent, CosmosInsights, CosmosSnapshot } from './types.js';
 

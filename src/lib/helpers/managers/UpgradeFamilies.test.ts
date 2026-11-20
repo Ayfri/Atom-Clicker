@@ -20,8 +20,8 @@ function setAchievements(count: number) {
 	gameManager.achievements = Array.from({ length: count }, (_, i) => `fake_${i}`);
 }
 
-/** The panel's old "Buy all": the available upgrades of the tab sorted cheapest first, each one bought if the balance still pays for it. */
-function oldBuyAll(currency: CurrencyName): string[] {
+/** Reference for "Buy all": the available upgrades of the tab sorted cheapest first, bought one by one while the balance still pays for each. */
+function buyAllOneByOne(currency: CurrencyName): string[] {
 	const owned = new Set(gameManager.upgrades);
 	const bought: string[] = [];
 	const available = Object.values(UPGRADES)
@@ -303,10 +303,10 @@ describe('buy all', () => {
 		],
 	];
 
-	test.each(setups)('buys what the old panel bought for %s, cheapest first', (currency, setup) => {
+	test.each(setups)('buying a family at once buys what buying one by one buys for %s, cheapest first', (currency, setup) => {
 		setup();
 		const funded = currenciesManager.getAmount(currency);
-		const expected = oldBuyAll(currency);
+		const expected = buyAllOneByOne(currency);
 		const balance = currenciesManager.getAmount(currency);
 		expect(expected.length).toBeGreaterThan(1);
 

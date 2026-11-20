@@ -1,5 +1,5 @@
 /** IndexedDB store for benchmark report history. */
-import type { MilestoneHit, RunInsights, SimulationResult, SpikeEvent } from '#lib/simulation/types.js';
+import type { MilestoneHit, RunInsights, SimulationResult, SpikeEvent } from './types.js';
 
 const DB_NAME = 'atom-clicker-benchmarks';
 const DB_VERSION = 2;
@@ -36,45 +36,39 @@ export interface BenchmarkReportSummary {
 
 let db: IDBDatabase | null = null;
 
+function promisify<T>(request: IDBRequest<T>): Promise<T> {
+	const { promise, reject, resolve } = Promise.withResolvers<T>();
+	request.onerror = () => reject(request.error);
+	request.onsuccess = () => resolve(request.result);
+	return promise;
+}
+
 async function openDB(): Promise<IDBDatabase> {
 	if (db) return db;
 
-	return new Promise((resolve, reject) => {
-		const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => {
-			db = request.result;
-			resolve(db);
-		};
-
-		request.onupgradeneeded = event => {
-			const database = (event.target as IDBOpenDBRequest).result;
-
-			if (!database.objectStoreNames.contains(STORE_NAME)) {
-				const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-				store.createIndex('createdAt', 'createdAt', { unique: false });
-				store.createIndex('name', 'name', { unique: false });
-			}
-		};
-	});
+	const request = indexedDB.open(DB_NAME, DB_VERSION);
+	request.onupgradeneeded = () => {
+		if (request.result.objectStoreNames.contains(STORE_NAME)) return;
+		const store = request.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+		store.createIndex('createdAt', 'createdAt', { unique: false });
+		store.createIndex('name', 'name', { unique: false });
+	};
+	db = await promisify(request);
+	return db;
 }
 
-function generateId(): string {
-	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+async function openStore(mode: IDBTransactionMode): Promise<IDBObjectStore> {
+	return (await openDB()).transaction(STORE_NAME, mode).objectStore(STORE_NAME);
 }
 
 /** `result` must be plain data, IndexedDB's structured clone rejects Svelte proxies. */
 export async function saveReport(result: SimulationResult, customName?: string): Promise<string> {
-	const database = await openDB();
-	const id = generateId();
-
-	const finalSnapshot = result.snapshots.at(-1) ?? null;
+	const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 	const report: BenchmarkReport = {
 		config: result.config,
 		createdAt: Date.now(),
 		durationMs: result.durationMs,
-		finalSnapshot,
+		finalSnapshot: result.snapshots.at(-1) ?? null,
 		id,
 		insights: result.insights,
 		milestoneCount: result.milestones.length,
@@ -85,104 +79,54 @@ export async function saveReport(result: SimulationResult, customName?: string):
 		wasCompleted: !result.cancelled,
 	};
 
-	return new Promise((resolve, reject) => {
-		const transaction = database.transaction(STORE_NAME, 'readwrite');
-		const store = transaction.objectStore(STORE_NAME);
-		const request = store.add(report);
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve(id);
-	});
+	await promisify((await openStore('readwrite')).add(report));
+	return id;
 }
 
 export async function listReports(): Promise<BenchmarkReportSummary[]> {
-	const database = await openDB();
+	const request = (await openStore('readonly')).index('createdAt').openCursor(null, 'prev');
+	const { promise, reject, resolve } = Promise.withResolvers<BenchmarkReportSummary[]>();
+	const summaries: BenchmarkReportSummary[] = [];
 
-	return new Promise((resolve, reject) => {
-		const transaction = database.transaction(STORE_NAME, 'readonly');
-		const store = transaction.objectStore(STORE_NAME);
-		const index = store.index('createdAt');
-		const request = index.openCursor(null, 'prev');
+	request.onerror = () => reject(request.error);
+	request.onsuccess = () => {
+		const cursor = request.result;
+		if (!cursor) return resolve(summaries);
 
-		const summaries: BenchmarkReportSummary[] = [];
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = event => {
-			const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-			if (cursor) {
-				const report = cursor.value as BenchmarkReport;
-				summaries.push({
-					config: report.config,
-					createdAt: report.createdAt,
-					durationMs: report.durationMs,
-					finalAPS: report.finalSnapshot?.atomsPerSecond ?? 0,
-					finalAtoms: report.finalSnapshot?.atoms ?? 0,
-					finalLevel: report.finalSnapshot?.playerLevel ?? 0,
-					id: report.id,
-					milestoneCount: report.milestoneCount,
-					name: report.name,
-					wasCompleted: report.wasCompleted,
-				});
-				cursor.continue();
-			} else {
-				resolve(summaries);
-			}
-		};
-	});
+		const report: BenchmarkReport = cursor.value;
+		summaries.push({
+			config: report.config,
+			createdAt: report.createdAt,
+			durationMs: report.durationMs,
+			finalAPS: report.finalSnapshot?.atomsPerSecond ?? 0,
+			finalAtoms: report.finalSnapshot?.atoms ?? 0,
+			finalLevel: report.finalSnapshot?.playerLevel ?? 0,
+			id: report.id,
+			milestoneCount: report.milestoneCount,
+			name: report.name,
+			wasCompleted: report.wasCompleted,
+		});
+		cursor.continue();
+	};
+	return promise;
 }
 
 export async function getReport(id: string): Promise<BenchmarkReport | null> {
-	const database = await openDB();
-
-	return new Promise((resolve, reject) => {
-		const transaction = database.transaction(STORE_NAME, 'readonly');
-		const store = transaction.objectStore(STORE_NAME);
-		const request = store.get(id);
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve(request.result ?? null);
-	});
+	return (await promisify((await openStore('readonly')).get(id))) ?? null;
 }
 
 export async function deleteReport(id: string): Promise<void> {
-	const database = await openDB();
-
-	return new Promise((resolve, reject) => {
-		const transaction = database.transaction(STORE_NAME, 'readwrite');
-		const store = transaction.objectStore(STORE_NAME);
-		const request = store.delete(id);
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve();
-	});
+	await promisify((await openStore('readwrite')).delete(id));
 }
 
 export async function renameReport(id: string, newName: string): Promise<void> {
-	const database = await openDB();
 	const report = await getReport(id);
 	if (!report) return;
 
 	report.name = newName;
-
-	return new Promise((resolve, reject) => {
-		const transaction = database.transaction(STORE_NAME, 'readwrite');
-		const store = transaction.objectStore(STORE_NAME);
-		const request = store.put(report);
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve();
-	});
+	await promisify((await openStore('readwrite')).put(report));
 }
 
 export async function clearAllReports(): Promise<void> {
-	const database = await openDB();
-
-	return new Promise((resolve, reject) => {
-		const transaction = database.transaction(STORE_NAME, 'readwrite');
-		const store = transaction.objectStore(STORE_NAME);
-		const request = store.clear();
-
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve();
-	});
+	await promisify((await openStore('readwrite')).clear());
 }

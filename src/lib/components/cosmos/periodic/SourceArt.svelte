@@ -1,7 +1,4 @@
-<script
-	lang="ts"
-	module
->
+<script lang="ts" module>
 	import type { SiteId } from '#data/sites.js';
 
 	/** Sky object whose map each source shows, the same crop as the Cosmos sky list. */
@@ -30,8 +27,8 @@
 
 <script lang="ts">
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
-	import { MAJOR_TICKS, MINOR_TICKS, RING_PARTICLES } from '#components/modals/colliderRing.js';
 	import Currency from '#components/ui/Currency.svelte';
+	import { MAJOR_TICKS, MINOR_TICKS, RING_PARTICLES } from '#data/collider.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { NEUTRON_COLOR } from '#helpers/canvas/nucleus.js';
 

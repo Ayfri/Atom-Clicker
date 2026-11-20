@@ -2,8 +2,8 @@ import type { CurrencyName } from '#data/currencies.js';
 import { GENERATORS, type GeneratorType } from '#data/generators.js';
 import type { IconName } from '#data/iconNames.js';
 import { UPGRADE_CATEGORIES, UPGRADES, type UpgradeCategory } from '#data/upgrades.js';
-import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import { effectAmount } from '#helpers/effects.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import type { EffectStat, Upgrade } from '#lib/types/game.js';
 import { formatNumber } from '#lib/utils.js';
@@ -61,26 +61,14 @@ interface UpgradeGroup {
 	views: FamilyView[];
 }
 
-function buildFamilies(): Family[] {
-	const groups = new Map<string, Upgrade[]>();
-	for (const upgrade of Object.values(UPGRADES)) {
-		const key = upgrade.family ?? upgrade.id;
-		const tiers = groups.get(key);
-		if (tiers) tiers.push(upgrade);
-		else groups.set(key, [upgrade]);
-	}
-
-	return [...groups].map(([id, tiers]) => ({
-		category: tiers[0].category,
-		currency: tiers[0].cost.currency,
-		icon: tiers[0].icon ?? 'upgrade',
-		id,
-		name: tiers[0].familyName ?? tiers[0].name,
-		tiers,
-	}));
-}
-
-const FAMILIES: readonly Family[] = buildFamilies();
+const FAMILIES: readonly Family[] = [...Map.groupBy(Object.values(UPGRADES), upgrade => upgrade.family ?? upgrade.id)].map(([id, tiers]) => ({
+	category: tiers[0].category,
+	currency: tiers[0].cost.currency,
+	icon: tiers[0].icon ?? 'upgrade',
+	id,
+	name: tiers[0].familyName ?? tiers[0].name,
+	tiers,
+}));
 
 /** Per-family reactive state, so a purchase only touches the row of its own family. */
 export class FamilyView {

@@ -12,7 +12,7 @@ export const sessionsService = {
 	async start(row: ClientSessionInsert): Promise<string> {
 		let { data, error } = await supabaseAdmin.from('client_sessions').insert(row).select('write_key').single();
 
-		// A player's profile row can trail the sign-in by a moment, the session then starts anonymous instead of failing.
+		/** A player's profile row can trail the sign-in by a moment, the session then starts anonymous instead of failing. */
 		if (error?.code === '23503' && row.user_id) {
 			({ data, error } = await supabaseAdmin.from('client_sessions').insert({ ...row, user_id: null }).select('write_key').single());
 		}

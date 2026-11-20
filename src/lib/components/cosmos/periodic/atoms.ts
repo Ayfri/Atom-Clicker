@@ -7,6 +7,9 @@ const SUBSHELLS = [
 
 export type StageKind = 'forging' | 'identified' | 'ready' | 'reading' | 'waiting';
 
+/** Nucleus color of an element that is not identified yet. */
+export const BARE_COLOR = '#c3cad6';
+
 /** Past this many nucleons a mini atom keeps the same ball, they would shrink to specks. */
 export const MINI_NUCLEONS = 20;
 
@@ -51,7 +54,7 @@ export function paintNucleus(ctx: CanvasRenderingContext2D, x: number, y: number
 	}
 }
 
-const miniNucleusRadius =(size: number, count: number) => size * (0.07 + 0.09 * Math.min(1, Math.cbrt(count / MINI_NUCLEONS)));
+const miniNucleusRadius = (size: number, count: number) => size * (0.07 + 0.09 * Math.min(1, Math.cbrt(count / MINI_NUCLEONS)));
 
 /** A flat Bohr atom filling a `size` square, rings get tighter with more shells so the seventh still fits. */
 export function paintAtom(ctx: CanvasRenderingContext2D, size: number, z: number, color: string) {

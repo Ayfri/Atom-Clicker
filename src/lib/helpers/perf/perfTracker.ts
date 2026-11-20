@@ -17,9 +17,9 @@ const newSlot = (name: string): Slot => ({ calls: 0, maxMs: 0, name, totalMs: 0 
 /**
  * Records where the main thread time goes: named hot paths report `performance.now() - start`, the commit loop its lateness, rAF
  * loops their frame gaps, and blocks of 150 ms or more become incidents, except a gap of a second or more the main thread was free in
- * (`incidentKind`). Nothing runs until the monitor resumes it, so importing it
- * costs nothing, and every call is O(1) without allocation. iOS rounds `performance.now()` to about 1 ms, so totals average out and
- * per-call maximums stay coarse. Everything counts unpaused time only, which `visibleMs` adds up.
+ * (`incidentKind`). Nothing runs until the monitor resumes it, so importing it costs nothing, and every call is O(1) without
+ * allocation. iOS rounds `performance.now()` to about 1 ms, so totals average out and per-call maximums stay coarse. Everything counts
+ * unpaused time only, which `visibleMs` adds up.
  */
 export class PerfTracker {
 	readonly incidents = new IncidentLog();

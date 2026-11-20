@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { ACHIEVEMENTS } from '#data/achievements.js';
-	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
-	import type { IconName } from '#data/iconNames.js';
-	import { ICONS } from '#data/icons.js';
-	import { SITE_IDS, SITES } from '#data/sites.js';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
 	import Iris from '#components/cosmos/Iris.svelte';
 	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
+	import { ACHIEVEMENTS } from '#data/achievements.js';
+	import { APERTURE_WIDEN_MS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS } from '#data/cosmos.js';
+	import type { IconName } from '#data/iconNames.js';
+	import { ICONS } from '#data/icons.js';
+	import { SITE_IDS, SITES } from '#data/sites.js';
 	import { tierIconStack } from '#helpers/iconStacks.js';
 	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { btn, field } from '../shared.svelte';
 	import Section from '../Section.svelte';
+	import { btn, field } from '../shared.svelte.js';
 
 	const ICON_NAMES = Object.keys(ICONS) as IconName[];
 	const TIERS = [1, 10, 50, 100, 200, 300, 500, 1000, 2000];

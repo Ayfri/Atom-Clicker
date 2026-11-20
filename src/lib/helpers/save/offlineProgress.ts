@@ -227,7 +227,6 @@ export function applyOfflineProgress(manager: GameManager, forcedAwayMs?: number
 
 	const photonClickExpectedTotal = photonAutoClickEnabled ? (photonsGained + excitedPhotonsGained) / (photonAutoClicks || 1) : 0;
 
-	// Radiation Summary
 	const radEndMass = radiationManager.mass;
 	const radMassDelta = radEndMass - radStartMass;
 	const radMassLost = radRegenTotal - radMassDelta;

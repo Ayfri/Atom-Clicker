@@ -15,7 +15,7 @@ export const GeneratorTypes = {
 
 export type GeneratorType = typeof GeneratorTypes[keyof typeof GeneratorTypes];
 
-export interface GeneratorData {
+interface GeneratorData {
 	name: string;
 	description: string;
 	cost: Price;

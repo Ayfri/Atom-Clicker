@@ -24,7 +24,6 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<!-- Central atom -->
 	<circle
 		cx="12"
 		cy="12"
@@ -38,7 +37,6 @@
 		r="3"
 	></circle>
 
-	<!-- Outer atoms -->
 	<circle
 		cx="5"
 		cy="8"
@@ -78,7 +76,6 @@
 		r="2"
 	></circle>
 
-	<!-- Bonds -->
 	<line
 		x1="9"
 		y1="10.5"

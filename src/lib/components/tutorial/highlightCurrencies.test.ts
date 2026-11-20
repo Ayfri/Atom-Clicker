@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 import { highlightCurrencies } from '#components/tutorial/highlightCurrencies.js';
+import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 
 const strong = (name: string, currency: keyof typeof CURRENCIES) => `<strong style="color: ${CURRENCIES[currency].color}">${name}</strong>`;
 

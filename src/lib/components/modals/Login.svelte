@@ -1,5 +1,14 @@
 <script module lang="ts">
-	import type { AuthConnection } from '#lib/types/auth.js';
+	import type { Provider } from '@supabase/supabase-js';
+
+	interface AuthConnection {
+		/** Brand color behind the provider logo. */
+		color: string;
+		icon: string;
+		id: string;
+		name: string;
+		provider: Provider;
+	}
 
 	export const AUTH_CONNECTIONS: AuthConnection[] = [
 		{ color: '#ffffff', icon: '/google.svg', id: 'google', name: 'Google', provider: 'google' },

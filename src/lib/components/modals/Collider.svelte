@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { MAJOR_TICKS, MINOR_TICKS, RING_PARTICLES } from '#components/modals/colliderRing.js';
 	import Login from '#components/modals/Login.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { COLLIDER_COOLDOWN_SECONDS, COLLIDER_STEP, COLLIDER_STEP_BONUS } from '#data/collider.js';
-	import { colliderManager } from '#helpers/managers/ColliderManager.svelte.js';
+	import { COLLIDER_COOLDOWN_SECONDS, COLLIDER_STEP, COLLIDER_STEP_BONUS, MAJOR_TICKS, MINOR_TICKS, RING_PARTICLES } from '#data/collider.js';
 	import { ColliderRenderer } from '#helpers/canvas/ColliderRenderer.js';
+	import { colliderManager } from '#helpers/managers/ColliderManager.svelte.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { formatNumberFull } from '#lib/utils.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
@@ -206,7 +205,7 @@
 
 <style>
 	.cooldown {
-		/** A negative delay resumes the fill where the cooldown is, instead of restarting it empty on open. */
+		/* A negative delay resumes the fill where the cooldown is, instead of restarting it empty on open. */
 		animation: charge var(--cooldown) linear var(--elapsed) both;
 	}
 

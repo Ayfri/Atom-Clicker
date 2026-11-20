@@ -1,6 +1,5 @@
-
 import { CurrenciesTypes, type CurrencyName, CURRENCIES } from '#data/currencies.js';
-import { type LayerType, LAYERS } from '#helpers/statConstants.js';
+import { type LayerType, LAYERS } from '#helpers/stats.js';
 import type { CurrencyStateMap } from '#lib/types/game.js';
 
 export class CurrenciesManager {
@@ -47,7 +46,7 @@ export class CurrenciesManager {
 		for (const [type, data] of Object.entries(CURRENCIES)) {
 			const currencyLayer = data.layer ?? LAYERS.NEVER;
 
-			// Reset currencies that are at or below the triggered layer, but ignore NEVER (0) and SPECIAL (-1)
+			/** Currencies at or below the triggered layer reset, NEVER (0) and SPECIAL (-1) never do. */
 			if (currencyLayer > 0 && currencyLayer <= layer) {
 				const currencyName = type as CurrencyName;
 				this.currencies[currencyName].amount = 0;

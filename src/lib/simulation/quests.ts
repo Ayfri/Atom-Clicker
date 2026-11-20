@@ -1,10 +1,8 @@
 import { DAILY_QUEST_COUNT, type DailyQuest, getDailyCap, getQuestProgress, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
-import { statsConfig } from '#helpers/statConstants.js';
-import type { QuestBehavior, QuestOutcome } from './types';
-
-const DAY_MS = 24 * 3600 * 1000;
+import { statsConfig } from '#helpers/stats.js';
+import { DAY_MS, type QuestBehavior, type QuestOutcome } from './types.js';
 
 export class QuestTracker {
 	private dayIndex = -1;

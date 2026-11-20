@@ -26,7 +26,7 @@ class TestLoop extends CanvasLoop {
 	pauses = 0;
 
 	constructor() {
-		super({} as HTMLCanvasElement, 'canvas:test');
+		super({ getContext: () => ({}) } as unknown as HTMLCanvasElement, 'canvas:test');
 		this.observe();
 	}
 
@@ -34,7 +34,7 @@ class TestLoop extends CanvasLoop {
 		return true;
 	}
 
-	protected paused() {
+	protected override paused() {
 		this.pauses++;
 	}
 

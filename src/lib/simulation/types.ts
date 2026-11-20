@@ -1,5 +1,8 @@
 import type { GeneratorType } from '#data/generators.js';
 
+export const HOUR_MS = 3_600_000;
+export const DAY_MS = 24 * HOUR_MS;
+
 export interface BenchmarkConfig {
 	botBehavior: BotBehavior;
 	name: string;
@@ -55,9 +58,9 @@ export interface PrestigeStrategy {
 
 export interface SimulationSnapshot {
 	achievements: number;
+	actionCounts: Partial<Record<SimulationActionType, number>>;
 	/** Only the types the report inspects by id (upgrade, skill, photon_upgrade). Volume types are counted in actionCounts. */
 	actions: SimulationAction[];
-	actionCounts: Partial<Record<SimulationActionType, number>>;
 	atoms: number;
 	atomsCurrencyBoost: number;
 	atomsEarnedAllTime: number;
@@ -66,8 +69,17 @@ export interface SimulationSnapshot {
 	/** APS with the power-up bonus divided back out: a live power-up otherwise reads as a 5x jump in the growth curve. */
 	atomsPerSecondRaw: number;
 	bonusMultiplier: number;
-	generatorLevels: number;
+	boostPointsUsed: number;
+	clicks: number;
+	/** Absent on reports saved before the Cosmos was tracked. */
+	cosmos?: CosmosSnapshot;
+	dayNumber: number;
+	electronizes: number;
+	electrons: number;
+	excitedPhotons: number;
+	excitedPhotonsEarned: number;
 	generatorLevelFactors: Partial<Record<GeneratorType, number>>;
+	generatorLevels: number;
 	/** Seconds until one more unit has paid for itself, the wait to afford it included: the lowest is the right buy. */
 	generatorPaybacks: Partial<Record<GeneratorType, number>>;
 	generatorProductions: Partial<Record<GeneratorType, number>>;
@@ -75,14 +87,6 @@ export interface SimulationSnapshot {
 	generators: Record<GeneratorType, number>;
 	generatorsEverPurchased: string[];
 	generatorsPurchased: number;
-	clicks: number;
-	/** Absent on reports saved before the Cosmos was tracked. */
-	cosmos?: CosmosSnapshot;
-	dayNumber: number;
-	electrons: number;
-	electronizes: number;
-	excitedPhotons: number;
-	excitedPhotonsEarned: number;
 	globalAchievementMultiplier: number;
 	globalFlatMultiplier: number;
 	globalLevelMultiplier: number;
@@ -115,7 +119,6 @@ export interface SimulationSnapshot {
 	questsCompletedTotal: number;
 	questsOfferedTotal: number;
 	radiationMultiplier: number;
-	boostPointsUsed: number;
 	skills: number;
 	stabilityMultiplier: number;
 	timestamp: number;
@@ -143,8 +146,8 @@ export type SimulationActionType =
 	| 'chromatic_upgrade'
 	| 'cosmos'
 	| 'currency_boost'
-	| 'generator'
 	| 'electronize'
+	| 'generator'
 	| 'ionize'
 	| 'overdrive'
 	| 'periodic'

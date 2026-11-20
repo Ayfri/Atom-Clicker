@@ -20,7 +20,6 @@
 	height={size}
 	{...props}
 >
-	<!-- Outer accretion disk glow -->
 	<ellipse
 		cx="12"
 		cy="12"
@@ -46,7 +45,6 @@
 		opacity="0.25"
 	></ellipse>
 
-	<!-- Gravitational lensing arc (top) -->
 	<path
 		d="M5 12 Q8 5 12 5 Q16 5 19 12"
 		fill={color}
@@ -63,7 +61,6 @@
 		opacity="0.3"
 	></path>
 
-	<!-- Event horizon -->
 	<circle
 		cx="12"
 		cy="12"
@@ -79,7 +76,6 @@
 		opacity="0.7"
 	></circle>
 
-	<!-- Inner dense disk -->
 	<ellipse
 		cx="12"
 		cy="12"

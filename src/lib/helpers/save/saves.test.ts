@@ -6,7 +6,7 @@ import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 import { loadSavedState, migrateSavedState, SAVE_KEY, SAVE_VERSION, serializeSaveState, validateAndRepairGameState } from '#helpers/save/saves.js';
-import { statsConfig } from '#helpers/statConstants.js';
+import { statsConfig } from '#helpers/stats.js';
 import type { GameState } from '#lib/types/game.js';
 
 /** Fields the game writes on top of `statsConfig`, they carry no default so a missing one stays missing. */

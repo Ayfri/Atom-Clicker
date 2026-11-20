@@ -20,16 +20,16 @@ export interface Element {
 	z: number;
 }
 
-export interface FamilyInfo {
+interface FamilyInfo {
 	color: string;
 	name: string;
 	/** Percent each identified member adds to the stat. */
 	step: number;
-	/** Lanthanides boost the Light of each one's strongest line instead, see `lanthanideLight`. */
+	/** Lanthanides boost the Light of each one's strongest line instead, see `elementStat`. */
 	stat: EffectStat;
 }
 
-export interface Lore {
+interface Lore {
 	discovery: string;
 	fact: string;
 	reaction?: string;
@@ -52,7 +52,7 @@ export const FAMILY_IDS = Object.keys(FAMILIES) as Family[];
 
 export const SET_BONUS = 1.25;
 
-export const LIGHT_STATS: Record<LightColor, EffectStat> = { blue: 'blue_light_gain', green: 'green_light_gain', red: 'red_light_gain' };
+const LIGHT_STATS: Record<LightColor, EffectStat> = { blue: 'blue_light_gain', green: 'green_light_gain', red: 'red_light_gain' };
 
 export const STAT_LABELS: Partial<Record<EffectStat, string>> = {
 	blue_light_gain: 'Blue Light gain',
@@ -324,12 +324,10 @@ export const elementGenerators = (z: number): GeneratorType[] =>
 export const elementBySymbol = (symbol: string): Element => BY_SYMBOL[symbol];
 
 /** Red from 600 nm (infrared included), Green from 500 to 600, Blue under 500 (ultraviolet included). */
-export const lightColorOf = (nm: number): LightColor => (nm >= 600 ? 'red' : nm >= 500 ? 'green' : 'blue');
-
-export const lanthanideLight = (element: Element): LightColor => lightColorOf(element.lines[0]);
+const lightColorOf = (nm: number): LightColor => (nm >= 600 ? 'red' : nm >= 500 ? 'green' : 'blue');
 
 export const elementStat = (element: Element): EffectStat =>
-	element.family === 'lanthanide' ? LIGHT_STATS[lanthanideLight(element)] : FAMILIES[element.family].stat;
+	element.family === 'lanthanide' ? LIGHT_STATS[lightColorOf(element.lines[0])] : FAMILIES[element.family].stat;
 
 /** The Prism's tuning window: lines within `width` nm of its center cost `factorIn` times their Light, the others `factorOut`. */
 export const TUNING = { factorIn: 0.2, factorOut: 2, max: 875, min: 375, width: 50 } as const;

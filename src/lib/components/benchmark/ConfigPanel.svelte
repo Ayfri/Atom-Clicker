@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Tooltip from '#components/ui/Tooltip.svelte';
-	import { Dices, Info, Pause, Play, Settings, Zap } from '@lucide/svelte';
 	import {
 		ACTIVITY_PRESETS,
 		BOT_PROFILES,
@@ -12,6 +11,7 @@
 	} from '#lib/simulation/presets.js';
 	import type { BenchmarkConfig, QuestBehavior } from '#lib/simulation/types.js';
 	import { formatNumber } from '#lib/utils.js';
+	import { Dices, Info, Pause, Play, Settings, Zap } from '@lucide/svelte';
 
 	interface Props {
 		config: BenchmarkConfig;

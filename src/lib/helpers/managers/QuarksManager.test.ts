@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { ACHIEVEMENTS } from '#data/achievements.js';
 import { getQuestTarget, QUEST_POOL } from '#data/dailyQuests.js';
-import { MAX_ACHIEVEMENT_IDS_PER_REQUEST } from '#data/quarkAchievements.js';
+import { MAX_ACHIEVEMENT_IDS_PER_REQUEST } from '#data/quarks.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
-import { statsConfig } from '#helpers/statConstants.js';
+import { statsConfig } from '#helpers/stats.js';
 
 const atomsQuest = QUEST_POOL.find(quest => quest.id === 'atoms_earned')!;
 

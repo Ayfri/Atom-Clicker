@@ -1,4 +1,4 @@
-import { LAYERS } from '#helpers/statConstants.js';
+import { LAYERS } from '#helpers/stats.js';
 import type { Currency } from '#lib/types/game.js';
 
 export const CurrenciesTypes = {

@@ -52,8 +52,6 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		position: gridPos(0, 0),
 	},
 
-	// CURRENCY BOOSTS (north)
-
 	boostAssignAll: {
 		branch: 'boosts',
 		cost: { amount: 100, currency: CurrenciesTypes.PROTONS },
@@ -106,8 +104,6 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		requires: ['boostAssignAll'],
 	},
 
-	// REALMS (west)
-
 	purpleRealm: {
 		branch: 'realms',
 		cost: { amount: 10_000_000_000, currency: CurrenciesTypes.ATOMS },
@@ -148,8 +144,6 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 		position: gridPos(-2.3, 0.5),
 		requires: ['purpleRealm'],
 	},
-
-	// AUTOMATION (south)
 
 	autoClicker: {
 		branch: 'automation',
@@ -195,8 +189,6 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 			];
 		}),
 	),
-
-	// IDLE PLAY (east)
 
 	offlineProgress: {
 		branch: 'idle',
@@ -316,19 +308,11 @@ export const SKILL_UPGRADES: Record<string, SkillUpgrade> = {
 	},
 };
 
-// Check for duplicate positions in dev mode
 if (import.meta.env.DEV) {
-	const positionMap = new Map<string, string[]>();
-	for (const [id, skill] of Object.entries(SKILL_UPGRADES)) {
-		const posKey = `${skill.position.x},${skill.position.y}`;
-		if (!positionMap.has(posKey)) {
-			positionMap.set(posKey, []);
-		}
-		positionMap.get(posKey)!.push(id);
-	}
-	for (const [pos, ids] of positionMap) {
-		if (ids.length > 1) {
-			console.warn(`[SkillTree] Duplicate position at ${pos}: ${ids.join(', ')}`);
+	const byPosition = Map.groupBy(Object.entries(SKILL_UPGRADES), ([, { position }]) => `${position.x},${position.y}`);
+	for (const [pos, skills] of byPosition) {
+		if (skills.length > 1) {
+			console.warn(`[SkillTree] Duplicate position at ${pos}: ${skills.map(([id]) => id).join(', ')}`);
 		}
 	}
 }

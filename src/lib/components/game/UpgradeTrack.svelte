@@ -1,5 +1,4 @@
 <script lang="ts">
-	import UpgradeTierBar from '#components/game/UpgradeTierBar.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CURRENCIES } from '#data/currencies.js';
 	import { ICONS } from '#data/icons.js';
@@ -9,6 +8,7 @@
 	import { fly, scale } from '#helpers/transitions.js';
 	import { buyFamily } from '#helpers/upgradeFx.js';
 	import { Check } from '@lucide/svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { prefersReducedMotion } from 'svelte/motion';
 
 	interface Props {
@@ -29,6 +29,7 @@
 	let chip = $state<HTMLSpanElement>();
 	let pop: Animation | undefined;
 	let seen = -1;
+	let seenSegments = -1;
 
 	/** A level gained pops the chip once: a pop still running swallows the next ones, so spam clicks never stack them. */
 	$effect(() => {
@@ -38,6 +39,15 @@
 		if (before < 0 || level <= before || !chip || prefersReducedMotion.current || pop?.playState === 'running') return;
 		pop = chip.animate([{ scale: '1.3' }, { scale: '1' }], { duration: 250 });
 	});
+
+	/** Segments fill in the purchase frame, so spam clicks never see a fill catching up. Each newly filled one flashes on its own animation. */
+	const flashSegments: Attachment<HTMLDivElement> = bar => {
+		const level = view.level;
+		const before = seenSegments;
+		seenSegments = level;
+		if (before < 0 || level <= before || prefersReducedMotion.current) return;
+		for (let i = before; i < level; i++) bar.children[i]?.animate([{ filter: 'brightness(2.2)' }, { filter: 'brightness(1)' }], { duration: 250 });
+	};
 </script>
 
 <!-- Buyable rows take their currency tint, unaffordable ones dim, maxed ones lose every color and the bar so they never outshine the rest. -->
@@ -78,7 +88,19 @@
 				<p class="text-xs text-white/60">Total: {total}</p>
 			{/each}
 		{:else if view.max > 1}
-			<UpgradeTierBar {affordable} {color} hasNext={view.next !== null} level={view.level} segments={view.shown} />
+			<div class="mt-1.5 flex h-1.5 overflow-hidden rounded-full {view.shown > 20 ? 'gap-px' : 'gap-0.5'}" {@attach flashSegments}>
+				{#each { length: view.shown } as _, i (i)}
+					<div
+						class="flex-1 {i < view.level
+							? 'bg-(--c) opacity-80'
+							: i === view.level && view.next !== null
+								? affordable
+									? 'bg-(--c)/30 inset-ring-1 inset-ring-(--c)'
+									: 'bg-white/10 inset-ring-1 inset-ring-white/25'
+								: 'bg-white/10'}"
+					></div>
+				{/each}
+			</div>
 		{/if}
 		{#if view.next}
 			<div class="mt-1 flex h-4 items-center gap-1 text-xs" style:color>Cost: <Value currency={view.family.currency} value={view.nextCost} /></div>

@@ -5,9 +5,9 @@
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
-	import { btn, btnDanger, checkbox } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
+	import { btn, btnDanger, checkbox } from '../shared.svelte.js';
 
 	const realms = Object.values(RealmTypes);
 	const tutorial = gameManager.tutorialManager;

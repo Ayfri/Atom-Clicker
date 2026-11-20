@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { COSMOS_DISCOVERABLE, COSMOS_INSTRUMENT_COUNT, cosmosSteps } from '#lib/simulation/cosmos.js';
 	import { simTime } from '#lib/simulation/markdownReport.js';
-	import type { CosmosBlocker, SimulationResult } from '#lib/simulation/types.js';
+	import { type CosmosBlocker, HOUR_MS, type SimulationResult } from '#lib/simulation/types.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { Telescope } from '@lucide/svelte';
 
@@ -91,7 +91,7 @@
 							<div class="gap-x-4 grid grid-cols-[1fr_auto_auto_auto] hover:bg-white/5 px-2 py-1 rounded {step.kind === 'instrument' ? 'mt-2 text-amber-300 font-semibold' : 'text-gray-300'}">
 								<span class="truncate">{step.name}</span>
 								<span class="font-mono text-right text-xs">{simTime(step.timestamp - openedAt)}</span>
-								<span class="font-mono text-right text-xs {step.wait >= 3_600_000 ? 'text-red-400' : 'text-gray-500'}">{simTime(step.wait)}</span>
+								<span class="font-mono text-right text-xs {step.wait >= HOUR_MS ? 'text-red-400' : 'text-gray-500'}">{simTime(step.wait)}</span>
 								<span class="font-mono text-right text-gray-500 text-xs">{formatNumber(step.starlightPerSecond)}</span>
 							</div>
 						{/each}

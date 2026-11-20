@@ -2,7 +2,7 @@ import { IncidentKinds, incidentKind } from '#helpers/perf/perfIncidents.js';
 import { JANK_MIN_FRAMES, JANK_RATIO_BAD, LAG_BAD_MS, rankSources } from '#helpers/perf/perfStats.js';
 import type { IncidentKind, PerfIncident, SessionGame, SessionPerf, SessionProblem } from '#lib/types/session.js';
 
-export interface SessionVerdict {
+interface SessionVerdict {
 	cause: string | null;
 	problem: SessionProblem | null;
 	summary: string | null;
@@ -191,7 +191,7 @@ export function judgeSession(perf: SessionPerf, game: SessionGame): SessionVerdi
 		problem = kind !== IncidentKinds.FREEZE && renderDominates(ofKind) ? 'render-bound' : KIND_PROBLEMS[kind];
 		cause = incidentCause(incidents, problem === 'render-bound' ? RENDER_CAUSE : null);
 	} else {
-		// The evidence windows are the ones that made the session degraded, the session totals dilute a late slow stretch.
+		/** The evidence windows are the ones that made the session degraded, the session totals dilute a late slow stretch. */
 		const judged = perf.evidence.filter(window => window.frameCount >= JANK_MIN_FRAMES);
 		problem =
 			steadyProblem(

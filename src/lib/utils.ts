@@ -132,13 +132,8 @@ export function formatNumber(num: number, precision = 2, notation = numberNotati
 	const limit = 1000 - 0.5 / 10 ** precision;
 
 	if (absNum < limit) {
-		// Handle floating-point precision: check if close to integer
 		const rounded = Math.round(num);
-		if (Math.abs(num - rounded) < EPSILON) {
-			return `${rounded}`;
-		} else {
-			return `${num.toFixed(precision)}`;
-		}
+		return Math.abs(num - rounded) < EPSILON ? `${rounded}` : num.toFixed(precision);
 	}
 
 	if (notation === 'scientific') return num.toExponential(precision).replace('+', '');

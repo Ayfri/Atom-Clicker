@@ -12,7 +12,7 @@
 		};
 	});
 
-	// Single source of truth for the offset: everything sitting under the banner reads --banner-height in plain CSS.
+	/** Single source of truth for the offset: everything sitting under the banner reads --banner-height in plain CSS. */
 	$effect(() => {
 		document.documentElement.style.setProperty('--banner-height', `${remoteMessage.bannerHeightRem}rem`);
 	});

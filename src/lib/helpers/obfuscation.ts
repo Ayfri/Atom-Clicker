@@ -1,4 +1,4 @@
-import { generateSignature } from './signing';
+import { generateSignature } from '#helpers/signing.js';
 
 /** Base64 + a signature so a payload can't be casually edited in transit. Not encryption, see signing.ts. */
 export function obfuscateClientData(data: Record<string, unknown>) {

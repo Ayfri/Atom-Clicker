@@ -1,9 +1,9 @@
 import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
+import { RealmTypes, type RealmType } from '#data/realms.js';
 import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
-import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
-import { RealmTypes, type RealmType } from '#data/realms.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import type { Currency } from '#lib/types/game.js';
 import { untrack } from 'svelte';
 
@@ -29,10 +29,10 @@ class RealmManager {
 	introFocus: number | null = null;
 	/** The Periodic Table's introduction covers the whole page while it plays. */
 	introPlaying = $state(false);
-	/** The Periodic Table is a page-level view above every realm and the Cosmos. */
-	tableOpen = $state(false);
 	/** Element the Table selects on its next mount, read once. */
 	tableFocus = $state<number | null>(null);
+	/** The Periodic Table is a page-level view above every realm and the Cosmos. */
+	tableOpen = $state(false);
 
 	get selectedRealmId() {
 		return gameManager.selectedRealmId;
@@ -86,11 +86,10 @@ class RealmManager {
 		return this.tableOpen ? 'table' : this.view;
 	}
 
-	get selectedRealm() {
-		return this.realms.find(r => r.id === this.selectedRealmId) || this.realms[0];
-	}
-
-	/** An off-screen realm stays mounted, a value read through this freezes there instead of rerunning on every atom commit. The opaque Cosmos and Periodic Table hide the selected realm too. */
+	/**
+	 * An off-screen realm stays mounted, a value read through this freezes there instead of rerunning on every atom commit.
+	 * The opaque Cosmos and Periodic Table hide the selected realm too.
+	 */
 	live<T>(realm: RealmType, read: () => T): T {
 		return this.selectedRealmId === realm && this.view !== 'cosmos' && !this.tableOpen ? read() : untrack(read);
 	}
@@ -135,3 +134,4 @@ class RealmManager {
 }
 
 export const realmManager = new RealmManager();
+gameManager.beforeLoad = () => realmManager.resetTable();

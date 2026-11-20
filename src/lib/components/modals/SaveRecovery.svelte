@@ -5,7 +5,7 @@
 	import { saveRecovery, type SaveErrorType } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { ArchiveArrowDown, CloudDownload, RefreshCw, Trash, TriangleAlert } from '@lucide/svelte';
+	import { ArchiveArrowDown, CloudDownload, RefreshCw, Trash, TriangleExclamationPoint } from '@lucide/svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -34,14 +34,14 @@
 			const loadedState = await supabaseAuth.loadGameFromCloud();
 			if (loadedState) {
 				gameManager.loadCloudSave(loadedState);
-				toastStore.success({ title: 'Recovery Successful', message: 'Your game has been loaded from the cloud save.' });
+				toastStore.success({ message: 'Your game has been loaded from the cloud save.', title: 'Recovery Successful' });
 				saveRecovery.clearError();
 				onClose();
 			} else {
-				toastStore.error({ title: 'No Cloud Save', message: 'No cloud save was found for your account.' });
+				toastStore.error({ message: 'No cloud save was found for your account.', title: 'No Cloud Save' });
 			}
 		} catch (e) {
-			toastStore.error({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to load from cloud' });
+			toastStore.error({ message: e instanceof Error ? e.message : 'Failed to load from cloud', title: 'Error' });
 		} finally {
 			loading = false;
 		}
@@ -51,10 +51,10 @@
 		saveRecovery.cleanOldBackups();
 		gameManager.reset();
 		toastStore.info({
-			title: 'New Game',
-			message: 'A new game has been started. Your corrupted save has been backed up.',
 			duration: 5000,
 			icon: RefreshCw,
+			message: 'A new game has been started. Your corrupted save has been backed up.',
+			title: 'New Game',
 		});
 		saveRecovery.clearError();
 		onClose();
@@ -73,7 +73,7 @@
 >
 	<div class="flex flex-col gap-6">
 		<div class="flex items-start gap-4 rounded-xl bg-red-500/20 p-4 border border-red-500/30">
-			<TriangleAlert
+			<TriangleExclamationPoint
 				size={32}
 				class="shrink-0 text-red-400 mt-0.5"
 			/>

@@ -16,7 +16,7 @@
 	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile } from '#stores/ui.svelte.js';
 	import { ArrowBigUpDash, Factory, Trophy } from '@lucide/svelte';
 
 	type Tab = keyof typeof TAB_LABELS;
@@ -46,7 +46,7 @@
 		if (electronized) colors.add(CURRENCIES[CurrenciesTypes.ELECTRONS].color);
 		const realms = [RealmTypes.PHOTONS, RealmTypes.RADIATION].filter(realm => gameManager.realms[realm]?.unlocked).length;
 		const density = 2 + owned.length + (protonised ? 3 : 0) + (electronized ? 3 : 0) + realms * 2;
-		// A Higgs power-up turns the dust gold and makes it rise twice as fast, like the atom spinning faster.
+		/** A Higgs power-up turns the dust gold and makes it rise twice as fast, like the atom spinning faster. */
 		if (gameManager.hasBonus) {
 			const higgs = CURRENCIES[CurrenciesTypes.HIGGS_BOSON].color;
 			return { colors: [higgs, higgs, ...colors], density: density + 6, pace: 2 };
@@ -120,7 +120,7 @@
 		}
 	}
 
-	/* Must stay in sync with MOBILE_QUERY, the `mobile` rune decides which children are rendered into these areas. */
+	/* Must stay in sync with the query of `mobile` (stores/ui.svelte.ts), the `mobile` rune decides which children are rendered into these areas. */
 	@media (width < 64rem) {
 		.game-container {
 			grid-template-areas: 'atom' 'upgrades' 'generators';

@@ -4,7 +4,8 @@ import type { IncidentKinds } from '#helpers/perf/perfIncidents.js';
 
 export type InAppBrowser = 'facebook' | 'instagram' | 'line' | 'linkedin' | 'other-webview' | 'snapchat' | 'tiktok' | 'twitter' | 'wechat';
 
-export interface DeviceInfo extends BrowserInfo {
+/** The types stored as JSON (`DeviceInfo`, `SessionGame`, `SessionPerf` and what they hold) are aliases, interfaces don't fit the `Json` type. */
+export type DeviceInfo = BrowserInfo & {
 	cores: number | null;
 	inAppBrowser: InAppBrowser | null;
 	maxTouchPoints: number;
@@ -14,9 +15,9 @@ export interface DeviceInfo extends BrowserInfo {
 	standalone: boolean;
 	viewportHeight: number;
 	viewportWidth: number;
-}
+};
 
-export interface SessionGame {
+export type SessionGame = {
 	/** `document.getAnimations().length` at report time. */
 	animations: number | null;
 	autoClicksPerSecond: number;
@@ -39,38 +40,38 @@ export interface SessionGame {
 	realm: RealmType;
 	realms: RealmType[];
 	reducedMotion: boolean;
-}
+};
 
 export type IncidentKind = (typeof IncidentKinds)[keyof typeof IncidentKinds];
 
 export type SessionProblem = 'freezes' | 'low-frame-rate' | 'render-bound' | 'slow-interactions';
 
 /** The Event Timing phases of one interaction: input delay, handlers, then everything until the next paint. */
-export interface InputBreakdown {
+export type InputBreakdown = {
 	delayMs: number;
 	presentationMs: number;
 	processingMs: number;
 	target: string | null;
-}
+};
 
-export interface LoafScript {
+export type LoafScript = {
 	durationMs: number;
 	file: string | null;
 	fn: string | null;
 	invoker: string;
-}
+};
 
-export interface LoafBreakdown {
+export type LoafBreakdown = {
 	/** The frame's `blockingDuration`: what its tasks ran past 50 ms each, about 0 for a frame that only waited to be presented. */
 	blockingMs: number;
 	otherMs: number;
 	scriptMs: number;
 	scripts: LoafScript[];
 	styleLayoutMs: number;
-}
+};
 
 /** A main thread block of 150 ms or more, with what the player did just before and what ran inside it. */
-export interface PerfIncident {
+export type PerfIncident = {
 	action: string | null;
 	actionAgoMs: number | null;
 	/** Start of the block in ms since the page loaded. */
@@ -82,9 +83,9 @@ export interface PerfIncident {
 	realm: RealmType;
 	sources: { ms: number; name: string }[];
 	timerLate: boolean;
-}
+};
 
-export interface PerfWindow {
+export type PerfWindow = {
 	blockedMs: number;
 	commitLagP95Ms: number;
 	frameCount: number;
@@ -93,16 +94,16 @@ export interface PerfWindow {
 	freezeCount: number;
 	observedMs: number;
 	slowInputCount: number;
-}
+};
 
-export interface PerfSourceStat {
+export type PerfSourceStat = {
 	calls: number;
 	maxMs: number;
 	name: string;
 	totalMs: number;
-}
+};
 
-export interface PerfTotals {
+export type PerfTotals = {
 	blocked: Record<IncidentKind, { count: number; ms: number }>;
 	commitLagP95Ms: number;
 	eventTiming: boolean;
@@ -113,15 +114,15 @@ export interface PerfTotals {
 	loaf: boolean;
 	/** Unpaused time of the session, the base of every share. */
 	visibleMs: number;
-}
+};
 
 /** `evidence` holds the windows that triggered degraded (frozen once detected), otherwise the last 12 windows or fewer. */
-export interface SessionPerf {
+export type SessionPerf = {
 	evidence: PerfWindow[];
 	incidents: PerfIncident[];
 	sources: PerfSourceStat[];
 	totals: PerfTotals;
-}
+};
 
 export interface SessionStartPayload {
 	device: DeviceInfo;

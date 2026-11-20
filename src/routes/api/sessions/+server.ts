@@ -1,12 +1,10 @@
 import { dev } from '$app/env';
 import type { RequestHandler } from './$types';
-import { RateLimiter } from '#lib/server/rateLimit.server.js';
-import { readJsonBody } from '#lib/server/requestBody.server.js';
+import { RateLimiter, readJsonBody } from '#lib/server/request.server.js';
 import { deviceKey, parseSessionStart } from '#lib/server/sessions/sessionPayload.server.js';
 import { SessionConflictError, sessionsService } from '#lib/server/sessions/sessions.server.js';
 import { resolveUserFromRequest } from '#lib/server/supabase.server.js';
 import type { SessionStartResponse } from '#lib/types/session.js';
-import type { Json } from '#lib/types/supabase.js';
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_USER_AGENT_LENGTH = 400;
@@ -16,9 +14,8 @@ const startRateLimit = new RateLimiter(60 * 1000, 6);
 /** Opens the row of a page load and hands back the key its updates are signed with. The player comes from the bearer token only. */
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	try {
-		if (startRateLimit.limited(getClientAddress())) {
-			return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });
-		}
+		const rejected = startRateLimit.reject(getClientAddress());
+		if (rejected) return rejected;
 
 		const read = await readJsonBody(request, MAX_BODY_BYTES);
 		if ('error' in read) return read.error;
@@ -34,9 +31,9 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		const device = { ...payload.device, userAgent: (request.headers.get('user-agent') ?? '').slice(0, MAX_USER_AGENT_LENGTH) };
 		const writeKey = await sessionsService.start({
 			app_version: device.appVersion,
-			device: device as unknown as Json,
+			device,
 			device_key: await deviceKey(device, payload.deviceId),
-			game: payload.game as unknown as Json,
+			game: payload.game,
 			id: device.sessionId,
 			in_app_browser: device.inAppBrowser,
 			user_agent: device.userAgent,

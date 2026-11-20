@@ -92,7 +92,7 @@ export function packNucleus(count: number): Packing {
 /** Paints a nucleon ball filling a `2 * half` square: faint light on the upper left, faint shadow on the lower right, `depth` (0 front to 1 back) dims it. */
 export function paintNucleon(ctx: CanvasRenderingContext2D, half: number, color: string, depth: number) {
 	const base = mix(mix(color, NEUTRON_COLOR, 0.18), NUCLEUS_SHADOW, depth * 0.3);
-	// Centered up-left and wider than the disc, so only the bottom-right limb reaches the shadow stop.
+	/** Centered up-left and wider than the disc, so only the bottom-right limb reaches the shadow stop. */
 	const gradient = ctx.createRadialGradient(half * 0.72, half * 0.66, 0, half * 0.72, half * 0.66, half * 1.7);
 	gradient.addColorStop(0, mix(base, '#ffffff', 0.35));
 	gradient.addColorStop(0.3, base);

@@ -22,7 +22,7 @@ export const CosmosEras = {
 	SURVEY: 'survey',
 } as const;
 
-export type CosmosEra = (typeof CosmosEras)[keyof typeof CosmosEras];
+type CosmosEra = (typeof CosmosEras)[keyof typeof CosmosEras];
 
 export interface CosmosInstrument {
 	cost: number;
@@ -447,7 +447,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 			"Titan is the second largest moon in the Solar System, bigger than the planet Mercury, and wrapped in an orange haze. Its air is mostly nitrogen, like ours, but at its surface, around minus 180 degrees Celsius, methane falls as rain and fills rivers and lakes. Huygens spotted it in 1655 with a telescope he built with his brother. In 2005 the probe named after him parachuted through the haze and landed on it, a landing farther from the Earth than any before.",
 		discoverer: 'Christiaan Huygens',
 		era: CosmosEras.REFRACTOR,
-		fact: 'The only moon with a thick atmosphere, denser than the Earth’s.',
+		fact: "The only moon with a thick atmosphere, denser than the Earth's.",
 		id: 'titan',
 		magnitude: 8.3,
 		name: 'Titan',
@@ -566,7 +566,7 @@ export const COSMOS_OBJECTS: CosmosObject[] = [
 			"William Lassell, a brewer from Liverpool who built his own telescopes, found Triton only a few weeks after Neptune itself was found. It is among the coldest places ever measured in the Solar System, with a surface of frozen nitrogen. When Voyager 2 flew by in 1989, it photographed dark plumes rising from the ice. Triton is slowly spiraling toward Neptune, and in billions of years it will likely be torn apart into a ring.",
 		discoverer: 'William Lassell',
 		era: CosmosEras.PREDICTION,
-		fact: 'It orbits backward, against Neptune’s spin: a dwarf planet from beyond Neptune, captured long ago.',
+		fact: "It orbits backward, against Neptune's spin: a dwarf planet from beyond Neptune, captured long ago.",
 		id: 'triton',
 		magnitude: 13.5,
 		name: 'Triton',

@@ -1,7 +1,8 @@
 import type { RequestHandler } from './$types';
-import { isQuarkAchievement, MAX_ACHIEVEMENT_IDS_PER_REQUEST, QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { ACHIEVEMENTS } from '#data/achievements.js';
+import { MAX_ACHIEVEMENT_IDS_PER_REQUEST, QUARK_ACHIEVEMENT_REWARD } from '#data/quarks.js';
+import { verifiedHandler } from '#lib/server/request.server.js';
 import { quarksService } from '#lib/server/supabase.server.js';
-import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 
 export const POST: RequestHandler = verifiedHandler('Failed to grant achievement quarks', async ({ data, userId }) => {
 	const { achievementIds } = data;
@@ -12,8 +13,8 @@ export const POST: RequestHandler = verifiedHandler('Failed to grant achievement
 		return Response.json({ error: 'Too many achievementIds' }, { status: 400 });
 	}
 
-	// Unknown ids are dropped silently, the reward is our own constant, never the request's.
-	const validIds: string[] = achievementIds.filter(isQuarkAchievement);
+	/** Unknown ids are dropped silently, the reward is our own constant, never the request's. */
+	const validIds: string[] = achievementIds.filter(id => id in ACHIEVEMENTS);
 	const result = await quarksService.grantAchievementQuarks(userId, validIds, QUARK_ACHIEVEMENT_REWARD);
 
 	return Response.json(result);

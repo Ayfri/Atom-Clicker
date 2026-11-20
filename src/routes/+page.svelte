@@ -3,25 +3,23 @@
 	import { FeatureTypes } from '#data/features.js';
 	import { colliderManager } from '#helpers/managers/ColliderManager.svelte.js';
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
-	import { perfMonitor } from '#helpers/perf/PerfMonitor.js';
-	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
 	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import { perfMonitor } from '#helpers/perf/PerfMonitor.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
-	import { setGlobals } from '#lib/globals.js';
 	import { getItem, isLocalStorageUnavailable, removeItem, setItem } from '#helpers/safeLocalStorage.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
-	/** Builds the install store at load, it pushes the installed app flag into the game. */
+	/** Side-effect import: builds the install store at load, it pushes the installed app flag into the game. */
 	import '#stores/install.svelte.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { ui } from '#stores/ui.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile, ui } from '#stores/ui.svelte.js';
 	import Canvas from '#components/game/Canvas.svelte';
 	import Levels from '#components/game/Levels.svelte';
 	import NavBar from '#components/layout/NavBar.svelte';
@@ -40,11 +38,7 @@
 	import PeriodicWatcher from '#components/system/PeriodicWatcher.svelte';
 	import { onMount, untrack, type Component } from 'svelte';
 
-	const realmComponents: Record<string, Component> = {
-		AtomRealm: AtomRealm,
-		PhotonRealm: PhotonRealm,
-		RadiationRealm: RadiationRealm,
-	};
+	const realmComponents: Record<string, Component> = { AtomRealm, PhotonRealm, RadiationRealm };
 
 	const selectedIndex = $derived(realmManager.selectedIndex);
 
@@ -201,8 +195,6 @@
 
 		lastUpdateTime = performance.now();
 		const commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
-
-		setGlobals();
 
 		const saveGame = () => {
 			const start = performance.now();

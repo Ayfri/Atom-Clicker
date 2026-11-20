@@ -1,7 +1,7 @@
 import { BLUE_HALF, CHROMATIC, CHROMATIC_COLORS, type ChromaticColor, ChromaticColors } from '#data/chromatic.js';
 import { CURRENCIES } from '#data/currencies.js';
-import { chromaticManager, type LightSource } from '#helpers/managers/ChromaticManager.svelte.js';
 import { drawLightIcon } from '#helpers/canvas/photonCanvas.js';
+import { chromaticManager, type LightSource } from '#helpers/managers/ChromaticManager.svelte.js';
 
 export interface ChromaticPhoton {
 	color: ChromaticColor;

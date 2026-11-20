@@ -9,12 +9,15 @@ import type { SiteId } from '#data/sites.js';
 import type { UpgradeCategory } from '#data/upgrades.js';
 import type { GameManager } from '#helpers/managers/GameManager.svelte.js';
 import type { IconStackSpec } from '#helpers/iconStacks.js';
-import type { LayerType } from '#helpers/statConstants.js';
+import type { LayerType } from '#helpers/stats.js';
 import type { ToastIcon } from '#stores/toasts.svelte.js';
 
 export interface Achievement {
-	/** The leaderboard audit refuses a claim whose condition is false on the submitted state. Only for conditions reading saved progress that never resets nor goes down,
-	 *  with the tier in the id: removing a counted entry (object, instrument) or raising a tier under the same id would refuse honest saves. */
+	/**
+	 * The leaderboard audit refuses a claim whose condition is false on the submitted state. Only for conditions reading saved progress
+	 * that never resets nor goes down, with the tier in the id: removing a counted entry (object, instrument) or raising a tier under
+	 * the same id would refuse honest saves.
+	 */
 	audited?: boolean;
 	condition: (manager: GameManager) => boolean;
 	description: string;
@@ -361,7 +364,7 @@ export interface Upgrade {
 	name: string;
 }
 
-export interface UpgradeGate {
+interface UpgradeGate {
 	open: (manager: GameManager) => boolean;
 	reason: (manager: GameManager) => string;
 }

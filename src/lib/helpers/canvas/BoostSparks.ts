@@ -34,7 +34,6 @@ interface Spark {
 
 /** Glowing sparks rising off a maxed currency boost gauge, mounted only while the gauge is full. */
 export class BoostSparks extends CanvasLoop {
-	private readonly ctx: CanvasRenderingContext2D;
 	/** Fraction of a spark owed by the spawn rate, carried between frames. */
 	private debt = 0;
 	private height = 0;
@@ -46,9 +45,6 @@ export class BoostSparks extends CanvasLoop {
 		private readonly color: string,
 	) {
 		super(canvas, 'canvas:boost-sparks');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.observe();
 	}
 
@@ -88,7 +84,7 @@ export class BoostSparks extends CanvasLoop {
 		this.fit(width, height);
 		this.width = width;
 		this.height = height;
-		// Resizing resets the context state and clears the canvas.
+		/** Resizing resets the context state and clears the canvas. */
 		this.ctx.globalCompositeOperation = 'lighter';
 	}
 }
