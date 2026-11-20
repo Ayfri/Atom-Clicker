@@ -1,12 +1,12 @@
 <script lang="ts">
 	import HardReset from '#components/modals/HardReset.svelte';
 	import Login from '#components/modals/Login.svelte';
-	import SettingRow from '#components/ui/SettingRow.svelte';
+	import SettingRow from '#components/settings/SettingRow.svelte';
 	import Switch from '#components/ui/Switch.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { levelFromTotalXP } from '#helpers/xp.js';
 	import { formatDuration } from '#lib/utils.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';

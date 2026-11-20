@@ -1,8 +1,8 @@
 import { browser, dev } from '$app/env';
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { getBrowserInfo, isCrawler, type BrowserInfo } from '#helpers/clientInfo.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { isNoiseError } from '#lib/utils/errorNoise.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { isNoiseError } from '#helpers/errorNoise.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 interface ErrorReport {

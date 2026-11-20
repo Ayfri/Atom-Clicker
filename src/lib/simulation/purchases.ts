@@ -4,10 +4,10 @@ import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.
 import { RADIATION_UPGRADES, type RadiationUpgrade, getRadiationUpgradePrice } from '#data/radiationUpgrades.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-import type { PhotonUpgrade } from '#lib/types.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+import type { PhotonUpgrade } from '#lib/types/game.js';
 import type { BotBehavior } from './types';
 
 type Priced = { cost: { amount: number; currency: CurrencyName } };

@@ -1,5 +1,5 @@
 import { FeatureTypes } from '#data/features.js';
-import type { FeatureState } from '#lib/types.js';
+import type { FeatureState } from '#lib/types/game.js';
 
 export const RealmTypes = {
 	ATOMS: 'atoms',

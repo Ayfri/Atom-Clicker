@@ -4,7 +4,7 @@ import { GENERATORS, GENERATOR_TYPES, type GeneratorType } from '#data/generator
 import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 import { add, mul } from '#helpers/effects.js';
 import { OVERDRIVE_COST, OVERDRIVE_MULTIPLIER, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
-import type { SkillBranch, SkillUpgrade } from '#lib/types.js';
+import type { SkillBranch, SkillUpgrade } from '#lib/types/game.js';
 
 const SKILL_GRID = {
 	x: 550,

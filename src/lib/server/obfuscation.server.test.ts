@@ -1,7 +1,7 @@
 import { afterEach, expect, setSystemTime, test } from 'bun:test';
 import { verifyAndDecryptClientData } from '#lib/server/obfuscation.server.js';
-import { obfuscateClientData } from '#lib/utils/obfuscation.js';
-import { unwrapStoredSave, wrapSaveForStorage } from '#lib/utils/saveIntegrity.js';
+import { obfuscateClientData } from '#helpers/obfuscation.js';
+import { unwrapStoredSave, wrapSaveForStorage } from '#helpers/save/saveIntegrity.js';
 
 afterEach(() => setSystemTime());
 

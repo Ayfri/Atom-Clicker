@@ -33,7 +33,7 @@
 	import { MAJOR_TICKS, MINOR_TICKS, RING_PARTICLES } from '#components/modals/colliderRing.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
-	import { NEUTRON_COLOR } from '#helpers/nucleus.js';
+	import { NEUTRON_COLOR } from '#helpers/canvas/nucleus.js';
 
 	interface Props {
 		class?: string;

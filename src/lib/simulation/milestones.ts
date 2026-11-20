@@ -4,10 +4,10 @@ import { FeatureTypes, type FeatureType } from '#data/features.js';
 import { GENERATORS, GENERATOR_TYPES } from '#data/generators.js';
 import { ELEMENT_COUNT } from '#data/elements.js';
 import { FORGE_MILESTONES } from '#data/sites.js';
-import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
 import type { RunState } from './snapshots';
 import type { MilestoneDefinition, MilestoneHit } from './types';
 

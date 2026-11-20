@@ -1,6 +1,6 @@
 import type { RealmType } from '#data/realms.js';
 import type { BrowserInfo } from '#helpers/clientInfo.js';
-import type { IncidentKinds } from '#helpers/perfIncidents.js';
+import type { IncidentKinds } from '#helpers/perf/perfIncidents.js';
 
 export type InAppBrowser = 'facebook' | 'instagram' | 'line' | 'linkedin' | 'other-webview' | 'snapchat' | 'tiktok' | 'twitter' | 'wechat';
 

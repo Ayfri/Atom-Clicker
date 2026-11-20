@@ -5,10 +5,10 @@
 	import { TableParticles } from '#components/cosmos/periodic/TableParticles.js';
 	import { elementBySymbol, ELEMENTS, FAMILIES, lineX } from '#data/elements.js';
 	import { SITE_IDS, SITES } from '#data/sites.js';
-	import { particlesEnabled } from '#helpers/CanvasLoop.js';
+	import { particlesEnabled } from '#helpers/canvas/CanvasLoop.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { onMount, untrack } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';

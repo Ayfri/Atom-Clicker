@@ -8,12 +8,12 @@
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 	import { effectBreakdown } from '#helpers/effects.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { LAYERS } from '#helpers/statConstants.js';
-	import type { EffectStat, PrestigeListItem } from '#lib/types.js';
+	import type { EffectStat, PrestigeListItem } from '#lib/types/game.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import { Info, Sparkles } from '@lucide/svelte';

@@ -3,11 +3,11 @@
 	import { IONIZE_STARLIGHT_STEP, ionizeStarlightMultiplier } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
-	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
-	import type { PrestigeListItem } from '#lib/types.js';
+	import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { IONIZE_CPM_STEP, IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+	import type { PrestigeListItem } from '#lib/types/game.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
 	import IonizeIcon from '#components/icons/Ionize.svelte';

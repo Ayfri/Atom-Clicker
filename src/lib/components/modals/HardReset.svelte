@@ -1,7 +1,7 @@
 <script lang="ts">
 	import HoldButton from '#components/ui/HoldButton.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';

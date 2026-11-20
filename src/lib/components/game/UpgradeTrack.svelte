@@ -4,8 +4,8 @@
 	import { CURRENCIES } from '#data/currencies.js';
 	import { ICONS } from '#data/icons.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
-	import type { FamilyView } from '#helpers/UpgradeFamilies.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import type { FamilyView } from '#helpers/managers/UpgradeFamilies.svelte.js';
 	import { fly, scale } from '#helpers/transitions.js';
 	import { buyFamily } from '#helpers/upgradeFx.js';
 	import { Check } from '@lucide/svelte';

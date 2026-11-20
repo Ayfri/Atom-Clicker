@@ -1,7 +1,7 @@
 import type { DailyStats } from '#data/dailyQuests.js';
 import { TUNING } from '#data/elements.js';
 import { RealmTypes } from '#data/realms.js';
-import type { ChromaticState, CosmosState, PeriodicState, RealmState, Settings } from '#lib/types.js';
+import type { ChromaticState, CosmosState, PeriodicState, RealmState, Settings } from '#lib/types/game.js';
 
 /** `resetLayer(n)` resets every stat whose layer is 1 to n, NEVER stats always stay and SPECIAL ones are handled by their own code. */
 export const LAYERS = {

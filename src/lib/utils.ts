@@ -1,4 +1,4 @@
-import type { NumberNotation } from '#lib/types.js';
+import type { NumberNotation } from '#lib/types/game.js';
 
 export const SUFFIXES = [
 	'',

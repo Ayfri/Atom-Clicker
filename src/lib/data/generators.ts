@@ -1,5 +1,5 @@
 import {CurrenciesTypes} from '#data/currencies.js';
-import type {Price} from '#lib/types.js';
+import type {Price} from '#lib/types/game.js';
 
 export const GeneratorTypes = {
 	MOLECULE: 'molecule',

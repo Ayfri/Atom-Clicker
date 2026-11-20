@@ -2,7 +2,7 @@
 	import AtomIcon from '#components/icons/Atom.svelte';
 	import Discord from '#components/icons/Discord.svelte';
 	import GitHub from '#components/icons/GitHub.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { Coffee, Globe, SquareArrowOutUpRight } from '@lucide/svelte';
 	import { scale } from 'svelte/transition';
 

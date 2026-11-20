@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PrestigeEntry from '#components/prestige/PrestigeEntry.svelte';
-	import type { PrestigeListItem } from '#lib/types.js';
+	import type { PrestigeListItem } from '#lib/types/game.js';
 	import { Check, RotateCcw, Vault, X } from '@lucide/svelte';
 
 	interface Props {

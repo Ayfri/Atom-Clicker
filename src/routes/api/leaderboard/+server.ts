@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { auditScore } from '#lib/server/scoreAudit.server.js';
+import { auditScore } from '#lib/server/audit/scoreAudit.server.js';
 import { leaderboardService, supabaseAdmin } from '#lib/server/supabase.server.js';
 import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';

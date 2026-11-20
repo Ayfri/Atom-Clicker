@@ -21,7 +21,7 @@ import {
 } from 'three/webgpu';
 import { CLICKABLE_OBJECTS, COSMOS_OBJECTS, CosmosEras } from '#data/cosmos.js';
 import { guestStarSpot } from '#data/guestStars.js';
-import { perfTracker } from '#helpers/perfTracker.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { Body, BODY_LOOKS, simClock } from './bodies.js';
 import type { BenchOptions } from './CosmosBench.js';
 import { Earth } from './earth.js';

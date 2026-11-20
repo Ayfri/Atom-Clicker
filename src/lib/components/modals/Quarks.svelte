@@ -8,7 +8,7 @@
 	import Login from '#components/modals/Login.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import IconStack from '#components/ui/IconStack.svelte';
-	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
+	import LeaderboardRow from '#components/leaderboard/LeaderboardRow.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import QuarkLabel from '#components/ui/QuarkLabel.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
@@ -17,9 +17,9 @@
 	import { QUARK_CHARGE_COLORS } from '#data/quarks.js';
 	import { QUARK_SHOP, type QuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { createCurrentPlayerPreview } from '#lib/utils/leaderboard-preview.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';

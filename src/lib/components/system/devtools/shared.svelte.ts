@@ -1,10 +1,10 @@
 import type { CurrencyName } from '#data/currencies.js';
 import { GENERATOR_LEVEL_UP_COST, type GeneratorType } from '#data/generators.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { SAVE_KEY } from '#helpers/saves.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { SAVE_KEY } from '#helpers/save/saves.js';
 import { SUFFIXES } from '#lib/utils.js';
-import { getItem, getJSON, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { getItem, getJSON, removeItem, setItem } from '#helpers/safeLocalStorage.js';
 
 const base =
 	'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30';

@@ -4,7 +4,7 @@
 	import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import PhotonIcon from '#components/icons/Photon.svelte';
 	import Currency from '#components/ui/Currency.svelte';

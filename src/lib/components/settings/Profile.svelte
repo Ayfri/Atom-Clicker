@@ -11,10 +11,10 @@
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ELEMENT_COUNT } from '#data/elements.js';
 	import { REALMS } from '#data/realms.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';

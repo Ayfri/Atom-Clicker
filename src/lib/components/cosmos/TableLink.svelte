@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SITES } from '#data/sites.js';
 	import { hasSourceLinks, instrumentLinks, unlockPhrase } from '#data/tableLinks.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
 	import { FlaskRound } from '@lucide/svelte';
 	import type { ClassValue } from 'svelte/elements';
 

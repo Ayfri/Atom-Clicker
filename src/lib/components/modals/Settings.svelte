@@ -10,7 +10,7 @@
 	import GlobalStats from '#components/settings/Stats.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import NotificationDot from '#components/ui/NotificationDot.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { APP_PRODUCTION_PERCENT } from '#lib/constants.js';
 	import { changelog } from '#stores/changelog.svelte.js';
 	import { installStore } from '#stores/install.svelte.js';

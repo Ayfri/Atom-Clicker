@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { Gauge } from '@lucide/svelte';
 

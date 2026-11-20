@@ -1,5 +1,5 @@
 import { CurrenciesTypes } from '#data/currencies.js';
-import type { Price } from '#lib/types.js';
+import type { Price } from '#lib/types/game.js';
 import { formatNumber } from '#lib/utils.js';
 
 /** Effects live in RadiationManager, which reads the levels directly because every reactor formula is a single term per upgrade. */

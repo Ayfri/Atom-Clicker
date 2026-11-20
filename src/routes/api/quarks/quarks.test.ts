@@ -3,7 +3,7 @@ import { DAILY_QUEST_COUNT, getDailyCap, pickDailyQuests } from '#data/dailyQues
 import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
 import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { QUARK_SHOP } from '#data/quarkShop.js';
-import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { obfuscateClientData } from '#helpers/obfuscation.js';
 
 const service = {
 	equipBanner: mock(async () => {}),

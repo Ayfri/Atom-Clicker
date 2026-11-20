@@ -3,9 +3,9 @@
 	import { POWER_UPS } from '#data/powerUp.js';
 	import OfflineProgress from '#components/modals/OfflineProgress.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { applyOfflineProgress } from '#helpers/offlineProgress.js';
-	import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { applyOfflineProgress } from '#helpers/save/offlineProgress.js';
+	import { IONIZE_HOLD_SECONDS, radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';

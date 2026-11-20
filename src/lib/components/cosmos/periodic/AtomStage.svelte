@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { ELEMENTS } from '#data/elements.js';
-	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/AtomRenderer.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { AtomRenderer, CANVAS_OVERFLOW, NUCLEON_RANGE, type AtomScene } from '#helpers/canvas/AtomRenderer.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { Hand } from '@lucide/svelte';
 	import { untrack } from 'svelte';

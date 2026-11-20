@@ -1,6 +1,6 @@
 import { DAILY_QUEST_COUNT, type DailyQuest, getDailyCap, getQuestProgress, getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import { statsConfig } from '#helpers/statConstants.js';
 import type { QuestBehavior, QuestOutcome } from './types';
 

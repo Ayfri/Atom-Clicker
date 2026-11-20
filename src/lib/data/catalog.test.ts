@@ -10,8 +10,8 @@ import { getRadiationUpgradeCost, RADIATION_UPGRADES } from '#data/radiationUpgr
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { effectAmount } from '#helpers/effects.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import type { Effect } from '#lib/types.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import type { Effect } from '#lib/types/game.js';
 
 /** Every keyed catalog, the key is what saves and the Quarks server store. */
 const CATALOGS: Record<string, Record<string, { id: string }>> = {

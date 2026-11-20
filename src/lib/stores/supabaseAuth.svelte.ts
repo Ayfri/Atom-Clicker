@@ -1,11 +1,11 @@
 import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
 import { browser } from '$app/env';
 import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
-import type { GameState } from '#lib/types.js';
+import type { GameState } from '#lib/types/game.js';
 import type { Database, Profile } from '#lib/types/supabase.js';
-import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#helpers/safeLocalStorage.js';
 import { multiTabDetector } from '#stores/multiTab.svelte.js';
-import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/saves.js';
+import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/save/saves.js';
 
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
 export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';

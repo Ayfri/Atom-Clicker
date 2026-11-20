@@ -3,11 +3,11 @@
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { POWER_UPS } from '#data/powerUp.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { AmbientField } from '#helpers/AmbientField.js';
-	import { AtomRenderer } from '#helpers/AtomRenderer.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import type { PowerUp } from '#lib/types.js';
+	import { AmbientField } from '#helpers/canvas/AmbientField.js';
+	import { AtomRenderer } from '#helpers/canvas/AtomRenderer.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import type { PowerUp } from '#lib/types/game.js';
 	import { formatNumber, randomBetween, randomValue } from '#lib/utils.js';
 	import { onMount } from 'svelte';
 

@@ -1,9 +1,9 @@
-import { gameManager } from '#helpers/GameManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { browser, dev } from '$app/env';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
-import { obfuscateClientData } from '#lib/utils/obfuscation.js';
-import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+import { obfuscateClientData } from '#helpers/obfuscation.js';
+import { getJSON, setItem } from '#helpers/safeLocalStorage.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
 export const REFRESH_INTERVAL = 60_000; // 1 minute between leaderboard refreshes

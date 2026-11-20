@@ -3,11 +3,11 @@
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ELEMENTS, FAMILIES } from '#data/elements.js';
 	import { CHAINS, FORGED_BY, MAX_FORGES, SITES } from '#data/sites.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { bakeCosmos, cosmosDev, startCosmosStartupBench } from '#lib/cosmos/devTools.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';

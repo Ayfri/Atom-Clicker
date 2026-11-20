@@ -1,4 +1,4 @@
-import { perfTracker } from '#helpers/perfTracker.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { type Component, untrack } from 'svelte';
 
 type ModalComponent = Component<{ onClose: () => void }>;

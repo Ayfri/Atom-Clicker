@@ -7,7 +7,7 @@
 		listReports,
 		renameReport,
 		type BenchmarkReportSummary,
-	} from '#lib/stores/benchmarkHistory.svelte.js';
+	} from '#lib/simulation/benchmarkHistory.js';
 	import { Check, Eye, GitCompare, Pencil, RotateCcwClock, Search, SlidersHorizontal, Trash, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';

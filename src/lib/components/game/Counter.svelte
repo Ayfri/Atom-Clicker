@@ -6,8 +6,8 @@
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { Info } from '@lucide/svelte';

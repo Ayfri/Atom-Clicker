@@ -1,5 +1,5 @@
 import { browser } from '$app/env';
-import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+import { getJSON, setItem } from '#helpers/safeLocalStorage.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { GameMessage } from '#lib/types/supabase.js';
 

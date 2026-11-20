@@ -1,6 +1,6 @@
 import type { GeneratorType } from '#data/generators.js';
 import type { SiteId } from '#data/sites.js';
-import type { EffectStat } from '#lib/types.js';
+import type { EffectStat } from '#lib/types/game.js';
 
 export type Family = 'actinide' | 'alkali' | 'alkaline' | 'halogen' | 'lanthanide' | 'metalloid' | 'noble' | 'nonmetal' | 'post' | 'transition';
 

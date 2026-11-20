@@ -1,6 +1,6 @@
 import { dev } from '$app/env';
 import type { RequestHandler } from './$types';
-import { planAuditFixes } from '#lib/server/auditFixes.server.js';
+import { planAuditFixes } from '#lib/server/audit/auditFixes.server.js';
 import { readJsonBody } from '#lib/server/requestBody.server.js';
 import type { DevAuditRequest, DevAuditResponse } from '#lib/types/audit.js';
 

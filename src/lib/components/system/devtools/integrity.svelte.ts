@@ -1,11 +1,11 @@
-import { colliderManager } from '#helpers/ColliderManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { checkStatePlausibility } from '#helpers/plausibility.js';
-import { SAVE_KEY } from '#helpers/saves.js';
-import { patchFor } from '#helpers/stateFixes.js';
+import { colliderManager } from '#helpers/managers/ColliderManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { checkStatePlausibility } from '#helpers/audit/plausibility.js';
+import { SAVE_KEY } from '#helpers/save/saves.js';
+import { patchFor } from '#helpers/audit/stateFixes.js';
 import type { DevAuditRequest, DevAuditResponse } from '#lib/types/audit.js';
-import { getItem } from '#lib/utils/safeLocalStorage.js';
-import { unwrapStoredSave } from '#lib/utils/saveIntegrity.js';
+import { getItem } from '#helpers/safeLocalStorage.js';
+import { unwrapStoredSave } from '#helpers/save/saveIntegrity.js';
 
 /** Runs the leaderboard audit on the dev server against the live game and applies the fixes it plans, see /api/dev/audit. */
 class IntegrityCheck {

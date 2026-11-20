@@ -1,7 +1,7 @@
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { mul } from '#helpers/effects.js';
 import type { IconStackSpec } from '#helpers/iconStacks.js';
-import type { Effect } from '#lib/types.js';
+import type { Effect } from '#lib/types/game.js';
 
 export interface ThemeDefinition {
 	/** Optional secondary accent, e.g. for buttons/borders. Falls back to `accent` when unset. */

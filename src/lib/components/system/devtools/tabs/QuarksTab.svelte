@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 	import { QUARK_SHOP } from '#data/quarkShop.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { statsConfig } from '#helpers/statConstants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';

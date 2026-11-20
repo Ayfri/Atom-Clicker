@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { RealmType } from '#data/realms.js';
-	import { AmbientField, type Ambience } from '#helpers/AmbientField.js';
-	import { particlesEnabled } from '#helpers/CanvasLoop.js';
+	import { AmbientField, type Ambience } from '#helpers/canvas/AmbientField.js';
+	import { particlesEnabled } from '#helpers/canvas/CanvasLoop.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { untrack } from 'svelte';
 

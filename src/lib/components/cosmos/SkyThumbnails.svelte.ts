@@ -1,6 +1,6 @@
-import { pixelRatio } from '#helpers/CanvasLoop.js';
-import { perfTracker } from '#helpers/perfTracker.js';
-import { realmManager } from '#helpers/RealmManager.svelte.js';
+import { pixelRatio } from '#helpers/canvas/CanvasLoop.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
+import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 import { autoLevel, type GlobeLut, globeLut, MAP_HEIGHT, MAP_WIDTH, rockLut, shadeGlobe } from '#components/cosmos/skyGlobe.js';
 import { ROCK_SHAPES } from '#lib/cosmos/rockShapes.js';
 import { ui } from '#stores/ui.svelte.js';

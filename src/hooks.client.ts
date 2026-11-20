@@ -1,7 +1,7 @@
 import { dev } from '$app/env';
 import type { HandleClientError } from '@sveltejs/kit/hooks';
 import { initGlobalErrorHandlers, reportError } from '#lib/helpers/errorReporting.js';
-import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { getItem, setItem } from '#helpers/safeLocalStorage.js';
 
 initGlobalErrorHandlers();
 

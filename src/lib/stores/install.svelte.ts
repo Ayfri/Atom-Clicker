@@ -1,6 +1,6 @@
 import { browser } from '$app/env';
 import { APP_DISPLAY_QUERY, detectManualInstall, isInstalledApp, type ManualInstall } from '#helpers/clientInfo.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 
 class InstallStore {
 	/** An install prompt can only be shown once, so the event is dropped as soon as `install()` takes it and when the app gets installed. */

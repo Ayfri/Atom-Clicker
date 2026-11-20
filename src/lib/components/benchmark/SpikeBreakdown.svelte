@@ -17,7 +17,7 @@
 	import StarIcon from '#components/icons/generators/Star.svelte';
 	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
 	import type { SimulationAction, SpikeEvent } from '#lib/simulation/types.js';
-	import type { EffectStat } from '#lib/types.js';
+	import type { EffectStat } from '#lib/types/game.js';
 
 	let { index, spike }: { index: number; spike: SpikeEvent } = $props();
 

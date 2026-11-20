@@ -9,7 +9,7 @@
 	import { buildBenchmarkConfig, configToPresets, profileForm, type BenchmarkForm } from '#lib/simulation/presets.js';
 	import SimulationWorker from '#lib/simulation/simulation.worker?worker';
 	import type { MilestoneHit, SimulationProgress, SimulationResult, SimulationSnapshot, SpikeEvent } from '#lib/simulation/types.js';
-	import { getReport, saveReport, type BenchmarkReport } from '#lib/stores/benchmarkHistory.svelte.js';
+	import { getReport, saveReport, type BenchmarkReport } from '#lib/simulation/benchmarkHistory.js';
 	import { ChartLine, GitCompare, RotateCcwClock, Save, X } from '@lucide/svelte';
 
 	interface LiveRun {

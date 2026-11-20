@@ -1,5 +1,5 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
-import { rgba, TAU } from '#helpers/nucleus.js';
+import { CanvasLoop, pixelRatio } from '#helpers/canvas/CanvasLoop.js';
+import { rgba, TAU } from '#helpers/canvas/nucleus.js';
 import { MINI_NUCLEONS, nucleonsOf, paintAtom, paintNucleus } from './atoms.js';
 
 export type CellLook =

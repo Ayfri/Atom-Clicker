@@ -1,4 +1,4 @@
-import { CanvasLoop } from '#helpers/CanvasLoop.js';
+import { CanvasLoop } from '#helpers/canvas/CanvasLoop.js';
 
 const MAX_SPARKS = 320;
 const MAX_COMETS = 24;

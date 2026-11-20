@@ -1,7 +1,7 @@
 import { dev } from '$app/env';
 import { supabaseAdmin } from './supabase.server';
 import type { Json } from '#lib/types/supabase.js';
-import { isNoiseError } from '#lib/utils/errorNoise.js';
+import { isNoiseError } from '#helpers/errorNoise.js';
 
 export interface ServerErrorReport {
 	browserInfo?: Record<string, unknown> | null;

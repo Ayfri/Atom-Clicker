@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { HINTS, type Hint } from '#data/hints.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
-	import { highlightCurrencies } from '#lib/utils/highlightCurrencies.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import { highlightCurrencies } from '#components/tutorial/highlightCurrencies.js';
 	import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { X } from '@lucide/svelte';

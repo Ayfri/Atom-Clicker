@@ -4,7 +4,7 @@
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
 	import Currency from '#components/ui/Currency.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { MAX_BOOST_POINTS } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';

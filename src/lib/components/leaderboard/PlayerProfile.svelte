@@ -5,8 +5,8 @@
 	import Lifetime from '#components/profile/Lifetime.svelte';
 	import StatTiles, { type StatTile } from '#components/profile/StatTiles.svelte';
 	import Avatar from '#components/ui/Avatar.svelte';
-	import LeaderboardBannerBackdrop from '#components/ui/LeaderboardBannerBackdrop.svelte';
-	import LevelChip from '#components/ui/LevelChip.svelte';
+	import LeaderboardBannerBackdrop from '#components/leaderboard/LeaderboardBannerBackdrop.svelte';
+	import LevelChip from '#components/leaderboard/LevelChip.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
 	import { COSMOS_OBJECTS } from '#data/cosmos.js';
@@ -17,7 +17,7 @@
 	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import type { LeaderboardEntry, PublicProfile, PublicProfileStats } from '#lib/types/leaderboard.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';

@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import { skillLink } from '#components/game/SkillEdge.svelte';
+	import { skillLink } from '#components/skillTree/SkillEdge.svelte';
 	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '#data/skillTree.js';
-	import type { SkillUpgrade } from '#lib/types.js';
+	import type { SkillUpgrade } from '#lib/types/game.js';
 
 	const SKILLS = Object.values(SKILL_UPGRADES);
 
@@ -67,19 +67,19 @@
 <script lang="ts">
 	import { LocateFixed, Minus, Plus } from '@lucide/svelte';
 	import { dev } from '$app/env';
-	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/game/SkillEdge.svelte';
-	import SkillNode, { type SkillStatus } from '#components/game/SkillNode.svelte';
+	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/skillTree/SkillEdge.svelte';
+	import SkillNode, { type SkillStatus } from '#components/skillTree/SkillNode.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { SKILL_BRANCH_COLORS } from '#data/skillTree.js';
-	import { pixelRatio } from '#helpers/CanvasLoop.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { pixelRatio } from '#helpers/canvas/CanvasLoop.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { mobile } from '#stores/window.svelte.js';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';

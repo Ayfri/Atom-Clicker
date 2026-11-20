@@ -1,6 +1,6 @@
 import { browser } from '$app/env';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { getItem, setItem } from '#helpers/safeLocalStorage.js';
 import { supabaseAuth, type CloudSaveInfo } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 import { ui } from '#stores/ui.svelte.js';

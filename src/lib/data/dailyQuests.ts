@@ -1,6 +1,6 @@
 import { CHROMATIC_COLORS, type ChromaticColor } from '#data/chromatic.js';
 import { formatNumber } from '#lib/utils.js';
-import { simpleHash } from '#lib/utils/signing.js';
+import { simpleHash } from '#helpers/signing.js';
 
 export type DailyStatMetric =
 	| 'achievementsUnlocked'

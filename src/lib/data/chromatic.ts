@@ -1,7 +1,7 @@
 import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { TUNING } from '#data/elements.js';
 import { add, mul } from '#helpers/effects.js';
-import type { Effect } from '#lib/types.js';
+import type { Effect } from '#lib/types/game.js';
 import { formatNumber } from '#lib/utils.js';
 
 export const ChromaticColors = {

@@ -1,4 +1,4 @@
-import { gameManager } from '#helpers/GameManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { untrack } from 'svelte';

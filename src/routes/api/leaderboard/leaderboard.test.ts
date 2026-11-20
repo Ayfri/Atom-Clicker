@@ -1,7 +1,7 @@
 import { beforeEach, expect, mock, test } from 'bun:test';
-import type { ScoreAudit } from '#lib/server/scoreAudit.server.js';
+import type { ScoreAudit } from '#lib/server/audit/scoreAudit.server.js';
 import type { ScoreContext, ScoreStatus } from '#lib/server/supabase.server.js';
-import { obfuscateClientData } from '#lib/utils/obfuscation.js';
+import { obfuscateClientData } from '#helpers/obfuscation.js';
 
 const passing: ScoreAudit = {
 	atoms: 1e40,
@@ -33,7 +33,7 @@ mock.module('#lib/server/supabase.server.js', () => ({
 	resolveUserFromRequest: async (request: Request) => (request.headers.has('Authorization') ? 'user-1' : null),
 	supabaseAdmin: {},
 }));
-mock.module('#lib/server/scoreAudit.server.js', () => ({ auditScore }));
+mock.module('#lib/server/audit/scoreAudit.server.js', () => ({ auditScore }));
 
 const { POST } = await import('./+server.js');
 

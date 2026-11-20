@@ -15,12 +15,12 @@
 	import { RealmTypes } from '#data/realms.js';
 	import { GENERATOR_COST_MULTIPLIER, OVERDRIVE_COST, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
-	import { AmbientField, ELECTRON_FLIGHT } from '#helpers/AmbientField.js';
-	import { AtomRenderer } from '#helpers/AtomRenderer.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { AmbientField, ELECTRON_FLIGHT } from '#helpers/canvas/AmbientField.js';
+	import { AtomRenderer } from '#helpers/canvas/AtomRenderer.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import OverdriveButton from '#components/game/OverdriveButton.svelte';

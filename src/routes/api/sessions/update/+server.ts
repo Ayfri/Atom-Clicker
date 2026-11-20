@@ -1,11 +1,11 @@
 import { dev } from '$app/env';
 import type { RequestHandler } from './$types';
-import { isDegraded } from '#helpers/perfStats.js';
+import { isDegraded } from '#helpers/perf/perfStats.js';
 import { RateLimiter } from '#lib/server/rateLimit.server.js';
 import { readJsonBody } from '#lib/server/requestBody.server.js';
-import { parseSessionUpdate } from '#lib/server/sessionPayload.server.js';
-import { sessionsService } from '#lib/server/sessions.server.js';
-import { judgeSession } from '#lib/server/sessionVerdict.server.js';
+import { parseSessionUpdate } from '#lib/server/sessions/sessionPayload.server.js';
+import { sessionsService } from '#lib/server/sessions/sessions.server.js';
+import { judgeSession } from '#lib/server/sessions/sessionVerdict.server.js';
 import type { Json } from '#lib/types/supabase.js';
 
 const MAX_BODY_BYTES = 16 * 1024;

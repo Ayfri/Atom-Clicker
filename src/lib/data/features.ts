@@ -1,4 +1,4 @@
-import type { FeatureState } from '#lib/types.js';
+import type { FeatureState } from '#lib/types/game.js';
 
 export const FeatureTypes = {
 	BOOST_ASSIGN_ALL: 'boost_assign_all',

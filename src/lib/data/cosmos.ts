@@ -1,6 +1,6 @@
 import type { LightColor } from '#data/elements.js';
 import { mul } from '#helpers/effects.js';
-import type { Effect, EffectStat } from '#lib/types.js';
+import type { Effect, EffectStat } from '#lib/types/game.js';
 
 export const SPECTROSCOPE_ID = 'spectroscope';
 

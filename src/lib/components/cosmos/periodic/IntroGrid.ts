@@ -1,6 +1,6 @@
 import { ELEMENTS } from '#data/elements.js';
-import { CanvasLoop } from '#helpers/CanvasLoop.js';
-import { rgba } from '#helpers/nucleus.js';
+import { CanvasLoop } from '#helpers/canvas/CanvasLoop.js';
+import { rgba } from '#helpers/canvas/nucleus.js';
 
 export const GRID_COLUMNS = 18;
 /** Seven periods, a gap, then the lanthanides and actinides. */

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SettingRow from '#components/ui/SettingRow.svelte';
+	import SettingRow from '#components/settings/SettingRow.svelte';
 	import Switch from '#components/ui/Switch.svelte';
 	import { privacy } from '#stores/privacy.svelte.js';
 	import { ChevronDown, ShieldCheck } from '@lucide/svelte';

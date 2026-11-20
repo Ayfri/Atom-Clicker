@@ -5,7 +5,7 @@
 <script lang="ts">
 	import Discord from '#components/icons/Discord.svelte';
 	import GitHub from '#components/icons/GitHub.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { Coffee, MessageSquare } from '@lucide/svelte';
 </script>

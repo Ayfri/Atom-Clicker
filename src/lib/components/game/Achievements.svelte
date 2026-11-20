@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Achievement, AchievementGroup } from '#lib/types.js';
+	import type { Achievement, AchievementGroup } from '#lib/types/game.js';
 	import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS } from '#data/achievements.js';
 	import { isQuarkAchievement } from '#data/quarkAchievements.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { gatherSparks, quarkFlight } from '#helpers/quarkFlight.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import Quark from '#components/icons/Quark.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';

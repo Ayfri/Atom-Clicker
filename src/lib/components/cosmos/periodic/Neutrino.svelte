@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { neutrinoPath } from '#components/cosmos/periodic/neutrinoPath.js';
 	import { NEUTRINO_FACTS, NEUTRINO_SKIP_MS } from '#data/neutrinos.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { tierIconStack } from '#helpers/iconStacks.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { neutrino } from '#stores/neutrino.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
