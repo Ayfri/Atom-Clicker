@@ -14,7 +14,7 @@ export const POST: RequestHandler = verifiedHandler('Failed to grant achievement
 	}
 
 	/** Unknown ids are dropped silently, the reward is our own constant, never the request's. */
-	const validIds: string[] = achievementIds.filter(id => id in ACHIEVEMENTS);
+	const validIds: string[] = achievementIds.filter(id => Object.hasOwn(ACHIEVEMENTS, id));
 	const result = await quarksService.grantAchievementQuarks(userId, validIds, QUARK_ACHIEVEMENT_REWARD);
 
 	return Response.json(result);

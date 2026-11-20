@@ -442,5 +442,5 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 };
 
 export function getQuarkShopItem(itemId: string): QuarkShopItem | undefined {
-	return QUARK_SHOP[itemId];
+	return Object.hasOwn(QUARK_SHOP, itemId) ? QUARK_SHOP[itemId] : undefined;
 }

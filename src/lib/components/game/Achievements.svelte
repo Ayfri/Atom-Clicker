@@ -20,7 +20,7 @@
 	const TOTAL_ACHIEVEMENTS = Object.keys(ACHIEVEMENTS).length;
 
 	const claimableAchievementIds = $derived(
-		gameManager.achievements.filter(id => id in ACHIEVEMENTS && !quarksManager.claimedAchievementIds.includes(id)),
+		gameManager.achievements.filter(id => Object.hasOwn(ACHIEVEMENTS, id) && !quarksManager.claimedAchievementIds.includes(id)),
 	);
 	const canClaimAchievements = $derived(quarksManager.hasSynced && claimableAchievementIds.length > 0);
 	const claimable = $derived(new Set(canClaimAchievements ? claimableAchievementIds : []));

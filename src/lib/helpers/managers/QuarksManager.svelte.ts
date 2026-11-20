@@ -334,7 +334,7 @@ class QuarksManager {
 	}
 
 	private claimAchievementsLocally(achievementIds: string[]): number {
-		const granted = achievementIds.filter(id => id in ACHIEVEMENTS).length * QUARK_ACHIEVEMENT_REWARD;
+		const granted = achievementIds.filter(id => Object.hasOwn(ACHIEVEMENTS, id)).length * QUARK_ACHIEVEMENT_REWARD;
 		this.balance += granted;
 		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...achievementIds])];
 		return granted;

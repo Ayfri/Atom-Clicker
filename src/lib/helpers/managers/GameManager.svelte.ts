@@ -778,7 +778,7 @@ export class GameManager {
 			switch (key) {
 				/** Retired tiers drop out here, the achievement multiplier counts this list. */
 				case 'achievements':
-					this.achievements = (data.achievements ?? []).filter(id => id in ACHIEVEMENTS);
+					this.achievements = (data.achievements ?? []).filter(id => Object.hasOwn(ACHIEVEMENTS, id));
 					break;
 				case 'currencyBoosts':
 					this.currencyBoosts = data.currencyBoosts ?? {};

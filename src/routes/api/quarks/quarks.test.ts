@@ -72,6 +72,7 @@ describe('purchase and refund', () => {
 
 	test('unknown or malformed items are refused', async () => {
 		expect((await call(purchase, { itemId: 'free_quarks' })).status).toBe(400);
+		expect((await call(purchase, { itemId: 'constructor' })).status).toBe(400);
 		expect((await call(purchase, { itemId: 42 })).status).toBe(400);
 		expect(service.purchaseItem).not.toHaveBeenCalled();
 	});
@@ -104,7 +105,7 @@ describe('cosmetics', () => {
 
 describe('rewards', () => {
 	test('achievement claims drop unknown ids and pay the server reward', async () => {
-		await call(achievement, { achievementIds: ['not_an_achievement', 'reset_modal_opener'], reward: 1e6 });
+		await call(achievement, { achievementIds: ['not_an_achievement', 'constructor', 'toString', 'reset_modal_opener'], reward: 1e6 });
 		expect(service.grantAchievementQuarks).toHaveBeenCalledWith('user-1', ['reset_modal_opener'], QUARK_ACHIEVEMENT_REWARD);
 		expect((await call(achievement, { achievementIds: Array.from({ length: 251 }, () => 'reset_modal_opener') })).status).toBe(400);
 		expect((await call(achievement, { achievementIds: [1] })).status).toBe(400);
