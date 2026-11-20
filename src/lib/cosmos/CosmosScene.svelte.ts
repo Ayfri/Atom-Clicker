@@ -35,7 +35,7 @@ import { PlanetMarkers, signalSprite } from './sprites.js';
 import { Sun } from './sun.js';
 
 type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
-type CosmosQuality = 'high' | 'low';
+export type CosmosQuality = 'high' | 'low';
 type Target = Body | Nebula;
 
 interface CosmosHud {
@@ -61,6 +61,8 @@ interface CosmosOptions {
 	/** Called with the screen position of a tap that caught the guest star. */
 	onGuestStar: (x: number, y: number) => void;
 	orbits: boolean;
+	/** The quality the player picked, without one the scene starts high and drops to low by itself if its first seconds run slow. */
+	quality?: CosmosQuality;
 	realistic: boolean;
 	/** Records the GPU time of every render pass, which the benchmark reads. */
 	timestamps?: boolean;
@@ -223,7 +225,7 @@ export class CosmosScene {
 	private constructor(
 		canvas: HTMLCanvasElement,
 		renderer: WebGPURenderer,
-		{ discovered, focus, hud, limit, onClick, onDiscover, onGuestStar, orbits, realistic }: CosmosOptions,
+		{ discovered, focus, hud, limit, onClick, onDiscover, onGuestStar, orbits, quality, realistic }: CosmosOptions,
 		maps: Map<string, Texture>,
 	) {
 		this.#canvas = canvas;
@@ -302,6 +304,7 @@ export class CosmosScene {
 		} else this.#playIntro();
 		this.#adaptExposure(1);
 		this.#adaptToGlare(1);
+		if (quality) this.setQuality(quality);
 	}
 
 	/** Startup phases land in the performance timeline as `cosmos:*` measures, the startup benchmark reads them. */
@@ -495,9 +498,13 @@ export class CosmosScene {
 		this.#onVisibility();
 	}
 
-	/** Low drops bloom, the Milky Way dome, clouds, atmosphere, hazes, corona, limb darkening, earthshine and sharp maps, and keeps 1/4 of the stars. */
+	/**
+	 * Low drops bloom, the Milky Way dome, clouds, atmosphere, hazes, corona, limb darkening, earthshine and sharp maps, and keeps 1/4 of the stars.
+	 * Any set quality ends the slow-start probe, so it never overrides the player's pick.
+	 */
 	setQuality(quality: CosmosQuality) {
 		const high = quality === 'high';
+		this.#qualityProbe.frames = -1;
 		this.quality = quality;
 		detail.value = high ? 1 : 0;
 		this.#earth.setQuality(high);

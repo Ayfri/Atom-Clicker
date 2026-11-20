@@ -14,7 +14,7 @@
 	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
-	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
+	import type { CosmosQuality, CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { getItem, getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
@@ -45,6 +45,7 @@
 
 	interface CosmosView {
 		orbits: boolean;
+		quality?: CosmosQuality;
 		realistic: boolean;
 	}
 
@@ -62,6 +63,8 @@
 	let fx = $state.raw<AmbientField>();
 	let popups = $state.raw<Popup[]>([]);
 	let progress = $state<HTMLElement>();
+	/** Only a quality the player picked is saved, the one the slow-start probe drops to is measured again on the next visit. */
+	let quality = $state(getJSON<Partial<CosmosView>>(VIEW_KEY, {}).quality);
 	let scene = $state.raw<CosmosScene | null>(null);
 	let settingsOpen = $state(false);
 
@@ -198,7 +201,7 @@
 	});
 
 	$effect(() => {
-		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
+		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, quality, realistic: scene.realistic } satisfies CosmosView));
 	});
 
 	$effect(() => {
@@ -423,7 +426,10 @@
 								<Switch
 									checked={scene.quality === 'high'}
 									label="High quality"
-									onchange={on => scene?.setQuality(on ? 'high' : 'low')}
+									onchange={on => {
+										quality = on ? 'high' : 'low';
+										scene?.setQuality(quality);
+									}}
 								/>
 							</label>
 						</div>
