@@ -99,6 +99,16 @@ export const leaderboardService = {
 		return (data as { status: ScoreStatus }).status;
 	},
 
+	/** Keeps the achievements seen earned on an audited state, the only ones a Quark claim pays for, see claim_achievement_quarks. */
+	async rememberAchievements(userId: string, achievementIds: string[]): Promise<void> {
+		const { error } = await supabaseAdmin.rpc('remember_achievements', { p_achievement_ids: achievementIds, p_user_id: userId });
+
+		if (error) {
+			console.error('Error remembering achievements:', error);
+			throw error;
+		}
+	},
+
 	/** The save stays server-side, the profile route only publishes the stats it reads from it. */
 	async getPublicSave(userId: string) {
 		const { data, error } = await supabaseAdmin
@@ -164,19 +174,21 @@ interface QuarkRefundResult {
 
 /** Every write goes through these RPCs so the daily cap, idempotency and refund-at-paid-price rules stay atomic in Postgres. */
 export const quarksService = {
-	async grantAchievementQuarks(userId: string, achievementIds: string[], reward: number): Promise<{ balance: number; granted: number }> {
-		const { data, error } = await supabaseAdmin.rpc('grant_achievement_quarks', {
+	/** Pays each requested achievement the server saw earned (`earnedIds` of this claim's audited state included), `claimed` lists the ones now in the ledger. */
+	async claimAchievementQuarks(userId: string, achievementIds: string[], earnedIds: string[], reward: number): Promise<{ balance: number; claimed: string[]; granted: number }> {
+		const { data, error } = await supabaseAdmin.rpc('claim_achievement_quarks', {
 			p_achievement_ids: achievementIds,
+			p_earned_ids: earnedIds,
 			p_reward: reward,
 			p_user_id: userId,
 		});
 
 		if (error) {
-			console.error('Error granting achievement quarks:', error);
+			console.error('Error claiming achievement quarks:', error);
 			throw error;
 		}
 
-		return data as unknown as { balance: number; granted: number };
+		return data as unknown as { balance: number; claimed: string[]; granted: number };
 	},
 
 	async grantQuarks(userId: string, delta: number, reason: string, ref: string, dailyCap?: number): Promise<QuarkGrantResult> {

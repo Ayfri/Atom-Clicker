@@ -604,6 +604,12 @@ export class GameManager {
 		return 1 + (this.currencyBoosts[currency] ?? 0) * 0.1;
 	}
 
+	/** What the server audits, it reads nothing from the daily stats, settings and tutorial. */
+	auditedState(): Omit<GameState, 'dailyStats' | 'settings' | 'tutorial'> {
+		const { dailyStats, settings, tutorial, ...state } = this.getCurrentState();
+		return state;
+	}
+
 	getCurrentState(): GameState {
 		return {
 			achievements: this.achievements,

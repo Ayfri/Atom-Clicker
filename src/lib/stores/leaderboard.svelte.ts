@@ -129,10 +129,9 @@ class LeaderboardStore {
 			if (!('Authorization' in headers)) return;
 			this.nextSubmitAt = Date.now() + MIN_UPDATE_INTERVAL;
 
-			const { dailyStats, settings, tutorial, ...state } = gameManager.getCurrentState();
 			const data = {
 				picture: supabaseAuth.avatarUrl ?? undefined,
-				state,
+				state: gameManager.auditedState(),
 				username: supabaseAuth.displayName ?? 'Anonymous',
 			};
 

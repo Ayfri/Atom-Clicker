@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { auditScore } from '#lib/server/audit/scoreAudit.server.js';
 import { verifiedHandler } from '#lib/server/request.server.js';
-import { leaderboardService, supabaseAdmin } from '#lib/server/supabase.server.js';
+import { leaderboardService, quarksService, supabaseAdmin } from '#lib/server/supabase.server.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 
 const MAX_PICTURE_LENGTH = 2048;
@@ -98,17 +98,22 @@ export const POST: RequestHandler = verifiedHandler('Failed to update leaderboar
 		return Response.json({ error: 'Invalid picture value' }, { status: 400 });
 	}
 
-	const [context, totalUsers] = await Promise.all([leaderboardService.getScoreContext(userId), leaderboardService.countUsers()]);
+	const [context, totalUsers, ownedQuarkItems] = await Promise.all([leaderboardService.getScoreContext(userId), leaderboardService.countUsers(), quarksService.getEntitlements(userId)]);
 	const now = Date.now();
 	const sinceLast = now - (context.lastReceivedAt ?? 0);
 	if (sinceLast < MIN_SUBMIT_INTERVAL_MS) {
 		return Response.json({ error: 'Update too frequent', nextUpdateIn: Math.ceil((MIN_SUBMIT_INTERVAL_MS - sinceLast) / 1000) }, { status: 429 });
 	}
 
-	const audit = auditScore(state, { accountCreatedAt: context.accountCreatedAt, colliderTotal: context.colliderTotal, now, previous: context.previous, totalUsers });
+	const audit = auditScore(state, { accountCreatedAt: context.accountCreatedAt, colliderTotal: context.colliderTotal, now, ownedQuarkItems, previous: context.previous, totalUsers });
 	if (audit === 'outdated') return Response.json({ error: 'This game version is outdated, reload the page' }, { status: 409 });
 	if (audit === 'malformed') return Response.json({ error: 'Invalid game state' }, { status: 400 });
 
-	const status = await leaderboardService.recordScore(userId, audit, username, picture ?? undefined);
+	/** Only a state that passes the audit proves its achievements, a Quark claim pays for the ones remembered here. */
+	const remembered = audit.issues.length === 0 && audit.earnedAchievements.length > 0;
+	const [status] = await Promise.all([
+		leaderboardService.recordScore(userId, audit, username, picture ?? undefined),
+		remembered ? leaderboardService.rememberAchievements(userId, audit.earnedAchievements) : undefined,
+	]);
 	return Response.json({ issues: audit.issues, status });
 });

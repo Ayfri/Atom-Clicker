@@ -102,8 +102,8 @@
 		<HelpIcon position="bottom">
 			{#snippet content()}
 				<p class="text-xs text-white/80">
-					Each achievement awards 1 <QuarkLabel /> the first time your account unlocks it, unlocking it again after a reset pays nothing. Hidden
-					achievements stay secret until you find them.
+					Each achievement awards 1 <QuarkLabel /> once the game has verified the progress behind it, unlocking it again after a reset pays
+					nothing. Hidden achievements stay secret until you find them.
 				</p>
 			{/snippet}
 		</HelpIcon>

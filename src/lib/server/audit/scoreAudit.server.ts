@@ -119,6 +119,8 @@ export interface AuditContext {
 	accountCreatedAt: number | null;
 	colliderTotal: number;
 	now: number;
+	/** Ids of the Quark items the player owns, their boosts apply to the achievement conditions. None when left out. */
+	ownedQuarkItems?: string[];
 	previous: PreviousScore | null;
 	/** Every account, the community upgrade scales with it. */
 	totalUsers: number;
@@ -132,6 +134,8 @@ export interface ScoreInspection extends ScoreAudit {
 
 export interface ScoreAudit {
 	atoms: number;
+	/** Claimed achievements whose condition holds on the state, the ones an achievement Quark claim can pay for. Not part of the stored `snapshot`. */
+	earnedAchievements: string[];
 	/** Reasons the state is impossible, any of them keeps the score off the leaderboard. */
 	issues: string[];
 	level: number;
@@ -344,30 +348,41 @@ function maxStarlightEarned(saveSeconds: number): number {
 /**
  * Loads a copy of the state into the shared game singleton for one synchronous measurement, then wipes it so no request sees another's.
  * The copy is needed because server-compiled `$state` fields hold the objects they are given, so the wipe would zero the audited state too.
- * Also returns the claimed `audited` achievements whose condition is false on the loaded state, read before the bounds measurement overrides the managers.
+ * The claimed achievements are read first, with the boosts the client applies as well (collider bonus, account count, the Quark items the player owns)
+ * but not the whole Quark pool the bounds are measured with, which would lift atoms-per-second tiers past what the player reaches.
+ * `earned` holds the ones whose condition holds, `unearned` the `audited` ones that fail.
  */
 function measure(
 	state: GameState,
-	{ colliderTotal, totalUsers }: AuditContext,
+	{ colliderTotal, ownedQuarkItems = [], totalUsers }: AuditContext,
 	now: number,
 	seconds: number,
 	saveSeconds: number,
-): { bounds: RunBounds; starlightCap: number; unearned: string[] } {
+): { bounds: RunBounds; earned: string[]; starlightCap: number; unearned: string[] } {
 	gameManager.resetAll();
 	gameManager.loadSaveData(structuredClone({ ...state, activePowerUps: [] }));
-	const unearned = gameManager.achievements.filter(id => ACHIEVEMENTS[id].audited && !ACHIEVEMENTS[id].condition(gameManager));
-	gameManager.colliderBonus = colliderBonus(colliderTotal);
-	gameManager.quarkBoostSources = QUARK_SOURCES;
-	gameManager.totalUsers = totalUsers;
 	/**
 	 * Server-compiled runes never cache a derived, so every stat read would rebuild the effect table about a hundred times and one
-	 * table is pinned instead. A caching build (the tests) must not be pinned, its deriveds would keep values read from the pin.
+	 * table is pinned instead, once for the conditions and again for the bounds once their boosts are set. A caching build (the tests)
+	 * must not be pinned, its deriveds would keep values read from the pin.
 	 */
 	const uncached = gameManager.effects !== gameManager.effects;
-	if (uncached) Object.defineProperty(gameManager, 'effects', { configurable: true, value: new EffectTable(gameManager.allEffectSources) });
+	const pinEffects = () => Object.defineProperty(gameManager, 'effects', { configurable: true, value: new EffectTable(gameManager.allEffectSources) });
 	try {
+		gameManager.colliderBonus = colliderBonus(colliderTotal);
+		gameManager.quarkBoostSources = QUARK_SOURCES.filter(({ id }) => ownedQuarkItems.includes(id));
+		gameManager.totalUsers = totalUsers;
+		if (uncached) pinEffects();
+		const earned: string[] = [];
+		const unearned: string[] = [];
+		for (const id of gameManager.achievements) {
+			if (ACHIEVEMENTS[id].condition(gameManager)) earned.push(id);
+			else if (ACHIEVEMENTS[id].audited) unearned.push(id);
+		}
+		gameManager.quarkBoostSources = QUARK_SOURCES;
+		if (uncached) pinEffects();
 		const bounds = measureRunBounds(gameManager, now, seconds);
-		return { bounds, starlightCap: maxStarlightEarned(saveSeconds), unearned };
+		return { bounds, earned, starlightCap: maxStarlightEarned(saveSeconds), unearned };
 	} finally {
 		if (uncached) Reflect.deleteProperty(gameManager, 'effects');
 		gameManager.colliderBonus = 0;
@@ -444,7 +459,7 @@ export function inspectScore(raw: unknown, context: AuditContext): ScoreInspecti
 	const knownSince = sameRun ? null : (previous?.receivedAt ?? accountCreatedAt);
 	let seconds = runSeconds(runStart, state.startDate, now);
 	if (knownSince !== null) seconds = Math.min(seconds, Math.max(0, now - knownSince + CLOCK_TOLERANCE_MS) / 1000);
-	const { bounds, starlightCap, unearned } = measure(state, context, now, seconds, saveSeconds);
+	const { bounds, earned, starlightCap, unearned } = measure(state, context, now, seconds, saveSeconds);
 	if (unearned.length > 0) fail('achievementClaims', unearned.length, 0, `${STRUCTURE_LABELS.achievementClaims}: ${unearned.join(', ')}`);
 	const starlightEarned = state.currencies[CurrenciesTypes.STARLIGHT]?.earnedAllTime ?? 0;
 	if (starlightEarned > starlightCap) fail('starlightEarned', starlightEarned, starlightCap, 'Starlight earned all time vs what the Cosmos could radiate since the save start');
@@ -484,7 +499,7 @@ export function inspectScore(raw: unknown, context: AuditContext): ScoreInspecti
 	}
 
 	const audit = emptyAudit(state);
-	return { ...audit, checks, issues, maxEarnedRun: cap, snapshot: { ...audit.snapshot, runStartedAt: now - seconds * 1000 }, warnings };
+	return { ...audit, checks, earnedAchievements: earned, issues, maxEarnedRun: cap, snapshot: { ...audit.snapshot, runStartedAt: now - seconds * 1000 }, warnings };
 }
 
 function emptyAudit(state: GameState): ScoreAudit {
@@ -501,5 +516,5 @@ function emptyAudit(state: GameState): ScoreAudit {
 		runStartedAt: state.runStartedAt,
 		startDate: state.startDate,
 	};
-	return { atoms: atoms.amount, issues: [], level: levelFromTotalXP(state.totalXP), snapshot, warnings: [] };
+	return { atoms: atoms.amount, earnedAchievements: [], issues: [], level: levelFromTotalXP(state.totalXP), snapshot, warnings: [] };
 }

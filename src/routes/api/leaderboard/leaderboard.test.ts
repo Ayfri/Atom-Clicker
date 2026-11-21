@@ -5,6 +5,7 @@ import { obfuscateClientData } from '#helpers/obfuscation.js';
 
 const passing: ScoreAudit = {
 	atoms: 1e40,
+	earnedAchievements: ['aps_10', 'levels_100'],
 	issues: [],
 	level: 120,
 	snapshot: { atomsEarnedRun: 1e41, clicksAllTime: 10, clicksRun: 5, electronizes: 0, inGameTime: 1000, ionizes: 0, protonises: 1, runStartedAt: 1, startDate: 1 },
@@ -19,8 +20,13 @@ const service = {
 	getLeaderboard: mock(async () => []),
 	getScoreContext: mock(async () => context),
 	recordScore: mock(async (_userId: string, audit: ScoreAudit): Promise<ScoreStatus> => (audit.issues.length > 0 ? 'rolled_back' : 'valid')),
+	rememberAchievements: mock(async (_userId: string, _achievementIds: string[]) => {}),
 };
-const auditScore = mock(() => verdict);
+const quarks = { getEntitlements: mock(async (): Promise<string[]> => ['boost_global_production']) };
+const auditScore = mock((..._args: unknown[]) => verdict);
+const unmocked = () => {
+	throw new Error('Only auditScore is mocked in this file');
+};
 
 /**
  * The real modules open a Supabase client and load the game, the route only needs their answers. Bun keeps one export list per
@@ -29,11 +35,11 @@ const auditScore = mock(() => verdict);
 mock.module('#lib/server/supabase.server.js', () => ({
 	colliderService: {},
 	leaderboardService: service,
-	quarksService: {},
+	quarksService: quarks,
 	resolveUserFromRequest: async (request: Request) => (request.headers.has('Authorization') ? 'user-1' : null),
 	supabaseAdmin: {},
 }));
-mock.module('#lib/server/audit/scoreAudit.server.js', () => ({ auditScore }));
+mock.module('#lib/server/audit/scoreAudit.server.js', () => ({ auditScore, inspectScore: unmocked, keptSpending: unmocked, runSpending: unmocked }));
 
 const { POST } = await import('./+server.js');
 
@@ -53,6 +59,7 @@ beforeEach(() => {
 	verdict = passing;
 	context = { accountCreatedAt: null, colliderTotal: 0, lastReceivedAt: null, previous: null };
 	service.recordScore.mockClear();
+	service.rememberAchievements.mockClear();
 	auditScore.mockClear();
 });
 
@@ -61,9 +68,21 @@ test('a passing state is recorded with the score the audit read', async () => {
 	expect(service.recordScore).toHaveBeenCalledWith('user-1', passing, 'Player', 'https://cdn.example/avatar.png');
 });
 
-test('the audit gets the account count from the server', async () => {
+test('a passing state remembers the achievements it earned, a failing one or one that earned none does not', async () => {
 	await submit(payload);
-	expect(auditScore).toHaveBeenCalledWith(payload.state, expect.objectContaining({ totalUsers: 1234 }));
+	expect(service.rememberAchievements).toHaveBeenCalledWith('user-1', ['aps_10', 'levels_100']);
+
+	service.rememberAchievements.mockClear();
+	verdict = { ...passing, issues: ['production'] };
+	await submit(payload);
+	verdict = { ...passing, earnedAchievements: [] };
+	await submit(payload);
+	expect(service.rememberAchievements).not.toHaveBeenCalled();
+});
+
+test('the audit gets the account count and the owned Quark items from the server', async () => {
+	await submit(payload);
+	expect(auditScore).toHaveBeenCalledWith(payload.state, expect.objectContaining({ ownedQuarkItems: ['boost_global_production'], totalUsers: 1234 }));
 });
 
 test('a failing state is still recorded so the board can roll back', async () => {

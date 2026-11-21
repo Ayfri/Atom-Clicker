@@ -21,6 +21,15 @@ import type { EffectSource } from '#lib/types/game.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
+/** `claimed` lists the requested ids now paid, newly or before, the others stay claimable. */
+interface AchievementClaim {
+	balance: number;
+	claimed: string[];
+	granted: number;
+}
+
+const UNVERIFIED_CLAIM_TOAST = { message: "Some achievement rewards can't be verified yet, they stay claimable.", title: 'Quarks' };
+
 interface QuarksApiState {
 	balance: number;
 	claimedAchievementIds: string[];
@@ -55,6 +64,8 @@ class QuarksManager {
 	pendingActions = $state<string[]>([]);
 	quests = $state<DailyQuest[]>(QUEST_POOL.slice(0, DAILY_QUEST_COUNT));
 	private syncPromise: Promise<void> | null = null;
+	/** Rewards the server can't verify stay claimable and every claim reports them again, so the notice shows once per page session. */
+	private unverifiedNoticeShown = false;
 
 	dailyQuestCount = $derived(getDailyQuestCount(this.entitlements));
 
@@ -298,16 +309,18 @@ class QuarksManager {
 	async claimAchievement(achievementId: string): Promise<number> {
 		if (this.claimedAchievementIds.includes(achievementId)) return 0;
 		if (this.devOverride) return this.claimAchievementsLocally([achievementId]);
-		const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', {
+		const result = await this.postAction<AchievementClaim>('/api/quarks/achievement', {
 			achievementIds: [achievementId],
+			state: gameManager.auditedState(),
 		}, `claim-achievement:${achievementId}`);
 		if (!result) return 0;
 
 		this.balance = result.balance;
-		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, achievementId])];
+		this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...result.claimed])];
 		if (result.granted > 0) {
 			toastStore.info({ message: 'Achievement reward claimed.', title: '+1 Quark' });
 		}
+		if (!result.claimed.includes(achievementId)) this.noticeUnverified();
 		return result.granted;
 	}
 
@@ -318,19 +331,28 @@ class QuarksManager {
 		if (this.devOverride) return this.claimAchievementsLocally(idsToClaim);
 
 		let granted = 0;
+		let unverified = false;
 		for (let start = 0; start < idsToClaim.length; start += MAX_ACHIEVEMENT_IDS_PER_REQUEST) {
 			const batch = idsToClaim.slice(start, start + MAX_ACHIEVEMENT_IDS_PER_REQUEST);
-			const result = await this.postAction<{ balance: number; granted: number }>('/api/quarks/achievement', { achievementIds: batch }, 'claim-achievements');
+			const result = await this.postAction<AchievementClaim>('/api/quarks/achievement', { achievementIds: batch, state: gameManager.auditedState() }, 'claim-achievements');
 			if (!result) break;
 
 			this.balance = result.balance;
-			this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...batch])];
+			this.claimedAchievementIds = [...new Set([...this.claimedAchievementIds, ...result.claimed])];
 			granted += result.granted;
+			unverified ||= batch.some(id => !result.claimed.includes(id));
 		}
 		if (granted > 0) {
 			toastStore.info({ message: `${granted} achievement rewards claimed.`, title: `+${granted} Quarks` });
 		}
+		if (unverified) this.noticeUnverified();
 		return granted;
+	}
+
+	private noticeUnverified() {
+		if (this.unverifiedNoticeShown) return;
+		this.unverifiedNoticeShown = true;
+		toastStore.info(UNVERIFIED_CLAIM_TOAST);
 	}
 
 	private claimAchievementsLocally(achievementIds: string[]): number {

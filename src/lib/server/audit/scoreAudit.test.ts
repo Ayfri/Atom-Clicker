@@ -6,6 +6,7 @@ import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 import { decayCost, ELEMENTS, lightCost, TUNING, type LightColor } from '#data/elements.js';
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
 import { GUEST_STAR_INTERVAL_MS } from '#data/guestStars.js';
+import { QUARK_SHOP } from '#data/quarkShop.js';
 import { RADIATION_UPGRADES } from '#data/radiationUpgrades.js';
 import { FORGE_MILESTONES, siteStudyCost } from '#data/sites.js';
 import { UPGRADES } from '#data/upgrades.js';
@@ -33,7 +34,7 @@ let captures: Capture[] = [];
 /** What the client sends: its current state without the settings, tutorial and daily stats. */
 function capture(): Capture {
 	const clock = gameManager.clock();
-	const { dailyStats, settings, tutorial, ...state } = JSON.parse(JSON.stringify(gameManager.getCurrentState())) as GameState;
+	const state = JSON.parse(JSON.stringify(gameManager.auditedState())) as GameState;
 	state.startDate += OFFSET;
 	state.lastSave = OFFSET + clock;
 	state.lastInteractionTime += OFFSET;
@@ -92,6 +93,21 @@ describe('honest states', () => {
 		gameManager.loadSaveData(entry.state);
 		expect(result.atoms).toBe(gameManager.atoms);
 		expect(result.level).toBe(gameManager.playerLevel);
+	});
+
+	/** The Worker's server-compiled runes never cache `effects`, so `measure` pins a table for each pass: it must audit like the caching build and leave no pin behind. */
+	test('give the same verdict when the effect table is never cached', () => {
+		const entry = lateRun();
+		const cached = audit(entry);
+		expect(cached.earnedAchievements.length).toBeGreaterThan(0);
+		Object.defineProperty(gameManager, 'effects', { configurable: true, get: () => new EffectTable(gameManager.allEffectSources) });
+		try {
+			expect(audit(entry)).toEqual(cached);
+		} finally {
+			Reflect.deleteProperty(gameManager, 'effects');
+		}
+		expect(Object.hasOwn(gameManager, 'effects')).toBe(false);
+		expect(gameManager.effects).toBeInstanceOf(EffectTable);
 	});
 
 	test('leave the shared game singleton empty', () => {
@@ -280,15 +296,16 @@ describe('edited states', () => {
 	});
 
 	describe('achievement claims', () => {
-		const claim = (edit: (state: GameState) => void, ...ids: string[]) => {
+		const claimOwning = (ownedQuarkItems: string[] | undefined, edit: (state: GameState) => void, ...ids: string[]) => {
 			for (const id of ids) expect(ACHIEVEMENTS[id], id).toBeDefined();
 			const entry = structuredClone(lateRun());
 			entry.state.achievements = [...entry.state.achievements.filter(id => !ACHIEVEMENTS[id]?.audited), ...ids];
 			edit(entry.state);
-			const inspection = inspectScore(entry.state, context(entry.now));
+			const inspection = inspectScore(entry.state, { ...context(entry.now), ownedQuarkItems });
 			if (typeof inspection === 'string') throw new Error(inspection);
 			return inspection;
 		};
+		const claim = (edit: (state: GameState) => void, ...ids: string[]) => claimOwning(undefined, edit, ...ids);
 
 		test('a counter tier claimed past its counter is rejected, naming that tier only', () => {
 			const refused = claim(state => (state.totalIonizesAllTime = 4), 'ionizes_1', 'ionizes_5');
@@ -323,6 +340,50 @@ describe('edited states', () => {
 				'higgs_no_atoms',
 			];
 			expect(claim(() => {}, ...unchecked).issues).not.toContain('achievementClaims');
+		});
+
+		/** The late state may already own the tier a test claims, and a duplicated id stops the audit before the conditions are read. */
+		const unique = (state: GameState) => {
+			state.achievements = [...new Set(state.achievements)];
+		};
+
+		test('earned achievements are the claimed ones whose condition holds, run-scoped tiers included', () => {
+			const tiers = Object.keys(ACHIEVEMENTS).filter(id => id.startsWith('levels_'));
+			const level = audit(lateRun()).level;
+			const reached = tiers.findLast(id => Number(id.slice('levels_'.length)) <= level)!;
+			const beyond = tiers.find(id => Number(id.slice('levels_'.length)) > level)!;
+			const { earnedAchievements, issues } = claim(unique, reached, beyond);
+			expect(issues).toEqual([]);
+			expect(earnedAchievements).toContain(reached);
+			expect(earnedAchievements).not.toContain(beyond);
+		});
+
+		test('conditions count the Quark boosts the player owns and not the rest of the pool the bounds are measured with', () => {
+			gameManager.loadSaveData(structuredClone({ ...lateRun().state, activePowerUps: [] }));
+			const base = gameManager.atomsPerSecond;
+			const boost = QUARK_SHOP.boost_global_production;
+			gameManager.quarkBoostSources = [{ effects: boost.effects!, id: boost.id, name: boost.name }];
+			const boosted = gameManager.atomsPerSecond;
+			gameManager.quarkBoostSources = [];
+			gameManager.resetAll();
+
+			const reachable = 'test_aps_reachable';
+			const onlyBoosted = 'test_aps_only_boosted';
+			const threshold = Math.sqrt(base * boosted);
+			expect(boosted).toBeGreaterThan(base);
+			ACHIEVEMENTS[reachable] = { condition: manager => manager.atomsPerSecond >= base * 0.99, description: '', id: reachable, name: '' };
+			ACHIEVEMENTS[onlyBoosted] = { condition: manager => manager.atomsPerSecond >= threshold, description: '', id: onlyBoosted, name: '' };
+			try {
+				const unowned = claim(unique, reachable, onlyBoosted).earnedAchievements;
+				expect(unowned).toContain(reachable);
+				expect(unowned).not.toContain(onlyBoosted);
+				expect(claimOwning([], unique, reachable, onlyBoosted).earnedAchievements).not.toContain(onlyBoosted);
+				expect(claimOwning(['convenience_auto_buy_speed'], unique, reachable, onlyBoosted).earnedAchievements).not.toContain(onlyBoosted);
+				expect(claimOwning([boost.id], unique, reachable, onlyBoosted).earnedAchievements).toEqual(expect.arrayContaining([reachable, onlyBoosted]));
+			} finally {
+				delete ACHIEVEMENTS[reachable];
+				delete ACHIEVEMENTS[onlyBoosted];
+			}
 		});
 	});
 

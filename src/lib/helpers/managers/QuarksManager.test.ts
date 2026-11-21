@@ -5,6 +5,7 @@ import { MAX_ACHIEVEMENT_IDS_PER_REQUEST } from '#data/quarks.js';
 import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 import { statsConfig } from '#helpers/stats.js';
+import { toastStore } from '#stores/toasts.svelte.js';
 
 const atomsQuest = QUEST_POOL.find(quest => quest.id === 'atoms_earned')!;
 
@@ -25,7 +26,7 @@ test('a new day clears the counters and sizes its targets afresh, even for a que
 
 describe('claiming every achievement', () => {
 	const ids = Object.keys(ACHIEVEMENTS);
-	const stubPost = (answer: (batch: string[]) => { balance: number; granted: number } | null) => {
+	const stubPost = (answer: (batch: string[]) => { balance: number; claimed: string[]; granted: number } | null) => {
 		const sizes: number[] = [];
 		const post = spyOn(quarksManager as unknown as { postAction: (path: string, body: { achievementIds: string[] }) => Promise<unknown> }, 'postAction').mockImplementation(
 			async (_path, body) => {
@@ -43,7 +44,7 @@ describe('claiming every achievement', () => {
 
 	test('goes out in sequential batches of at most the server limit', async () => {
 		expect(ids.length).toBeGreaterThan(MAX_ACHIEVEMENT_IDS_PER_REQUEST);
-		const { post, sizes } = stubPost(batch => ({ balance: 0, granted: batch.length }));
+		const { post, sizes } = stubPost(batch => ({ balance: 0, claimed: batch, granted: batch.length }));
 		expect(await quarksManager.claimAchievements(ids)).toBe(ids.length);
 		post.mockRestore();
 		expect(sizes.every(size => size <= MAX_ACHIEVEMENT_IDS_PER_REQUEST)).toBe(true);
@@ -52,11 +53,24 @@ describe('claiming every achievement', () => {
 	});
 
 	test('stops at the first failed batch and keeps the ones already claimed', async () => {
-		const { post, sizes } = stubPost(() => (sizes.length === 1 ? { balance: 0, granted: MAX_ACHIEVEMENT_IDS_PER_REQUEST } : null));
+		const { post, sizes } = stubPost(batch => (sizes.length === 1 ? { balance: 0, claimed: batch, granted: MAX_ACHIEVEMENT_IDS_PER_REQUEST } : null));
 		expect(await quarksManager.claimAchievements(ids)).toBe(MAX_ACHIEVEMENT_IDS_PER_REQUEST);
 		post.mockRestore();
 		expect(sizes).toHaveLength(2);
 		expect(quarksManager.claimedAchievementIds).toEqual(ids.slice(0, MAX_ACHIEVEMENT_IDS_PER_REQUEST));
+	});
+
+	test('only the ids the server claims are marked claimed, the others stay claimable with one notice per session', async () => {
+		const verified = ids.slice(0, 3);
+		const { post } = stubPost(() => ({ balance: 7, claimed: verified, granted: 2 }));
+		const info = spyOn(toastStore, 'info');
+		expect(await quarksManager.claimAchievements(ids.slice(0, 10))).toBe(2);
+		expect(quarksManager.claimedAchievementIds).toEqual(verified);
+		expect(quarksManager.balance).toBe(7);
+		expect(await quarksManager.claimAchievements(ids.slice(0, 10))).toBe(2);
+		post.mockRestore();
+		expect(info.mock.calls.map(([toast]) => toast.title)).toEqual(['+2 Quarks', 'Quarks', '+2 Quarks']);
+		info.mockRestore();
 	});
 });
 
