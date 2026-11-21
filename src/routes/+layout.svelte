@@ -3,12 +3,15 @@
 	import { browser, dev } from '$app/env';
 	import { beforeNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
+	import SignInWelcome from '#components/layout/SignInWelcome.svelte';
 	import PrestigeAnimation from '#components/prestige/PrestigeAnimation.svelte';
 	import Analytics from '#components/system/Analytics.svelte';
 	import SEO from '#components/system/SEO.svelte';
 	import Hints from '#components/tutorial/Hints.svelte';
 	import TooltipPortal from '#components/ui/TooltipPortal.svelte';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { LoaderCircle } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
@@ -36,6 +39,11 @@
 			navigation.cancel();
 			location.href = navigation.to.url.href;
 		}
+	});
+
+	/** Nothing the player did starts it (One Tap, login popup), so an incident that follows names it. */
+	$effect(() => {
+		if (supabaseAuth.welcome) perfTracker.action('auth:welcome');
 	});
 
 	$effect(() => {
@@ -83,6 +91,19 @@
 			{/await}
 		{/if}
 		<Hints />
+		<!-- The redirect flow plays its own welcome on /callback. Above the modals (z-50), click-through so it never blocks a tap. -->
+		{#if supabaseAuth.welcome && page.url.pathname !== '/callback'}
+			{#key supabaseAuth.welcome}
+				<div class="pointer-events-none fixed inset-0 z-60 grid place-items-center" role="status">
+					<SignInWelcome
+						avatar={supabaseAuth.avatarUrl}
+						isNew={supabaseAuth.welcome.isNew}
+						name={supabaseAuth.displayName ?? 'scientist'}
+						onEnd={() => (supabaseAuth.welcome = null)}
+					/>
+				</div>
+			{/key}
+		{/if}
 	{/if}
 	<TooltipPortal />
 {/if}

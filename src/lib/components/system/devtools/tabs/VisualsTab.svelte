@@ -13,6 +13,7 @@
 	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import Section from '../Section.svelte';
 	import { btn, field } from '../shared.svelte.js';
@@ -53,6 +54,8 @@
 		<button class="{btn} ml-auto" onclick={() => prestigeStore.trigger('protonise')}>Protonise anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('electronize')}>Electronize anim</button>
 		<button class={btn} onclick={() => prestigeStore.trigger('ionize')}>Ionize anim</button>
+		<button class={btn} onclick={() => supabaseAuth.showWelcome(true)}>Welcome: new account</button>
+		<button class={btn} onclick={() => supabaseAuth.showWelcome(false)}>Welcome: returning</button>
 		<button
 			class={btn}
 			disabled={!periodicManager.unlocked || realmManager.introPlaying}

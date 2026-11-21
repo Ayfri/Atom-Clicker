@@ -4,6 +4,7 @@
 	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { perfTracker } from '#helpers/perf/perfTracker.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import type { TooltipPosition } from '#stores/tooltip.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { X } from '@lucide/svelte';
@@ -105,7 +106,8 @@
 		};
 	});
 
-	const visible = $derived(current && pending.includes(current) && !ui.activeModal && !realmManager.introPlaying ? current : null);
+	/** The sign-in welcome plays over the atom, right where the first hints point. */
+	const visible = $derived(current && pending.includes(current) && !ui.activeModal && !realmManager.introPlaying && !supabaseAuth.welcome ? current : null);
 
 	/** Space between the target and its halo, a round halo breathes further out. */
 	const pad = $derived(visible?.round ? 14 : 4);

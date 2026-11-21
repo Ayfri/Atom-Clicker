@@ -17,6 +17,11 @@ const PROFILE_COLUMNS = 'id, picture, username';
 
 export type CloudSaveInfo = GameState & { lastSaveDate: number | null };
 
+/** An account this young was created by the sign in that just happened. */
+const NEW_ACCOUNT_MS = 60_000;
+
+export const isNewAccount = (user: User | null | undefined) => !!user && Date.now() - Date.parse(user.created_at) < NEW_ACCOUNT_MS;
+
 class SupabaseAuth {
 	isAuthenticated = $state(false);
 	user = $state<User | null>(null);
@@ -31,6 +36,8 @@ class SupabaseAuth {
 	error = $state<Error | null>(null);
 	/** Another device wrote the cloud save since this one last synced, auto-save holds off until an upload or a load picks a side. */
 	cloudConflict = $state(false);
+	/** Set by a sign in that happens in this page (One Tap, login popup), the layout plays the welcome and clears it. */
+	welcome = $state.raw<{ isNew: boolean } | null>(null);
 
 	private currentSession: Session | null = null;
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -70,6 +77,8 @@ class SupabaseAuth {
 
 			this.supabase.auth.onAuthStateChange(async (event, session) => {
 				if (event === 'SIGNED_OUT') this.signedOut = true;
+				/** auth-js re-emits SIGNED_IN for the existing session when the tab regains focus, only a sign in from signed out is a welcome. */
+				if (event === 'SIGNED_IN' && !this.isAuthenticated) this.showWelcome(isNewAccount(session?.user));
 				this.currentSession = session;
 				await this.handleAuthStateChange(session?.user || null);
 			});
@@ -82,6 +91,10 @@ class SupabaseAuth {
 			this.error = err as Error;
 			this.loading = false;
 		}
+	}
+
+	showWelcome(isNew: boolean) {
+		this.welcome = { isNew };
 	}
 
 	private warnWhenOtherTabIsOpen() {
