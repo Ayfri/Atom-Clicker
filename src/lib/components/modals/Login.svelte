@@ -6,6 +6,8 @@
 		color: string;
 		icon: string;
 		id: string;
+		/** Provider id of identities made through a provider this one replaced, they still show as this connection. */
+		legacyProvider?: Provider;
 		name: string;
 		provider: Provider;
 	}
@@ -13,11 +15,12 @@
 	export const AUTH_CONNECTIONS: AuthConnection[] = [
 		{ color: '#ffffff', icon: '/google.svg', id: 'google', name: 'Google', provider: 'google' },
 		{ color: '#5865f2', icon: '/discord.svg', id: 'discord', name: 'Discord', provider: 'discord' },
-		{ color: '#000000', icon: '/x.svg', id: 'x', name: 'X', provider: 'twitter' },
+		/** `twitter` is X's deprecated OAuth 1.0a provider, accounts made through it get an `x` identity linked on their next sign-in. */
+		{ color: '#000000', icon: '/x.svg', id: 'x', legacyProvider: 'twitter', name: 'X', provider: 'x' },
 	];
 
 	export function getAuthConnection(provider: string | undefined) {
-		return AUTH_CONNECTIONS.find(c => c.provider === provider);
+		return AUTH_CONNECTIONS.find(c => c.provider === provider || c.legacyProvider === provider);
 	}
 </script>
 

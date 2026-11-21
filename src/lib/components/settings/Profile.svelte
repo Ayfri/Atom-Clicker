@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AtomIcon from '#components/icons/Atom.svelte';
 	import QuarkIcon from '#components/icons/Quark.svelte';
-	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '#components/modals/Login.svelte';
+	import Login, { getAuthConnection } from '#components/modals/Login.svelte';
 	import Journey from '#components/profile/Journey.svelte';
 	import Lifetime from '#components/profile/Lifetime.svelte';
 	import StatTiles, { type StatTile } from '#components/profile/StatTiles.svelte';
@@ -35,7 +35,7 @@
 	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let showLoginModal = $state(false);
 
-	const connection = $derived(getAuthConnection(supabaseAuth.user?.identities?.find(identity => AUTH_CONNECTIONS.some(c => c.provider === identity.provider))?.provider));
+	const connection = $derived(supabaseAuth.user?.identities?.map(identity => getAuthConnection(identity.provider)).find(Boolean));
 	const name = $derived(supabaseAuth.displayName ?? 'Anonymous');
 	const tiles: StatTile[] = $derived([
 		{ icon: Trophy, label: 'Achievements', value: `${gameManager.achievements.length} / ${totalAchievements}` },
