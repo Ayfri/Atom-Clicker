@@ -4,21 +4,19 @@
 	import Journey from '#components/profile/Journey.svelte';
 	import Lifetime from '#components/profile/Lifetime.svelte';
 	import StatTiles, { type StatTile } from '#components/profile/StatTiles.svelte';
+	import LeaderboardBannerBackdrop, { bannerOf } from '#components/leaderboard/LeaderboardBannerBackdrop.svelte';
+	import LevelChip from '#components/leaderboard/LevelChip.svelte';
+	import { podiumColor } from '#components/leaderboard/Podium.svelte';
 	import Avatar from '#components/ui/Avatar.svelte';
-	import LeaderboardBannerBackdrop from '#components/ui/LeaderboardBannerBackdrop.svelte';
-	import LevelChip from '#components/ui/LevelChip.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
 	import { COSMOS_OBJECTS } from '#data/cosmos.js';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ELEMENT_COUNT } from '#data/elements.js';
 	import { GENERATOR_COLORS, GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
-	import { podiumColor } from '#data/leaderboard.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import type { LeaderboardEntry, PublicProfile, PublicProfileStats } from '#lib/types/leaderboard.js';
+	import { type LeaderboardEntry, type PublicProfile, type PublicProfileStats } from '#lib/types/leaderboard.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
@@ -46,8 +44,8 @@
 		return [
 			{ icon: Clock, label: 'Play time', value: formatDuration(stats.playTime) },
 			{ icon: MousePointerClick, label: 'Clicks', value: formatNumber(stats.clicks) },
-			{ icon: Trophy, label: 'Achievements', value: `${stats.achievements.filter(id => id in ACHIEVEMENTS).length} / ${totalAchievements}` },
-			{ icon: GraphHub, label: 'Skills', value: `${stats.skills.filter(id => id in SKILL_UPGRADES).length} / ${totalSkills}` },
+			{ icon: Trophy, label: 'Achievements', value: `${stats.achievements.filter(id => Object.hasOwn(ACHIEVEMENTS, id)).length} / ${totalAchievements}` },
+			{ icon: GraphHub, label: 'Skills', value: `${stats.skills.filter(id => Object.hasOwn(SKILL_UPGRADES, id)).length} / ${totalSkills}` },
 			{ icon: AtomIcon, label: 'Best atoms / s', value: formatNumber(stats.highestAPS) },
 			{ icon: HiggsBosonIcon, label: 'Higgs Boson caught', value: formatNumber(stats.lifetime[CurrenciesTypes.HIGGS_BOSON] ?? 0) },
 			...(stats.discoveries > 0 ? [{ icon: Orbit, label: 'Cosmos discoveries', value: `${stats.discoveries} / ${COSMOS_OBJECTS.length}` }] : []),
@@ -61,10 +59,7 @@
 	/** A primitive, so a leaderboard refresh handing over a fresh entry object never refetches the same player. */
 	const userId = $derived(entry.userId);
 	const request = $derived(loadProfile(userId));
-	const banner = $derived.by(() => {
-		const item = getQuarkShopItem((entry.self ? quarksManager.equippedBanner : entry.equippedBanner) ?? '');
-		return item?.type === 'banner' ? item.banner : undefined;
-	});
+	const banner = $derived(bannerOf(entry));
 	const metal = $derived(podiumColor(entry.rank));
 	const percentile = $derived(leaderboard.percentile(entry.rank));
 	const lastSeen = $derived(relativeTime.format(Math.round((entry.lastSeen - Date.now()) / 86_400_000), 'day'));

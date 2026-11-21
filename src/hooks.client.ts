@@ -1,7 +1,7 @@
 import { dev } from '$app/env';
-import type { HandleClientError } from '@sveltejs/kit/hooks';
+import { getItem, setItem } from '#helpers/safeLocalStorage.js';
 import { initGlobalErrorHandlers, reportError } from '#lib/helpers/errorReporting.js';
-import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import type { HandleClientError } from '@sveltejs/kit/hooks';
 
 initGlobalErrorHandlers();
 
@@ -43,7 +43,7 @@ function recoverFromStaleChunk(): boolean {
 }
 
 export const handleError: HandleClientError = async ({ error, kind }) => {
-	// Errors thrown with `error(...)` are expected and keep their own status and message
+	/** Errors thrown with `error(...)` are expected and keep their own status and message. */
 	if (kind === 'app') return;
 	if (kind === 'framework' && error.status === 404) return { message: 'Page not found' };
 

@@ -1,12 +1,18 @@
+<script lang="ts" module>
+	/** Gold, silver and bronze, indexed by rank - 1. */
+	const PODIUM_COLORS = ['#facc15', '#d1d5db', '#d97706'] as const;
+
+	export function podiumColor(rank: number): string | null {
+		return PODIUM_COLORS[rank - 1] ?? null;
+	}
+</script>
+
 <script lang="ts">
+	import LeaderboardBannerBackdrop, { bannerOf } from '#components/leaderboard/LeaderboardBannerBackdrop.svelte';
+	import LevelChip from '#components/leaderboard/LevelChip.svelte';
 	import Avatar from '#components/ui/Avatar.svelte';
-	import LeaderboardBannerBackdrop from '#components/ui/LeaderboardBannerBackdrop.svelte';
-	import LevelChip from '#components/ui/LevelChip.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
-	import { podiumColor } from '#data/leaderboard.js';
-	import { getQuarkShopItem } from '#data/quarkShop.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
 	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
 	import { Crown } from '@lucide/svelte';
 
@@ -23,11 +29,6 @@
 		{ avatar: 'size-16 sm:size-20', delay: 0, index: 0, pedestal: 'h-20 sm:h-24' },
 		{ avatar: 'size-12 sm:size-16', delay: 240, index: 2, pedestal: 'h-10 sm:h-12' },
 	] as const;
-
-	function bannerOf(entry: LeaderboardEntry) {
-		const item = getQuarkShopItem((entry.self ? quarksManager.equippedBanner : entry.equippedBanner) ?? '');
-		return item?.type === 'banner' ? item.banner : undefined;
-	}
 </script>
 
 <div class="podium grid grid-cols-3 items-end gap-2 px-1 pt-4 pb-2 sm:gap-4">

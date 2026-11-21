@@ -1,15 +1,15 @@
 <script lang="ts">
-	import BenchmarkCharts from '#lib/components/benchmark/BenchmarkCharts.svelte';
-	import BenchmarkConfigPanel from '#lib/components/benchmark/BenchmarkConfigPanel.svelte';
-	import BenchmarkCosmos from '#lib/components/benchmark/BenchmarkCosmos.svelte';
-	import BenchmarkExport from '#lib/components/benchmark/BenchmarkExport.svelte';
-	import BenchmarkResults from '#lib/components/benchmark/BenchmarkResults.svelte';
-	import BenchmarkTimeline from '#lib/components/benchmark/BenchmarkTimeline.svelte';
-	import HistoryPanel from '#lib/components/benchmark/HistoryPanel.svelte';
+	import Charts from '#components/benchmark/Charts.svelte';
+	import ConfigPanel from '#components/benchmark/ConfigPanel.svelte';
+	import Cosmos from '#components/benchmark/Cosmos.svelte';
+	import Export from '#components/benchmark/Export.svelte';
+	import HistoryPanel from '#components/benchmark/HistoryPanel.svelte';
+	import Results from '#components/benchmark/Results.svelte';
+	import Timeline from '#components/benchmark/Timeline.svelte';
+	import { getReport, saveReport, type BenchmarkReport } from '#lib/simulation/benchmarkHistory.js';
 	import { buildBenchmarkConfig, configToPresets, profileForm, type BenchmarkForm } from '#lib/simulation/presets.js';
 	import SimulationWorker from '#lib/simulation/simulation.worker?worker';
-	import type { MilestoneHit, SimulationProgress, SimulationResult, SimulationSnapshot, SpikeEvent } from '#lib/simulation/types.js';
-	import { getReport, saveReport, type BenchmarkReport } from '#lib/stores/benchmarkHistory.svelte.js';
+	import { HOUR_MS, type MilestoneHit, type SimulationProgress, type SimulationResult, type SimulationSnapshot, type SpikeEvent } from '#lib/simulation/types.js';
 	import { ChartLine, GitCompare, RotateCcwClock, Save, X } from '@lucide/svelte';
 
 	interface LiveRun {
@@ -54,7 +54,7 @@
 		:	result,
 	);
 	const snapshots = $derived(shown?.snapshots ?? live.snapshots);
-	const shownHours = $derived(Math.max(0.1, (snapshots.at(-1)?.timestamp ?? 0) / 3_600_000));
+	const shownHours = $derived(Math.max(0.1, (snapshots.at(-1)?.timestamp ?? 0) / HOUR_MS));
 
 	async function save(run: SimulationResult) {
 		saveState = 'saving';
@@ -191,7 +191,7 @@
 
 	<div class="flex gap-6 max-w-7xl mx-auto relative">
 		<main class="flex flex-1 flex-col gap-8 min-w-0 {showHistoryPanel ? 'mr-96' : ''}">
-			<BenchmarkConfigPanel
+			<ConfigPanel
 				bind:form
 				{config}
 				{isRunning}
@@ -212,7 +212,7 @@
 			{/if}
 
 			{#if isRunning || shown}
-				<BenchmarkTimeline
+				<Timeline
 					{elapsedTime}
 					{isRunning}
 					milestones={shown?.milestones ?? live.milestones}
@@ -222,13 +222,13 @@
 			{/if}
 
 			{#if shown}
-				<BenchmarkResults result={shown} />
-				<BenchmarkCosmos result={shown} />
-				<BenchmarkExport result={shown} />
+				<Results result={shown} />
+				<Cosmos result={shown} />
+				<Export result={shown} />
 			{/if}
 
 			{#if isRunning || shown || comparisonReport}
-				<BenchmarkCharts
+				<Charts
 					comparisonName={comparisonReport?.name}
 					comparisonSnapshots={comparisonReport?.snapshots ?? []}
 					currentSnapshots={snapshots}

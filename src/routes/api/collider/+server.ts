@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
+import { verifiedHandler } from '#lib/server/request.server.js';
 import { colliderService, resolveUserFromRequest } from '#lib/server/supabase.server.js';
-import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 
 /** Signed-out players only read the shared total, a signed-in one also gets their injections and cooldown. */
 export const GET: RequestHandler = async ({ request }) => {

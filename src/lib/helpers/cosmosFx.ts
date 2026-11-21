@@ -1,6 +1,6 @@
 import { COSMOS_OBJECTS_BY_ID } from '#data/cosmos.js';
 import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
-import { AmbientField } from '#helpers/AmbientField.js';
+import { AmbientField } from '#helpers/canvas/AmbientField.js';
 import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 
 /** Same as `--color-cosmos-workshop`, the canvas can't read the CSS variable. */

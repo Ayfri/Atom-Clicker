@@ -19,13 +19,10 @@
 </script>
 
 {#if browser}
-	<!-- Cloudflare Web Analytics -->
 	<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify(beacon)}>
 	</script>
-	<!-- End Cloudflare Web Analytics -->
 
 	{#if privacy.analytics}
-		<!-- Google tag (gtag.js) -->
 		<script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
 	{/if}
 {/if}

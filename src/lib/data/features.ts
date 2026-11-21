@@ -1,5 +1,6 @@
-import type { FeatureState } from '#lib/types.js';
+import type { FeatureState } from '#lib/types/game.js';
 
+/** Kept out of `skillTree.ts`, which grants these: the many files that only read a flag never load the skill tree. */
 export const FeatureTypes = {
 	BOOST_ASSIGN_ALL: 'boost_assign_all',
 	BOOST_EVEN_SPLIT: 'boost_even_split',

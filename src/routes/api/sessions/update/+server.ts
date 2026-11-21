@@ -1,12 +1,10 @@
 import { dev } from '$app/env';
 import type { RequestHandler } from './$types';
-import { isDegraded } from '#helpers/perfStats.js';
-import { RateLimiter } from '#lib/server/rateLimit.server.js';
-import { readJsonBody } from '#lib/server/requestBody.server.js';
-import { parseSessionUpdate } from '#lib/server/sessionPayload.server.js';
-import { sessionsService } from '#lib/server/sessions.server.js';
-import { judgeSession } from '#lib/server/sessionVerdict.server.js';
-import type { Json } from '#lib/types/supabase.js';
+import { isDegraded } from '#helpers/perf/perfStats.js';
+import { RateLimiter, readJsonBody } from '#lib/server/request.server.js';
+import { parseSessionUpdate } from '#lib/server/sessions/sessionPayload.server.js';
+import { sessionsService } from '#lib/server/sessions/sessions.server.js';
+import { judgeSession } from '#lib/server/sessions/sessionVerdict.server.js';
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -15,9 +13,8 @@ const updateRateLimit = new RateLimiter(60 * 1000, 20);
 /** Safe for `sendBeacon`: the write key in the body is the credential. The degraded flag, problem, cause and summary are computed here, never read from the client. */
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	try {
-		if (updateRateLimit.limited(getClientAddress())) {
-			return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });
-		}
+		const rejected = updateRateLimit.reject(getClientAddress());
+		if (rejected) return rejected;
 
 		const read = await readJsonBody(request, MAX_BODY_BYTES);
 		if ('error' in read) return read.error;
@@ -33,9 +30,9 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		const updated = await sessionsService.update({
 			cause,
 			degraded: isDegraded(payload.perf.evidence),
-			game: payload.game as unknown as Json,
+			game: payload.game,
 			id: payload.sessionId,
-			perf: payload.perf as unknown as Json,
+			perf: payload.perf,
 			problem,
 			summary,
 			writeKey: payload.writeKey,

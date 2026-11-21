@@ -1,5 +1,5 @@
-import { SAVE_KEY } from '#helpers/saves.js';
-import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { SAVE_KEY } from '#helpers/save/saves.js';
+import { getItem, setItem } from '#helpers/safeLocalStorage.js';
 
 const KEY = 'atom-clicker-changelog-seen';
 

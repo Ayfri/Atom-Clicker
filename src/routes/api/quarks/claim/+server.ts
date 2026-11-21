@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getDailyCap, getDailyQuestCount, pickDailyQuests, QUEST_POOL, todayUtcDayKey } from '#data/dailyQuests.js';
+import { verifiedHandler } from '#lib/server/request.server.js';
 import { quarksService } from '#lib/server/supabase.server.js';
-import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 
 export const POST: RequestHandler = verifiedHandler('Failed to claim quest', async ({ data, userId }) => {
 	const { questId } = data;
@@ -9,7 +9,7 @@ export const POST: RequestHandler = verifiedHandler('Failed to claim quest', asy
 		return Response.json({ error: 'Invalid questId' }, { status: 400 });
 	}
 
-	// Quest eligibility lives in the local save, so the server only checks the pool and derives the reward itself.
+	/** Quest eligibility lives in the local save, so the server only checks the pool and derives the reward itself. */
 	const dayKey = todayUtcDayKey();
 	const entitlements = await quarksService.getEntitlements(userId);
 	const todaysQuests = pickDailyQuests(dayKey, getDailyQuestCount(entitlements));

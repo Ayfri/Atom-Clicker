@@ -1,5 +1,5 @@
 import {CurrenciesTypes} from '#data/currencies.js';
-import type {Price} from '#lib/types.js';
+import type {Price} from '#lib/types/game.js';
 
 export const GeneratorTypes = {
 	MOLECULE: 'molecule',
@@ -15,7 +15,7 @@ export const GeneratorTypes = {
 
 export type GeneratorType = typeof GeneratorTypes[keyof typeof GeneratorTypes];
 
-export interface GeneratorData {
+interface GeneratorData {
 	name: string;
 	description: string;
 	cost: Price;

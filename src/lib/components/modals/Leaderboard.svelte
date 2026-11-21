@@ -1,9 +1,9 @@
 <script lang="ts">
+	import LeaderboardRow from '#components/leaderboard/LeaderboardRow.svelte';
 	import PlayerProfile from '#components/leaderboard/PlayerProfile.svelte';
 	import Podium from '#components/leaderboard/Podium.svelte';
 	import Login from '#components/modals/Login.svelte';
 	import Avatar from '#components/ui/Avatar.svelte';
-	import LeaderboardRow from '#components/ui/LeaderboardRow.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
 	import type { LeaderboardEntry } from '#lib/types/leaderboard.js';

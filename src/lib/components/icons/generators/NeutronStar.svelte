@@ -25,10 +25,8 @@
 	{...props}
 >
 	<g transform="rotate(35 12 12)">
-		<!-- Axis -->
 		<line x1="12" y1="1" x2="12" y2="23"></line>
 
-		<!-- Magnetic field loops -->
 		<g stroke-width="1" opacity="0.6">
 			<ellipse cx="7" cy="12" rx="4.5" ry="8"></ellipse>
 			<ellipse cx="8" cy="12" rx="3" ry="5"></ellipse>
@@ -36,7 +34,6 @@
 			<ellipse cx="16" cy="12" rx="3" ry="5"></ellipse>
 		</g>
 
-		<!-- Core -->
 		<circle cx="12" cy="12" r="2.5" fill={color}></circle>
 	</g>
 </svg>

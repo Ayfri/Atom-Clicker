@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { CurrencyName } from '#data/currencies.js';
 	import { formatNumber } from '#lib/utils.js';
+	import FillLine from '#components/cosmos/FillLine.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import FillLine from '#components/ui/FillLine.svelte';
 	import type { Telescope } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';

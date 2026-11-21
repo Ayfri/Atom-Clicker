@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { CurrenciesTypes } from '#data/currencies.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { SimulationEngine } from '#lib/simulation/engine.js';
 import { buildBenchmarkConfig, profileForm } from '#lib/simulation/presets.js';
 

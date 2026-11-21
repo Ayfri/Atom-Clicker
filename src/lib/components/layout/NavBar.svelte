@@ -2,19 +2,18 @@
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
-	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { colliderManager } from '#helpers/managers/ColliderManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal, reveals } from '#helpers/reveals.svelte.js';
 	import { ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 	import { changelog } from '#stores/changelog.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
-	import { ui } from '#stores/ui.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile, ui } from '#stores/ui.svelte.js';
 	import ElectronizeIcon from '#components/icons/Electronize.svelte';
 	import IonizeIcon from '#components/icons/Ionize.svelte';
 	import ProtoniseIcon from '#components/icons/Protonise.svelte';
@@ -149,7 +148,7 @@
 	onMount(() => {
 		ui.registerSettings(settingsLoader);
 
-		// Chunks are warmed once the page is idle, so the split costs nothing on the first open.
+		/** Chunks are warmed once the page is idle, so the split costs nothing on the first open. */
 		const warm = () => [...links, settingsLink].forEach(link => link.load && ui.preloadModal(link.id, link.load));
 		if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 5000 });
 		else setTimeout(warm, 2000);
@@ -216,7 +215,7 @@
 {/if}
 
 <style>
-	/* Label anchor, small triangle */
+	/* Draws the small triangle that anchors the label. */
 	.label::after {
 		content: '';
 		position: absolute;

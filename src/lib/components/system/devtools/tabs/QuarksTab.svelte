@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { getQuestTarget, pickDailyQuests } from '#data/dailyQuests.js';
 	import { QUARK_SHOP } from '#data/quarkShop.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import { statsConfig } from '#helpers/statConstants.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import { statsConfig } from '#helpers/stats.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
-	import { btn, checkbox, field, toggled } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
+	import { btn, checkbox, field, toggled } from '../shared.svelte.js';
 
 	const shopItems = Object.values(QUARK_SHOP);
 

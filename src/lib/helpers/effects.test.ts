@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { GeneratorTypes } from '#data/generators.js';
 import { add, EffectTable, effectAmount, mul, sum } from '#helpers/effects.js';
-import type { GameManager } from '#helpers/GameManager.svelte.js';
-import type { Effect, EffectSource } from '#lib/types.js';
+import type { GameManager } from '#helpers/managers/GameManager.svelte.js';
+import type { Effect, EffectSource } from '#lib/types/game.js';
 
 /** The table only hands the manager to effect readers, so a stub with the read fields is enough. */
 const manager = { playerLevel: 10 } as GameManager;

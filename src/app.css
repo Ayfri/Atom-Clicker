@@ -42,7 +42,6 @@
 
 /* The Quarks name in the QCD charge colors of the Quark icon (`QUARK_CHARGE_COLORS`), for `QuarkLabel` and the highlighted tips alike. */
 @utility quark-wordmark {
-	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
 	background-image: linear-gradient(90deg, #4a9eff, #3ddc84, #ff4d4d);
@@ -68,7 +67,7 @@
 
 	/* Phone nav dock plus the realm bar, kept while the bar is docked in the Cosmos so the realm behind never resizes.
 	   The Cosmos and the Periodic Table end above the nav dock, `--cosmos-dock-height` is what the realm dock covers at the
-	   bottom of the Cosmos. Mirrors MOBILE_QUERY. */
+	   bottom of the Cosmos. Mirrors `mobile` in `stores/ui.svelte.ts`. */
 	@media (width < 64rem) {
 		:root {
 			--cosmos-dock-height: 3.25rem;
@@ -95,6 +94,7 @@
 		position: relative;
 	}
 
+	/* The `::-webkit-scrollbar` rules below serve Safari versions that predate `scrollbar-color` and `scrollbar-width`. */
 	.custom-scrollbar {
 		scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 		scrollbar-width: thin;
@@ -136,18 +136,6 @@
 	button:focus,
 	button:focus-visible {
 		outline: none;
-	}
-
-	@keyframes pulse {
-		0% {
-			transform: scale(1);
-		}
-		50% {
-			transform: scale(1.1);
-		}
-		100% {
-			transform: scale(1);
-		}
 	}
 
 	canvas {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { btn } from './shared.svelte';
 	import NumberInput from './NumberInput.svelte';
+	import { btn } from './shared.svelte.js';
 
 	interface Item {
 		description: (level: number) => string;

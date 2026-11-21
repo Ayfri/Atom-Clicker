@@ -1,5 +1,5 @@
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { perfTracker } from '#helpers/perfTracker.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import type { GeneratorType } from '#data/generators.js';
 import { browser } from '$app/env';
 import { untrack } from 'svelte';
@@ -30,7 +30,7 @@ class AutoBuyManager {
 
 	/**
 	 * Schedules live in `nextFireTimes` instead of one `setInterval` per generator: every upgrade purchase rebuilds the
-	 * interval map, and restarting the timers on each rebuild pushed pending auto-buys back for as long as upgrades kept coming.
+	 * interval map, and restarting the timers on each rebuild would push pending auto-buys back for as long as upgrades kept coming.
 	 */
 	private check() {
 		const now = Date.now();

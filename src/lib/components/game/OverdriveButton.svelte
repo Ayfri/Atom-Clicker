@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ICONS } from '#data/icons.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 	import { OVERDRIVE_COST, OVERDRIVE_MULTIPLIER, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
 	import { clock } from '#stores/clock.svelte.js';
 	import { tooltip as tooltipStore } from '#stores/tooltip.svelte.js';

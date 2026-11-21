@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import { skillLink } from '#components/game/SkillEdge.svelte';
+	import { skillLink } from '#components/skillTree/SkillEdge.svelte';
 	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '#data/skillTree.js';
-	import type { SkillUpgrade } from '#lib/types.js';
+	import type { SkillUpgrade } from '#lib/types/game.js';
 
 	const SKILLS = Object.values(SKILL_UPGRADES);
 
@@ -41,6 +41,9 @@
 		return depth;
 	}
 
+	const DEEPEST_LEVEL = Math.max(...SKILLS.map(depthOf));
+	const LEVEL_MS = 70;
+
 	/**
 	 * Background stars stay fixed while the dot grid pans with the tree, which gives the view some depth.
 	 * Each layer paints its stars once as gradients and twinkles as a whole, one animated element per star cost far more.
@@ -64,20 +67,20 @@
 <script lang="ts">
 	import { LocateFixed, Minus, Plus } from '@lucide/svelte';
 	import { dev } from '$app/env';
-	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/game/SkillEdge.svelte';
-	import SkillNode, { type SkillStatus } from '#components/game/SkillNode.svelte';
+	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/skillTree/SkillEdge.svelte';
+	import SkillNode, { type SkillStatus } from '#components/skillTree/SkillNode.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { SKILL_BRANCH_COLORS } from '#data/skillTree.js';
-	import { pixelRatio } from '#helpers/CanvasLoop.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { pixelRatio } from '#helpers/canvas/CanvasLoop.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
+	import { mobile } from '#stores/ui.svelte.js';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { prefersReducedMotion } from 'svelte/motion';
@@ -118,6 +121,8 @@
 
 		let frame = 0;
 		let pattern: CanvasPattern | null = null;
+		/** Kept from the ResizeObserver entry: reading `clientWidth` in `draw` forces a layout, 128 to 256 ms right after the tree mounts. */
+		let [cssHeight, cssWidth] = [0, 0];
 		let tileZoom = 0;
 		const draw = () => {
 			const start = performance.now();
@@ -136,7 +141,7 @@
 				pattern = context.createPattern(tile, 'repeat');
 			}
 
-			const [width, height] = [Math.round(canvas.clientWidth * ratio), Math.round(canvas.clientHeight * ratio)];
+			const [width, height] = [Math.round(cssWidth * ratio), Math.round(cssHeight * ratio)];
 			if (canvas.width !== width || canvas.height !== height) [canvas.width, canvas.height] = [width, height];
 			else context.clearRect(0, 0, width, height);
 			pattern?.setTransform(new DOMMatrix([cell / size, 0, 0, cell / size, (panZoom.x + TREE_BOUNDS.minX * panZoom.zoom) * ratio, (panZoom.y + TREE_BOUNDS.minY * panZoom.zoom) * ratio]));
@@ -147,7 +152,10 @@
 		/** A two-finger pinch sends two pointer moves per frame, the grid draws once. */
 		const schedule = () => (frame ||= requestAnimationFrame(draw));
 
-		const observer = new ResizeObserver(schedule);
+		const observer = new ResizeObserver(([{ contentRect }]) => {
+			[cssHeight, cssWidth] = [contentRect.height, contentRect.width];
+			schedule();
+		});
 		observer.observe(canvas);
 		$effect(() => {
 			void [panZoom.measured, panZoom.x, panZoom.y, panZoom.zoom];
@@ -185,7 +193,7 @@
 				progress: Math.min(1, amount / skill.cost.amount),
 				visible: dev && showHiddenSkills || owned.includes(skill.id) || !skill.requires?.length || skill.requires.some((id) => owned.includes(id))
 			};
-			if (status.visible && !enterDelays.has(skill.id)) enterDelays.set(skill.id, firstRefresh ? depthOf(skill) * 70 : FILL_MS + 250);
+			if (status.visible && !enterDelays.has(skill.id)) enterDelays.set(skill.id, firstRefresh ? 0 : FILL_MS + 250);
 			return [skill.id, status];
 			}),
 		);
@@ -200,8 +208,13 @@
 		if (gameManager.purchaseSkill(skill.id)) refresh();
 	}
 
-	/** The tree mounts a frame after the modal: its hundreds of elements would otherwise delay the first paint of the click's flush. */
-	let treeMounted = $state(false);
+	/**
+	 * The tree mounts one depth level per `LEVEL_MS`, the first one a frame after the modal, and each level starts its entrance animation as it mounts.
+	 * The wait lets the modal paint first: the tree's hundreds of elements would otherwise delay the first paint of the click's flush.
+	 * Mounting all 894 elements (380 of them SVG) in one task took 296 to 504 ms on a 412x915 viewport at 4x CPU throttle: 138 to 205 ms of script,
+	 * then 128 to 256 ms of style and layout.
+	 */
+	let mountedLevels = $state(-1);
 
 	refresh();
 	onMount(() => {
@@ -211,8 +224,12 @@
 			perfTracker.track('skilltree:refresh', start);
 		}, 1000);
 		let timeout: ReturnType<typeof setTimeout> | undefined;
+		const mountLevel = () => {
+			mountedLevels++;
+			if (mountedLevels < DEEPEST_LEVEL) timeout = setTimeout(mountLevel, LEVEL_MS);
+		};
 		/** A timeout queued inside the rAF callback runs after that frame is painted. */
-		const frame = requestAnimationFrame(() => (timeout = setTimeout(() => (treeMounted = true))));
+		const frame = requestAnimationFrame(() => (timeout = setTimeout(mountLevel)));
 		return () => {
 			clearInterval(interval);
 			cancelAnimationFrame(frame);
@@ -221,11 +238,7 @@
 	});
 </script>
 
-<Modal
-	onClose={onClose}
-	containerClass="m-2 !p-0 rounded-xl"
-	width="lg"
->
+<Modal containerClass="m-2 p-0! rounded-xl" {onClose} width="lg">
 	{#snippet header()}
 		<div class="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-10">
 			<div class="flex items-center gap-3">
@@ -251,11 +264,7 @@
 			</div>
 			<div class="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90">
 				{#each balances as { amount, currency } (currency)}
-					<Value
-						value={amount}
-						currency={currency}
-						currencyClass="h-5 w-5"
-					/>
+					<Value {currency} currencyClass="h-5 w-5" value={amount} />
 				{/each}
 			</div>
 			{#if dev}
@@ -301,23 +310,18 @@
 			class={['absolute top-0 left-0 origin-top-left', panZoom.moving && 'will-change-transform']}
 			style:transform="translate({panZoom.x}px, {panZoom.y}px) scale({panZoom.zoom})"
 		>
-			{#if treeMounted}
+			{#if mountedLevels >= 0}
 				<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
 					{#each LINKS as { id, path, source, target } (id)}
-						{#if statuses[source].visible && statuses[target.id].visible}
-							<SkillEdge
-								color={SKILL_BRANCH_COLORS[target.branch]}
-								enterDelay={enterDelays.get(target.id) ?? 0}
-								path={path}
-								state={linkState(target)}
-							/>
+						{#if depthOf(target) <= mountedLevels && statuses[source].visible && statuses[target.id].visible}
+							<SkillEdge color={SKILL_BRANCH_COLORS[target.branch]} enterDelay={enterDelays.get(target.id) ?? 0} {path} state={linkState(target)} />
 						{/if}
 					{/each}
 				</svg>
 				{#if !prefersReducedMotion.current}
 					{#each LINKS as link (link.id)}
 						{const state = $derived(linkState(link.target))}
-						{#if statuses[link.source].visible && state !== 'locked'}
+						{#if depthOf(link.target) <= mountedLevels && statuses[link.source].visible && state !== 'locked'}
 							{#each state === 'owned' ? [0, 0.5] : [0] as phase (phase)}
 								<span
 									{@attach flowAlong(link, state === 'owned' ? 140 : 80, phase)}
@@ -333,13 +337,8 @@
 				{/if}
 				{#each SKILLS as skill (skill.id)}
 					{const status = $derived(statuses[skill.id])}
-					{#if status.visible}
-						<SkillNode
-							enterDelay={enterDelays.get(skill.id) ?? 0}
-							onUnlock={() => unlock(skill)}
-							skill={skill}
-							status={status}
-						/>
+					{#if status.visible && depthOf(skill) <= mountedLevels}
+						<SkillNode enterDelay={enterDelays.get(skill.id) ?? 0} onUnlock={() => unlock(skill)} {skill} {status} />
 					{/if}
 				{/each}
 			{/if}

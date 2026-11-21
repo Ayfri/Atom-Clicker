@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 
 	/** The NavBar's quest dot, as a number on the app icon. Only read inside the app, so a browser tab never computes it. */

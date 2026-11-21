@@ -1,10 +1,9 @@
 <script lang="ts">
-	import type { Achievement, AchievementGroup } from '#lib/types.js';
+	import type { Achievement, AchievementGroup } from '#lib/types/game.js';
 	import { ACHIEVEMENT_GROUPS, ACHIEVEMENTS } from '#data/achievements.js';
-	import { isQuarkAchievement } from '#data/quarkAchievements.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { gatherSparks, quarkFlight } from '#helpers/quarkFlight.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import Quark from '#components/icons/Quark.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
@@ -21,7 +20,7 @@
 	const TOTAL_ACHIEVEMENTS = Object.keys(ACHIEVEMENTS).length;
 
 	const claimableAchievementIds = $derived(
-		gameManager.achievements.filter(id => isQuarkAchievement(id) && !quarksManager.claimedAchievementIds.includes(id)),
+		gameManager.achievements.filter(id => Object.hasOwn(ACHIEVEMENTS, id) && !quarksManager.claimedAchievementIds.includes(id)),
 	);
 	const canClaimAchievements = $derived(quarksManager.hasSynced && claimableAchievementIds.length > 0);
 	const claimable = $derived(new Set(canClaimAchievements ? claimableAchievementIds : []));
@@ -103,8 +102,8 @@
 		<HelpIcon position="bottom">
 			{#snippet content()}
 				<p class="text-xs text-white/80">
-					Each achievement awards 1 <QuarkLabel /> the first time your account unlocks it, unlocking it again after a reset pays nothing. Hidden
-					achievements stay secret until you find them.
+					Each achievement awards 1 <QuarkLabel /> once the game has verified the progress behind it, unlocking it again after a reset pays
+					nothing. Hidden achievements stay secret until you find them.
 				</p>
 			{/snippet}
 		</HelpIcon>
@@ -176,7 +175,8 @@
 									>
 										+1 <Quark size={14} />
 									</button>
-								{/if}							</div>
+								{/if}
+							</div>
 						</div>
 					{/each}
 				</div>

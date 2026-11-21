@@ -2,8 +2,8 @@
 	import { ELEMENTS } from '#data/elements.js';
 	import { CHAINS, SITES, type SiteId } from '#data/sites.js';
 	import { objectLinks } from '#data/tableLinks.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
 	import { ChevronRight, FlaskRound } from '@lucide/svelte';
 

@@ -1,6 +1,6 @@
 import { ELEMENTS } from '#data/elements.js';
-import { CanvasLoop } from '#helpers/CanvasLoop.js';
-import { rgba } from '#helpers/nucleus.js';
+import { CanvasLoop } from '#helpers/canvas/CanvasLoop.js';
+import { rgba } from '#helpers/canvas/nucleus.js';
 
 export const GRID_COLUMNS = 18;
 /** Seven periods, a gap, then the lanthanides and actinides. */
@@ -39,7 +39,6 @@ export const symbolSize = (width: number) => (width / GRID_COLUMNS) * CELL_SHARE
 
 /** The ghost 18-column Table of the introduction: outlines drawn by a diagonal wave, landed symbols and forge rings, all on one canvas. */
 export class IntroGrid extends CanvasLoop {
-	private readonly ctx: CanvasRenderingContext2D;
 	private end = LAST_WAVE_MS;
 	private finished = false;
 	private readonly landed = new Set<number>();
@@ -49,9 +48,6 @@ export class IntroGrid extends CanvasLoop {
 
 	constructor(canvas: HTMLCanvasElement) {
 		super(canvas, 'canvas:tableIntro');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.observe();
 	}
 

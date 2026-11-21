@@ -1,10 +1,10 @@
-import type { Achievement, AchievementGroup } from '#lib/types.js';
-import type { GameManager } from '#helpers/GameManager.svelte.js';
+import type { Achievement, AchievementGroup } from '#lib/types/game.js';
+import type { GameManager } from '#helpers/managers/GameManager.svelte.js';
 import { tierIconStack } from '#helpers/iconStacks.js';
-import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
-import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import { formatNumber } from '#lib/utils.js';
 import { CHROMATIC_COLORS } from '#data/chromatic.js';
 import { CLICKABLE_OBJECTS, COSMOS_INSTRUMENTS, COSMOS_OBJECTS, SKY_CLICK_TIERS, skyClickAchievementId } from '#data/cosmos.js';
@@ -440,7 +440,7 @@ function createCurrencyAchievements(types: CurrencyName[], audited = false): Ach
 					description = () => `Earn ${formatNumber(tier)} Excited Photon${tier > 1 ? 's' : ''}`;
 				}
 
-				// Quark claims store these ids server-side, so the prefixes never change.
+				/** Quark claims store these ids server-side, so the prefixes never change. */
 				let prefix = currency.id.replaceAll('-', '_');
 				if (currency.name === CurrenciesTypes.ATOMS) prefix = 'atoms';
 				if (currency.name === CurrenciesTypes.EXCITED_PHOTONS) prefix = 'excited_photons';

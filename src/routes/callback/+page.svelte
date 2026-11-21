@@ -1,22 +1,18 @@
 <script lang="ts">
-	import Atom from '#components/icons/Atom.svelte';
-	import { getAuthConnection } from '#components/modals/Login.svelte';
-	import Avatar from '#components/ui/Avatar.svelte';
-	import { AUTH_CALLBACK_MESSAGE, supabaseAuth } from '#stores/supabaseAuth.svelte.js';
-	import { Check, X } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import Atom from '#components/icons/Atom.svelte';
+	import SignInWelcome from '#components/layout/SignInWelcome.svelte';
+	import { AUTH_CALLBACK_MESSAGE, isNewAccount, supabaseAuth } from '#stores/supabaseAuth.svelte.js';
+	import { X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	const FADE_MS = 200;
-	/** Long enough to read who signed in before the game takes over. */
-	const WELCOME_MS = 900;
 
 	let error = $state<string | null>(null);
+	let isNew = $state(false);
 	let leaving = $state(false);
 	let status = $state<'error' | 'loading' | 'success'>('loading');
-
-	const connection = $derived(getAuthConnection(supabaseAuth.user?.app_metadata.provider));
 
 	/** Providers send their errors in the query with the PKCE flow and in the hash with the implicit one. */
 	function readProviderError() {
@@ -29,7 +25,7 @@
 	}
 
 	onMount(async () => {
-		// Opened as a login popup by an embedded game: hand the callback URL to the opener, which holds the PKCE verifier, and close.
+		/** Opened as a login popup by an embedded game: hand the callback URL to the opener, which holds the PKCE verifier, and close. */
 		if (window.opener && window.name === 'atom-clicker-login') {
 			window.opener.postMessage({ type: AUTH_CALLBACK_MESSAGE, url: window.location.href }, window.location.origin);
 			window.close();
@@ -46,8 +42,10 @@
 			return;
 		}
 
+		isNew = isNewAccount(supabaseAuth.user);
+		/** The welcome plays here, so the overlay of the game must not play it again after the redirect. */
+		supabaseAuth.welcome = null;
 		status = 'success';
-		setTimeout(leave, WELCOME_MS);
 	});
 
 	function leave() {
@@ -68,20 +66,10 @@
 	></div>
 
 	<!-- Each state fades in over the previous one, which leaves at once so the two never stack. -->
-	<div class="relative w-full max-w-sm text-center" role={status === 'error' ? 'alert' : 'status'}>
+	<div class={['relative w-full text-center', status === 'success' ? 'max-w-xl' : 'max-w-sm']} role={status === 'error' ? 'alert' : 'status'}>
 		{#if status === 'success'}
-			<div class="flex flex-col items-center" in:fade={{ duration: FADE_MS }}>
-				<div class="relative mb-5">
-					<Avatar alt={supabaseAuth.displayName ?? '?'} class="size-20 ring-2 ring-accent-400/50" src={supabaseAuth.avatarUrl} />
-					<span class="absolute -right-0.5 -bottom-0.5 grid size-7 place-items-center rounded-full bg-green-500 text-white ring-4 ring-page">
-						<Check aria-hidden="true" size={16} strokeWidth={3} />
-					</span>
-				</div>
-				<h1 class="text-2xl font-bold text-white">Welcome, {supabaseAuth.displayName ?? 'scientist'}</h1>
-				<p class="mt-1 text-sm text-white/60">
-					{connection ? `Signed in with ${connection.name}, back` : 'Back'} to your atoms in a moment.
-				</p>
-			</div>
+			<!-- A new account waits for its button, a returning player for the end of the sequence, then the game takes over. -->
+			<SignInWelcome avatar={supabaseAuth.avatarUrl} {isNew} name={supabaseAuth.displayName ?? 'scientist'} onEnd={leave} />
 		{:else if status === 'error'}
 			<div class="flex flex-col items-center" in:fade={{ duration: FADE_MS }}>
 				<span class="mb-5 grid size-20 place-items-center rounded-full border border-red-400/30 bg-red-500/10 text-red-300">

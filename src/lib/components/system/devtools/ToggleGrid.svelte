@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { btn, field } from './shared.svelte';
+	import { btn, field } from './shared.svelte.js';
 
 	interface Item {
 		description: string;
@@ -67,7 +67,7 @@
 
 	function setGroup(chips: Chip[], on: boolean) {
 		const ids = new Set(chips.map(chip => chip.item.id));
-		onChange(on ? [...new Set([...owned, ...ids])] : owned.filter(id => !ids.has(id)));
+		onChange([...(on ? ownedSet.union(ids) : ownedSet.difference(ids))]);
 	}
 </script>
 

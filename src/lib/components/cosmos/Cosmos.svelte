@@ -4,24 +4,23 @@
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { GUEST_STARS } from '#data/guestStars.js';
 	import { SITE_IDS, SITES } from '#data/sites.js';
-	import { AmbientField } from '#helpers/AmbientField.js';
-	import { particlesEnabled } from '#helpers/CanvasLoop.js';
+	import { AmbientField } from '#helpers/canvas/AmbientField.js';
+	import { particlesEnabled } from '#helpers/canvas/CanvasLoop.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
 	import { tierIconStack } from '#helpers/iconStacks.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
-	import type { CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
+	import { getItem, getJSON, setItem } from '#helpers/safeLocalStorage.js';
+	import type { CosmosQuality, CosmosScene } from '#lib/cosmos/CosmosScene.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
-	import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
-	import HudButton from '#components/cosmos/HudButton.svelte';
 	import Iris from '#components/cosmos/Iris.svelte';
 	import ObjectPanel from '#components/cosmos/ObjectPanel.svelte';
 	import SiteLine from '#components/cosmos/SiteLine.svelte';
@@ -31,10 +30,19 @@
 	import Currency from '#components/ui/Currency.svelte';
 	import Switch from '#components/ui/Switch.svelte';
 	import { ChevronRight, Contrast, FlaskRound, Gauge, List, Orbit, Settings2, Telescope, X } from '@lucide/svelte';
-	import { onMount, untrack } from 'svelte';
+	import { type Component, onMount, untrack } from 'svelte';
 	import { cubicIn } from 'svelte/easing';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
+
+	interface HudButtonProps extends HTMLButtonAttributes {
+		active?: boolean;
+		badge?: number;
+		icon: Component<{ class?: string; size?: number }>;
+		label: string;
+		labelled?: 'always' | 'md';
+	}
 
 	interface Popup {
 		key: number;
@@ -45,6 +53,7 @@
 
 	interface CosmosView {
 		orbits: boolean;
+		quality?: CosmosQuality;
 		realistic: boolean;
 	}
 
@@ -61,16 +70,18 @@
 	let failure = $state('');
 	let fx = $state.raw<AmbientField>();
 	let popups = $state.raw<Popup[]>([]);
-	let progress = $state<HTMLElement>();
+	let progressRing = $state<HTMLElement>();
+	/** Only a quality the player picked is saved, the one the slow-start probe drops to is measured again on the next visit. */
+	let quality = $state(getJSON<Partial<CosmosView>>(VIEW_KEY, {}).quality);
 	let scene = $state.raw<CosmosScene | null>(null);
 	let settingsOpen = $state(false);
 
 	$effect(() => {
-		if (!arrow || !canvas || !progress) return;
-		const hud = { arrow, progress };
+		if (!arrow || !canvas || !progressRing) return;
+		const hud = { arrow, progress: progressRing };
 		const target = canvas;
 		const discovered = untrack(() => [...cosmosManager.discovered]);
-		const focus = untrack(() => realmManager.cosmosFocus) ?? sessionStorage.getItem(FOCUS_KEY) ?? undefined;
+		const focus = untrack(() => realmManager.cosmosFocus) ?? getItem(FOCUS_KEY, 'sessionStorage') ?? undefined;
 		untrack(() => (realmManager.cosmosFocus = null));
 		let created: CosmosScene | null = null;
 		let disposed = false;
@@ -120,7 +131,7 @@
 
 	$effect(() => ui.cover());
 
-	/** The popups are display only, Starlight itself accrues in the game tick. The guest star timer counts here too, so only time spent looking at the sky counts. */
+	/** Popups are display only, Starlight accrues in the game tick. The guest star timer runs here too, so only time spent on the sky counts. */
 	onMount(() => {
 		let key = 0;
 		const timer = setInterval(() => {
@@ -157,8 +168,7 @@
 
 	/** The Periodic Table's introduction plays once, at the first calm moment on the sky after the Spectroscope. */
 	$effect(() => {
-		if (periodicManager.unlocked && !periodicManager.introSeen && scene?.mode === 'overview' && ui.activeModal === null && !realmManager.tableOpen && !realmManager.introPlaying)
-			realmManager.playIntro();
+		if (periodicManager.unlocked && !periodicManager.introSeen && scene?.mode === 'overview' && actionable) realmManager.playIntro();
 	});
 	$effect(() => scene?.setPaused(!actionable));
 	$effect(() => fx?.setActive(actionable));
@@ -194,11 +204,11 @@
 	});
 
 	$effect(() => {
-		if (scene?.mode === 'overview') sessionStorage.setItem(FOCUS_KEY, scene.focused);
+		if (scene?.mode === 'overview') setItem(FOCUS_KEY, scene.focused, 'sessionStorage');
 	});
 
 	$effect(() => {
-		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, realistic: scene.realistic } satisfies CosmosView));
+		if (scene) setItem(VIEW_KEY, JSON.stringify({ orbits: scene.orbits, quality, realistic: scene.realistic } satisfies CosmosView));
 	});
 
 	$effect(() => {
@@ -226,6 +236,45 @@
 	}}
 	onpointermove={event => (pointer = { x: event.clientX, y: event.clientY })}
 />
+
+{#snippet hudButton({ active = false, badge = 0, class: className, icon: Icon, label, labelled, ...rest }: HudButtonProps)}
+	<button
+		class={[
+			'relative flex h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-xs font-semibold ring-1 transition-colors disabled:cursor-not-allowed disabled:opacity-40 md:h-10 md:min-w-10',
+			!labelled && 'w-11 md:w-10',
+			labelled === 'md' && 'px-3 max-md:w-11 max-md:px-0',
+			labelled === 'always' && 'px-3',
+			active ? 'bg-accent-600 text-white ring-accent-400/60' : 'bg-accent-900/80 text-accent-300 ring-accent-500/30 enabled:hover:bg-accent-800',
+			className,
+		]}
+		aria-label={label}
+		type="button"
+		{...rest}
+	>
+		<Icon size={18} />
+		{#if labelled}
+			<span class={labelled === 'md' ? 'max-md:hidden' : undefined}>{label}</span>
+		{/if}
+		{#if badge > 0}
+			<span class="absolute -top-1.5 -right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-cosmos-sky">{badge}</span>
+		{/if}
+	</button>
+{/snippet}
+
+{#snippet setting(Icon: HudButtonProps['icon'], label: string, checked: boolean, onchange: (on: boolean) => void)}
+	<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
+		<Icon
+			class="text-white/50"
+			size={16}
+		/>
+		<span class="flex-1 text-sm">{label}</span>
+		<Switch
+			{checked}
+			{label}
+			{onchange}
+		/>
+	</label>
+{/snippet}
 
 <!-- The desktop side nav stays reachable on the left. -->
 <div
@@ -347,85 +396,55 @@
 			</div>
 			{#if scene}
 				<div class="pointer-events-auto relative ml-auto flex items-start gap-2">
-					<HudButton
-						active={skyOpen}
-						aria-pressed={skyOpen}
-						data-hint="cosmos-sky"
-						disabled={mode !== 'overview'}
-						icon={List}
-						label="Sky"
-						labelled="md"
-						onclick={() => {
+					{@render hudButton({
+						active: skyOpen,
+						'aria-pressed': skyOpen,
+						'data-hint': 'cosmos-sky',
+						disabled: mode !== 'overview',
+						icon: List,
+						label: 'Sky',
+						labelled: 'md',
+						onclick: () => {
 							skyOpen = !skyOpen;
 							settingsOpen = false;
-						}}
-					/>
+						},
+					})}
 					{#if periodicManager.unlocked}
 						<span
 							class="relative inline-flex rounded-lg"
 							in:reveal
 						>
-							<HudButton
-								badge={periodicManager.ready.length}
-								data-hint="cosmos-table"
-								icon={FlaskRound}
-								label="Table"
-								labelled="md"
-								onclick={() => {
+							{@render hudButton({
+								badge: periodicManager.ready.length,
+								'data-hint': 'cosmos-table',
+								icon: FlaskRound,
+								label: 'Table',
+								labelled: 'md',
+								onclick: () => {
 									realmManager.openTable();
 									settingsOpen = false;
-								}}
-							/>
+								},
+							})}
 						</span>
 					{/if}
-					<HudButton
-						active={settingsOpen}
-						aria-expanded={settingsOpen}
-						icon={Settings2}
-						label="View settings"
-						onclick={() => (settingsOpen = !settingsOpen)}
-					/>
+					{@render hudButton({
+						active: settingsOpen,
+						'aria-expanded': settingsOpen,
+						icon: Settings2,
+						label: 'View settings',
+						onclick: () => (settingsOpen = !settingsOpen),
+					})}
 					{#if settingsOpen}
 						<div
 							class="absolute right-0 top-full mt-2 flex w-60 flex-col rounded-xl bg-cosmos-hud/95 p-1.5 shadow-2xl ring-1 ring-white/10"
 							transition:fly={{ duration: 150, y: -6 }}
 						>
-							<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
-								<Orbit
-									class="text-white/50"
-									size={16}
-								/>
-								<span class="flex-1 text-sm">Orbits</span>
-								<Switch
-									checked={scene.orbits}
-									label="Orbits"
-									onchange={on => scene?.setOrbits(on)}
-								/>
-							</label>
-							<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
-								<Contrast
-									class="text-white/50"
-									size={16}
-								/>
-								<span class="flex-1 text-sm">Realistic lighting</span>
-								<Switch
-									checked={scene.realistic}
-									label="Realistic lighting"
-									onchange={on => scene?.setRealistic(on)}
-								/>
-							</label>
-							<label class="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/5">
-								<Gauge
-									class="text-white/50"
-									size={16}
-								/>
-								<span class="flex-1 text-sm">High quality</span>
-								<Switch
-									checked={scene.quality === 'high'}
-									label="High quality"
-									onchange={on => scene?.setQuality(on ? 'high' : 'low')}
-								/>
-							</label>
+							{@render setting(Orbit, 'Orbits', scene.orbits, on => scene?.setOrbits(on))}
+							{@render setting(Contrast, 'Realistic lighting', scene.realistic, on => scene?.setRealistic(on))}
+							{@render setting(Gauge, 'High quality', scene.quality === 'high', on => {
+								quality = on ? 'high' : 'low';
+								scene?.setQuality(quality);
+							})}
 						</div>
 					{/if}
 				</div>
@@ -443,7 +462,7 @@
 				<span class="absolute right-0 top-1/2 h-px w-3 -translate-y-1/2 bg-cosmos-reticle/60"></span>
 			</div>
 			<div
-				bind:this={progress}
+				bind:this={progressRing}
 				class="absolute left-1/2 top-1/2 -ml-9 -mt-9 size-18 opacity-0"
 			>
 				<svg
@@ -485,13 +504,13 @@
 						Keep the signal inside the reticle until the ring fills. Pinch or scroll to zoom.
 					{/if}
 				</p>
-				<HudButton
-					class="pointer-events-auto"
-					icon={X}
-					label="Stop observing"
-					labelled="always"
-					onclick={() => scene?.stopObserving()}
-				/>
+				{@render hudButton({
+					class: 'pointer-events-auto',
+					icon: X,
+					label: 'Stop observing',
+					labelled: 'always',
+					onclick: () => scene?.stopObserving(),
+				})}
 			</div>
 		</div>
 

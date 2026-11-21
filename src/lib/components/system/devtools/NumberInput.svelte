@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { formatNumber, formatNumberFull } from '#lib/utils.js';
 	import { tick } from 'svelte';
-	import { field, parseNumber } from './shared.svelte';
+	import { field, parseNumber } from './shared.svelte.js';
 
 	interface Props {
 		class?: string;

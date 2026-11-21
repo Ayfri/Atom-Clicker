@@ -1,4 +1,4 @@
-import { NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, TAU } from '#helpers/nucleus.js';
+import { NEUTRON_COLOR, NUCLEON_RADIUS, packNucleus, paintNucleon, rgba, TAU } from '#helpers/canvas/nucleus.js';
 
 const SUBSHELLS = [
 	[1, 2], [2, 2], [2, 6], [3, 2], [3, 6], [4, 2], [3, 10], [4, 6], [5, 2], [4, 10], [5, 6], [6, 2], [4, 14], [5, 10], [6, 6], [7, 2], [5, 14], [6, 10],
@@ -6,6 +6,9 @@ const SUBSHELLS = [
 ] as const;
 
 export type StageKind = 'forging' | 'identified' | 'ready' | 'reading' | 'waiting';
+
+/** Nucleus color of an element that is not identified yet. */
+export const BARE_COLOR = '#c3cad6';
 
 /** Past this many nucleons a mini atom keeps the same ball, they would shrink to specks. */
 export const MINI_NUCLEONS = 20;
@@ -51,7 +54,7 @@ export function paintNucleus(ctx: CanvasRenderingContext2D, x: number, y: number
 	}
 }
 
-const miniNucleusRadius =(size: number, count: number) => size * (0.07 + 0.09 * Math.min(1, Math.cbrt(count / MINI_NUCLEONS)));
+const miniNucleusRadius = (size: number, count: number) => size * (0.07 + 0.09 * Math.min(1, Math.cbrt(count / MINI_NUCLEONS)));
 
 /** A flat Bohr atom filling a `size` square, rings get tighter with more shells so the seventh still fits. */
 export function paintAtom(ctx: CanvasRenderingContext2D, size: number, z: number, color: string) {

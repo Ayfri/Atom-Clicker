@@ -1,4 +1,4 @@
-import { CanvasLoop } from '#helpers/CanvasLoop.js';
+import { CanvasLoop } from '#helpers/canvas/CanvasLoop.js';
 
 const MAX_SPARKS = 320;
 const MAX_COMETS = 24;
@@ -35,14 +35,10 @@ interface Comet {
 /** Glowing sparks and forge-to-cell comets on one fixed canvas, the loop sleeps once the last one fades. */
 export class TableParticles extends CanvasLoop {
 	private readonly comets: Comet[] = [];
-	private readonly ctx: CanvasRenderingContext2D;
 	private readonly sparks: Spark[] = [];
 
 	constructor(canvas: HTMLCanvasElement) {
 		super(canvas, 'canvas:tableParticles');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.observe();
 	}
 
@@ -74,7 +70,7 @@ export class TableParticles extends CanvasLoop {
 		this.update();
 	}
 
-	destroy() {
+	override destroy() {
 		super.destroy();
 		this.sparks.length = 0;
 		this.comets.length = 0;
@@ -124,7 +120,7 @@ export class TableParticles extends CanvasLoop {
 		return this.sparks.length + this.comets.length > 0;
 	}
 
-	protected paused() {
+	protected override paused() {
 		this.sparks.length = 0;
 		this.comets.length = 0;
 		this.ctx.setTransform(1, 0, 0, 1, 0, 0);

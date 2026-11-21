@@ -9,7 +9,7 @@ const service = {
 };
 
 /** The real modules open a Supabase client from private env vars, the routes only need the service and the caller's id. */
-mock.module('#lib/server/sessions.server.js', () => ({ SessionConflictError, sessionsService: service }));
+mock.module('#lib/server/sessions/sessions.server.js', () => ({ SessionConflictError, sessionsService: service }));
 mock.module('#lib/server/supabase.server.js', () => ({
 	resolveUserFromRequest: async (request: Request) => (request.headers.has('Authorization') ? 'user-1' : null),
 }));
@@ -19,6 +19,7 @@ const { POST: update } = await import('./update/+server.js');
 
 const SESSION_ID = '3f2b8c1e-4d5a-4e6f-9a7b-1c2d3e4f5a6b';
 const WRITE_KEY = '9a1d7c52-8e3b-4f10-b6a2-5d4c3b2a1f0e';
+const DEVICE_ID = '0b6c2f84-1d3e-4a57-8c9d-7e5f4a3b2c1d';
 
 const device = {
 	appVersion: 'build-1',
@@ -65,6 +66,7 @@ const totals = {
 	blocked: { frame: none, freeze: none, input: none, stall: none },
 	commitLagP95Ms: 150,
 	eventTiming: true,
+	ignored: none,
 	inputP95Ms: 0,
 	jankRatio: 0,
 	loaf: true,
@@ -100,6 +102,16 @@ describe('start', () => {
 		const [row] = service.start.mock.calls[0];
 		expect(row).toMatchObject({ app_version: 'build-1', id: SESSION_ID, user_agent: 'Real Agent/1.0', user_id: 'user-1' });
 		expect(row.device_key).toMatch(/^[0-9a-f]{32}$/);
+	});
+
+	test('the device key follows the device id of the payload, not the device info', async () => {
+		await call(start, { device, deviceId: DEVICE_ID, game });
+		await call(start, { device: { ...device, screenWidth: 400, userAgent: 'other agent' }, deviceId: DEVICE_ID, game });
+		await call(start, { device, deviceId: '5e8a1c93-6b2d-4f70-9a14-3c7d8e9f0a1b', game });
+		await call(start, { device, game });
+		const keys = service.start.mock.calls.map(([row]) => row.device_key);
+		expect(keys[0]).toBe(keys[1]);
+		expect(new Set(keys).size).toBe(3);
 	});
 
 	test('a user id in the payload is ignored and no header means anonymous', async () => {

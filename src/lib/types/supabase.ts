@@ -338,11 +338,46 @@ export type Database = {
 					}
 				]
 			}
+			verified_achievements: {
+				Row: {
+					achievement_id: string
+					user_id: string
+					verified_at: string
+				}
+				Insert: {
+					achievement_id: string
+					user_id: string
+					verified_at?: string
+				}
+				Update: {
+					achievement_id?: string
+					user_id?: string
+					verified_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "verified_achievements_user_id_fkey"
+						columns: ["user_id"]
+						isOneToOne: false
+						referencedRelation: "profiles"
+						referencedColumns: ["id"]
+					}
+				]
+			}
 		}
 		Views: {
 			[_ in never]: never
 		}
 		Functions: {
+			claim_achievement_quarks: {
+				Args: {
+					p_achievement_ids: string[]
+					p_earned_ids: string[]
+					p_reward: number
+					p_user_id: string
+				}
+				Returns: Json
+			}
 			get_collider: {
 				Args: {
 					p_cooldown_seconds: number
@@ -425,6 +460,10 @@ export type Database = {
 					p_warnings: string[]
 				}
 				Returns: Json
+			}
+			remember_achievements: {
+				Args: { p_achievement_ids: string[]; p_user_id: string }
+				Returns: undefined
 			}
 			send_discord_daily_recap: {
 				Args: Record<PropertyKey, never>

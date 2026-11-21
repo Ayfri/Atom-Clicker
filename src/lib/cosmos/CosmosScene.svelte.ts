@@ -21,9 +21,9 @@ import {
 } from 'three/webgpu';
 import { CLICKABLE_OBJECTS, COSMOS_OBJECTS, CosmosEras } from '#data/cosmos.js';
 import { guestStarSpot } from '#data/guestStars.js';
-import { perfTracker } from '#helpers/perfTracker.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { Body, BODY_LOOKS, simClock } from './bodies.js';
-import type { BenchOptions } from './CosmosBench.js';
+import type { BenchOptions, BenchScenario, CosmosTuning } from './CosmosBench.js';
 import { Earth } from './earth.js';
 import { GuestStarFlare } from './guestStar.js';
 import { bakeSurfaces, liveSurface, loadSurface, loadSurfaces, SHARP } from './maps.js';
@@ -35,7 +35,7 @@ import { PlanetMarkers, signalSprite } from './sprites.js';
 import { Sun } from './sun.js';
 
 type CosmosMode = 'discovery' | 'intro' | 'observe' | 'overview';
-type CosmosQuality = 'high' | 'low';
+export type CosmosQuality = 'high' | 'low';
 type Target = Body | Nebula;
 
 interface CosmosHud {
@@ -61,6 +61,8 @@ interface CosmosOptions {
 	/** Called with the screen position of a tap that caught the guest star. */
 	onGuestStar: (x: number, y: number) => void;
 	orbits: boolean;
+	/** The quality the player picked, without one the scene starts high and drops to low by itself if its first seconds run slow. */
+	quality?: CosmosQuality;
 	realistic: boolean;
 	/** Records the GPU time of every render pass, which the benchmark reads. */
 	timestamps?: boolean;
@@ -78,19 +80,6 @@ interface Flight {
 	toLook: () => Vector3;
 	toPosition: () => Vector3;
 }
-
-/** Rendering switches the benchmark compares, `DEFAULT_TUNING` is what players get. */
-export interface CosmosTuning {
-	/** Size of the bloom buffers against the canvas, 0 turns bloom off. */
-	bloom: number;
-	/** Bloom is redrawn every that many frames and reused in between, its passes cost far more CPU time than the scene's objects. */
-	bloomEvery: number;
-	/** The overview renders at 30 fps while the player isn't touching it. */
-	idleCap: boolean;
-	pixelRatio: number;
-}
-
-export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'system';
 
 const DEFAULT_TUNING: CosmosTuning = { bloom: 0.5, bloomEvery: 2, idleCap: true, pixelRatio: 1.5 };
 const BLOOM_STRENGTH = 0.65;
@@ -223,7 +212,7 @@ export class CosmosScene {
 	private constructor(
 		canvas: HTMLCanvasElement,
 		renderer: WebGPURenderer,
-		{ discovered, focus, hud, limit, onClick, onDiscover, onGuestStar, orbits, realistic }: CosmosOptions,
+		{ discovered, focus, hud, limit, onClick, onDiscover, onGuestStar, orbits, quality, realistic }: CosmosOptions,
 		maps: Map<string, Texture>,
 	) {
 		this.#canvas = canvas;
@@ -302,6 +291,7 @@ export class CosmosScene {
 		} else this.#playIntro();
 		this.#adaptExposure(1);
 		this.#adaptToGlare(1);
+		if (quality) this.setQuality(quality);
 	}
 
 	/** Startup phases land in the performance timeline as `cosmos:*` measures, the startup benchmark reads them. */
@@ -320,9 +310,15 @@ export class CosmosScene {
 		]);
 		const building = performance.now();
 		const scene = new CosmosScene(canvas, renderer, options, maps);
+		const built = performance.now();
+		/**
+		 * The build and the first render are two tasks with a frame in between: in one task they blocked 1.3 s at 4x CPU throttle. The 1 ms
+		 * delay queues the render behind the timers that came due during the build, a zero delay runs before them.
+		 */
+		await new Promise<void>(resolve => setTimeout(resolve, 1));
 		const compiling = performance.now();
 		scene.#compileHidden();
-		performance.measure('cosmos:build', { end: compiling, start: building });
+		performance.measure('cosmos:build', { end: built, start: building });
 		performance.measure('cosmos:compile', { start: compiling });
 		performance.measure('cosmos:ready', { start });
 		scene.#start();
@@ -489,9 +485,13 @@ export class CosmosScene {
 		this.#onVisibility();
 	}
 
-	/** Low drops bloom, the Milky Way dome, clouds, atmosphere, hazes, corona, limb darkening, earthshine and sharp maps, and keeps 1/4 of the stars. */
+	/**
+	 * Low drops bloom, the Milky Way dome, clouds, atmosphere, hazes, corona, limb darkening, earthshine and sharp maps, and keeps 1/4 of the stars.
+	 * Any set quality ends the slow-start probe, so it never overrides the player's pick.
+	 */
 	setQuality(quality: CosmosQuality) {
 		const high = quality === 'high';
+		this.#qualityProbe.frames = -1;
 		this.quality = quality;
 		detail.value = high ? 1 : 0;
 		this.#earth.setQuality(high);
@@ -518,9 +518,8 @@ export class CosmosScene {
 	}
 
 	/**
-	 * Flares a guest star where the sky is actually in view: the Sky list, the object panel and the phone sheets cover different parts
-	 * of it per screen, so a point only counts when the canvas is what the browser finds there. False while one is up, the view isn't
-	 * a settled overview or no free point turned up, which leaves the next try to the following second.
+	 * Flares a guest star where the canvas is what the browser finds, since the Sky list, the object panel and the phone sheets cover
+	 * different parts of it per screen. False while one is up, the view isn't a settled overview or no free point turned up (next try a second later).
 	 */
 	spawnGuestStar(): boolean {
 		if (this.mode !== 'overview' || this.#flight || this.#flare.visible) return false;
@@ -566,7 +565,7 @@ export class CosmosScene {
 	/**
 	 * Eases `glare` toward how dazzled the view is, `ease` 1 jumps there: the Sun from just outside the frame unless the followed body hides
 	 * it, and the followed body once it fills a good part of the frame. Its night side only dims the sky partly, so stars come back in its shadow.
-	 * The Sun dazzles fully until it shrinks to ~half its size from the Earth at the widest field (0.14 of the half view), then fades out, so
+	 * The Sun dazzles fully until it shrinks to ~half its size from the Earth at the widest field (0.14 of the half view), then fades out:
 	 * pulling far back or looking at it from the outer planets shows the stars again, all around it too since the dimming is one value.
 	 */
 	#adaptToGlare(ease: number) {
@@ -777,9 +776,9 @@ export class CosmosScene {
 	}
 
 	/**
-	 * Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. Idle frames are
-	 * capped at 30 Hz on purpose, so they never feed the probe. It reads the frame interval and not the CPU time of a frame: WebGPU queues the
-	 * GPU work without waiting for it, so a GPU-bound phone would look fast. An iPhone in Low Power Mode (30 Hz rAF) drops to low too, which suits it.
+	 * Counts rendered frames for the FPS readout, and drops to low quality once if the first seconds after the intro run slow. Idle frames
+	 * (capped at 30 Hz on purpose) never feed the probe. It reads the frame interval, not the CPU time of a frame: WebGPU queues the GPU
+	 * work without waiting for it, so a GPU-bound phone would look fast. An iPhone in Low Power Mode (30 Hz rAF) drops to low too, which suits it.
 	 */
 	#measure(dt: number, idle: boolean) {
 		this.#fpsTime += dt;
@@ -1088,7 +1087,7 @@ export class CosmosScene {
 
 	/**
 	 * `setAnimationLoop(null)` only drops the callback: three's internal loop, started by any render, keeps requesting a frame every vsync
-	 * (still in r187), which a scene paused behind a modal must not cost. Its `stop()` isn't typed, `#start` restarts it.
+	 * (checked on r187), which a scene paused behind a modal must not cost. Its `stop()` isn't typed, `#start` restarts it.
 	 */
 	#stop() {
 		void this.#renderer.setAnimationLoop(null);
@@ -1187,7 +1186,7 @@ export class CosmosScene {
 		return position.clone().addScaledVector(fromSun, -5.6 * size).addScaledVector(along, 2.8 * size).addScaledVector(UP, 1.4 * size);
 	}
 
-	/** Way from `from` to a target, a nebula lies the same way from anywhere. Written into `out`, a new vector unless given one. */
+	/** Unit direction from `from` to a target (a nebula lies the same way from anywhere), written into `out`. */
 	#toward(target: Target, from: Vector3, out = new Vector3()) {
 		return target instanceof Nebula ? out.copy(target.direction) : out.copy(target.group.position).sub(from).normalize();
 	}

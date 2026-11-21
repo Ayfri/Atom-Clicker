@@ -3,12 +3,12 @@ import { ELEMENTS } from '#data/elements.js';
 import { CHAINS, SITE_IDS, SITES, type SiteId } from '#data/sites.js';
 
 /** A chain step that waits for a Cosmos object, `z` is the element it forges. */
-export interface TableStep {
+interface TableStep {
 	site: SiteId;
 	z: number;
 }
 
-export interface TableLinks {
+interface TableLinks {
 	/** Sources the discovery opens. */
 	sites: SiteId[];
 	/** Chain steps the discovery unblocks in sources that are already open. */

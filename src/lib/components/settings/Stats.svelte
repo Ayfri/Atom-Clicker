@@ -3,7 +3,7 @@
 	import HiggsBosonIcon from '#components/icons/HiggsBoson.svelte';
 	import PhotonIcon from '#components/icons/Photon.svelte';
 	import QuarkIcon from '#components/icons/Quark.svelte';
-	import { spectrumHelp } from '#components/prestige/PrismUpgrades.svelte';
+	import { spectrumHelp } from '#components/photon/PrismUpgrades.svelte';
 	import Currency from '#components/ui/Currency.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import { ACHIEVEMENTS } from '#data/achievements.js';
@@ -15,16 +15,16 @@
 	import { REALMS } from '#data/realms.js';
 	import { MAX_FORGES } from '#data/sites.js';
 	import { SKILL_UPGRADES } from '#data/skillTree.js';
-	import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
+	import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 	import { formatDuration, formatNumber, formatNumberFull } from '#lib/utils.js';
-	import { CalendarDays, CircleArrowUp, Clock, Factory, FlaskRound, MousePointerClick, Orbit, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
 	import { clock } from '#stores/clock.svelte.js';
-	import { type Component, type Snippet } from 'svelte';
+	import { CalendarDays, CircleArrowUp, Clock, Factory, FlaskRound, MousePointerClick, Orbit, Radiation, Rainbow, RotateCcw, TrendingUp, Trophy } from '@lucide/svelte';
+	import type { Component, Snippet } from 'svelte';
 
 	type TitleIcon = Component<{ class?: string; color?: string; size?: number }>;
 
@@ -39,7 +39,7 @@
 	const instrumentsOwned = $derived(COSMOS_INSTRUMENTS.filter(instrument => cosmosManager.owns(instrument)).length);
 	const studyLevels = $derived(sumOf(cosmosManager.studies));
 	const skyTaps = $derived(sumOf(cosmosManager.clicks));
-	const dailyQuestsClaimed =$derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
+	const dailyQuestsClaimed = $derived(gameManager.dailyStats.questIds.filter(id => quarksManager.claimedQuestIds.includes(id)).length);
 
 	const highlights = $derived([
 		{ icon: AtomIcon, label: 'Atoms / s', value: gameManager.atomsPerSecond },

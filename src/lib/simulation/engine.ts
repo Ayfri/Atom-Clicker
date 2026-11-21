@@ -6,25 +6,26 @@ import { bestTuning, decayCost, ELEMENTS } from '#data/elements.js';
 import { FeatureTypes } from '#data/features.js';
 import { GENERATOR_TYPES, type GeneratorType } from '#data/generators.js';
 import { POWER_UPS } from '#data/powerUp.js';
-import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarkAchievements.js';
+import { QUARK_ACHIEVEMENT_REWARD } from '#data/quarks.js';
 import { RealmTypes } from '#data/realms.js';
 import { DECAY_EVENTS_PER_SECOND, DECAY_SITES, MAX_UNREAD, siteStudyCost, type SiteId } from '#data/sites.js';
-import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
-import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-import { connectDeriveds } from '#helpers/reactiveRoot.svelte.js';
+import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
 import { OVERDRIVE_COST, OVERDRIVE_PERIOD_MS } from '#lib/constants.js';
-import { CosmosTracker } from './cosmos';
-import { MilestoneTracker } from './milestones';
-import { PurchasePlanner } from './purchases';
-import { DEFAULT_SEED, createRandom } from './random';
-import { QuestTracker } from './quests';
-import { createSnapshotData, type RunState } from './snapshots';
+import { connectDeriveds } from './connectDeriveds.svelte.js';
+import { CosmosTracker } from './cosmos.js';
+import { MilestoneTracker } from './milestones.js';
+import { PurchasePlanner } from './purchases.js';
+import { QuestTracker } from './quests.js';
+import { createRandom, DEFAULT_SEED } from './random.js';
+import { createSnapshotData, type RunState } from './snapshots.js';
 import {
 	DETAILED_ACTION_TYPES,
+	HOUR_MS,
 	PRESTIGE_LAYERS,
 	type BenchmarkConfig,
 	type IdleGap,
@@ -36,15 +37,14 @@ import {
 	type SimulationResult,
 	type SimulationSnapshot,
 	type SpikeEvent,
-} from './types';
+} from './types.js';
 
 const BOOST_PRIORITY: CurrencyName[] = [CurrenciesTypes.ATOMS, CurrenciesTypes.PROTONS, CurrenciesTypes.ELECTRONS, CurrenciesTypes.PHOTONS, CurrenciesTypes.STARLIGHT];
-const HOUR_MS = 3_600_000;
 const IDLE_GAP_MIN_MS = 60_000;
 const PROGRESS_CHECK_TICKS = 500;
 const PROGRESS_INTERVAL_MS = 100;
 
-// Photon realm geometry, mirrored from PhotonRealm.svelte: circles spawn on a timer, live a while, and cap out on screen.
+/** Photon realm geometry, mirrored from PhotonRealm.svelte: circles spawn on a timer, live a while, and cap out on screen. */
 const PHOTON_BASE_LIFETIME_MS = 5000;
 const PHOTON_MAX_CIRCLES = 100;
 const PHOTON_MAX_VALUE = 10;
@@ -144,14 +144,13 @@ export class SimulationEngine {
 		const savedState = JSON.stringify(gameManager.getCurrentState());
 		gameManager.resetAll();
 		currenciesManager.hardReset();
-		// Every wall-clock read inside the game is swapped for the simulated clock, or the stability field and the
-		// power-up bookkeeping would follow how fast the host machine happens to be running.
+		/** Every wall-clock read inside the game follows the simulated clock, or the stability field and power-ups would depend on host speed. */
 		gameManager.clock = () => gameManager.inGameTime;
 		gameManager.lastInteractionTime = 0;
 		gameManager.startDate = 0;
 		radiationManager.random = this.random;
 
-		// An engaged player switches every automation on, each one stays inert until an upgrade grants its effect.
+		/** An engaged player switches every automation on, each one stays inert until an upgrade grants its effect. */
 		gameManager.settings.automation = { autoClick: true, autoClickPhotons: true, generators: [...GENERATOR_TYPES], upgrades: true };
 		this.nextPowerUpTime = this.rollPowerUpInterval();
 		this.spikeWindowAps = gameManager.atomsPerSecond;
@@ -214,7 +213,7 @@ export class SimulationEngine {
 
 	private tick(checkAchievements: boolean) {
 		gameManager.tick(this.config.tickRate, true);
-		// Sampled per tick rather than per snapshot, and with the power-up bonus out, so the ratchet is honest.
+		/** Sampled per tick rather than per snapshot, and with the power-up bonus out, so the ratchet is honest. */
 		const rawAps = gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1);
 		if (rawAps > this.state.peakAtomsPerSecond) this.state.peakAtomsPerSecond = rawAps;
 
@@ -225,7 +224,7 @@ export class SimulationEngine {
 		this.tickAutomation();
 		this.quests.checkDayRollover();
 
-		// An always-active run never crosses an inactive edge, so the budget also expires on a simulated-hour timer.
+		/** An always-active run never crosses an inactive edge, so the budget also expires on a simulated-hour timer. */
 		if ((active && !this.lastWasActive) || gameManager.inGameTime - this.prestigeWindowStart >= PRESTIGE_WINDOW_MS) {
 			this.prestigesThisActiveWindow = 0;
 			this.prestigeWindowStart = gameManager.inGameTime;
@@ -270,7 +269,7 @@ export class SimulationEngine {
 		const action: SimulationAction = { ...extra, details, timestamp: gameManager.inGameTime, type };
 		const { actionCounts } = this.state;
 		actionCounts[type] = (actionCounts[type] ?? 0) + 1;
-		// Generators and power-ups run into the millions over a multi-day run and nothing reads them back by id.
+		/** Generators and power-ups run into the millions over a multi-day run and nothing reads them back by id. */
 		if (DETAILED_ACTION_TYPES.has(type)) this.state.actions.push(action);
 		this.spikeWindowActions.push(action);
 	}
@@ -326,7 +325,7 @@ export class SimulationEngine {
 		const canPrestige = () =>
 			canAct() && (maxPrestigesPerActiveWindow == null || this.prestigesThisActiveWindow < maxPrestigesPerActiveWindow);
 
-		// Thresholds are ratios against the previous run's gain: an absolute proton count is meaningless once the curve takes off.
+		/** Thresholds are ratios against the previous run's gain: an absolute proton count is meaningless once the curve takes off. */
 		const protoniseGain = gameManager.protoniseProtonsGain;
 		const rawAps = gameManager.atomsPerSecond / (gameManager.bonusMultiplier || 1);
 		const protonisePlateau = this.plateaued('protonise', protoniseGain);
@@ -365,7 +364,7 @@ export class SimulationEngine {
 			actionsThisTick++;
 		}
 
-		// Once the fuel can carry it, the rods come out just far enough to hold the ionization line, then the bot Ionizes.
+		/** Once the fuel can carry it, the rods come out just far enough to hold the ionization line, then the bot Ionizes. */
 		const line = radiationManager.ionizeCpm;
 		if (radiationManager.unlocked && !radiationManager.ionizeReady && radiationManager.cpmFor(radiationManager.mass, 1) >= line) {
 			radiationManager.setControlRodLevel((line * 1.01) / (radiationManager.mass * 10 * radiationManager.enrichmentBonus));
@@ -431,7 +430,7 @@ export class SimulationEngine {
 				actionsThisTick++;
 			}
 		}
-		// Identifying goes before the Prism upgrades, both spend Light and an element's bonus is permanent.
+		/** Identifying goes before the Prism upgrades, both spend Light and an element's bonus is permanent. */
 		if (canAct() && periodicManager.unlocked) {
 			/** With the Prism Tuning, each element is read through its best window. */
 			const tuningOf = (z: number) => (periodicManager.tuned && ELEMENTS[z - 1].lines.length ? bestTuning(ELEMENTS[z - 1].lines) : null);
@@ -511,7 +510,7 @@ export class SimulationEngine {
 		}
 
 		if (!radiationManager.unlocked) return actionsThisTick;
-		// Fuelling the core is realm attention like any other, so it competes for the same per-tick budget.
+		/** Fuelling the core is realm attention like any other, so it competes for the same per-tick budget. */
 		const reserve = gameManager.electronizeElectronsGain > 0 ? gameManager.electronizeElectronsGain * 3 : 50;
 		const surplus = currenciesManager.getAmount(CurrenciesTypes.ELECTRONS) - reserve;
 		if (canAct() && surplus > 0 && (radiationManager.mass === 0 || radiationManager.timeToEmpty < HOUR_MS)) {
@@ -706,7 +705,7 @@ export class SimulationEngine {
 		const spawns = (deltaSeconds * 1000) / Math.max(1, gameManager.photonSpawnInterval);
 		const excitedChance = gameManager.excitedPhotonChance;
 
-		// Circles die of old age; with spawn times spread evenly the share reaching the cutoff over a tick is delta/lifetime.
+		/** Circles die of old age: with spawn times spread evenly, the share reaching the cutoff over a tick is delta/lifetime. */
 		const normalLifetime = Math.max(1, effects.lifetimeMs) / 1000;
 		const excitedLifetime = normalLifetime * effects.excitedLifetimeMultiplier;
 		const expiredNormal = this.photonPoolNormal * Math.min(1, deltaSeconds / normalLifetime);
@@ -725,7 +724,7 @@ export class SimulationEngine {
 			this.state.photonsExpired += onScreen - PHOTON_MAX_CIRCLES;
 		}
 
-		// The auto-clicker picks uniformly among circles it may target, so excited ones stay put until it is upgraded.
+		/** The auto-clicker picks uniformly among circles it may target, so excited ones stay put until it is upgraded. */
 		const autoTargetsExcited = (gameManager.photonUpgrades['excited_auto_click'] ?? 0) > 0;
 		const collected = { excited: 0, normal: 0 };
 		const collect = (clicks: number, includeExcited: boolean) => {
@@ -757,8 +756,8 @@ export class SimulationEngine {
 	}
 
 	/**
-	 * Colored photons as a pool of HP per color that spawns and expires like the circles, a Blue photon counting its two
-	 * halves. The auto-clicker gives them half its clicks, the player taps them before any circle since they pay far more.
+	 * Colored photons are a pool of HP per color that spawns and expires like the circles, a Blue photon counting its two halves.
+	 * The auto-clicker gives them half its clicks and the player taps them first, they pay far more than circles.
 	 * Prism Excitation and Resonance are left out, they only trigger off Excited Photons. Returns the clicks left for circles.
 	 */
 	private simulateChromatic(deltaSeconds: number, autoClicks: number, manualClicks: number) {

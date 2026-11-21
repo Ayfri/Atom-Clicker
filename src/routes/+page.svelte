@@ -1,27 +1,25 @@
 <script lang="ts">
 	import { COLLIDER_REFRESH_MS } from '#data/collider.js';
 	import { FeatureTypes } from '#data/features.js';
-	import { colliderManager } from '#helpers/ColliderManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { perfMonitor } from '#helpers/PerfMonitor.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { colliderManager } from '#helpers/managers/ColliderManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import { perfMonitor } from '#helpers/perf/PerfMonitor.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { reveals } from '#helpers/reveals.svelte.js';
-	import { setGlobals } from '#lib/globals.js';
-	import { getItem, isLocalStorageUnavailable, setItem } from '#lib/utils/safeLocalStorage.js';
+	import { getItem, isLocalStorageUnavailable, removeItem, setItem } from '#helpers/safeLocalStorage.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
-	/** Builds the install store at load, it pushes the installed app flag into the game. */
+	/** Side-effect import: builds the install store at load, it pushes the installed app flag into the game. */
 	import '#stores/install.svelte.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { saveRecovery } from '#stores/saveRecovery.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { ui } from '#stores/ui.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile, ui } from '#stores/ui.svelte.js';
 	import Canvas from '#components/game/Canvas.svelte';
 	import Levels from '#components/game/Levels.svelte';
 	import NavBar from '#components/layout/NavBar.svelte';
@@ -31,29 +29,25 @@
 	import Toaster from '#components/layout/Toaster.svelte';
 	import OfflineProgress from '#components/modals/OfflineProgress.svelte';
 	import SaveRecovery from '#components/modals/SaveRecovery.svelte';
-	import AtomRealm from '#components/prestige/AtomRealm.svelte';
-	import PhotonRealm from '#components/prestige/PhotonRealm.svelte';
-	import RadiationRealm from '#components/prestige/RadiationRealm.svelte';
+	import AtomRealm from '#components/realms/AtomRealm.svelte';
+	import PhotonRealm from '#components/realms/PhotonRealm.svelte';
+	import RadiationRealm from '#components/realms/RadiationRealm.svelte';
 	import AppWatcher from '#components/system/AppWatcher.svelte';
 	import AutoSaveIndicator from '#components/system/AutoSaveIndicator.svelte';
 	import CosmosWatcher from '#components/system/CosmosWatcher.svelte';
 	import PeriodicWatcher from '#components/system/PeriodicWatcher.svelte';
 	import { onMount, untrack, type Component } from 'svelte';
 
-	const realmComponents: Record<string, Component> = {
-		AtomRealm: AtomRealm,
-		PhotonRealm: PhotonRealm,
-		RadiationRealm: RadiationRealm,
-	};
+	const realmComponents: Record<string, Component> = { AtomRealm, PhotonRealm, RadiationRealm };
 
 	const selectedIndex = $derived(realmManager.selectedIndex);
 
 	/** A reload of the tab reopens the Cosmos if it was open. */
 	const COSMOS_OPEN_KEY = 'cosmos-open';
-	realmManager.cosmosOpen = sessionStorage.getItem(COSMOS_OPEN_KEY) !== null;
+	realmManager.cosmosOpen = getItem(COSMOS_OPEN_KEY, 'sessionStorage') !== null;
 	$effect(() => {
-		if (realmManager.cosmosOpen) sessionStorage.setItem(COSMOS_OPEN_KEY, '1');
-		else sessionStorage.removeItem(COSMOS_OPEN_KEY);
+		if (realmManager.cosmosOpen) setItem(COSMOS_OPEN_KEY, '1', 'sessionStorage');
+		else removeItem(COSMOS_OPEN_KEY, 'sessionStorage');
 	});
 
 	autoBuyManager.init();
@@ -201,8 +195,6 @@
 
 		lastUpdateTime = performance.now();
 		const commitLoop = setInterval(update, COMMIT_INTERVAL_MS);
-
-		setGlobals();
 
 		const saveGame = () => {
 			const start = performance.now();

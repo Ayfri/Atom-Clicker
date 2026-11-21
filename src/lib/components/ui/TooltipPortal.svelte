@@ -19,8 +19,8 @@
 
 		const triggerRect = tooltip.triggerRect;
 		const tooltipRect = tooltipElement.getBoundingClientRect();
-		const viewportWidth = innerWidth.current ?? window.innerWidth;
-		const viewportHeight = innerHeight.current ?? window.innerHeight;
+		const viewportWidth = innerWidth.current!;
+		const viewportHeight = innerHeight.current!;
 
 		let left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
 		let top = triggerRect.top - tooltipRect.height - 8;

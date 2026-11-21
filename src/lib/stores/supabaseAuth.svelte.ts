@@ -1,11 +1,12 @@
-import type { SupabaseClient, User, Session, Provider } from '@supabase/supabase-js';
+import type { Provider, Session, User } from '@supabase/auth-js';
 import { browser } from '$app/env';
 import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
-import type { GameState } from '#lib/types.js';
-import type { Database, Profile } from '#lib/types/supabase.js';
-import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#lib/utils/safeLocalStorage.js';
-import { multiTabDetector } from '#stores/multiTab.svelte.js';
-import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/saves.js';
+import type { SupabaseLite } from '#helpers/supabaseClient.js';
+import type { GameState } from '#lib/types/game.js';
+import type { Profile } from '#lib/types/supabase.js';
+import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#helpers/safeLocalStorage.js';
+import { toastStore } from '#stores/toasts.svelte.js';
+import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/save/saves.js';
 
 /** postMessage type the /callback page sends to the window that opened it as a login popup. */
 export const AUTH_CALLBACK_MESSAGE = 'atom-clicker:auth-callback';
@@ -15,6 +16,11 @@ type AccountProfile = Pick<Profile, 'id' | 'picture' | 'username'>;
 const PROFILE_COLUMNS = 'id, picture, username';
 
 export type CloudSaveInfo = GameState & { lastSaveDate: number | null };
+
+/** An account this young was created by the sign in that just happened. */
+const NEW_ACCOUNT_MS = 60_000;
+
+export const isNewAccount = (user: User | null | undefined) => !!user && Date.now() - Date.parse(user.created_at) < NEW_ACCOUNT_MS;
 
 class SupabaseAuth {
 	isAuthenticated = $state(false);
@@ -26,26 +32,24 @@ class SupabaseAuth {
 		this.profile?.username || this.user?.user_metadata?.username || this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || null,
 	);
 	loading = $state(true);
-	supabase = $state<SupabaseClient<Database> | null>(null);
+	supabase = $state<SupabaseLite | null>(null);
 	error = $state<Error | null>(null);
 	/** Another device wrote the cloud save since this one last synced, auto-save holds off until an upload or a load picks a side. */
 	cloudConflict = $state(false);
+	/** Set by a sign in that happens in this page (One Tap, login popup), the layout plays the welcome and clears it. */
+	welcome = $state.raw<{ isNew: boolean } | null>(null);
 
 	private currentSession: Session | null = null;
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 	private initialized = false;
 
-	/**
-	 * Initializes the Supabase client and sets up auth listeners.
-	 * Must be called in a browser environment.
-	 */
 	async init() {
 		if (!browser || this.initialized) {
 			this.loading = false;
 			return;
 		}
 
-		// Not available in Web Workers, and blocked outright when site data is disabled or storage is partitioned
+		/** localStorage isn't available in Web Workers, and is blocked outright when site data is disabled or storage is partitioned. */
 		if (!isLocalStorageAvailable()) {
 			console.warn('SupabaseAuth: localStorage not available, skipping init');
 			this.loading = false;
@@ -53,17 +57,15 @@ class SupabaseAuth {
 		}
 
 		try {
-			// Kept out of the initial bundle: the client weighs ~60 kB gzipped and nothing renders through it.
-			const { createClient } = await import('@supabase/supabase-js');
-			this.supabase = createClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
-				auth: {
-					autoRefreshToken: true,
-					persistSession: true,
-					detectSessionInUrl: true,
-				},
+			/** Kept out of the initial bundle: the client weighs ~28 kB gzipped and nothing renders through it. */
+			const { SupabaseLite } = await import('#helpers/supabaseClient.js');
+			this.supabase = new SupabaseLite(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+				autoRefreshToken: true,
+				detectSessionInUrl: true,
+				persistSession: true,
 			});
 
-			multiTabDetector.init();
+			this.warnWhenOtherTabIsOpen();
 
 			this.initialized = true;
 
@@ -74,8 +76,9 @@ class SupabaseAuth {
 			await this.handleAuthStateChange(session?.user || null);
 
 			this.supabase.auth.onAuthStateChange(async (event, session) => {
-				console.log('Auth state changed:', event);
 				if (event === 'SIGNED_OUT') this.signedOut = true;
+				/** auth-js re-emits SIGNED_IN for the existing session when the tab regains focus, only a sign in from signed out is a welcome. */
+				if (event === 'SIGNED_IN' && !this.isAuthenticated) this.showWelcome(isNewAccount(session?.user));
 				this.currentSession = session;
 				await this.handleAuthStateChange(session?.user || null);
 			});
@@ -90,6 +93,27 @@ class SupabaseAuth {
 		}
 	}
 
+	showWelcome(isNew: boolean) {
+		this.welcome = { isNew };
+	}
+
+	private warnWhenOtherTabIsOpen() {
+		const channel = new BroadcastChannel('atom_clicker_tabs');
+		let warned = false;
+		channel.onmessage = ({ data }) => {
+			if (data === 'ping') channel.postMessage('pong');
+			else if (data === 'pong' && !warned) {
+				warned = true;
+				toastStore.warning({
+					duration: 0,
+					message: 'Game is already open in another tab. Auth and Cloud Save might not work correctly.',
+					title: 'Auth warning',
+				});
+			}
+		};
+		channel.postMessage('ping');
+	}
+
 	private async handleAuthStateChange(user: User | null) {
 		try {
 			if (user) {
@@ -102,26 +126,19 @@ class SupabaseAuth {
 				}
 				this.loading = true;
 
-				console.log('Auth state change for user:', user.id);
+				/** Marks the player online and reads their profile back in the same request. */
+				const markOnline = () =>
+					this.supabase!.from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id).select(PROFILE_COLUMNS).single();
+				let { data: profile, error } = await markOnline();
 
-				let { data: profile, error } = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
-
-				// If profile doesn't exist yet (might be due to trigger lag), wait a bit and retry
+				/** A trigger creates the profile row, so it can lag a sign up: retry once after 1 s. */
 				if (error && error.code === 'PGRST116') {
-					console.log('Profile not found yet, retrying in 1s...');
 					await new Promise((resolve) => setTimeout(resolve, 1000));
-					const retry = await (this.supabase!).from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
-					profile = retry.data;
-					error = retry.error;
+					({ data: profile, error } = await markOnline());
 				}
 
 				if (profile) {
 					this.profile = profile;
-					console.log('Found profile:', profile.username);
-
-					// Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence.
-					void (this.supabase!).from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id);
-
 					this.startHeartbeat();
 				} else {
 					console.error('Failed to find or create profile:', error?.message);
@@ -130,7 +147,6 @@ class SupabaseAuth {
 				this.loading = false;
 				this.error = null;
 			} else {
-				console.log('User signed out');
 				this.stopHeartbeat();
 				this.isAuthenticated = false;
 				this.user = null;
@@ -148,7 +164,7 @@ class SupabaseAuth {
 	private startHeartbeat() {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
-			/** supabase-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
+			/** auth-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
 			const accessToken = await this.getAccessToken();
 			if (accessToken) this.sendPresence(true, accessToken).catch(err => console.error('Heartbeat failed:', err));
 		}, 45_000);
@@ -156,7 +172,7 @@ class SupabaseAuth {
 
 	/**
 	 * Writes the presence columns straight to PostgREST, which the column grant allows, so the heartbeat of every signed-in tab never
-	 * costs a Worker request. A raw call because supabase-js can't set `keepalive`, which lets the offline write outlive a closing tab.
+	 * costs a Worker request. A raw call because the PostgREST client can't set `keepalive`, which lets the offline write outlive a closing tab.
 	 */
 	private async sendPresence(isOnline: boolean, accessToken: string) {
 		if (!this.user) return;
@@ -180,10 +196,7 @@ class SupabaseAuth {
 		}
 	}
 
-	/**
-	 * Returns a fresh access token for authenticating requests to our own API routes.
-	 * Reads from Supabase (which auto-refreshes) rather than the cached session, so it stays valid.
-	 */
+	/** Read through auth-js, which refreshes an expired token, instead of from the cached session. */
 	private async getAccessToken(): Promise<string | null> {
 		if (!this.supabase) return null;
 		const { data: { session } } = await this.supabase.auth.getSession();
@@ -203,22 +216,18 @@ class SupabaseAuth {
 			if (!this.supabase) return;
 		}
 
-		// Google refuses to render inside a frame, so embeds (itch.io, galaxy.click) log in through a popup that posts the callback URL back.
+		/** Google refuses to render inside a frame, so embeds (itch.io, galaxy.click) log in through a popup that posts the callback URL back. */
 		const embedded = window.self !== window.top;
-		// Opened synchronously in the click handler, popup blockers reject a window.open that comes after an await.
+		/** Opened synchronously in the click handler, popup blockers reject a window.open that comes after an await. */
 		const popup = embedded ? window.open('', 'atom-clicker-login', 'popup,width=520,height=700') : null;
 
 		try {
 			const { data, error } = await this.supabase.auth.signInWithOAuth({
-				provider,
 				options: {
 					redirectTo: `${window.location.origin}/callback`,
-					queryParams: {
-						access_type: 'offline',
-						prompt: 'consent',
-					},
 					skipBrowserRedirect: embedded,
 				},
+				provider,
 			});
 
 			if (error) {
@@ -279,7 +288,7 @@ class SupabaseAuth {
 	 * Shown by the screens where signing in matters (Leaderboard, Profile), which call `cancelGoogleOneTap` when they close.
 	 */
 	async promptGoogleOneTap() {
-		// FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't.
+		/** FedCM only runs in a frame whose host grants `identity-credentials-get`, which itch.io and galaxy.click don't. */
 		if (!PUBLIC_GOOGLE_CLIENT_ID || !this.supabase || this.isAuthenticated || this.signedOut || this.oneTapPrompted || window.self !== window.top) return;
 		this.oneTapPrompted = true;
 		const run = ++this.oneTapRun;
@@ -288,7 +297,7 @@ class SupabaseAuth {
 			await (this.oneTapSetup ??= this.setupGoogleOneTap(PUBLIC_GOOGLE_CLIENT_ID));
 			if (run === this.oneTapRun) window.google!.accounts.id.prompt();
 		} catch (err) {
-			// Content blockers commonly block the Google script, the regular sign in dialog still works without it.
+			/** Content blockers commonly block the Google script, the regular sign in dialog still works without it. */
 			console.warn('Google One Tap unavailable:', err);
 		}
 	}
@@ -316,7 +325,8 @@ class SupabaseAuth {
 			const accessToken = hash.get('access_token');
 			const refreshToken = hash.get('refresh_token');
 			try {
-				if (code) await (this.supabase!).auth.exchangeCodeForSession(code); else if (accessToken && refreshToken) await (this.supabase!).auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+				if (code) await this.supabase!.auth.exchangeCodeForSession(code);
+				else if (accessToken && refreshToken) await this.supabase!.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
 			} catch(err) {
 				console.error('Popup sign in error:', err);
 				this.error = err as Error;
@@ -329,17 +339,11 @@ class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			if (this.user) {
-				await this.supabase
-					.from('profiles')
-					.update({
-						is_online: false,
-						updated_at: new Date().toISOString(),
-					})
-					.eq('id', this.user.id);
-			}
+			/** Sent before the token goes away, `keepalive` lets it finish without holding up the sign out. */
+			if (this.currentSession?.access_token) void this.sendPresence(false, this.currentSession.access_token).catch(() => {});
 
-			const { error } = await this.supabase.auth.signOut();
+			/** The default `global` scope would also sign the player out on every other device. */
+			const { error } = await this.supabase.auth.signOut({ scope: 'local' });
 			if (error) {
 				this.error = error;
 				throw error;
@@ -410,7 +414,7 @@ class SupabaseAuth {
 		return this.uploadSave(currentState, true, this.currentSession?.access_token ?? null);
 	}
 
-	/** A raw PostgREST call, supabase-js can't set `keepalive` (which lets the request outlive the tab) and awaits a session lock first. */
+	/** A raw PostgREST call, the client can't set `keepalive` (which lets the request outlive the tab) and awaits a session lock first. */
 	private async uploadSave(currentState: GameState, onlyIfSynced: boolean, accessToken: string | null): Promise<CloudSaveInfo | null> {
 		const userId = this.user?.id;
 		if (!userId || !accessToken) throw new Error('No authenticated user');

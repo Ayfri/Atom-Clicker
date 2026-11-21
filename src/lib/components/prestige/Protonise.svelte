@@ -2,10 +2,10 @@
 	import PrestigeModal from '#components/prestige/PrestigeModal.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { boostTiersUnlockedByNextProtonise } from '#data/upgrades.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { LAYERS } from '#helpers/statConstants.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { LAYERS } from '#helpers/stats.js';
 	import { PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
-	import type { PrestigeListItem } from '#lib/types.js';
+	import type { PrestigeListItem } from '#lib/types/game.js';
 	import { formatNumber } from '#lib/utils.js';
 
 	interface Props {

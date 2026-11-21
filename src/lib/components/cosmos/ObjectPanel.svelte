@@ -2,8 +2,8 @@
 	import { CHROMATIC, CHROMATIC_COLORS } from '#data/chromatic.js';
 	import { CLICKABLE_OBJECTS, COSMOS_OBJECTS_BY_ID, SKY_CLICK_TIERS, STUDY_MS, studyCost } from '#data/cosmos.js';
 	import { CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 	import { formatNumber, formatNumberFull } from '#lib/utils.js';
 	import ActionButton from '#components/cosmos/ActionButton.svelte';
 	import SiteLine from '#components/cosmos/SiteLine.svelte';

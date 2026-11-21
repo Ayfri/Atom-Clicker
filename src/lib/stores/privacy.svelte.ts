@@ -1,4 +1,4 @@
-import { getItem, setItem } from '#lib/utils/safeLocalStorage.js';
+import { getItem, setItem } from '#helpers/safeLocalStorage.js';
 
 export const GA_ID = 'G-9M6JETNYJ5';
 const KEY = 'atom-clicker-analytics';
@@ -14,7 +14,7 @@ class PrivacyStore {
 	set analytics(value: boolean) {
 		this.#analytics = value;
 		setItem(KEY, value ? 'on' : 'off');
-		(window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = !value;
+		window[`ga-disable-${GA_ID}`] = !value;
 	}
 }
 

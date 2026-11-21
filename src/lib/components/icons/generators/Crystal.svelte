@@ -24,7 +24,6 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<!-- Diamond/gem shape crystal -->
 	<path
 		d="M12 2 L19 9 L12 22 L5 9 Z"
 		fill={color}
@@ -32,13 +31,11 @@
 	></path>
 	<path d="M12 2 L19 9 L12 22 L5 9 Z"></path>
 
-	<!-- Top facet -->
 	<path
 		d="M5 9 L12 6 L19 9"
 		opacity="0.7"
 	></path>
 
-	<!-- Center line -->
 	<line
 		x1="12"
 		y1="6"

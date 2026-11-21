@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type Element, TUNING, tuneX, wavelengthColor } from '#data/elements.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
 
 	interface Props {
 		element: Element;

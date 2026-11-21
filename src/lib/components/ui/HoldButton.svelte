@@ -52,7 +52,7 @@
 	}
 
 	function startPointerHold(event: PointerEvent) {
-		// Capture keeps the hold alive when the finger drifts off the button, which touch devices do constantly.
+		/** Capture keeps the hold alive when the finger drifts off the button, which touch devices do constantly. */
 		try {
 			(event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
 		} catch {}

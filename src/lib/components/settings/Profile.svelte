@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AtomIcon from '#components/icons/Atom.svelte';
 	import QuarkIcon from '#components/icons/Quark.svelte';
-	import Login, { AUTH_CONNECTIONS, getAuthConnection } from '#components/modals/Login.svelte';
+	import Login, { getAuthConnection } from '#components/modals/Login.svelte';
 	import Journey from '#components/profile/Journey.svelte';
 	import Lifetime from '#components/profile/Lifetime.svelte';
 	import StatTiles, { type StatTile } from '#components/profile/StatTiles.svelte';
@@ -11,10 +11,10 @@
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { ELEMENT_COUNT } from '#data/elements.js';
 	import { REALMS } from '#data/realms.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { leaderboard } from '#stores/leaderboard.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
@@ -35,7 +35,7 @@
 	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let showLoginModal = $state(false);
 
-	const connection = $derived(getAuthConnection(supabaseAuth.user?.identities?.find(identity => AUTH_CONNECTIONS.some(c => c.provider === identity.provider))?.provider));
+	const connection = $derived(supabaseAuth.user?.identities?.map(identity => getAuthConnection(identity.provider)).find(Boolean));
 	const name = $derived(supabaseAuth.displayName ?? 'Anonymous');
 	const tiles: StatTile[] = $derived([
 		{ icon: Trophy, label: 'Achievements', value: `${gameManager.achievements.length} / ${totalAchievements}` },

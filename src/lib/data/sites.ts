@@ -2,7 +2,7 @@ import { ELEMENTS, elementBySymbol, LORE, zs, type Element } from '#data/element
 
 export type SiteId = 'accelerator' | 'bigbang' | 'cosmic' | 'decay' | 'lowmass' | 'massive' | 'neutron' | 'reactor' | 'whitedwarf';
 
-export interface Site {
+interface Site {
 	/** One sentence on what the source really is, shown on its card. */
 	blurb: string;
 	color: string;

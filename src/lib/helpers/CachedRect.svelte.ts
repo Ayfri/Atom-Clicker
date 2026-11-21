@@ -1,5 +1,5 @@
 import type { RealmType } from '#data/realms.js';
-import { REALM_SWITCH_MS, realmManager } from '#helpers/RealmManager.svelte.js';
+import { REALM_SWITCH_MS, realmManager } from '#helpers/managers/RealmManager.svelte.js';
 
 /**
  * Bounding rect of an element of a realm, for the hot paths (auto-clicks, pointer moves): `getBoundingClientRect` forces a
@@ -26,7 +26,7 @@ export class CachedRect {
 			};
 		});
 
-		// A rect measured while the realm swings in is transformed, so it is dropped again once the realm has settled.
+		/** A rect measured while the realm swings in is transformed, so it is dropped again once the realm has settled. */
 		$effect(() => {
 			realmManager.selectedRealmId;
 			this.invalidate();

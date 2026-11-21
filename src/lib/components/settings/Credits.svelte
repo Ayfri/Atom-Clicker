@@ -2,8 +2,8 @@
 	import AtomIcon from '#components/icons/Atom.svelte';
 	import Discord from '#components/icons/Discord.svelte';
 	import GitHub from '#components/icons/GitHub.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { Coffee, Globe, SquareArrowOutUpRight } from '@lucide/svelte';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { Coffee, Globe, SquareArrowUpRightExit } from '@lucide/svelte';
 	import { scale } from 'svelte/transition';
 
 	const REPOSITORY = 'https://github.com/Ayfri/Atom-Clicker';
@@ -84,7 +84,7 @@
 						<span class="font-semibold text-white">{link.name}</span>
 						<span class="truncate text-xs text-white/50">{link.description}</span>
 					</span>
-					<SquareArrowOutUpRight class="shrink-0 text-white/30 group-hover:text-white/60" size={14} />
+					<SquareArrowUpRightExit class="shrink-0 text-white/30 group-hover:text-white/60" size={14} />
 				</a>
 			{/each}
 		</div>

@@ -1,15 +1,17 @@
 <script lang="ts">
 	import '../app.css';
-	import { browser } from '$app/env';
+	import { browser, dev } from '$app/env';
 	import { beforeNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
+	import SignInWelcome from '#components/layout/SignInWelcome.svelte';
 	import PrestigeAnimation from '#components/prestige/PrestigeAnimation.svelte';
 	import Analytics from '#components/system/Analytics.svelte';
-	import DevTools from '#components/system/devtools/DevTools.svelte';
 	import SEO from '#components/system/SEO.svelte';
 	import Hints from '#components/tutorial/Hints.svelte';
 	import TooltipPortal from '#components/ui/TooltipPortal.svelte';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
 	import { prestigeStore } from '#stores/prestige.svelte.js';
+	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { LoaderCircle } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
@@ -21,7 +23,7 @@
 
 	let { children }: Props = $props();
 
-	// The error page and the benchmark analysis tool stand alone, none of the in-game overlays belong there.
+	/** The error page and the benchmark analysis tool stand alone, none of the in-game overlays belong there. */
 	const isStandalone = $derived(!!page.error || page.url.pathname.startsWith('/benchmark'));
 
 	let mounted = $state(false);
@@ -29,8 +31,8 @@
 
 	onMount(() => (mounted = true));
 
-	// The old build's chunks are gone from Cloudflare, so a client-side navigation would hit a dead import
-	beforeNavigate((navigation) => {
+	/** The old build's chunks are gone from Cloudflare, so a client-side navigation would hit a dead import. */
+	beforeNavigate(navigation => {
 		if (navigation.shallow) return;
 
 		if (updated.current && navigation.to?.url) {
@@ -39,15 +41,20 @@
 		}
 	});
 
+	/** Nothing the player did starts it (One Tap, login popup), so an incident that follows names it. */
+	$effect(() => {
+		if (supabaseAuth.welcome) perfTracker.action('auth:welcome');
+	});
+
 	$effect(() => {
 		if (!updated.current || updatePromptShown) return;
 		updatePromptShown = true;
 		toastStore.info({
 			action: () => location.reload(),
 			actionLabel: 'Reload',
-			title: 'New Version Available',
-			message: 'Reload to get the latest version, your progress is saved.',
 			duration: 0,
+			message: 'Reload to get the latest version, your progress is saved.',
+			title: 'New Version Available',
 		});
 	});
 </script>
@@ -77,8 +84,26 @@
 	/>
 	{@render children?.()}
 	{#if !isStandalone}
-		<DevTools />
+		{#if dev}
+			<!-- Lazy so the panel and its tabs stay out of the game chunk. -->
+			{#await import('#components/system/devtools/DevToolsPanel.svelte') then { default: DevToolsPanel }}
+				<DevToolsPanel />
+			{/await}
+		{/if}
 		<Hints />
+		<!-- The redirect flow plays its own welcome on /callback. Above the modals (z-50), click-through so it never blocks a tap. -->
+		{#if supabaseAuth.welcome && page.url.pathname !== '/callback'}
+			{#key supabaseAuth.welcome}
+				<div class="pointer-events-none fixed inset-0 z-60 grid place-items-center" role="status">
+					<SignInWelcome
+						avatar={supabaseAuth.avatarUrl}
+						isNew={supabaseAuth.welcome.isNew}
+						name={supabaseAuth.displayName ?? 'scientist'}
+						onEnd={() => (supabaseAuth.welcome = null)}
+					/>
+				</div>
+			{/key}
+		{/if}
 	{/if}
 	<TooltipPortal />
 {/if}

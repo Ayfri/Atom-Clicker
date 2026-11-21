@@ -79,7 +79,7 @@ const RING_OUTER = RADII.saturn * 2.27;
 const JOVIAN_SPREAD = 0.41;
 const NOWHERE = new Vector3(1e7, 1e7, 1e7);
 
-/** Ring opacity at a distance from Saturn's center in Saturn radii, with the Cassini Division and Encke Gap. Unresolved, one soft band, Galileo's blur. */
+/** Opacity of Saturn's rings at `radius` (in Saturn radii), with the Cassini Division and Encke Gap. While `resolved` is 0 they are one soft band, as Galileo saw them. */
 function ringDensity(radius: Node<'float'>, resolved: Node<'float'>) {
 	const band = (from: number, to: number, soft = 0.012) => smoothstep(from - soft, from + soft, radius).mul(oneMinus(smoothstep(to - soft, to + soft, radius)));
 	const ringlets = mx_noise_float(vec3(radius.mul(70), 0, 0)).mul(0.25).add(0.75);

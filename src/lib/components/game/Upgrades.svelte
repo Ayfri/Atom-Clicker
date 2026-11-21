@@ -8,9 +8,9 @@
 	import { CURRENCIES, CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import type { UpgradeCategory } from '#data/upgrades.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
-	import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
+	import { type FamilyView, upgradeFamilies } from '#helpers/managers/UpgradeFamilies.svelte.js';
 	import { bloomPurchase, buyAllFamilies } from '#helpers/upgradeFx.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
 	import { Bot, ChevronDown, Eye, EyeOff, Factory, MousePointerClick, ShieldCheck, TrendingUp, Wrench, Zap } from '@lucide/svelte';
