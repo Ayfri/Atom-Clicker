@@ -36,7 +36,8 @@
 	},
 	"dependencies": {
 		"@lucide/svelte": "^1.77.0",
-		"@supabase/supabase-js": "2.119.2",
+		"@supabase/auth-js": "2.119.2",
+		"@supabase/postgrest-js": "2.119.2",
 		"three": "0.187.0",
 		"virtua": "^0.55.0"
 	},

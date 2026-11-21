@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import type { Provider } from '@supabase/supabase-js';
+	import type { Provider } from '@supabase/auth-js';
 
 	interface AuthConnection {
 		/** Brand color behind the provider logo. */

@@ -1,16 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
 import { COLLIDER_COOLDOWN_SECONDS } from '#data/collider.js';
+import { SupabaseLite } from '#helpers/supabaseClient.js';
 import type { PreviousScore, ScoreAudit } from '#lib/server/audit/scoreAudit.server.js';
 import type { ColliderState } from '#lib/types/game.js';
-import type { Database } from '#lib/types/supabase.js';
 import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
-export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
-	auth: {
-		autoRefreshToken: false,
-		persistSession: false
-	}
+export const supabaseAdmin = new SupabaseLite(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
+	autoRefreshToken: false,
+	detectSessionInUrl: false,
+	persistSession: false,
 });
 
 export interface ScoreContext {

@@ -1,8 +1,9 @@
-import type { Provider, Session, SupabaseClient, User } from '@supabase/supabase-js';
+import type { Provider, Session, User } from '@supabase/auth-js';
 import { browser } from '$app/env';
 import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
+import type { SupabaseLite } from '#helpers/supabaseClient.js';
 import type { GameState } from '#lib/types/game.js';
-import type { Database, Profile } from '#lib/types/supabase.js';
+import type { Profile } from '#lib/types/supabase.js';
 import { getItem, isLocalStorageAvailable, removeItem, setItem } from '#helpers/safeLocalStorage.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 import { SAVE_VERSION, migrateSavedState, validateAndRepairGameState } from '#helpers/save/saves.js';
@@ -26,7 +27,7 @@ class SupabaseAuth {
 		this.profile?.username || this.user?.user_metadata?.username || this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || null,
 	);
 	loading = $state(true);
-	supabase = $state<SupabaseClient<Database> | null>(null);
+	supabase = $state<SupabaseLite | null>(null);
 	error = $state<Error | null>(null);
 	/** Another device wrote the cloud save since this one last synced, auto-save holds off until an upload or a load picks a side. */
 	cloudConflict = $state(false);
@@ -49,14 +50,12 @@ class SupabaseAuth {
 		}
 
 		try {
-			/** Kept out of the initial bundle: the client weighs ~60 kB gzipped and nothing renders through it. */
-			const { createClient } = await import('@supabase/supabase-js');
-			this.supabase = createClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
-				auth: {
-					autoRefreshToken: true,
-					detectSessionInUrl: true,
-					persistSession: true,
-				},
+			/** Kept out of the initial bundle: the client weighs ~28 kB gzipped and nothing renders through it. */
+			const { SupabaseLite } = await import('#helpers/supabaseClient.js');
+			this.supabase = new SupabaseLite(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+				autoRefreshToken: true,
+				detectSessionInUrl: true,
+				persistSession: true,
 			});
 
 			this.warnWhenOtherTabIsOpen();
@@ -161,7 +160,7 @@ class SupabaseAuth {
 	private startHeartbeat() {
 		this.stopHeartbeat();
 		this.heartbeatInterval = setInterval(async () => {
-			/** supabase-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
+			/** auth-js pauses its token refresh in hidden tabs, so the cached session can be expired here, getSession() refreshes it. */
 			const accessToken = await this.getAccessToken();
 			if (accessToken) this.sendPresence(true, accessToken).catch(err => console.error('Heartbeat failed:', err));
 		}, 45_000);
@@ -169,7 +168,7 @@ class SupabaseAuth {
 
 	/**
 	 * Writes the presence columns straight to PostgREST, which the column grant allows, so the heartbeat of every signed-in tab never
-	 * costs a Worker request. A raw call because supabase-js can't set `keepalive`, which lets the offline write outlive a closing tab.
+	 * costs a Worker request. A raw call because the PostgREST client can't set `keepalive`, which lets the offline write outlive a closing tab.
 	 */
 	private async sendPresence(isOnline: boolean, accessToken: string) {
 		if (!this.user) return;
@@ -193,7 +192,7 @@ class SupabaseAuth {
 		}
 	}
 
-	/** Read through supabase-js, which refreshes an expired token, instead of from the cached session. */
+	/** Read through auth-js, which refreshes an expired token, instead of from the cached session. */
 	private async getAccessToken(): Promise<string | null> {
 		if (!this.supabase) return null;
 		const { data: { session } } = await this.supabase.auth.getSession();
@@ -421,7 +420,7 @@ class SupabaseAuth {
 		return this.uploadSave(currentState, true, this.currentSession?.access_token ?? null);
 	}
 
-	/** A raw PostgREST call, supabase-js can't set `keepalive` (which lets the request outlive the tab) and awaits a session lock first. */
+	/** A raw PostgREST call, the client can't set `keepalive` (which lets the request outlive the tab) and awaits a session lock first. */
 	private async uploadSave(currentState: GameState, onlyIfSynced: boolean, accessToken: string | null): Promise<CloudSaveInfo | null> {
 		const userId = this.user?.id;
 		if (!userId || !accessToken) throw new Error('No authenticated user');
