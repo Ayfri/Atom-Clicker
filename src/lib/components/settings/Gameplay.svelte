@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SettingRow from '#components/ui/SettingRow.svelte';
+	import SettingRow from '#components/settings/SettingRow.svelte';
 	import Switch from '#components/ui/Switch.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import type { NumberNotation } from '#lib/types.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import type { NumberNotation } from '#lib/types/game.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { Coffee, Lightbulb, MoonStar, Numbers, RotateCcw } from '@lucide/svelte';
 

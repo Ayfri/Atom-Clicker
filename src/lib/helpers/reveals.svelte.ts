@@ -1,5 +1,5 @@
 import { GENERATOR_TYPES, GENERATORS } from '#data/generators.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { cubicInOut, cubicOut } from 'svelte/easing';
 import type { TransitionConfig } from 'svelte/transition';
 

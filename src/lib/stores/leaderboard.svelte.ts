@@ -1,19 +1,19 @@
-import { gameManager } from '#helpers/GameManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 import { browser, dev } from '$app/env';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { LeaderboardEntry } from '#lib/types/leaderboard.js';
-import { obfuscateClientData } from '#lib/utils/obfuscation.js';
-import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+import { obfuscateClientData } from '#helpers/obfuscation.js';
+import { getJSON, setItem } from '#helpers/safeLocalStorage.js';
 import { toastStore } from '#stores/toasts.svelte.js';
 
-export const REFRESH_INTERVAL = 60_000; // 1 minute between leaderboard refreshes
+export const REFRESH_INTERVAL = 60_000;
 const RANKS_KEY = 'atomic-clicker-leaderboard-ranks';
 /** Above the server's 20 s per-player limit, so an honest client never meets a 429 from a single tab. */
 const MIN_UPDATE_INTERVAL = 30_000;
 /** A run the audit refuses keeps failing until it changes a lot, retrying it every 30 s only costs a full audit each time. */
 const REJECTED_RETRY_INTERVAL = 5 * 60_000;
 
-const MIN_ATOMS_CHANGE_PERCENT = 0.05; // 5% minimum change in atoms
+const MIN_ATOMS_CHANGE_PERCENT = 0.05;
 
 interface LeaderboardStats {
 	/** Players with a score, which a leaderboard reset brings far below the account count. */
@@ -119,21 +119,19 @@ class LeaderboardStore {
 	async updateScore() {
 		/** Dev saves are edited freely through the DevTools, they never reach the leaderboard. */
 		if (!browser || dev || this.isUpdating) return;
-		// Skip submission for saves flagged by the integrity checks, see plausibility.ts.
 		if (gameManager.integrityFlagged || gameManager.saveIntegrityWarnings.length > 0) return;
 
 		try {
 			this.isUpdating = true;
-			if (!supabaseAuth || !supabaseAuth.isAuthenticated || !supabaseAuth.user) return;
+			if (!supabaseAuth.isAuthenticated || !supabaseAuth.user) return;
 
 			const headers = await supabaseAuth.authHeaders();
 			if (!('Authorization' in headers)) return;
 			this.nextSubmitAt = Date.now() + MIN_UPDATE_INTERVAL;
 
-			const { dailyStats, settings, tutorial, ...state } = gameManager.getCurrentState();
 			const data = {
 				picture: supabaseAuth.avatarUrl ?? undefined,
-				state,
+				state: gameManager.auditedState(),
 				username: supabaseAuth.displayName ?? 'Anonymous',
 			};
 

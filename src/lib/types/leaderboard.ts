@@ -3,43 +3,43 @@ import type { GeneratorType } from '#data/generators.js';
 import type { RealmType } from '#data/realms.js';
 
 export interface LeaderboardEntry {
-    atoms: number;
-    equippedBanner?: string | null;
-    lastSeen: number;
-    level: number;
-    is_online?: boolean;
-    picture?: string;
-    rank: number;
-    self?: boolean;
-    userId?: string;
-    username: string;
+	atoms: number;
+	equippedBanner?: string | null;
+	is_online?: boolean;
+	lastSeen: number;
+	level: number;
+	picture?: string;
+	rank: number;
+	self?: boolean;
+	userId?: string;
+	username: string;
 }
 
 /** Play stats read from a player's cloud save, `stats` is null when they never uploaded one. */
 export interface PublicProfile {
-    joinedAt: number | null;
-    stats: PublicProfileStats | null;
+	joinedAt: number | null;
+	stats: PublicProfileStats | null;
 }
 
 export interface PublicProfileStats {
-    /** Raw ids, counted against the client's achievement list so removed ones never inflate the total. */
-    achievements: string[];
-    clicks: number;
-    /** Objects in the player's sky, 0 until the Cosmos opens. */
-    discoveries: number;
-    electronizes: number;
-    /** Elements identified in the Periodic Table. */
-    elements: number;
-    generators: Partial<Record<GeneratorType, number>>;
-    guestStars: number;
-    highestAPS: number;
-    ionizes: number;
-    lifetime: Partial<Record<CurrencyName, number>>;
-    neutrinos: number;
-    playTime: number;
-    protonizes: number;
-    realms: RealmType[];
-    skills: string[];
-    /** Taps on sky objects. */
-    skyTaps: number;
+	/** Raw ids, counted against the client's achievement list so removed ones never inflate the total. */
+	achievements: string[];
+	clicks: number;
+	/** Objects in the player's sky, 0 until the Cosmos opens. */
+	discoveries: number;
+	electronizes: number;
+	/** Elements identified in the Periodic Table. */
+	elements: number;
+	generators: Partial<Record<GeneratorType, number>>;
+	guestStars: number;
+	highestAPS: number;
+	ionizes: number;
+	lifetime: Partial<Record<CurrencyName, number>>;
+	neutrinos: number;
+	playTime: number;
+	protonizes: number;
+	realms: RealmType[];
+	skills: string[];
+	/** Taps on sky objects. */
+	skyTaps: number;
 }

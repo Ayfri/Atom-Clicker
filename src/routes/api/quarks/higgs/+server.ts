@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
+import { verifiedHandler } from '#lib/server/request.server.js';
 import { quarksService } from '#lib/server/supabase.server.js';
-import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 
 const HIGGS_DROP_CHANCE = 1 / 300;
 /** A legit player clicks a few dozen power-ups a day, so anything past this is a script hammering the route. */

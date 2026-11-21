@@ -1,8 +1,8 @@
 <script lang="ts">
 	import AtomStage from '#components/cosmos/periodic/AtomStage.svelte';
-	import { MINI_NUCLEONS, nucleonsOf, paintNucleus, type StageKind } from '#components/cosmos/periodic/atoms.js';
+	import { MINI_NUCLEONS, nucleonsOf, paintNucleus } from '#components/cosmos/periodic/atoms.js';
 	import SourceArt from '#components/cosmos/periodic/SourceArt.svelte';
-	import { SPECTRUM } from '#components/cosmos/periodic/sky.js';
+	import { SPECTRUM } from '#components/cosmos/periodic/spectrum.js';
 	import { TableAtoms, type CellLook } from '#components/cosmos/periodic/TableAtoms.js';
 	import { TableParticles, type Point } from '#components/cosmos/periodic/TableParticles.js';
 	import TuningStrip from '#components/cosmos/periodic/TuningStrip.svelte';
@@ -34,18 +34,17 @@
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
 	import { CHAINS, DECAY_EVENTS_PER_SECOND, DECAY_SITES, FORGED_BY, MAX_UNREAD, reactionOf, SITE_IDS, siteStudyCost, SITES, type SiteId } from '#data/sites.js';
-	import { particlesEnabled, pixelRatio } from '#helpers/CanvasLoop.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { particlesEnabled, pixelRatio } from '#helpers/canvas/CanvasLoop.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { periodicManager, type SiteStatus } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
-	import { periodicManager, type SiteStatus } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
 	import { reveal as revealIn } from '#helpers/reveals.svelte.js';
-	import type { EffectStat } from '#lib/types.js';
+	import type { EffectStat } from '#lib/types/game.js';
 	import { formatNumber } from '#lib/utils.js';
-	import { ui } from '#stores/ui.svelte.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile, ui } from '#stores/ui.svelte.js';
 	import { ChevronDown, ChevronRight, ChevronsUp, CircleQuestionMark, Cog, Factory, Lock, MousePointerClick, Shield, Star, X, Zap } from '@lucide/svelte';
 	import { tick, untrack, type Component } from 'svelte';
 	import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -58,7 +57,6 @@
 	let { onClose }: Props = $props();
 
 	type StatIcon = Component<{ size?: number }> | CurrencyName;
-	/** The right panel shows either an element or a source. */
 	type Selection = { kind: 'element'; z: number } | { id: SiteId; kind: 'site' };
 	type ChipKind = 'forged' | 'forging' | 'later' | 'waiting';
 
@@ -187,7 +185,7 @@
 	});
 
 	const element = $derived(ELEMENTS[(selected ?? 1) - 1]);
-	const stageKind = $derived((selected === null ? null : (looks.get(selected)?.kind ?? null)) as StageKind | null);
+	const stageKind = $derived(selected === null ? null : (looks.get(selected)?.kind ?? null));
 	const forgingOf = (z: number) => sites.find(({ status }) => status.kind === 'forging' && status.z === z);
 	/** Cells of the selected source's chain, outlined on the grid. */
 	const chain = $derived(selection.kind === 'site' ? new Set(CHAINS[selection.id].steps) : null);
@@ -264,6 +262,10 @@
 		return rect && rect.width ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
 	}
 
+	function bounce(id: SiteId, delay = 0) {
+		document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { delay, duration: 400, easing: 'ease-out' });
+	}
+
 	function toast(text: string, color: string) {
 		const id = ++toastId;
 		toasts = [...toasts.slice(-2), { color, id, text }];
@@ -282,7 +284,7 @@
 			const to = centerOf(`[data-cell="${z}"]`);
 			if (from) particles?.burst(from, [color, '#ffffff'], 12, { speed: 120 });
 			if (from && to) particles?.comet(from, to, color);
-			document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
+			bounce(id);
 			schedule(() => to && particles?.burst(to, [color, '#ffffff'], 18), 900);
 			toast(`${SITES[id].glyph} ${ELEMENTS[z - 1].name} is ready to identify`, color);
 		}
@@ -305,7 +307,7 @@
 	function locate(id: SiteId) {
 		const source = document.querySelector(`[data-forge="${id}"]`);
 		source?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-		source?.animate(BOUNCE, { delay: 300, duration: 400, easing: 'ease-out' });
+		bounce(id, 300);
 	}
 
 	/** Whether a forge can go to this source now: a free one, or the only one there is. */
@@ -315,14 +317,14 @@
 		if (!periodicManager.assign(id)) return;
 		const source = centerOf(`[data-forge="${id}"]`);
 		if (source) particles?.burst(source, [SITES[id].color, '#ffffff'], 18, { speed: 120 });
-		document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
+		bounce(id);
 	}
 
 	function study(id: SiteId) {
 		if (!periodicManager.study(id)) return;
 		const source = centerOf(`[data-forge="${id}"]`);
 		if (source) particles?.burst(source, [SITES[id].color, '#cfe8ff'], 24, { rise: true, speed: 140 });
-		document.querySelector(`[data-forge="${id}"]`)?.animate(BOUNCE, { duration: 400, easing: 'ease-out' });
+		bounce(id);
 	}
 
 	function studyGains(id: SiteId, kind: SiteStatus['kind']): string {
@@ -638,27 +640,10 @@
 	</div>
 {/snippet}
 
-{#snippet unreadButtons(unread: number[])}
-	<div class="flex flex-col items-start gap-1.5 text-xs">
-		{#each unread.slice(0, 3) as z (z)}
-			<button
-				class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center whitespace-nowrap text-amber-200/90 transition-colors hover:bg-white/12"
-				onclick={() => select(z)}
-			>
-				<span class="truncate">Read {ELEMENTS[z - 1].name}</span>
-				<ChevronRight
-					class="shrink-0"
-					size={12}
-				/>
-			</button>
-		{/each}
-	</div>
-{/snippet}
-
-{#snippet cosmosButton(label: string, objectId?: string)}
+{#snippet pill(label: string, onclick: () => void, tone: string)}
 	<button
-		class="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center text-xs whitespace-nowrap text-[#cfe8ff] transition-colors hover:bg-white/12"
-		onclick={() => openCosmos(objectId)}
+		class={['inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-full bg-white/6 px-3 text-center text-xs whitespace-nowrap transition-colors hover:bg-white/12', tone]}
+		{onclick}
 	>
 		<span class="truncate">{label}</span>
 		<ChevronRight
@@ -666,6 +651,18 @@
 			size={12}
 		/>
 	</button>
+{/snippet}
+
+{#snippet unreadButtons(unread: number[])}
+	<div class="flex flex-col items-start gap-1.5 text-xs">
+		{#each unread.slice(0, 3) as z (z)}
+			{@render pill(`Read ${ELEMENTS[z - 1].name}`, () => select(z), 'text-amber-200/90')}
+		{/each}
+	</div>
+{/snippet}
+
+{#snippet cosmosButton(label: string, objectId?: string)}
+	{@render pill(label, () => openCosmos(objectId), 'text-[#cfe8ff]')}
 {/snippet}
 
 {#snippet progressRing(color: string, progress: number, smoothKey: number)}
@@ -708,6 +705,15 @@
 	{:else if Icon}
 		<Icon {size} />
 	{/if}
+{/snippet}
+
+{#snippet caption(tone: string, text: string, title?: string)}
+	<span
+		class={['block truncate text-[11px] leading-4 lg:text-xs', tone]}
+		{title}
+	>
+		{text}
+	</span>
 {/snippet}
 
 {#snippet sky()}
@@ -799,45 +805,23 @@
 				<!-- One line at a fixed height so the band is as tall in every state, long texts are cut and complete in the title. -->
 				<div class="h-4 w-full">
 					{#if status.kind === 'forging'}
-						<span class="block truncate text-[11px] leading-4 text-white/55 tabular-nums lg:text-xs">
-							{ELEMENTS[status.z - 1].symbol} · {eta(periodicManager.etaOf(id))}
-						</span>
+						{@render caption('text-white/55 tabular-nums', `${ELEMENTS[status.z - 1].symbol} · ${eta(periodicManager.etaOf(id))}`)}
 					{:else if status.kind === 'waiting'}
 						{@const need = status.missing.length ? `Needs ${status.missing.map(z => ELEMENTS[z - 1].symbol).join(', ')}` : `Needs ${COSMOS_OBJECTS_BY_ID[status.object ?? '']?.name ?? 'a discovery'}`}
-						<span
-							class="block truncate text-[11px] leading-4 text-amber-200/80 lg:text-xs"
-							title={CHAINS[id].seeds[status.z]?.why ?? need}
-						>
-							{need}
-						</span>
+						{@render caption('text-amber-200/80', need, CHAINS[id].seeds[status.z]?.why ?? need)}
 					{:else if status.kind === 'full'}
-						<span
-							class="block truncate text-[11px] leading-4 text-amber-200/80 lg:text-xs"
-							title={fullText(status.unread)}
-						>
-							Full · {status.unread.slice(0, 3).map(z => ELEMENTS[z - 1].symbol).join(' ')}
-						</span>
+						{@render caption('text-amber-200/80', `Full · ${status.unread.slice(0, 3).map(z => ELEMENTS[z - 1].symbol).join(' ')}`, fullText(status.unread))}
 					{:else if status.kind === 'idle'}
 						{@const unread = periodicManager.unreadOf(id)}
 						{#if unread.length >= MAX_UNREAD}
-							<span
-								class="block truncate text-[11px] leading-4 text-amber-200/80 lg:text-xs"
-								title={fullText(unread)}
-							>
-								Full
-							</span>
+							{@render caption('text-amber-200/80', 'Full', fullText(unread))}
 						{:else}
-							<span class="block truncate text-[11px] leading-4 text-white/45 lg:text-xs">Idle</span>
+							{@render caption('text-white/45', 'Idle')}
 						{/if}
 					{:else if status.kind === 'done'}
-						<span class="block truncate text-[11px] leading-4 text-white/40 lg:text-xs">Complete</span>
+						{@render caption('text-white/40', 'Complete')}
 					{:else}
-						<span
-							class="block truncate text-[11px] leading-4 text-white/40 lg:text-xs"
-							title={site.gate}
-						>
-							{site.gate}
-						</span>
+						{@render caption('text-white/40', site.gate, site.gate)}
 					{/if}
 				</div>
 			</div>

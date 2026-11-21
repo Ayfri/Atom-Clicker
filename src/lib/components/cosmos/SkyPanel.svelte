@@ -12,17 +12,17 @@
 	} from '#data/cosmos.js';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { cosmosFx } from '#helpers/cosmosFx.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
-	import type { EffectStat } from '#lib/types.js';
+	import type { EffectStat } from '#lib/types/game.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import Blueprint from '#components/cosmos/Blueprint.svelte';
+	import FillLine from '#components/cosmos/FillLine.svelte';
 	import Iris from '#components/cosmos/Iris.svelte';
 	import SkyThumbnail from '#components/cosmos/SkyThumbnail.svelte';
 	import TableLink from '#components/cosmos/TableLink.svelte';
 	import Currency from '#components/ui/Currency.svelte';
-	import FillLine from '#components/ui/FillLine.svelte';
 	import Tabs from '#components/ui/Tabs.svelte';
 	import { Aperture, Check, ChevronsUp, Cog, Factory, Lock, MousePointerClick, Orbit, Shield, ShieldHalf, ShieldPlus, Telescope, Timer, X, Zap } from '@lucide/svelte';
 	import { cubicOut } from 'svelte/easing';
@@ -36,18 +36,6 @@
 	}
 
 	let { onBuyInstrument, onClose, onFocus, onStudy }: Props = $props();
-
-	const TABS = [
-		{ icon: Orbit, id: 'objects', label: 'Objects' },
-		{ icon: Telescope, id: 'instruments', label: 'Instruments' },
-	] as const;
-
-	const CHIP =
-		'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-white/6 px-2.5 py-1.5 ring-1 ring-cosmos-signal/30 transition-colors enabled:hover:bg-cosmos-signal/15 disabled:cursor-not-allowed disabled:ring-white/8';
-
-	let tab = $state<(typeof TABS)[number]['id']>('objects');
-
-	const starlight = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT));
 
 	const BOOST_ICONS: Partial<Record<EffectStat, typeof Factory | CurrencyName>> = {
 		blue_light_gain: CurrenciesTypes.BLUE_LIGHT,
@@ -67,6 +55,18 @@
 		stability_speed: ShieldHalf,
 		xp_gain: ChevronsUp,
 	};
+
+	const CHIP =
+		'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-white/6 px-2.5 py-1.5 ring-1 ring-cosmos-signal/30 transition-colors enabled:hover:bg-cosmos-signal/15 disabled:cursor-not-allowed disabled:ring-white/8';
+
+	const TABS = [
+		{ icon: Orbit, id: 'objects', label: 'Objects' },
+		{ icon: Telescope, id: 'instruments', label: 'Instruments' },
+	] as const;
+
+	let tab = $state<(typeof TABS)[number]['id']>('objects');
+
+	const starlight = $derived(currenciesManager.getAmount(CurrenciesTypes.STARLIGHT));
 
 	const shown = $derived(new Set(cosmosManager.objects.map(object => object.id)));
 
@@ -254,9 +254,9 @@
 									class="mt-0.5"
 									instrumentId={instrument.id}
 								/>
-							{/if}
-							{#if next && !cosmosManager.apertureMaxed && !cosmosManager.research}
-								<p class="mt-0.5 text-xs text-accent-300">Widen your sight to magnitude {formatMagnitude(cosmosManager.instrument.reach)} to build it.</p>
+								{#if !cosmosManager.apertureMaxed && !cosmosManager.research}
+									<p class="mt-0.5 text-xs text-accent-300">Widen your sight to magnitude {formatMagnitude(cosmosManager.instrument.reach)} to build it.</p>
+								{/if}
 							{/if}
 						{:else}
 							<p class="text-sm font-semibold text-white">????</p>

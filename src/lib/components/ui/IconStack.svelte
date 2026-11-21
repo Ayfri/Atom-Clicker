@@ -19,9 +19,10 @@
 		scale: number;
 	}
 
-	// Positions and scales are fractions of the container, so a stack always occupies the same footprint
-	// whatever `size` is: one full-size icon, two fanned on a diagonal, three arranged as a triangle.
-	// Copies are drawn back to front, so the last position is the one on top.
+	/**
+	 * Positions and scales are fractions of the container, so a stack always occupies the same footprint whatever `size` is:
+	 * one full-size icon, two fanned on a diagonal, three arranged as a triangle. Copies are drawn back to front, the last one is on top.
+	 */
 	const LAYOUTS: Record<number, StackLayout> = {
 		1: { positions: [{ x: 0, y: 0 }], scale: 1 },
 		2: { positions: [{ x: 0.3, y: 0 }, { x: 0, y: 0.3 }], scale: 0.7 },
@@ -31,7 +32,7 @@
 	const stackCount = $derived(Math.min(Math.max(Math.round(count), 1), MAX_STACK_COUNT));
 	const layout = $derived(LAYOUTS[stackCount]);
 	const Icon = $derived(ICONS[icon]);
-	// A label needs a free bottom-right corner, so the stack shrinks slightly to make room for it.
+	/** A label needs a free bottom-right corner, so the stack shrinks slightly to make room for it. */
 	const stackScale = $derived(label ? 0.76 : 1);
 	const iconSize = $derived(size * layout.scale * stackScale);
 	const labelSize = $derived(Math.max(9, Math.round(size * 0.28)));

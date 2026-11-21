@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import { skillLink } from '#components/game/SkillEdge.svelte';
+	import { skillLink } from '#components/skillTree/SkillEdge.svelte';
 	import { SKILL_NODE_SIZE, SKILL_UPGRADES } from '#data/skillTree.js';
-	import type { SkillUpgrade } from '#lib/types.js';
+	import type { SkillUpgrade } from '#lib/types/game.js';
 
 	const SKILLS = Object.values(SKILL_UPGRADES);
 
@@ -67,20 +67,20 @@
 <script lang="ts">
 	import { LocateFixed, Minus, Plus } from '@lucide/svelte';
 	import { dev } from '$app/env';
-	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/game/SkillEdge.svelte';
-	import SkillNode, { type SkillStatus } from '#components/game/SkillNode.svelte';
+	import SkillEdge, { FILL_MS, flowAlong, type SkillLinkState } from '#components/skillTree/SkillEdge.svelte';
+	import SkillNode, { type SkillStatus } from '#components/skillTree/SkillNode.svelte';
 	import HelpIcon from '#components/ui/HelpIcon.svelte';
 	import Modal from '#components/ui/Modal.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
 	import { SKILL_BRANCH_COLORS } from '#data/skillTree.js';
-	import { pixelRatio } from '#helpers/CanvasLoop.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { pixelRatio } from '#helpers/canvas/CanvasLoop.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { PanZoom } from '#helpers/PanZoom.svelte.js';
-	import { perfTracker } from '#helpers/perfTracker.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { perfTracker } from '#helpers/perf/perfTracker.js';
+	import { mobile } from '#stores/ui.svelte.js';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { prefersReducedMotion } from 'svelte/motion';
@@ -238,11 +238,7 @@
 	});
 </script>
 
-<Modal
-	onClose={onClose}
-	containerClass="m-2 !p-0 rounded-xl"
-	width="lg"
->
+<Modal containerClass="m-2 p-0! rounded-xl" {onClose} width="lg">
 	{#snippet header()}
 		<div class="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-10">
 			<div class="flex items-center gap-3">
@@ -268,11 +264,7 @@
 			</div>
 			<div class="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90">
 				{#each balances as { amount, currency } (currency)}
-					<Value
-						value={amount}
-						currency={currency}
-						currencyClass="h-5 w-5"
-					/>
+					<Value {currency} currencyClass="h-5 w-5" value={amount} />
 				{/each}
 			</div>
 			{#if dev}
@@ -322,12 +314,7 @@
 				<svg class="pointer-events-none absolute overflow-visible" height="1" width="1">
 					{#each LINKS as { id, path, source, target } (id)}
 						{#if depthOf(target) <= mountedLevels && statuses[source].visible && statuses[target.id].visible}
-							<SkillEdge
-								color={SKILL_BRANCH_COLORS[target.branch]}
-								enterDelay={enterDelays.get(target.id) ?? 0}
-								path={path}
-								state={linkState(target)}
-							/>
+							<SkillEdge color={SKILL_BRANCH_COLORS[target.branch]} enterDelay={enterDelays.get(target.id) ?? 0} {path} state={linkState(target)} />
 						{/if}
 					{/each}
 				</svg>
@@ -351,12 +338,7 @@
 				{#each SKILLS as skill (skill.id)}
 					{const status = $derived(statuses[skill.id])}
 					{#if status.visible && depthOf(skill) <= mountedLevels}
-						<SkillNode
-							enterDelay={enterDelays.get(skill.id) ?? 0}
-							onUnlock={() => unlock(skill)}
-							skill={skill}
-							status={status}
-						/>
+						<SkillNode enterDelay={enterDelays.get(skill.id) ?? 0} onUnlock={() => unlock(skill)} {skill} {status} />
 					{/if}
 				{/each}
 			{/if}

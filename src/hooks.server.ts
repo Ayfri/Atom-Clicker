@@ -4,19 +4,19 @@ import { logError } from '#lib/server/errorHandler.server.js';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
-	// Frame hosts: itch.io, galaxy.click, and local development
+	/** Frame hosts: itch.io, galaxy.click, and local development. */
 	response.headers.set('Content-Security-Policy', "frame-ancestors 'self' https://*.itch.io https://*.itch.zone https://galaxy.click https://*.galaxy.click file:");
-	// CSP frame-ancestors takes precedence over X-Frame-Options and allows several hosts
+	/** CSP frame-ancestors takes precedence over X-Frame-Options and allows several hosts. */
 	response.headers.delete('X-Frame-Options');
 	response.headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
 	return response;
 };
 
 export const handleError: HandleServerError = async ({ error, event, kind }) => {
-	// Errors thrown with `error(...)` are expected and keep their own status and message
+	/** Errors thrown with `error(...)` are expected and keep their own status and message. */
 	if (kind === 'app') return;
 	const status = kind === 'unknown' ? 500 : error.status;
-	// Only server faults are worth an alert, everything below 500 is a bad request, most of them scanners
+	/** Only server faults are worth an alert, everything below 500 is a bad request, most of them scanners. */
 	if (status < 500) {
 		return { message: status === 404 ? 'Page not found' : 'This request could not be handled.' };
 	}

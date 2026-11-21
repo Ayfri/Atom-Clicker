@@ -1,16 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
 import { COLLIDER_COOLDOWN_SECONDS } from '#data/collider.js';
-import type { PreviousScore, ScoreAudit } from '#lib/server/scoreAudit.server.js';
-import type { ColliderState } from '#lib/types.js';
-import type { Database, Json } from '#lib/types/supabase.js';
+import { SupabaseLite } from '#helpers/supabaseClient.js';
+import type { PreviousScore, ScoreAudit } from '#lib/server/audit/scoreAudit.server.js';
+import type { ColliderState } from '#lib/types/game.js';
 import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
-export const supabaseAdmin = createClient<Database>(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
-	auth: {
-		autoRefreshToken: false,
-		persistSession: false
-	}
+export const supabaseAdmin = new SupabaseLite(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
+	autoRefreshToken: false,
+	detectSessionInUrl: false,
+	persistSession: false,
 });
 
 export interface ScoreContext {
@@ -75,6 +73,7 @@ export const leaderboardService = {
 			throw error;
 		}
 
+		/** The generated types give every RPC a `Json` result and `overrideTypes` rejects it, so each payload is cast to its SQL function's shape. */
 		return data as unknown as ScoreContext;
 	},
 
@@ -85,7 +84,7 @@ export const leaderboardService = {
 			p_issues: audit.issues,
 			p_level: audit.level,
 			p_picture: picture,
-			p_snapshot: audit.snapshot as unknown as Json,
+			p_snapshot: audit.snapshot,
 			p_user_id: userId,
 			p_username: username,
 			p_valid: audit.issues.length === 0,
@@ -98,6 +97,16 @@ export const leaderboardService = {
 		}
 
 		return (data as { status: ScoreStatus }).status;
+	},
+
+	/** Keeps the achievements seen earned on an audited state, the only ones a Quark claim pays for, see claim_achievement_quarks. */
+	async rememberAchievements(userId: string, achievementIds: string[]): Promise<void> {
+		const { error } = await supabaseAdmin.rpc('remember_achievements', { p_achievement_ids: achievementIds, p_user_id: userId });
+
+		if (error) {
+			console.error('Error remembering achievements:', error);
+			throw error;
+		}
 	},
 
 	/** The save stays server-side, the profile route only publishes the stats it reads from it. */
@@ -165,19 +174,21 @@ interface QuarkRefundResult {
 
 /** Every write goes through these RPCs so the daily cap, idempotency and refund-at-paid-price rules stay atomic in Postgres. */
 export const quarksService = {
-	async grantAchievementQuarks(userId: string, achievementIds: string[], reward: number): Promise<{ balance: number; granted: number }> {
-		const { data, error } = await supabaseAdmin.rpc('grant_achievement_quarks', {
+	/** Pays each requested achievement the server saw earned (`earnedIds` of this claim's audited state included), `claimed` lists the ones now in the ledger. */
+	async claimAchievementQuarks(userId: string, achievementIds: string[], earnedIds: string[], reward: number): Promise<{ balance: number; claimed: string[]; granted: number }> {
+		const { data, error } = await supabaseAdmin.rpc('claim_achievement_quarks', {
 			p_achievement_ids: achievementIds,
+			p_earned_ids: earnedIds,
 			p_reward: reward,
 			p_user_id: userId,
 		});
 
 		if (error) {
-			console.error('Error granting achievement quarks:', error);
+			console.error('Error claiming achievement quarks:', error);
 			throw error;
 		}
 
-		return data as unknown as { balance: number; granted: number };
+		return data as unknown as { balance: number; claimed: string[]; granted: number };
 	},
 
 	async grantQuarks(userId: string, delta: number, reason: string, ref: string, dailyCap?: number): Promise<QuarkGrantResult> {

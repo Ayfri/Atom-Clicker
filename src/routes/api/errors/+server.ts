@@ -1,7 +1,6 @@
 import type { RequestHandler } from './$types';
 import { logError } from '#lib/server/errorHandler.server.js';
-import { RateLimiter } from '#lib/server/rateLimit.server.js';
-import { readJsonBody } from '#lib/server/requestBody.server.js';
+import { RateLimiter, readJsonBody } from '#lib/server/request.server.js';
 import { resolveUserFromRequest } from '#lib/server/supabase.server.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -23,9 +22,8 @@ function clampJson(value: unknown): Record<string, unknown> | null {
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	try {
-		if (errorRateLimit.limited(getClientAddress())) {
-			return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });
-		}
+		const rejected = errorRateLimit.reject(getClientAddress());
+		if (rejected) return rejected;
 
 		const read = await readJsonBody(request, MAX_BODY_BYTES);
 		if ('error' in read) return read.error;
@@ -36,7 +34,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			return Response.json({ error: 'Missing error message' }, { status: 400 });
 		}
 
-		// The reporter's identity comes from its session token, never from the payload.
+		/** The reporter's identity comes from its session token, never from the payload. */
 		const userId = await resolveUserFromRequest(request);
 
 		const result = await logError({

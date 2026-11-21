@@ -1,15 +1,13 @@
 import type { RequestHandler } from './$types';
 import { getQuarkShopItem } from '#data/quarkShop.js';
+import { parseItemId, verifiedHandler } from '#lib/server/request.server.js';
 import { quarksService } from '#lib/server/supabase.server.js';
-import { verifiedHandler } from '#lib/server/verifiedRequest.server.js';
 
 export const POST: RequestHandler = verifiedHandler('Failed to equip banner', async ({ data, userId }) => {
-	const { itemId } = data;
-	if (itemId !== null && typeof itemId !== 'string') {
-		return Response.json({ error: 'Invalid itemId' }, { status: 400 });
-	}
+	const itemId = parseItemId(data.itemId, true);
+	if (itemId instanceof Response) return itemId;
 
-	if (typeof itemId === 'string') {
+	if (itemId !== null) {
 		const item = getQuarkShopItem(itemId);
 		if (!item || item.type !== 'banner') {
 			return Response.json({ error: 'Unknown banner' }, { status: 400 });

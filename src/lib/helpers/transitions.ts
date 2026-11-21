@@ -12,7 +12,7 @@ export function fade(_node: Element, { duration = 400 }: { duration?: number } =
 
 export function fly(_node: Element, { duration = 400, opacity = 0, y = 0 }: { duration?: number; opacity?: number; y?: number } = {}): TransitionConfig {
 	return {
-		css: (t, u) => `opacity: ${1 - (1 - opacity) * u}; transform: translateY(${y * u}px)`,
+		css: (_, u) => `opacity: ${1 - (1 - opacity) * u}; transform: translateY(${y * u}px)`,
 		duration,
 		easing: cubicOut,
 	};

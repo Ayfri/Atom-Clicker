@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { CurrenciesTypes } from '#data/currencies.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { realmManager, type RealmConfig } from '#helpers/RealmManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { realmManager, type RealmConfig } from '#helpers/managers/RealmManager.svelte.js';
 	import { reveal } from '#helpers/reveals.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
-	import { mobile } from '#stores/window.svelte.js';
+	import { mobile } from '#stores/ui.svelte.js';
 	import Currency from '#components/ui/Currency.svelte';
 	import { Telescope } from '@lucide/svelte';
 	import { cubicInOut } from 'svelte/easing';

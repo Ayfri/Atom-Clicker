@@ -24,7 +24,6 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<!-- Star body -->
 	<circle
 		cx="12"
 		cy="12"
@@ -38,7 +37,6 @@
 		r="5"
 	></circle>
 
-	<!-- Bright core -->
 	<circle
 		cx="12"
 		cy="12"
@@ -47,7 +45,6 @@
 		opacity="0.8"
 	></circle>
 
-	<!-- Star rays - 8 pointed -->
 	<line
 		x1="12"
 		y1="2"
@@ -73,7 +70,6 @@
 		y2="12"
 	></line>
 
-	<!-- Diagonal rays (shorter) -->
 	<line
 		x1="5"
 		y1="5"

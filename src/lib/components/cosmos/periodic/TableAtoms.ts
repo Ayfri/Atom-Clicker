@@ -1,6 +1,6 @@
-import { CanvasLoop, pixelRatio } from '#helpers/CanvasLoop.js';
-import { rgba, TAU } from '#helpers/nucleus.js';
-import { MINI_NUCLEONS, nucleonsOf, paintAtom, paintNucleus } from './atoms.js';
+import { CanvasLoop, pixelRatio, RadialGlow } from '#helpers/canvas/CanvasLoop.js';
+import { TAU } from '#helpers/canvas/nucleus.js';
+import { BARE_COLOR, MINI_NUCLEONS, nucleonsOf, paintAtom, paintNucleus } from './atoms.js';
 
 export type CellLook =
 	/** `glow` is the lamp color, a soft halo behind the atom. */
@@ -14,7 +14,14 @@ interface Slot {
 	y: number;
 }
 
-const BARE_COLOR = '#c3cad6';
+const GLOW = new RadialGlow(
+	[
+		[0, 1],
+		[0.4, 0.35],
+		[1, 0],
+	],
+	{ size: 64 },
+);
 /** The atom leaves the bottom of its cell to the symbol. */
 const ATOM_SHARE = 0.86;
 const POP_SECONDS = 0.5;
@@ -32,7 +39,6 @@ function pixelsOf(z: number, look: CellLook): string {
 /** Every element as a mini atom on one canvas under the cells. The loop only runs while a ready nucleus wobbles or a cell pops. */
 export class TableAtoms extends CanvasLoop {
 	private readonly changed = new Map<number, number>();
-	private readonly ctx: CanvasRenderingContext2D;
 	private full = true;
 	private looks = new Map<number, CellLook>();
 	private slots = new Map<number, Slot>();
@@ -44,9 +50,6 @@ export class TableAtoms extends CanvasLoop {
 		private readonly zoom = 1,
 	) {
 		super(canvas, 'canvas:tableAtoms');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('Canvas2D is not available');
-		this.ctx = ctx;
 		this.observe();
 	}
 
@@ -120,7 +123,7 @@ export class TableAtoms extends CanvasLoop {
 		if (look.kind === 'identified') {
 			if (look.glow) {
 				ctx.globalAlpha = LAMP_GLOW_ALPHA;
-				ctx.drawImage(this.glow(look.glow), cx - size / 2, cy - size / 2, size, size);
+				ctx.drawImage(GLOW.sprite(look.glow), cx - size / 2, cy - size / 2, size, size);
 				ctx.globalAlpha = 1;
 			}
 			ctx.drawImage(this.sprite(`atom:${z}`, ctx => paintAtom(ctx, pixels, z, look.color), pixels), x, y, size, size);
@@ -138,7 +141,7 @@ export class TableAtoms extends CanvasLoop {
 			const pulse = look.kind === 'ready' ? Math.sin(this.time * 4 + z) : 0;
 			const glowSize = size * (look.kind === 'ready' ? 1.15 + 0.08 * pulse : 0.95);
 			ctx.globalAlpha = look.kind === 'ready' ? 0.55 + 0.25 * pulse : look.kind === 'reading' ? 0.45 : 0.25;
-			ctx.drawImage(this.glow(look.color), cx - glowSize / 2, cy - glowSize / 2, glowSize, glowSize);
+			ctx.drawImage(GLOW.sprite(look.color), cx - glowSize / 2, cy - glowSize / 2, glowSize, glowSize);
 			if (shown > 0) {
 				const radius = pixels * (0.14 + 0.1 * Math.cbrt(nucleons / MINI_NUCLEONS));
 				const sprite = this.sprite(`bare:${z}:${shown}:${color}`, ctx => paintNucleus(ctx, pixels / 2, pixels / 2, radius, shown, color), pixels);
@@ -163,20 +166,5 @@ export class TableAtoms extends CanvasLoop {
 		this.slots = new Map([...cells].map(cell => [Number(cell.dataset.cell), { size: cell.offsetWidth, x: cell.offsetLeft - offsetLeft, y: cell.offsetTop - offsetTop }]));
 		this.clearSprites();
 		this.redraw();
-	}
-
-	private glow(color: string): HTMLCanvasElement {
-		return this.sprite(
-			`glow:${color}`,
-			(ctx, half) => {
-				const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-				gradient.addColorStop(0, rgba(color, 1));
-				gradient.addColorStop(0.4, rgba(color, 0.35));
-				gradient.addColorStop(1, rgba(color, 0));
-				ctx.fillStyle = gradient;
-				ctx.fillRect(0, 0, half * 2, half * 2);
-			},
-			64,
-		);
 	}
 }

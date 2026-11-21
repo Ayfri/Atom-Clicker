@@ -49,7 +49,7 @@ import {
 	ShieldCheck,
 	ShieldCog,
 	ShieldPlus,
-	SquareArrowOutUpRight,
+	SquareArrowUpRightExit,
 	Telescope,
 	TrendingUp,
 	Triangle,
@@ -120,6 +120,6 @@ export const ICONS = {
 	trendingUp: TrendingUp,
 	trophy: Trophy,
 	upgrade: CircleArrowUp,
-	website: SquareArrowOutUpRight,
+	website: SquareArrowUpRightExit,
 	whiteLight: Rainbow,
 } as const satisfies Record<IconName, IconComponent>;

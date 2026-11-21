@@ -1,8 +1,8 @@
 import { CURRENCIES, type CurrencyName } from '#data/currencies.js';
 import { RealmTypes } from '#data/realms.js';
-import { AmbientField } from '#helpers/AmbientField.js';
-import { AtomRenderer } from '#helpers/AtomRenderer.js';
-import { type FamilyView, upgradeFamilies } from '#helpers/UpgradeFamilies.svelte.js';
+import { AmbientField } from '#helpers/canvas/AmbientField.js';
+import { AtomRenderer } from '#helpers/canvas/AtomRenderer.js';
+import { type FamilyView, upgradeFamilies } from '#helpers/managers/UpgradeFamilies.svelte.js';
 
 /** A click, or a point in viewport pixels for purchases without one (the auto-upgrade). */
 type Origin = MouseEvent | { x: number; y: number };

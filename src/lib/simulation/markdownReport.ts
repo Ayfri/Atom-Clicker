@@ -5,10 +5,12 @@ import { ALL_PHOTON_UPGRADES } from '#data/photonUpgrades.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
 import { formatDuration, formatNumber } from '#lib/utils.js';
-import { COSMOS_DISCOVERABLE, COSMOS_INSTRUMENT_COUNT, cosmosSteps } from './cosmos';
-import { MILESTONES } from './milestones';
-import { DEFAULT_SEED } from './random';
+import { COSMOS_DISCOVERABLE, COSMOS_INSTRUMENT_COUNT, cosmosSteps } from './cosmos.js';
+import { MILESTONES } from './milestones.js';
+import { DEFAULT_SEED } from './random.js';
 import {
+	DAY_MS,
+	HOUR_MS,
 	PRESTIGE_LAYERS,
 	totalActionCount,
 	type CosmosInsights,
@@ -17,7 +19,7 @@ import {
 	type SimulationAction,
 	type SimulationResult,
 	type SimulationSnapshot,
-} from './types';
+} from './types.js';
 
 const ACHIEVEMENT_TOTAL = Object.keys(ACHIEVEMENTS).length;
 /** A tier whose next unit pays back within this factor of the best tier's is a correct purchase. */
@@ -28,7 +30,6 @@ const DEAD_SHARE = 0.01;
 const DOMINANCE_MIN_TIERS = 3;
 const GROWTH_MAX = 4;
 const GROWTH_MIN = 0.5;
-const HOUR_MS = 3_600_000;
 const IDLE_BUCKETS_MS = [60_000, 300_000, 900_000];
 const MAX_GAPS = 6;
 const MAX_PRESTIGE_ROWS = 30;
@@ -40,16 +41,16 @@ const STALL_GROWTH = 1.05;
 const SYSTEM_GAP_TARGET_MS = 4 * HOUR_MS;
 
 export function simTime(ms: number): string {
-	const h = Math.floor(ms / 3_600_000);
-	const m = Math.floor((ms % 3_600_000) / 60_000);
+	const h = Math.floor(ms / HOUR_MS);
+	const m = Math.floor((ms % HOUR_MS) / 60_000);
 	return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}m`;
 }
 
 /** Paybacks run from seconds to millennia, so past two days they read in days. */
 function span(ms: number): string {
 	if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
-	if (ms < 2 * 86_400_000) return simTime(ms);
-	return `${formatNumber(ms / 86_400_000)}d`;
+	if (ms < 2 * DAY_MS) return simTime(ms);
+	return `${formatNumber(ms / DAY_MS)}d`;
 }
 
 function mult(value: number): string {
@@ -118,8 +119,7 @@ function buildFamilies(actions: SimulationAction[], catalog: Record<string, unkn
 		entry.maxIndex = Math.max(entry.maxIndex, indexOf(action.details));
 	}
 
-	return [...families.values()]
-		.sort((a, b) => a.bought.size / a.total - b.bought.size / b.total || a.family.localeCompare(b.family));
+	return [...families.values()].sort((a, b) => a.bought.size / a.total - b.bought.size / b.total || a.family.localeCompare(b.family));
 }
 
 /** Families with several entries get a table; one-off upgrades are folded into two inline lists to keep the report short. */
@@ -235,11 +235,11 @@ function growthSection(snapshots: SimulationSnapshot[]): string {
 		table(
 			['hour', 'decades', 'band', 'peak APS'],
 			sample(hourly).map(entry => [
-					`${entry.hour}h`,
-					Number.isFinite(entry.decades) ? entry.decades.toFixed(2) : '-',
-					entry.decades < GROWTH_MIN ? 'slow' : entry.decades > GROWTH_MAX ? 'fast' : 'ok',
-					formatNumber(entry.peak),
-				]),
+				`${entry.hour}h`,
+				Number.isFinite(entry.decades) ? entry.decades.toFixed(2) : '-',
+				entry.decades < GROWTH_MIN ? 'slow' : entry.decades > GROWTH_MAX ? 'fast' : 'ok',
+				formatNumber(entry.peak),
+			]),
 		),
 	].join('\n');
 }
@@ -274,7 +274,7 @@ function multiplierBreakdown(s: SimulationSnapshot): string {
 	return table(
 		['source', 'value', 'log share'],
 		parts
-			.sort((a, b) => b.value - a.value)
+			.toSorted((a, b) => b.value - a.value)
 			.map(p => [p.label, mult(p.value), totalLog > 0 && p.value > 1 ? pct(Math.log(p.value) / totalLog) : '-']),
 	);
 }
@@ -462,7 +462,7 @@ function prestigeSection(prestiges: PrestigeEvent[]): string {
 	const rows = prestiges.map((event, i) => {
 		const previous = lastGain.get(event.type);
 		lastGain.set(event.type, event.gain);
-		// A deeper reset wipes the shallower currency, so the next gain starts a new series instead of reading as a 0.00× drop.
+		/** A deeper reset wipes the shallower currency, so the next gain starts a new series instead of reading as a 0.00× drop. */
 		for (const layer of PRESTIGE_LAYERS.slice(0, PRESTIGE_LAYERS.indexOf(event.type))) lastGain.delete(layer);
 		return [
 			`${i + 1}`,
@@ -694,6 +694,20 @@ function curveTable(snapshots: SimulationSnapshot[]): string {
 	);
 }
 
+/** The five most frequent `type:first word of details` pairs of a spike's actions. */
+function spikeTopActions(actions: SimulationAction[]): string {
+	const counts = new Map<string, number>();
+	for (const action of actions) {
+		const key = `${action.type}:${action.details?.split(' ')[0] ?? ''}`;
+		counts.set(key, (counts.get(key) ?? 0) + 1);
+	}
+	return [...counts.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 5)
+		.map(([key, count]) => `${key}×${count}`)
+		.join(', ');
+}
+
 export function buildMarkdownReport(result: SimulationResult): string {
 	const { config, snapshots } = result;
 	const final = snapshots.at(-1);
@@ -703,7 +717,7 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	const reachedIds = new Set(result.milestones.map(m => m.milestone.id));
 	const missing = MILESTONES.filter(m => !reachedIds.has(m.id));
 	const stalls = findStalls(snapshots);
-	// Snapshots keep counts for every action type but detail only the ones looked up by id, so totals come from the counters.
+	/** Snapshots keep counts for every action type but detail only the ones looked up by id, so totals come from the counters. */
 	let totalActions = 0;
 	const actionsByType = new Map<string, number>();
 	for (const { actionCounts } of snapshots) {
@@ -711,13 +725,10 @@ export function buildMarkdownReport(result: SimulationResult): string {
 		for (const [type, count] of Object.entries(actionCounts)) actionsByType.set(type, (actionsByType.get(type) ?? 0) + (count ?? 0));
 	}
 
-	const lines: string[] = [];
-
-	lines.push('# Atom Clicker Benchmark');
-	lines.push('');
-	lines.push(`Run: **${config.name}** · ${config.targetHours}h simulated${result.cancelled ? ' (cancelled early)' : ''}`);
-	lines.push('');
-	lines.push(
+	/** Blocks are joined by one blank line, so a heading and its body are two consecutive blocks. */
+	const blocks: string[] = [
+		'# Atom Clicker Benchmark',
+		`Run: **${config.name}** · ${config.targetHours}h simulated${result.cancelled ? ' (cancelled early)' : ''}`,
 		table(
 			['setting', 'value'],
 			[
@@ -738,24 +749,13 @@ export function buildMarkdownReport(result: SimulationResult): string {
 				['wall clock', formatDuration(result.durationMs)],
 			],
 		),
-	);
-
-	lines.push('');
-	lines.push('## Balance scorecard');
-	lines.push('');
-	lines.push('One line per balance goal: ✓ on target, ~ worth a look, ✗ off target. The sections below hold the detail.');
-	lines.push('');
-	lines.push(
+		'## Balance scorecard',
+		'One line per balance goal: ✓ on target, ~ worth a look, ✗ off target. The sections below hold the detail.',
 		table(
 			['', 'check', 'measured', 'target'],
 			buildScorecard(result).map(check => [VERDICT_MARK[check.verdict], check.label, check.measured, check.target]),
 		),
-	);
-
-	lines.push('');
-	lines.push('## Final state');
-	lines.push('');
-	lines.push(
+		'## Final state',
 		table(
 			['stat', 'value', 'stat', 'value'],
 			[
@@ -776,76 +776,41 @@ export function buildMarkdownReport(result: SimulationResult): string {
 				['clicks', formatNumber(final.clicks), 'actions', `${totalActions}`],
 			],
 		),
-	);
-
-	lines.push('');
-	lines.push('## Growth curve');
-	lines.push('');
-	lines.push('APS is reported with the power-up bonus divided out, so a live power-up cannot read as growth.');
-	lines.push('');
-	lines.push(curveTable(snapshots));
-
-	lines.push('');
-	lines.push('## Growth rate');
-	lines.push('');
-	lines.push(growthSection(snapshots));
-
-	lines.push('');
-	lines.push('## Realm progress');
-	lines.push('');
-	lines.push('Earned columns are all-time, P/E counts Protonises and Electronizes.');
-	lines.push('');
-	lines.push(realmTable(snapshots));
-
-	lines.push('');
-	lines.push('## System ladder');
-	lines.push('');
-	lines.push(ladderSection(systemLadder(result)));
+		'## Growth curve',
+		'APS is reported with the power-up bonus divided out, so a live power-up cannot read as growth.',
+		curveTable(snapshots),
+		'## Growth rate',
+		growthSection(snapshots),
+		'## Realm progress',
+		'Earned columns are all-time, P/E counts Protonises and Electronizes.',
+		realmTable(snapshots),
+		'## System ladder',
+		ladderSection(systemLadder(result)),
+	];
 
 	if (result.insights) {
-		lines.push('');
-		lines.push('## Prestige runs');
-		lines.push('');
-		lines.push(prestigeSection(result.insights.prestiges));
-
-		lines.push('');
-		lines.push('## Idle time');
-		lines.push('');
-		lines.push(idleSection(result.insights));
-
-		if (result.insights.cosmos) {
-			lines.push('');
-			lines.push('## Cosmos');
-			lines.push('');
-			lines.push(cosmosSection(result.insights.cosmos, snapshots));
-		}
+		blocks.push('## Prestige runs', prestigeSection(result.insights.prestiges), '## Idle time', idleSection(result.insights));
+		if (result.insights.cosmos) blocks.push('## Cosmos', cosmosSection(result.insights.cosmos, snapshots));
 	}
 
-	lines.push('');
-	lines.push('## Milestones');
-	lines.push('');
-	lines.push(
+	blocks.push(
+		'## Milestones',
 		`Reached ${result.milestones.length}/${MILESTONES.length}: ` +
 			(result.milestones.length > 0
 				? result.milestones.map(m => `${m.milestone.name} \`${simTime(m.timeReached)}\``).join(', ')
 				: 'none'),
+		`Never reached (${missing.length}): ${missing.length > 0 ? missing.map(m => m.name).join(', ') : 'none'}`,
 	);
-	lines.push('');
-	lines.push(`Never reached (${missing.length}): ${missing.length > 0 ? missing.map(m => m.name).join(', ') : 'none'}`);
 
 	if (result.milestones.length > 0) {
 		const densest = milestoneDensity(result.milestones);
-		lines.push('');
-		lines.push(`Densest 10-minute window: **${densest.count} milestones** starting ${simTime(densest.start)} (target: 6 or fewer).`);
+		blocks.push(`Densest 10-minute window: **${densest.count} milestones** starting ${simTime(densest.start)} (target: 6 or fewer).`);
 	}
 
 	if (stalls.length > 0) {
-		lines.push('');
-		lines.push('## APS stalls & regressions');
-		lines.push('');
-		lines.push(`Stretches where peak APS grew less than ${mult(STALL_GROWTH)}.`);
-		lines.push('');
-		lines.push(
+		blocks.push(
+			'## APS stalls & regressions',
+			`Stretches where peak APS grew less than ${mult(STALL_GROWTH)}.`,
 			table(
 				['from', 'to', 'duration', 'APS growth'],
 				stalls.map(s => [simTime(s.start), simTime(s.end), simTime(s.end - s.start), mult(s.growth)]),
@@ -853,42 +818,22 @@ export function buildMarkdownReport(result: SimulationResult): string {
 		);
 	}
 
-	lines.push('');
-	lines.push('## Multiplier sources (final)');
-	lines.push('');
-	lines.push(multiplierBreakdown(final));
-
-	lines.push('');
-	lines.push('## Generator roles');
-	lines.push('');
-	lines.push(generatorRolesSection(snapshots, generatorRoles(snapshots)));
-
-	lines.push('');
-	lines.push('## Generators (final)');
-	lines.push('');
-	lines.push(generatorTable(final));
-
-	lines.push('');
-	lines.push('## Upgrade families');
-	lines.push('');
-	lines.push('Sorted by completion, least bought first. A family at 0 is content the run never touched.');
-	lines.push('');
-	lines.push('### Atom upgrades');
-	lines.push('');
-	lines.push(familySection(buildFamilies(actions, UPGRADES, 'upgrade')));
-	lines.push('');
-	lines.push('### Skills');
-	lines.push('');
-	lines.push(familySection(buildFamilies(actions, SKILL_UPGRADES, 'skill')));
-	lines.push('');
-	lines.push('### Photon upgrades');
-	lines.push('');
-	lines.push(familySection(buildFamilies(actions, ALL_PHOTON_UPGRADES, 'photon_upgrade')));
-
-	lines.push('');
-	lines.push('## Upgrade group contributions (final)');
-	lines.push('');
-	lines.push(
+	blocks.push(
+		'## Multiplier sources (final)',
+		multiplierBreakdown(final),
+		'## Generator roles',
+		generatorRolesSection(snapshots, generatorRoles(snapshots)),
+		'## Generators (final)',
+		generatorTable(final),
+		'## Upgrade families',
+		'Sorted by completion, least bought first. A family at 0 is content the run never touched.',
+		'### Atom upgrades',
+		familySection(buildFamilies(actions, UPGRADES, 'upgrade')),
+		'### Skills',
+		familySection(buildFamilies(actions, SKILL_UPGRADES, 'skill')),
+		'### Photon upgrades',
+		familySection(buildFamilies(actions, ALL_PHOTON_UPGRADES, 'photon_upgrade')),
+		'## Upgrade group contributions (final)',
 		table(
 			['group', 'per-entry values'],
 			[
@@ -899,12 +844,7 @@ export function buildMarkdownReport(result: SimulationResult): string {
 				['protonise_boost_1..5', final.groupContributions.protoniseBoost.map(mult).join(' ')],
 			],
 		),
-	);
-
-	lines.push('');
-	lines.push('## Actions');
-	lines.push('');
-	lines.push(
+		'## Actions',
 		[...actionsByType.entries()]
 			.sort((a, b) => b[1] - a[1])
 			.map(([type, count]) => `${type}: ${count}`)
@@ -912,39 +852,23 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	);
 
 	if (result.spikes.length > 0) {
-		lines.push('');
-		lines.push('## Action spikes');
-		lines.push('');
-		lines.push(
+		blocks.push(
+			'## Action spikes',
 			table(
 				['t', 'peak/min', 'avg/min', 'APS jump', 'top actions'],
-				result.spikes.slice(0, MAX_SPIKES).map(spike => {
-					const counts = new Map<string, number>();
-					for (const action of spike.actions) {
-						const key = `${action.type}:${action.details?.split(' ')[0] ?? ''}`;
-						counts.set(key, (counts.get(key) ?? 0) + 1);
-					}
-					const top = [...counts.entries()]
-						.sort((a, b) => b[1] - a[1])
-						.slice(0, 5)
-						.map(([key, count]) => `${key}×${count}`)
-						.join(', ');
-					return [
-						simTime(spike.timestamp),
-						spike.peakRatePerMin.toFixed(0),
-						spike.avgRatePerMin.toFixed(1),
-						`${formatNumber(spike.apsStart)} → ${formatNumber(spike.apsEnd)}`,
-						top,
-					];
-				}),
+				result.spikes.slice(0, MAX_SPIKES).map(spike => [
+					simTime(spike.timestamp),
+					spike.peakRatePerMin.toFixed(0),
+					spike.avgRatePerMin.toFixed(1),
+					`${formatNumber(spike.apsStart)} → ${formatNumber(spike.apsEnd)}`,
+					spikeTopActions(spike.actions),
+				]),
 			),
 		);
 	}
 
-	lines.push('');
-	lines.push('## Quests & quarks');
-	lines.push('');
-	lines.push(
+	blocks.push(
+		'## Quests & quarks',
 		table(
 			['stat', 'value'],
 			[
@@ -958,8 +882,7 @@ export function buildMarkdownReport(result: SimulationResult): string {
 	);
 	const questRows = Object.entries(final.questBreakdown ?? {}).sort(([a], [b]) => a.localeCompare(b));
 	if (questRows.length > 0) {
-		lines.push('');
-		lines.push(
+		blocks.push(
 			table(
 				['quest', 'completed', 'last progress / target'],
 				questRows.map(([id, outcome]) => [
@@ -971,6 +894,5 @@ export function buildMarkdownReport(result: SimulationResult): string {
 		);
 	}
 
-	lines.push('');
-	return lines.join('\n');
+	return `${blocks.join('\n\n')}\n`;
 }

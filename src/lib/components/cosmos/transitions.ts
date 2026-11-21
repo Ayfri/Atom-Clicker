@@ -2,16 +2,14 @@ import { quartOut } from 'svelte/easing';
 import { prefersReducedMotion } from 'svelte/motion';
 import type { TransitionConfig } from 'svelte/transition';
 
-interface LookUpOptions {
-	duration?: number;
-	easing?: (t: number) => number;
-	/** Share of the frame height a layer moves back against the frame for depth, 0 for the frame itself. */
-	lag?: number;
-}
-
 interface HorizonOptions {
 	duration?: number;
 	easing?: (t: number) => number;
+}
+
+interface LookUpOptions extends HorizonOptions {
+	/** Share of the frame height a layer moves back against the frame for depth, 0 for the frame itself. */
+	lag?: number;
 }
 
 /** The lower edge fades out through a mask while it slides, a gradient hung under it would show a seam against the lit horizon. */

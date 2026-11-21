@@ -1,5 +1,5 @@
 import { browser } from '$app/env';
-import { getJSON, setItem } from '#lib/utils/safeLocalStorage.js';
+import { getJSON, setItem } from '#helpers/safeLocalStorage.js';
 import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 import type { GameMessage } from '#lib/types/supabase.js';
 
@@ -83,7 +83,7 @@ class RemoteMessageStore {
 		if (this.interval) return;
 
 		this.fetchMessage();
-		this.interval = setInterval(() => this.fetchMessage(), 30000); // 30 seconds
+		this.interval = setInterval(() => this.fetchMessage(), 30_000);
 	}
 
 	stopPolling() {

@@ -25,7 +25,7 @@ export interface Toast {
 	type: ToastType;
 }
 
-export type ToastOptions = Omit<Toast, 'duration' | 'id' | 'type'> & {
+type ToastOptions = Omit<Toast, 'duration' | 'id' | 'type'> & {
 	duration?: number;
 };
 

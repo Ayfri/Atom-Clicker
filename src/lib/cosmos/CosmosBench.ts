@@ -1,5 +1,17 @@
 import type { WebGPURenderer } from 'three/webgpu';
-import type { BenchScenario, CosmosTuning } from './CosmosScene.svelte.js';
+
+export type BenchScenario = 'home' | 'jupiter' | 'saturn' | 'sky' | 'sun' | 'system';
+
+/** Rendering switches the benchmark compares, `DEFAULT_TUNING` is what players get. */
+export interface CosmosTuning {
+	/** Size of the bloom buffers against the canvas, 0 turns bloom off. */
+	bloom: number;
+	/** Bloom is redrawn every N frames and reused in between: its passes cost far more CPU time than the scene's objects. */
+	bloomEvery: number;
+	/** The overview renders at 30 fps while the player isn't touching it. */
+	idleCap: boolean;
+	pixelRatio: number;
+}
 
 interface BenchTarget {
 	/** What players get, every variant applies over it. */
@@ -73,7 +85,7 @@ const total = (passes: readonly number[]) => passes.reduce((sum, ms) => sum + ms
 function stats(values: readonly number[]): Stats {
 	const average = mean(values);
 	const sd = Math.sqrt(values.reduce((sum, value) => sum + (value - average) ** 2, 0) / Math.max(1, values.length - 1));
-	const order = [...values].sort((a, b) => a - b);
+	const order = values.toSorted((a, b) => a - b);
 	return { ci: (1.96 * sd) / Math.sqrt(values.length), mean: average, median: order[Math.floor(order.length / 2)], n: values.length, sd };
 }
 
@@ -94,7 +106,7 @@ async function gpuFrames(renderer: WebGPURenderer) {
 	}
 	return [...frames]
 		.sort(([a], [b]) => a - b)
-		.map(([, passes]) => passes.sort(([a], [b]) => a - b).map(([, ms]) => ms));
+		.map(([, passes]) => passes.toSorted(([a], [b]) => a - b).map(([, ms]) => ms));
 }
 
 /**

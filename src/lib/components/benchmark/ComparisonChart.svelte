@@ -1,8 +1,8 @@
 <script lang="ts">
 	/** Two runs overlaid, each scaled to its actual duration. */
-	import type { ChartSeries } from '#lib/components/benchmark/BaseChart.svelte';
+	import { HOUR_MS } from '#lib/simulation/types.js';
 	import { formatNumber, formatSimTimePrecise } from '#lib/utils.js';
-	import type { Attachment } from 'svelte/attachments';
+	import { areaPath, type ChartSeries, linePath, observeWidth, type Plot, transformValue, yOf } from './plot.js';
 
 	interface Props {
 		comparisonDurationHours?: number;
@@ -37,14 +37,7 @@
 
 	const padding = { bottom: 35, left: 70, right: 20, top: 25 };
 
-	/** Skips the 0 width of a hidden chart, where `bind:clientWidth` would collapse it. */
-	const resize: Attachment<HTMLElement> = node => {
-		const observer = new ResizeObserver(([entry]) => {
-			if (entry.contentRect.width > 0) containerWidth = entry.contentRect.width;
-		});
-		observer.observe(node);
-		return () => observer.disconnect();
-	};
+	const resize = observeWidth(width => (containerWidth = width));
 
 	const chartWidth = $derived(Math.max(0, containerWidth - padding.left - padding.right));
 	const chartHeight = $derived(Math.max(0, height - padding.top - padding.bottom));
@@ -54,49 +47,25 @@
 	const primaryDataLen = $derived(primarySeries[0]?.data.length ?? 0);
 	const comparisonDataLen = $derived(comparisonSeries[0]?.data.length ?? 0);
 
-	// X axis spans the longest run; each series is scaled to its actual duration fraction.
+	/** The X axis spans the longest run, each series is scaled to its actual duration fraction. */
 	const effectiveTotalHours = $derived(Math.max(totalHours, comparisonDurationHours));
 	const primaryScale = $derived(effectiveTotalHours > 0 ? totalHours / effectiveTotalHours : 1);
 	const comparisonScale = $derived(effectiveTotalHours > 0 ? comparisonDurationHours / effectiveTotalHours : 1);
-
-	function transformValue(val: number): number {
-		if (!useLog) return val;
-		return Math.log10(Math.max(val, 1));
-	}
 
 	const maxVal = $derived.by(() => {
 		let max = 0;
 		for (const s of [...primarySeries, ...comparisonSeries]) {
 			if (!s.data || s.data.length === 0) continue;
 			for (const val of s.data) {
-				const v = transformValue(val);
+				const v = transformValue(val, useLog);
 				if (v > max) max = v;
 			}
 		}
 		return max * 1.1 || 1;
 	});
+	const plot = $derived<Plot>({ height: chartHeight, maxVal, useLog, width: chartWidth });
 
-	function getLinePath(data: number[], dataLen: number, scale: number): string {
-		if (data.length === 0) return '';
-		const denom = dataLen > 1 ? dataLen - 1 : 1;
-		return data
-			.map((val, i) => {
-				const x = dataLen > 1 ? (chartWidth * i * scale) / denom : 0;
-				const v = Math.max(0, transformValue(val));
-				const y = chartHeight - chartHeight * (v / maxVal);
-				return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
-			})
-			.join(' ');
-	}
-
-	function getAreaPath(data: number[], dataLen: number, scale: number): string {
-		const linePath = getLinePath(data, dataLen, scale);
-		if (!linePath) return '';
-		const lastX = dataLen > 1 ? chartWidth * scale : 0;
-		return `${linePath} L ${lastX},${chartHeight} L 0,${chartHeight} Z`;
-	}
-
-	// Separate hover indices per run so each maps to the correct game time.
+	/** Each run has its own hover index so it maps to the right game time. */
 	const primaryHoveredIndex = $derived.by(() => {
 		if (hoveredX === null || primaryDataLen === 0) return null;
 		const endX = chartWidth * primaryScale;
@@ -113,34 +82,28 @@
 
 	const primaryTooltipData = $derived.by(() => {
 		if (primaryHoveredIndex === null) return [];
-		return primarySeries.map(s => ({
-			color: s.color,
-			label: s.label,
-			val: s.data[primaryHoveredIndex!] ?? 0,
-		}));
+		const index = primaryHoveredIndex;
+		return primarySeries.map(s => ({ color: s.color, label: s.label, val: s.data[index] ?? 0 }));
 	});
 
 	const comparisonTooltipData = $derived.by(() => {
 		if (comparisonHoveredIndex === null) return [];
-		return comparisonSeries.map(s => ({
-			color: s.color,
-			label: s.label,
-			val: s.data[comparisonHoveredIndex!] ?? 0,
-		}));
+		const index = comparisonHoveredIndex;
+		return comparisonSeries.map(s => ({ color: s.color, label: s.label, val: s.data[index] ?? 0 }));
 	});
 
 	const primaryTimeMs = $derived(
 		primaryHoveredIndex !== null && primaryDataLen > 1
-			? (totalHours * primaryHoveredIndex * 3600000) / (primaryDataLen - 1)
+			? (totalHours * primaryHoveredIndex * HOUR_MS) / (primaryDataLen - 1)
 			: 0,
 	);
 	const comparisonTimeMs = $derived(
 		comparisonHoveredIndex !== null && comparisonDataLen > 1
-			? (comparisonDurationHours * comparisonHoveredIndex * 3600000) / (comparisonDataLen - 1)
+			? (comparisonDurationHours * comparisonHoveredIndex * HOUR_MS) / (comparisonDataLen - 1)
 			: 0,
 	);
 
-	// Dot X positions snap to the nearest data point, not the raw mouse X.
+	/** Dot X positions snap to the nearest data point, not the raw mouse X. */
 	const primaryDotX = $derived(
 		primaryHoveredIndex !== null && primaryDataLen > 1
 			? (chartWidth * primaryHoveredIndex * primaryScale) / (primaryDataLen - 1)
@@ -252,10 +215,10 @@
 				{#each primarySeries as s (s.label)}
 					{#if s.data?.length > 0}
 						{#if s.fillOpacity && s.fillOpacity > 0 && s.data.length > 1}
-							<path d={getAreaPath(s.data, primaryDataLen, primaryScale)} fill={s.color} fill-opacity={s.fillOpacity * 0.5}></path>
+							<path d={areaPath(s.data, primaryDataLen, primaryScale, plot)} fill={s.color} fill-opacity={s.fillOpacity * 0.5}></path>
 						{/if}
 						{#if s.data.length > 1}
-							<path d={getLinePath(s.data, primaryDataLen, primaryScale)} fill="none" stroke={s.color} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+							<path d={linePath(s.data, primaryDataLen, primaryScale, plot)} fill="none" stroke={s.color} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
 						{/if}
 					{/if}
 				{/each}
@@ -264,7 +227,7 @@
 					{#each comparisonSeries as s (s.label)}
 						{#if s.data?.length > 1}
 							<path
-								d={getLinePath(s.data, comparisonDataLen, comparisonScale)}
+								d={linePath(s.data, comparisonDataLen, comparisonScale, plot)}
 								fill="none"
 								stroke={s.color}
 								stroke-width="2"
@@ -289,17 +252,13 @@
 
 				{#if primaryDotX !== null}
 					{#each primaryTooltipData as { color, label, val } (label)}
-						{const v = $derived(Math.max(0, transformValue(val)))}
-						{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
-						<circle cx={primaryDotX} cy={y} r="5" fill={color} stroke="#0f172a" stroke-width="2"></circle>
+						<circle cx={primaryDotX} cy={yOf(val, plot)} r="5" fill={color} stroke="#0f172a" stroke-width="2"></circle>
 					{/each}
 				{/if}
 
 				{#if comparisonDotX !== null}
 					{#each comparisonTooltipData as { color, label, val } (label)}
-						{const v = $derived(Math.max(0, transformValue(val)))}
-						{const y = $derived(chartHeight - chartHeight * (v / maxVal))}
-						<circle cx={comparisonDotX} cy={y} r="5" fill="#0f172a" stroke={color} stroke-width="2" stroke-dasharray="3 2"></circle>
+						<circle cx={comparisonDotX} cy={yOf(val, plot)} r="5" fill="#0f172a" stroke={color} stroke-width="2" stroke-dasharray="3 2"></circle>
 					{/each}
 				{/if}
 			</g>
@@ -318,7 +277,7 @@
 					</div>
 					<div class="grid mb-2 pb-2 border-b border-slate-700/50 text-[10px]" style="grid-template-columns: 1fr auto auto; gap: 0.5rem;">
 						<span class="text-slate-600">Time</span>
-						<span class="text-slate-400 text-right">{primaryHoveredIndex !== null ? formatSimTimePrecise(primaryTimeMs) : '—'}</span>
+						<span class="text-slate-400 text-right">{primaryHoveredIndex !== null ? formatSimTimePrecise(primaryTimeMs) : '-'}</span>
 						<span class="text-slate-400 text-right">{formatSimTimePrecise(comparisonTimeMs)}</span>
 					</div>
 					<div class="flex flex-col gap-1">
@@ -329,8 +288,8 @@
 									<span class="h-2 rounded-full shrink-0 w-2" style="background-color: {color}"></span>
 									<span class="text-slate-400 truncate">{label}</span>
 								</div>
-								<span class="font-mono text-emerald-200 text-right">{primaryHoveredIndex !== null ? formatNumber(val) + yAxisSuffix : '—'}</span>
-								<span class="font-mono text-cyan-200 text-right">{cmpVal != null ? formatNumber(cmpVal) + yAxisSuffix : '—'}</span>
+								<span class="font-mono text-emerald-200 text-right">{primaryHoveredIndex !== null ? formatNumber(val) + yAxisSuffix : '-'}</span>
+								<span class="font-mono text-cyan-200 text-right">{cmpVal != null ? formatNumber(cmpVal) + yAxisSuffix : '-'}</span>
 							</div>
 						{/each}
 					</div>

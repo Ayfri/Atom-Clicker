@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { prefersReducedMotion } from 'svelte/motion';
 

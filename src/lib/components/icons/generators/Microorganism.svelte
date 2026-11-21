@@ -24,7 +24,6 @@
 	stroke-linejoin="round"
 	{...props}
 >
-	<!-- Cell body -->
 	<ellipse
 		cx="11"
 		cy="12"
@@ -40,7 +39,6 @@
 		ry="5.5"
 	></ellipse>
 
-	<!-- Nucleus -->
 	<ellipse
 		cx="9"
 		cy="11"
@@ -56,7 +54,6 @@
 		ry="1.5"
 	></ellipse>
 
-	<!-- Organelles -->
 	<circle
 		cx="13"
 		cy="10"
@@ -79,7 +76,6 @@
 		opacity="0.6"
 	></circle>
 
-	<!-- Flagellum -->
 	<path
 		d="M18 12 Q20 10 19.5 7 Q19 5 21 4"
 		stroke-width="1.2"

@@ -9,7 +9,7 @@ const service = {
 };
 
 /** The real modules open a Supabase client from private env vars, the routes only need the service and the caller's id. */
-mock.module('#lib/server/sessions.server.js', () => ({ SessionConflictError, sessionsService: service }));
+mock.module('#lib/server/sessions/sessions.server.js', () => ({ SessionConflictError, sessionsService: service }));
 mock.module('#lib/server/supabase.server.js', () => ({
 	resolveUserFromRequest: async (request: Request) => (request.headers.has('Authorization') ? 'user-1' : null),
 }));

@@ -1,17 +1,17 @@
 <script lang="ts">
+	import Currency from '#components/ui/Currency.svelte';
 	import { BOOSTABLE_CURRENCIES } from '#data/currencies.js';
 	import { GENERATOR_TYPES, GENERATORS, getGeneratorColor, type GeneratorType } from '#data/generators.js';
 	import { GENERATOR_ICON_NAMES } from '#data/iconNames.js';
 	import { ICONS } from '#data/icons.js';
-	import Currency from '#components/ui/Currency.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { MAX_BOOST_POINTS } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { autoBuyManager } from '#stores/autoBuy.svelte.js';
 	import { autoUpgradeManager } from '#stores/autoUpgrade.svelte.js';
-	import { btn, checkbox, setGeneratorCount } from '../shared.svelte';
 	import NumberInput from '../NumberInput.svelte';
 	import Section from '../Section.svelte';
+	import { btn, checkbox, setGeneratorCount } from '../shared.svelte.js';
 
 	const autoBuyUnlocked = $derived(new Set(gameManager.effects.targets('auto_buy')));
 	const autoUpgradeUnlocked = $derived(gameManager.effects.has('auto_upgrade'));

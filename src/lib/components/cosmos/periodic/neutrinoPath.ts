@@ -1,6 +1,6 @@
 import { NEUTRINO_FLIGHT_MS, NEUTRINO_REDUCED_FLIGHT_MS } from '#data/neutrinos.js';
 
-export interface NeutrinoPath {
+interface NeutrinoPath {
 	durationMs: number;
 	keyframes: Keyframe[];
 }

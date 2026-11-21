@@ -2,15 +2,13 @@ import { CurrenciesTypes } from '#data/currencies.js';
 import { GENERATOR_TYPES, type GeneratorType, getGeneratorLevelMultiplier } from '#data/generators.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
 import { EffectTable, effectAmount } from '#helpers/effects.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { cosmosSnapshot } from './cosmos';
-import { marginalProduction } from './purchases';
-import type { QuestTracker } from './quests';
-import type { SimulationAction, SimulationActionType, SimulationSnapshot } from './types';
-
-const DAY_MS = 24 * 3600 * 1000;
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { cosmosSnapshot } from './cosmos.js';
+import { marginalProduction } from './purchases.js';
+import type { QuestTracker } from './quests.js';
+import { DAY_MS, type SimulationAction, type SimulationActionType, type SimulationSnapshot } from './types.js';
 
 /** Counters the engine accumulates over a run that the game managers do not track themselves. */
 export interface RunState {
@@ -32,7 +30,7 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 	const generatorUpgradeFactors: Partial<Record<GeneratorType, number>> = {};
 	let totalGenerators = 0;
 	let generatorLevels = 0;
-	// The live bonus is divided out so a power-up running at sample time does not halve every payback for one row.
+	/** The live bonus is divided out so a power-up running at sample time does not halve every payback for one row. */
 	const atoms = currenciesManager.getAmount(CurrenciesTypes.ATOMS);
 	const bonus = gameManager.bonusMultiplier || 1;
 	const rawAps = gameManager.atomsPerSecond / bonus;
@@ -95,6 +93,14 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		atomsPerSecond: gameManager.atomsPerSecond,
 		atomsPerSecondRaw: rawAps,
 		bonusMultiplier: gameManager.bonusMultiplier,
+		boostPointsUsed: gameManager.boostPointsUsed,
+		clicks: gameManager.totalClicksAllTime,
+		cosmos: cosmosSnapshot(),
+		dayNumber: gameManager.inGameTime / DAY_MS,
+		electronizes: gameManager.totalElectronizesAllTime,
+		electrons: currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
+		excitedPhotons: currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
+		excitedPhotonsEarned: currenciesManager.getEarnedAllTime(CurrenciesTypes.EXCITED_PHOTONS),
 		generatorLevelFactors,
 		generatorLevels,
 		generatorPaybacks,
@@ -103,13 +109,6 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		generators,
 		generatorsEverPurchased: [...run.everPurchasedGenerators],
 		generatorsPurchased: gameManager.totalGeneratorsPurchasedAllTime,
-		clicks: gameManager.totalClicksAllTime,
-		cosmos: cosmosSnapshot(),
-		dayNumber: gameManager.inGameTime / DAY_MS,
-		electrons: currenciesManager.getAmount(CurrenciesTypes.ELECTRONS),
-		electronizes: gameManager.totalElectronizesAllTime,
-		excitedPhotons: currenciesManager.getAmount(CurrenciesTypes.EXCITED_PHOTONS),
-		excitedPhotonsEarned: currenciesManager.getEarnedAllTime(CurrenciesTypes.EXCITED_PHOTONS),
 		globalAchievementMultiplier: fold(achievementSources),
 		globalFlatMultiplier: fold(flatSources),
 		globalLevelMultiplier: fold(levelSources),
@@ -142,7 +141,6 @@ export function createSnapshotData(run: RunState): SimulationSnapshot {
 		questsCompletedTotal: run.quests.completedTotal,
 		questsOfferedTotal: run.quests.offeredTotal,
 		radiationMultiplier: gameManager.radiationMultiplier,
-		boostPointsUsed: gameManager.boostPointsUsed,
 		skills: gameManager.skillUpgrades.length,
 		stabilityMultiplier: gameManager.stabilityMultiplier,
 		timestamp: gameManager.inGameTime,

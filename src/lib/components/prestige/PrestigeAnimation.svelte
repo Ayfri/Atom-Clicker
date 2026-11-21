@@ -133,10 +133,8 @@
 		class="prestige-overlay"
 		data-type={currentAnimation}
 	>
-		<!-- Core flash -->
 		<div class="core-flash"></div>
 
-		<!-- Expanding rings -->
 		{#each { length: 5 }, i}
 			<div
 				class="ring"
@@ -144,7 +142,6 @@
 			></div>
 		{/each}
 
-		<!-- Energy beam rays -->
 		{#each { length: 12 }, i}
 			<div
 				class="beam"
@@ -152,7 +149,6 @@
 			></div>
 		{/each}
 
-		<!-- Background Dust Particles -->
 		{#each { length: 40 }, i}
 			<div
 				{@attach dust(i)}
@@ -161,10 +157,9 @@
 			></div>
 		{/each}
 
-		<!-- Hexagonal grid for protonise -->
 		{#if currentAnimation === 'protonise'}
 			<div class="hex-grid">
-				{#each { length: 20 }, i}
+				{#each { length: 20 }}
 					<div
 						class="hex"
 						style="
@@ -177,7 +172,6 @@
 				{/each}
 			</div>
 
-			<!-- Proton Splash -->
 			<div class="currency-splash">
 				{#each { length: 60 }, i}
 					<div
@@ -190,7 +184,6 @@
 			</div>
 		{/if}
 
-		<!-- Lightning for electronize -->
 		{#if currentAnimation === 'electronize'}
 			<svg
 				class="lightning-container"
@@ -215,9 +208,8 @@
 				{/each}
 			</div>
 
-			<!-- Electron Splash -->
 			<div class="currency-splash">
-				{#each { length: 80 }, i}
+				{#each { length: 80 }}
 					<div
 						{@attach electronSplash()}
 						class="currency-particle"
@@ -275,14 +267,11 @@
 			</div>
 		{/if}
 
-		<!-- Shockwave -->
 		<div class="shockwave"></div>
 		<div class="shockwave shockwave-2"></div>
 
-		<!-- Vignette -->
 		<div class="vignette"></div>
 
-		<!-- Central symbol -->
 		<div class="central-symbol">
 			{#if currentAnimation === 'protonise'}
 				<Proton

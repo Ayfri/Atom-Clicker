@@ -3,11 +3,11 @@
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes } from '#data/currencies.js';
 	import { RealmTypes } from '#data/realms.js';
-	import { AmbientField } from '#helpers/AmbientField.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-	import { ReactorRenderer } from '#helpers/ReactorRenderer.js';
+	import { AmbientField } from '#helpers/canvas/AmbientField.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+	import { ReactorRenderer } from '#helpers/canvas/ReactorRenderer.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { Fuel } from '@lucide/svelte';
 

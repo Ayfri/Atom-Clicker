@@ -33,6 +33,7 @@ const IN_APP_BROWSERS: [InAppBrowser, RegExp][] = [
 	['wechat', /MicroMessenger/],
 ];
 
+/** `crypto.randomUUID` only exists in secure contexts, a dev server opened over plain HTTP on a LAN address has none. */
 function createSessionId(): string {
 	if (!browser) return '';
 

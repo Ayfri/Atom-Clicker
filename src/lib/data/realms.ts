@@ -1,5 +1,5 @@
 import { FeatureTypes } from '#data/features.js';
-import type { FeatureState } from '#lib/types.js';
+import type { FeatureState } from '#lib/types/game.js';
 
 export const RealmTypes = {
 	ATOMS: 'atoms',
@@ -9,7 +9,7 @@ export const RealmTypes = {
 
 export type RealmType = (typeof RealmTypes)[keyof typeof RealmTypes];
 
-export interface RealmDefinition {
+interface RealmDefinition {
 	/** Tints part of the atom's nucleus once unlocked, radiation is softer than its neon theme color which glared on the nucleons. */
 	color: string;
 	condition: (features: FeatureState) => boolean;

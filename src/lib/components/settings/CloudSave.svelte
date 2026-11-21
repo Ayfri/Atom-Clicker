@@ -1,18 +1,18 @@
 <script lang="ts">
 	import HardReset from '#components/modals/HardReset.svelte';
 	import Login from '#components/modals/Login.svelte';
-	import SettingRow from '#components/ui/SettingRow.svelte';
+	import SettingRow from '#components/settings/SettingRow.svelte';
 	import Switch from '#components/ui/Switch.svelte';
 	import Value from '#components/ui/Value.svelte';
 	import { CurrenciesTypes, type CurrencyName } from '#data/currencies.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { levelFromTotalXP } from '#helpers/xp.js';
 	import { formatDuration } from '#lib/utils.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { supabaseAuth, type CloudSaveInfo } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { ArrowLeft, ArrowRight, Cloud, HardDrive, RotateCcw, TriangleAlert, type LucideIcon } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Cloud, HardDrive, RotateCcw, TriangleExclamationPoint, type LucideIcon } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 
@@ -83,10 +83,10 @@
 		loading = true;
 		try {
 			fetchedCloudSave = await supabaseAuth.saveGameToCloud(gameManager.getCurrentState());
-			toastStore.info({ title: 'Success', message: 'Game saved to cloud' });
+			toastStore.info({ message: 'Game saved to cloud', title: 'Success' });
 			lastManualSaveTime = Date.now();
 		} catch (e) {
-			toastStore.error({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to save game to cloud' });
+			toastStore.error({ message: e instanceof Error ? e.message : 'Failed to save game to cloud', title: 'Error' });
 		} finally {
 			loading = false;
 		}
@@ -103,10 +103,10 @@
 			const loadedState = await supabaseAuth.loadGameFromCloud();
 			if (!loadedState) throw new Error('No saved game found in cloud');
 			gameManager.loadCloudSave(loadedState);
-			toastStore.info({ title: 'Success', message: 'Game loaded from cloud' });
+			toastStore.info({ message: 'Game loaded from cloud', title: 'Success' });
 			onClose();
 		} catch (e) {
-			toastStore.error({ title: 'Error', message: e instanceof Error ? e.message : 'Failed to load game from cloud' });
+			toastStore.error({ message: e instanceof Error ? e.message : 'Failed to load game from cloud', title: 'Error' });
 		} finally {
 			loading = false;
 		}
@@ -193,7 +193,7 @@
 			</div>
 			{#if confirmLoad}
 				<p class="flex items-center gap-2 text-sm text-red-300">
-					<TriangleAlert class="shrink-0" size={16} />
+					<TriangleExclamationPoint class="shrink-0" size={16} />
 					This device has more progress than the cloud, click again to replace it anyway.
 				</p>
 			{/if}

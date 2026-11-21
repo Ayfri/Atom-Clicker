@@ -4,26 +4,19 @@ import { ALL_PHOTON_UPGRADES, getPhotonUpgradeCost } from '#data/photonUpgrades.
 import { RADIATION_UPGRADES, type RadiationUpgrade, getRadiationUpgradePrice } from '#data/radiationUpgrades.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
 import { UPGRADES } from '#data/upgrades.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-import type { PhotonUpgrade } from '#lib/types.js';
-import type { BotBehavior } from './types';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+import type { PhotonUpgrade } from '#lib/types/game.js';
+import type { BotBehavior } from './types.js';
 
 type Priced = { cost: { amount: number; currency: CurrencyName } };
 type CurrencyGroups<T> = [CurrencyName, [string, T][]][];
 
 /** Costs are only comparable inside one currency, so each currency gets its own cost-ascending list. */
 function groupByCurrency<T extends Priced>(source: Record<string, T>): CurrencyGroups<T> {
-	const groups = new Map<CurrencyName, [string, T][]>();
-	for (const entry of Object.entries(source)) {
-		const currency = entry[1].cost.currency;
-		const group = groups.get(currency);
-		if (group) group.push(entry);
-		else groups.set(currency, [entry]);
-	}
-	for (const group of groups.values()) group.sort(([, a], [, b]) => a.cost.amount - b.cost.amount);
-	return [...groups.entries()];
+	const groups = Map.groupBy(Object.entries(source), ([, entry]) => entry.cost.currency);
+	return [...groups].map(([currency, group]) => [currency, group.toSorted(([, a], [, b]) => a.cost.amount - b.cost.amount)]);
 }
 
 const UPGRADE_GROUPS = groupByCurrency(UPGRADES);
@@ -177,7 +170,7 @@ export class PurchasePlanner {
 			return best;
 		};
 
-		// gameKnowledge blends the naive base-rate ranking a newcomer uses with the real marginal gain per atom spent.
+		/** `gameKnowledge` blends the naive base-rate ranking a newcomer uses with the real marginal gain per atom spent. */
 		const mostEfficientAffordable = (): GeneratorType | null => {
 			let best: GeneratorType | null = null;
 			let bestScore = -Infinity;

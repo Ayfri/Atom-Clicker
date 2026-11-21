@@ -1,8 +1,8 @@
 import { CHROMATIC_COLORS, type ChromaticColor } from '#data/chromatic.js';
 import { formatNumber } from '#lib/utils.js';
-import { simpleHash } from '#lib/utils/signing.js';
+import { simpleHash } from '#helpers/signing.js';
 
-export type DailyStatMetric =
+type DailyStatMetric =
 	| 'achievementsUnlocked'
 	| 'atomsEarned'
 	| 'chromaticBreaks'
@@ -227,7 +227,7 @@ export function getDailyQuestCount(entitlements: readonly string[]): number {
 export function pickDailyQuests(dayKey: string, count = DAILY_QUEST_COUNT, context?: DailyQuestContext): DailyQuest[] {
 	let seed = simpleHash(dayKey);
 	const next = () => {
-		// xorshift32, deterministic from the seed above
+		/** xorshift32, deterministic from the seed above. */
 		seed ^= seed << 13;
 		seed ^= seed >>> 17;
 		seed ^= seed << 5;

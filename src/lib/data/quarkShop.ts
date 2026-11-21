@@ -1,9 +1,9 @@
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { mul } from '#helpers/effects.js';
 import type { IconStackSpec } from '#helpers/iconStacks.js';
-import type { Effect } from '#lib/types.js';
+import type { Effect } from '#lib/types/game.js';
 
-export interface ThemeDefinition {
+interface ThemeDefinition {
 	/** Optional secondary accent, e.g. for buttons/borders. Falls back to `accent` when unset. */
 	accent: string;
 	accentSecondary?: string;
@@ -12,7 +12,7 @@ export interface ThemeDefinition {
 	realmId: RealmType;
 }
 
-export type BannerPattern =
+type BannerPattern =
 	| 'aurora'
 	| 'beam'
 	| 'cells'
@@ -442,5 +442,5 @@ export const QUARK_SHOP: Record<string, QuarkShopItem> = {
 };
 
 export function getQuarkShopItem(itemId: string): QuarkShopItem | undefined {
-	return QUARK_SHOP[itemId];
+	return Object.hasOwn(QUARK_SHOP, itemId) ? QUARK_SHOP[itemId] : undefined;
 }

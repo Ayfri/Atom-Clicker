@@ -1,8 +1,8 @@
 <script lang="ts">
 	import QuarkIcon from '#components/icons/Quark.svelte';
 	import { APP_REWARD_QUARKS } from '#data/quarks.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { quarksManager } from '#helpers/QuarksManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { quarksManager } from '#helpers/managers/QuarksManager.svelte.js';
 	import { APP_PRODUCTION_MULTIPLIER, APP_PRODUCTION_PERCENT } from '#lib/constants.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { installStore } from '#stores/install.svelte.js';

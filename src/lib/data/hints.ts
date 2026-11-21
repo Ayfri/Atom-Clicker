@@ -8,20 +8,19 @@ import { APP_REWARD_QUARKS } from '#data/quarks.js';
 import { RealmTypes, type RealmType } from '#data/realms.js';
 import { MAX_UNREAD } from '#data/sites.js';
 import { SKILL_UPGRADES } from '#data/skillTree.js';
-import { chromaticManager } from '#helpers/ChromaticManager.svelte.js';
-import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { periodicManager, TUNING_DEFAULT } from '#helpers/PeriodicManager.svelte.js';
-import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-import { realmManager } from '#helpers/RealmManager.svelte.js';
+import { chromaticManager } from '#helpers/managers/ChromaticManager.svelte.js';
+import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { periodicManager, TUNING_DEFAULT } from '#helpers/managers/PeriodicManager.svelte.js';
+import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 import { reveals } from '#helpers/reveals.svelte.js';
 import { APP_PRODUCTION_PERCENT, ELECTRONS_PROTONS_REQUIRED, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
 import { installStore } from '#stores/install.svelte.js';
 import { neutrino } from '#stores/neutrino.svelte.js';
-import { photonUpgradesTab } from '#stores/photonUpgradesTab.svelte.js';
 import type { TooltipPosition } from '#stores/tooltip.svelte.js';
-import { ui } from '#stores/ui.svelte.js';
+import { photonUpgradesTab, ui } from '#stores/ui.svelte.js';
 
 type HintScope = RealmType | 'cosmos' | 'table';
 

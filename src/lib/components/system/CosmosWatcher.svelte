@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { COSMOS_INSTRUMENTS, SPECTROSCOPE_ID } from '#data/cosmos.js';
 	import { instrumentReadyMessage } from '#data/tableLinks.js';
-	import { cosmosManager } from '#helpers/CosmosManager.svelte.js';
-	import { periodicManager } from '#helpers/PeriodicManager.svelte.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { cosmosManager } from '#helpers/managers/CosmosManager.svelte.js';
+	import { periodicManager } from '#helpers/managers/PeriodicManager.svelte.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
 	import { FlaskRound } from '@lucide/svelte';
 	import { untrack } from 'svelte';

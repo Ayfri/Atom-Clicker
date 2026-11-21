@@ -19,23 +19,59 @@ export interface GlobeLut {
 
 const LUTS = new Map<string, GlobeLut>();
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+/** Collects the covered pixels of a body, then trims the arrays to them and caches the table under `key`. */
+class GlobeLutBuilder {
+	#alpha: Uint8Array;
+	#column: Float32Array;
+	#count = 0;
+	#pixel: Uint32Array;
+	#row: Uint16Array;
+	#shade: Float32Array;
+
+	constructor(readonly size: number) {
+		const capacity = size * size;
+		this.#alpha = new Uint8Array(capacity);
+		this.#column = new Float32Array(capacity);
+		this.#pixel = new Uint32Array(capacity);
+		this.#row = new Uint16Array(capacity);
+		this.#shade = new Float32Array(capacity);
+	}
+
+	/** `longitude` and `latitude` (radians) pick the map cell, the unit normal `(nx, ny, nz)` with `nz` toward the viewer picks the light. */
+	add(pixel: number, alpha: number, longitude: number, latitude: number, nx: number, ny: number, nz: number) {
+		const [lightX, lightY, lightZ] = LIGHT;
+		const i = this.#count++;
+		this.#alpha[i] = alpha;
+		this.#column[i] = (longitude / (2 * Math.PI)) * MAP_WIDTH;
+		this.#pixel[i] = pixel;
+		this.#row[i] = Math.round((0.5 - latitude / Math.PI) * (MAP_HEIGHT - 1));
+		this.#shade[i] = 0.07 + 0.93 * Math.max(0, (nx * lightX + ny * lightY + nz * lightZ) / LIGHT_LENGTH) * (0.85 + 0.15 * Math.max(0, nz));
+	}
+
+	build(key: string): GlobeLut {
+		const lut = {
+			alpha: this.#alpha.slice(0, this.#count),
+			column: this.#column.slice(0, this.#count),
+			pixel: this.#pixel.slice(0, this.#count),
+			row: this.#row.slice(0, this.#count),
+			shade: this.#shade.slice(0, this.#count),
+			size: this.size,
+		};
+		LUTS.set(key, lut);
+		return lut;
+	}
+}
 
 export function globeLut(size: number, radius: number): GlobeLut {
 	const key = `${size}:${radius}`;
 	const cached = LUTS.get(key);
 	if (cached) return cached;
 
-	const capacity = size * size;
-	const alpha = new Uint8Array(capacity);
-	const column = new Float32Array(capacity);
-	const pixel = new Uint32Array(capacity);
-	const row = new Uint16Array(capacity);
-	const shade = new Float32Array(capacity);
-	const [lightX, lightY, lightZ] = LIGHT;
+	const builder = new GlobeLutBuilder(size);
 	const sin = Math.sin(TILT);
 	const cos = Math.cos(TILT);
-	let count = 0;
 	for (let y = 0; y < size; y++) {
 		for (let x = 0; x < size; x++) {
 			const dx = x + 0.5 - size / 2;
@@ -47,24 +83,10 @@ export function globeLut(size: number, radius: number): GlobeLut {
 			const ny = -dy / radius;
 			const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
 			const latitude = Math.asin(clamp(ny * cos + nz * sin, -1, 1));
-			alpha[count] = coverage * 255;
-			column[count] = (Math.atan2(nx, nz * cos - ny * sin) / (2 * Math.PI)) * MAP_WIDTH;
-			pixel[count] = y * size + x;
-			row[count] = Math.round((0.5 - latitude / Math.PI) * (MAP_HEIGHT - 1));
-			shade[count] = 0.07 + 0.93 * Math.max(0, (nx * lightX + ny * lightY + nz * lightZ) / LIGHT_LENGTH) * (0.85 + 0.15 * nz);
-			count++;
+			builder.add(y * size + x, coverage * 255, Math.atan2(nx, nz * cos - ny * sin), latitude, nx, ny, nz);
 		}
 	}
-	const lut = {
-		alpha: alpha.slice(0, count),
-		column: column.slice(0, count),
-		pixel: pixel.slice(0, count),
-		row: row.slice(0, count),
-		shade: shade.slice(0, count),
-		size,
-	};
-	LUTS.set(key, lut);
-	return lut;
+	return builder.build(key);
 }
 
 /** The lumps never add more than 13% to a radius, the margin of the bounding ellipsoid a ray is marched through. */
@@ -85,7 +107,6 @@ export function rockLut(size: number, radius: number, { axes, seed }: RockShape)
 	if (cached) return cached;
 
 	const [ax, ay, az] = axes;
-	const [lightX, lightY, lightZ] = LIGHT;
 	const sin = Math.sin(TILT);
 	const cos = Math.cos(TILT);
 	/** Below 0 inside the rock: its body-frame point in units of the axes lies closer to the center than the lumpy unit sphere. `z` is the depth toward the viewer. */
@@ -116,14 +137,8 @@ export function rockLut(size: number, radius: number, { axes, seed }: RockShape)
 	const inverse = 1 / (ROCK_REACH * ROCK_REACH);
 	const quadratic = (sin / ay) ** 2 + (cos / az) ** 2;
 	const cross = sin * cos * (1 / ay ** 2 - 1 / az ** 2);
-	const capacity = size * size;
-	const alpha = new Uint8Array(capacity);
-	const column = new Float32Array(capacity);
-	const pixel = new Uint32Array(capacity);
-	const row = new Uint16Array(capacity);
-	const shade = new Float32Array(capacity);
+	const builder = new GlobeLutBuilder(size);
 	const epsilon = 0.01;
-	let count = 0;
 	for (let y = 0; y < size; y++) {
 		for (let x = 0; x < size; x++) {
 			let hits = 0;
@@ -181,24 +196,10 @@ export function rockLut(size: number, radius: number, { axes, seed }: RockShape)
 			const by = (hitY * cos + hitZ * sin) / ay;
 			const bz = (hitZ * cos - hitY * sin) / az;
 			const latitude = Math.asin(clamp(by / Math.hypot(bx, by, bz), -1, 1));
-			alpha[count] = (hits / (ROCK_SUBSAMPLES.length ** 2)) * 255;
-			column[count] = (Math.atan2(bx, bz) / (2 * Math.PI)) * MAP_WIDTH;
-			pixel[count] = y * size + x;
-			row[count] = Math.round((0.5 - latitude / Math.PI) * (MAP_HEIGHT - 1));
-			shade[count] = 0.07 + 0.93 * Math.max(0, (nx * lightX + ny * lightY + nz * lightZ) / LIGHT_LENGTH) * (0.85 + 0.15 * Math.max(0, nz));
-			count++;
+			builder.add(y * size + x, (hits / ROCK_SUBSAMPLES.length ** 2) * 255, Math.atan2(bx, bz), latitude, nx, ny, nz);
 		}
 	}
-	const lut = {
-		alpha: alpha.slice(0, count),
-		column: column.slice(0, count),
-		pixel: pixel.slice(0, count),
-		row: row.slice(0, count),
-		shade: shade.slice(0, count),
-		size,
-	};
-	LUTS.set(key, lut);
-	return lut;
+	return builder.build(key);
 }
 
 /** Pixels outside the disc are never written, `out` is zeroed once. A negative `turn` moves the surface left to right, like a planet spins. */

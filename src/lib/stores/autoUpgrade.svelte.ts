@@ -1,5 +1,5 @@
-import { gameManager } from '#helpers/GameManager.svelte.js';
-import { perfTracker } from '#helpers/perfTracker.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { perfTracker } from '#helpers/perf/perfTracker.js';
 import { browser } from '$app/env';
 import { SvelteSet } from 'svelte/reactivity';
 

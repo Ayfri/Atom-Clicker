@@ -1,12 +1,12 @@
 <script lang="ts">
 	import HoldButton from '#components/ui/HoldButton.svelte';
 	import Modal from '#components/ui/Modal.svelte';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { formatDuration, formatNumber } from '#lib/utils.js';
 	import { autoSave } from '#stores/autoSave.svelte.js';
 	import { supabaseAuth } from '#stores/supabaseAuth.svelte.js';
 	import { toastStore } from '#stores/toasts.svelte.js';
-	import { TriangleAlert } from '@lucide/svelte';
+	import { TriangleExclamationPoint } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -36,7 +36,7 @@
 	<div class="relative mx-auto mb-4 flex size-16 items-center justify-center">
 		<span class="absolute inset-0 rounded-full bg-red-500/20 motion-safe:animate-ping"></span>
 		<span class="relative flex size-16 items-center justify-center rounded-full border border-red-500/50 bg-red-500/20 text-red-300">
-			<TriangleAlert aria-hidden="true" size={30} />
+			<TriangleExclamationPoint aria-hidden="true" size={30} />
 		</span>
 	</div>
 

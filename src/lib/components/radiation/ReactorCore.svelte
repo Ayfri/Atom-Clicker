@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { RealmTypes } from '#data/realms.js';
-	import { AmbientField } from '#helpers/AmbientField.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
-	import { radiationManager } from '#helpers/RadiationManager.svelte.js';
-	import { ReactorRenderer, type ReactorScene } from '#helpers/ReactorRenderer.js';
-	import { realmManager } from '#helpers/RealmManager.svelte.js';
+	import { AmbientField } from '#helpers/canvas/AmbientField.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+	import { radiationManager } from '#helpers/managers/RadiationManager.svelte.js';
+	import { ReactorRenderer, type ReactorScene } from '#helpers/canvas/ReactorRenderer.js';
+	import { realmManager } from '#helpers/managers/RealmManager.svelte.js';
 	import { formatNumber } from '#lib/utils.js';
 	import { ui } from '#stores/ui.svelte.js';
 	import { untrack } from 'svelte';

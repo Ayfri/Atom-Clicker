@@ -4,12 +4,12 @@
 	import { BOOSTABLE_CURRENCIES, CURRENCIES, CurrenciesTypes } from '#data/currencies.js';
 	import { FeatureTypes } from '#data/features.js';
 	import { GENERATOR_LEVEL_UP_COST } from '#data/generators.js';
-	import { BoostSparks } from '#helpers/BoostSparks.js';
-	import { particlesEnabled } from '#helpers/CanvasLoop.js';
-	import { currenciesManager } from '#helpers/CurrenciesManager.svelte.js';
-	import { gameManager } from '#helpers/GameManager.svelte.js';
+	import { BoostSparks } from '#helpers/canvas/BoostSparks.js';
+	import { particlesEnabled } from '#helpers/canvas/CanvasLoop.js';
+	import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+	import { gameManager } from '#helpers/managers/GameManager.svelte.js';
 	import { MAX_BOOST_POINTS } from '#lib/constants.js';
-	import { ChevronsRight, Minus, Plus, RotateCcw, Scale, ShieldCheck, TriangleAlert, Zap } from '@lucide/svelte';
+	import { ChevronsRight, Minus, Plus, RotateCcw, Scale, ShieldCheck, TriangleExclamationPoint, Zap } from '@lucide/svelte';
 	import { prefersReducedMotion, Tween } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
 
@@ -96,7 +96,7 @@
 				</p>
 			{:else}
 				<p class="mt-1 flex items-center gap-1.5 text-xs text-red-400/80">
-					<TriangleAlert size={14} />
+					<TriangleExclamationPoint size={14} />
 					Currency boost allocations reset on Protonize or Electronize.
 				</p>
 			{/if}

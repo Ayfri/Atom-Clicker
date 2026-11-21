@@ -1,3 +1,6 @@
+/// <reference types="svelte" />
+/// <reference types="vite/client" />
+
 declare global {
 	const __CHANGELOG_VERSION__: string;
 
@@ -22,6 +25,8 @@ declare global {
 	}
 
 	interface Window {
+		/** gtag.js opt-out flags, `ga-disable-<measurement id>`. */
+		[optOut: `ga-disable-${string}`]: boolean;
 		dataLayer: unknown[];
 		/** Google Identity Services, set once `https://accounts.google.com/gsi/client` loads. */
 		google?: {

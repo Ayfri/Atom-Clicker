@@ -1,16 +1,16 @@
 <script lang="ts">
-	import type { SvelteHTMLElements } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
+	import type { SvelteHTMLElements } from 'svelte/elements';
 
 	type SpanAttributes = SvelteHTMLElements['span'];
 
 	interface Props extends SpanAttributes {
+		children?: Snippet;
 		color?: string;
 		hasNotification?: boolean;
-		children?: Snippet;
 	}
 
-	let { color = 'var(--color-accent-400)', hasNotification = false, children, ...rest }: Props = $props();
+	let { children, color = 'var(--color-accent-400)', hasNotification = false, ...rest }: Props = $props();
 </script>
 
 <span

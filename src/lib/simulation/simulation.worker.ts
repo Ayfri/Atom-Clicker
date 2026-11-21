@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
-import { SimulationEngine } from './engine';
-import type { BenchmarkConfig } from './types';
+import { SimulationEngine } from './engine.js';
+import type { BenchmarkConfig } from './types.js';
 
 self.onmessage = (event: MessageEvent<BenchmarkConfig>) => {
 	try {

@@ -1,0 +1,161 @@
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { CurrenciesTypes } from '#data/currencies.js';
+import { currenciesManager } from '#helpers/managers/CurrenciesManager.svelte.js';
+import { gameManager } from '#helpers/managers/GameManager.svelte.js';
+import { BALANCE_VERSION, maxRunAtoms, measureRunBounds, runSeconds } from '#helpers/audit/runBounds.js';
+import { validateAndRepairGameState } from '#helpers/save/saves.js';
+import { APP_PRODUCTION_MULTIPLIER, OVERDRIVE_MULTIPLIER, PROTONS_ATOMS_REQUIRED } from '#lib/constants.js';
+import type { BotProfileId } from '#lib/simulation/presets.js';
+import { playHonestRun } from '../../../../tests/simulatedRun.js';
+
+const { ATOMS } = CurrenciesTypes;
+
+beforeEach(() => {
+	gameManager.resetAll();
+	gameManager.installedApp = false;
+});
+
+describe('honest play stays under the bound', () => {
+	/**
+	 * The server refuses any run past this bound, so a new atom source or multiplier that measureRunBounds misses fails here
+	 * before it rejects real players. Hours are per profile so the suite stays a few seconds long.
+	 */
+	const runs: [BotProfileId, number][] = [
+		['afk', 24],
+		['automated', 2],
+		['balanced', 6],
+		['tryhard', 4],
+	];
+
+	test.each(runs)('a %s bot over %i hours', (profile, hours) => {
+		let worstRun = 0;
+		let worstStep = 0;
+		let previous: { clicks: number; earned: number; prestiges: number; time: number } | null = null;
+
+		playHonestRun(profile, hours, () => {
+			const now = gameManager.clock();
+			const seconds = (now - gameManager.runStartedAt) / 1000;
+			const bounds = measureRunBounds(gameManager, now, seconds);
+			const earned = gameManager.currencies[ATOMS].earnedRun;
+			const clicks = gameManager.totalClicksRun;
+			const prestiges = gameManager.totalProtonisesAllTime + gameManager.totalElectronizesAllTime + gameManager.totalIonizesAllTime;
+			worstRun = Math.max(worstRun, earned / maxRunAtoms(bounds, seconds, clicks) || 0);
+			if (previous?.prestiges === prestiges) {
+				worstStep = Math.max(worstStep, (earned - previous.earned) / maxRunAtoms(bounds, (now - previous.time) / 1000, clicks - previous.clicks) || 0);
+			}
+			previous = { clicks, earned, prestiges, time: now };
+		});
+
+		expect(worstRun).toBeLessThan(1);
+		expect(worstStep).toBeLessThan(1);
+	}, 60_000);
+
+	test('a balanced bot over 6 hours from the installed app', () => {
+		gameManager.installedApp = true;
+		let worstRun = 0;
+
+		playHonestRun('balanced', 6, () => {
+			const now = gameManager.clock();
+			const seconds = (now - gameManager.runStartedAt) / 1000;
+			const bounds = measureRunBounds(gameManager, now, seconds);
+			worstRun = Math.max(worstRun, gameManager.currencies[ATOMS].earnedRun / maxRunAtoms(bounds, seconds, gameManager.totalClicksRun) || 0);
+		});
+
+		expect(worstRun).toBeLessThan(1);
+	}, 60_000);
+});
+
+describe('bounds', () => {
+	test('measuring leaves the live game as it was', () => {
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		gameManager.totalClicksRun = 1e9;
+		const before = JSON.stringify(gameManager.getCurrentState());
+		measureRunBounds(gameManager, Date.now(), 60);
+		expect(JSON.stringify(gameManager.getCurrentState())).toBe(before);
+	});
+
+	test('the installed app bonus is always in the bound, and measuring leaves the flag as it was', () => {
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		const production = gameManager.atomsPerSecond;
+		const bounds = measureRunBounds(gameManager, Date.now(), 60);
+		expect(gameManager.installedApp).toBe(false);
+		expect(bounds.rate).toBeGreaterThanOrEqual(production * APP_PRODUCTION_MULTIPLIER * (1 - 1e-12));
+
+		gameManager.installedApp = true;
+		expect(measureRunBounds(gameManager, Date.now(), 60)).toEqual({ ...bounds });
+		expect(gameManager.installedApp).toBe(true);
+	});
+
+	test('Overdrive on every generator is in the bound with the skill only, and measuring leaves the slots as they were', () => {
+		gameManager.generators = { crystal: { count: 5, level: 0, unlocked: true }, molecule: { count: 10, level: 0, unlocked: true } };
+		const slots = { molecule: { active: false, paidUntil: 7 } };
+		const plain = measureRunBounds(gameManager, Date.now(), 60).rate;
+
+		gameManager.overdrive = slots;
+		expect(measureRunBounds(gameManager, Date.now(), 60).rate).toBe(plain);
+
+		gameManager.skillUpgrades = ['higgsOverdrive'];
+		expect(measureRunBounds(gameManager, Date.now(), 60).rate).toBeCloseTo(plain * OVERDRIVE_MULTIPLIER, 6);
+		expect(gameManager.overdrive).toBe(slots);
+	});
+
+	test('ten molecules and a hundred clicks cannot reach the first Protonize in a minute', () => {
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		expect(maxRunAtoms(measureRunBounds(gameManager, Date.now(), 60), 60, 100)).toBeLessThan(PROTONS_ATOMS_REQUIRED);
+	});
+
+	test('clicks past what the run had time for raise neither Click Mastery nor click income', () => {
+		gameManager.generators = { molecule: { count: 10, level: 0, unlocked: true } };
+		gameManager.upgrades = ['click_mastery'];
+		const atMost = (clicks: number) => {
+			gameManager.totalClicksRun = clicks;
+			return maxRunAtoms(measureRunBounds(gameManager, Date.now(), 60), 60, clicks);
+		};
+		expect(atMost(1e3)).toBeLessThan(atMost(1e5));
+		expect(atMost(1e9)).toBe(atMost(1e5));
+	});
+
+	test('an unknown run start falls back to the save start, never before the game existed', () => {
+		const now = Date.UTC(2026, 0, 2);
+		expect(runSeconds(now - 60_000, 0, now)).toBe(60);
+		expect(runSeconds(0, now - 3_600_000, now)).toBe(3600);
+		expect(runSeconds(0, 0, now)).toBe((now - Date.UTC(2024, 9, 31)) / 1000);
+		expect(runSeconds(now + 60_000, 0, now)).toBe(0);
+	});
+});
+
+describe('balance rebase', () => {
+	function loadSave(edit: (state: Record<string, unknown>) => void) {
+		gameManager.generators = { molecule: { count: 1, level: 0, unlocked: true } };
+		currenciesManager.add(ATOMS, 1e40);
+		const state = JSON.parse(JSON.stringify(gameManager.getCurrentState())) as Record<string, unknown>;
+		edit(state);
+		gameManager.resetAll();
+		gameManager.loadSaveData(validateAndRepairGameState(state).state!);
+	}
+
+	test('a save from before the balance checks gets its run cut to what the current balance allows', () => {
+		loadSave(state => delete state.balanceVersion);
+		expect(gameManager.atoms).toBeLessThan(1e9);
+		expect(gameManager.currencies[ATOMS].earnedRun).toBeLessThan(1e9);
+		expect(gameManager.currencies[ATOMS].earnedAllTime).toBe(1e40);
+		expect(gameManager.balanceVersion).toBe(BALANCE_VERSION);
+		expect(gameManager.runStartedAt).toBe(0);
+	});
+
+	test('a save checked against the current balance loads untouched', () => {
+		loadSave(() => {});
+		expect(gameManager.atoms).toBe(1e40);
+	});
+
+	test('every prestige stamps the start of the new run', () => {
+		gameManager.clock = () => 123_456;
+		try {
+			currenciesManager.add(ATOMS, PROTONS_ATOMS_REQUIRED);
+			expect(gameManager.protonise()).toBe(true);
+			expect(gameManager.runStartedAt).toBe(123_456);
+		} finally {
+			gameManager.clock = () => Date.now();
+		}
+	});
+});
