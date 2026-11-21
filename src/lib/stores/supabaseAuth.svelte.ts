@@ -220,10 +220,6 @@ class SupabaseAuth {
 		try {
 			const { data, error } = await this.supabase.auth.signInWithOAuth({
 				options: {
-					queryParams: {
-						access_type: 'offline',
-						prompt: 'consent',
-					},
 					redirectTo: `${window.location.origin}/callback`,
 					skipBrowserRedirect: embedded,
 				},
