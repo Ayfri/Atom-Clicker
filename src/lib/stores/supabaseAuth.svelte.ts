@@ -69,7 +69,6 @@ class SupabaseAuth {
 			await this.handleAuthStateChange(session?.user || null);
 
 			this.supabase.auth.onAuthStateChange(async (event, session) => {
-				console.log('Auth state changed:', event);
 				if (event === 'SIGNED_OUT') this.signedOut = true;
 				this.currentSession = session;
 				await this.handleAuthStateChange(session?.user || null);
@@ -114,26 +113,19 @@ class SupabaseAuth {
 				}
 				this.loading = true;
 
-				console.log('Auth state change for user:', user.id);
-
-				let { data: profile, error } = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
+				/** Marks the player online and reads their profile back in the same request. */
+				const markOnline = () =>
+					this.supabase!.from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id).select(PROFILE_COLUMNS).single();
+				let { data: profile, error } = await markOnline();
 
 				/** A trigger creates the profile row, so it can lag a sign up: retry once after 1 s. */
 				if (error && error.code === 'PGRST116') {
-					console.log('Profile not found yet, retrying in 1s...');
 					await new Promise((resolve) => setTimeout(resolve, 1000));
-					const retry = await this.supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
-					profile = retry.data;
-					error = retry.error;
+					({ data: profile, error } = await markOnline());
 				}
 
 				if (profile) {
 					this.profile = profile;
-					console.log('Found profile:', profile.username);
-
-					/** Fire and forget: nothing downstream reads it, and awaiting it would stall the boot sequence. */
-					void this.supabase!.from('profiles').update({ is_online: true, updated_at: new Date().toISOString() }).eq('id', user.id);
-
 					this.startHeartbeat();
 				} else {
 					console.error('Failed to find or create profile:', error?.message);
@@ -142,7 +134,6 @@ class SupabaseAuth {
 				this.loading = false;
 				this.error = null;
 			} else {
-				console.log('User signed out');
 				this.stopHeartbeat();
 				this.isAuthenticated = false;
 				this.user = null;
@@ -335,17 +326,11 @@ class SupabaseAuth {
 		if (!browser || !this.supabase) return;
 
 		try {
-			if (this.user) {
-				await this.supabase
-					.from('profiles')
-					.update({
-						is_online: false,
-						updated_at: new Date().toISOString(),
-					})
-					.eq('id', this.user.id);
-			}
+			/** Sent before the token goes away, `keepalive` lets it finish without holding up the sign out. */
+			if (this.currentSession?.access_token) void this.sendPresence(false, this.currentSession.access_token).catch(() => {});
 
-			const { error } = await this.supabase.auth.signOut();
+			/** The default `global` scope would also sign the player out on every other device. */
+			const { error } = await this.supabase.auth.signOut({ scope: 'local' });
 			if (error) {
 				this.error = error;
 				throw error;
