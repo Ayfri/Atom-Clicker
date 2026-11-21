@@ -21,16 +21,19 @@ export interface ScoreContext {
 
 export type ScoreStatus = 'rejected' | 'rolled_back' | 'valid';
 
-/** The caller's identity comes from their session token only: user ids are public in the leaderboard, so a payload-supplied one is worthless. */
+/**
+ * The caller's identity comes from their session token only: user ids are public in the leaderboard, so a payload-supplied one is worthless.
+ * The project signs tokens with an asymmetric key, so `getClaims` checks them against the cached public key without a round trip to the
+ * Auth server (it falls back to one for a token signed with the legacy shared secret). A session signed out elsewhere stays valid until
+ * its token expires, an hour at most, which only lets it keep playing.
+ */
 export async function resolveUserFromRequest(request: Request): Promise<string | null> {
 	const authHeader = request.headers.get('Authorization');
 	if (!authHeader) return null;
 
-	const token = authHeader.replace('Bearer ', '');
-	const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-	if (error || !user) return null;
-
-	return user.id;
+	/** The role check keeps out the project's own keys, valid tokens that belong to no player. */
+	const { data } = await supabaseAdmin.auth.getClaims(authHeader.replace('Bearer ', ''));
+	return data?.claims.role === 'authenticated' ? data.claims.sub : null;
 }
 
 const USER_COUNT_TTL_MS = 60_000;
